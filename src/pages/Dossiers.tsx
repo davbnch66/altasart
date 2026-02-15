@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
-import { Search, Plus, Filter, FolderOpen, MoreHorizontal } from "lucide-react";
+import { Search, Filter, FolderOpen, MoreHorizontal } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
+import { CreateDossierDialog } from "@/components/forms/CreateDossierDialog";
 
 const pipelineStages = [
   { key: "prospect", label: "Prospect" },
@@ -82,10 +83,7 @@ const Dossiers = () => {
           <h1 className="text-2xl font-bold tracking-tight">Dossiers</h1>
           <p className="text-muted-foreground mt-1">{filtered.length} dossiers</p>
         </div>
-        <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-          <Plus className="h-4 w-4" />
-          Nouveau dossier
-        </button>
+        <CreateDossierDialog />
       </motion.div>
 
       {/* Pipeline summary */}
