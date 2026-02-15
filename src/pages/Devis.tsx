@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Search, Filter, FileText, Pencil, Trash2, Download } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,6 +45,7 @@ const formatDate = (dateStr: string | null) => {
 const Devis = () => {
   const { current } = useCompany();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [editingDevis, setEditingDevis] = useState<any>(null);
   const [deletingDevis, setDeletingDevis] = useState<any>(null);
@@ -168,7 +170,7 @@ const Devis = () => {
               </tr>
             ) : (
               filtered.map((d) => (
-                <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
+                <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/devis/${d.id}`)}>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">

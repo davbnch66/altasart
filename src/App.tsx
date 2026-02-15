@@ -12,6 +12,7 @@ import ClientDetail from "@/pages/ClientDetail";
 import Planning from "@/pages/Planning";
 import Dossiers from "@/pages/Dossiers";
 import Devis from "@/pages/Devis";
+import DevisDetail from "@/pages/DevisDetail";
 import Visites from "@/pages/Visites";
 import InboxPage from "@/pages/InboxPage";
 import Finance from "@/pages/Finance";
@@ -45,6 +46,7 @@ const ProtectedRoutes = () => {
           <Route path="/planning" element={<Planning />} />
           <Route path="/dossiers" element={<Dossiers />} />
           <Route path="/devis" element={<Devis />} />
+          <Route path="/devis/:id" element={<DevisDetail />} />
           <Route path="/visites" element={<Visites />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/finance" element={<Finance />} />
