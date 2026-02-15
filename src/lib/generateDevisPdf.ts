@@ -1,15 +1,17 @@
 import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 import { loadCompanyLogo } from "./pdfLogoHelper";
 
+/** Format number as "1 000,00" with regular spaces (jsPDF-safe) */
 function fmtEur(n: number): string {
-  return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  return n
+    .toFixed(2)
+    .replace(".", ",")
+    .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
 export async function generateDevisPdf(devisId: string) {
-  // Fetch devis with relations
   const { data: devis, error } = await supabase
     .from("devis")
     .select("*, clients(name, code, address, city, postal_code, email, contact_name, payment_terms), companies(name, short_name, address, phone, email, siret)")
@@ -18,7 +20,6 @@ export async function generateDevisPdf(devisId: string) {
 
   if (error || !devis) throw new Error("Devis introuvable");
 
-  // Fetch devis lines
   const { data: lines } = await supabase
     .from("devis_lines")
     .select("*")
@@ -28,7 +29,7 @@ export async function generateDevisPdf(devisId: string) {
   const devisLines = lines ?? [];
   const client = devis.clients as any;
   const company = devis.companies as any;
-  // Always compute amount from lines to stay in sync
+
   const amount = devisLines.length > 0
     ? devisLines.reduce((sum: number, l: any) => sum + (l.total != null ? Number(l.total) : Number(l.quantity) * Number(l.unit_price)), 0)
     : Number(devis.amount);
@@ -36,7 +37,6 @@ export async function generateDevisPdf(devisId: string) {
   const tvaAmount = amount * tvaRate / 100;
   const totalTTC = amount + tvaAmount;
 
-  // Fetch dossier info if linked
   let dossierInfo: { title?: string; address?: string } | null = null;
   if (devis.dossier_id) {
     const { data: dossier } = await supabase.from("dossiers").select("title, address, code").eq("id", devis.dossier_id).single();
@@ -50,319 +50,355 @@ export async function generateDevisPdf(devisId: string) {
   const contentW = pageW - marginL - marginR;
   const colR = marginL + contentW;
 
-  // ========== HEADER ==========
-  const logoData = await loadCompanyLogo(company?.short_name || "");
-  if (logoData) {
-    doc.addImage(logoData, "PNG", marginL, 8, 45, 20);
+  // Brand color
+  const brandR = 200, brandG = 80, brandB = 30;
+
+  // ===================== HEADER =====================
+  const logoResult = await loadCompanyLogo(company?.short_name || "");
+  if (logoResult) {
+    // Preserve aspect ratio: max 40mm wide, max 18mm tall
+    const maxW = 40, maxH = 18;
+    const ratio = logoResult.width / logoResult.height;
+    let imgW = maxW;
+    let imgH = imgW / ratio;
+    if (imgH > maxH) { imgH = maxH; imgW = imgH * ratio; }
+    doc.addImage(logoResult.dataUrl, "PNG", marginL, 10, imgW, imgH);
   } else {
-    doc.setFontSize(22);
+    doc.setFontSize(18);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(200, 80, 30);
-    doc.text(company?.short_name || company?.name || "SOCIÉTÉ", marginL, 22);
+    doc.setTextColor(brandR, brandG, brandB);
+    doc.text(company?.short_name || company?.name || "", marginL, 22);
   }
 
-  doc.setFontSize(8);
+  // Tagline
+  doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 100, 100);
-  doc.text("Transport • Grutage • Portage • Levage • Manutention lourde", marginL, 30);
-  doc.text("Spécialiste en Manutention Lourde", marginL, 34);
+  doc.setTextColor(120, 120, 120);
+  doc.text("Transport - Grutage - Portage - Levage - Manutention lourde", marginL, 31);
 
-  // Date (right side)
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
-  doc.setFont("helvetica", "normal");
+  // Date top-right
+  doc.setFontSize(9);
+  doc.setTextColor(60, 60, 60);
   const dateStr = `Paris, le ${format(new Date(devis.created_at), "dd/MM/yyyy")}`;
-  doc.text(dateStr, colR, 22, { align: "right" });
+  doc.text(dateStr, colR, 16, { align: "right" });
 
-  // ========== DEVIS NUMBER ==========
-  let y = 40;
-  doc.setFillColor(200, 80, 30);
-  doc.rect(marginL, y - 5, contentW, 10, "F");
-  doc.setFontSize(14);
+  // ===================== TITLE BAR =====================
+  let y = 38;
+  doc.setFillColor(brandR, brandG, brandB);
+  doc.roundedRect(marginL, y, contentW, 10, 1, 1, "F");
+  doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
-  doc.text(`DEVIS CONTRAT n°${devis.code || "—"}`, pageW / 2, y + 2, { align: "center" });
+  doc.text(`DEVIS CONTRAT N° ${devis.code || "---"}`, pageW / 2, y + 7, { align: "center" });
 
-  // ========== CLIENT BLOCK ==========
-  y += 14;
+  // ===================== CLIENT INFO =====================
+  y = 54;
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(10);
+
+  // Client box (right side)
+  const clientBoxX = pageW / 2 + 5;
+  const clientBoxW = colR - clientBoxX;
+  doc.setDrawColor(220, 220, 220);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(clientBoxX, y, clientBoxW, 30, 1.5, 1.5);
+
+  doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text(`Société ${client?.name || "—"}`, marginL, y);
-
-  y += 5;
+  doc.text(client?.name || "---", clientBoxX + 4, y + 6);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.text(`Code client : ${client?.code || "—"} – ${client?.name || ""}`, marginL, y);
-
-  if (client?.address) { y += 5; doc.text(client.address, marginL, y); }
+  doc.setFontSize(8);
+  let cy = y + 11;
+  if (client?.code) { doc.text(`Code : ${client.code}`, clientBoxX + 4, cy); cy += 4; }
+  if (client?.address) { doc.text(client.address, clientBoxX + 4, cy); cy += 4; }
   if (client?.postal_code || client?.city) {
-    y += 5;
-    doc.text(`${client?.postal_code || ""} ${client?.city || ""}`.trim(), marginL, y);
+    doc.text(`${client?.postal_code || ""} ${client?.city || ""}`.trim(), clientBoxX + 4, cy); cy += 4;
   }
-
-  // Suivi technique (right side)
-  doc.setFontSize(9);
-  doc.text(`Suivi technique : ${format(new Date(devis.created_at), "dd/MM/yyyy")}`, colR, y - 5, { align: "right" });
-
-  // Attention line
   if (client?.contact_name) {
-    y += 8;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text(`A l'attention de ${client.contact_name}`, marginL, y);
+    doc.setFont("helvetica", "italic");
+    doc.text(`Att. : ${client.contact_name}`, clientBoxX + 4, cy);
   }
 
-  // Greeting
-  y += 8;
+  // Company info (left side)
   doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(80, 80, 80);
+  let ly = y + 6;
+  if (company?.name) { doc.text(company.name, marginL, ly); ly += 4; }
+  if (company?.address) { doc.text(company.address, marginL, ly); ly += 4; }
+  if (company?.phone) { doc.text(`Tel : ${company.phone}`, marginL, ly); ly += 4; }
+  if (company?.email) { doc.text(company.email, marginL, ly); ly += 4; }
+
+  // ===================== INTRO =====================
+  y = 90;
+  doc.setTextColor(0, 0, 0);
   doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
   doc.text("Monsieur,", marginL, y);
   y += 5;
-  const introText = `Suite à votre demande, nous vous indiquons ci-après nos meilleures conditions pour les prestations suivantes :`;
+  const introText = "Suite a votre demande, nous vous indiquons ci-apres nos meilleures conditions pour les prestations suivantes :";
   const introLines = doc.splitTextToSize(introText, contentW);
   doc.text(introLines, marginL, y);
-  y += introLines.length * 4.5;
+  y += introLines.length * 4 + 2;
 
-  // ========== SUR SITE ==========
-  y += 4;
-  doc.setFillColor(240, 240, 240);
-  doc.rect(marginL, y - 4, contentW, 7, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
-  doc.text("SUR SITE", marginL + 3, y + 1);
-
+  // ===================== SUR SITE =====================
   if (dossierInfo?.address) {
-    y += 8;
-    doc.setFont("helvetica", "normal");
+    doc.setFillColor(245, 245, 245);
+    doc.roundedRect(marginL, y, contentW, 7, 1, 1, "F");
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.text(dossierInfo.address, marginL, y);
+    doc.setTextColor(0, 0, 0);
+    doc.text("SUR SITE", marginL + 4, y + 5);
+    doc.setFont("helvetica", "normal");
+    doc.text(dossierInfo.address, marginL + 35, y + 5);
+    y += 10;
   }
 
-  // ========== OBJET ==========
-  y += 8;
+  // ===================== OBJET =====================
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text(`OBJET : ${devis.objet}`, marginL, y);
-
-  // ========== DETAIL DU PRIX ==========
-  y += 8;
-  doc.setFillColor(240, 240, 240);
-  doc.rect(marginL, y - 4, contentW, 7, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.text("DÉTAIL DU PRIX", marginL + 3, y + 1);
-
-  y += 8;
-  doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
+  doc.setTextColor(brandR, brandG, brandB);
+  doc.text(`OBJET : ${devis.objet}`, marginL, y + 4);
+  y += 10;
+
+  // ===================== TABLE =====================
+  // Section header
+  doc.setFillColor(245, 245, 245);
+  doc.roundedRect(marginL, y, contentW, 7, 1, 1, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(0, 0, 0);
+  doc.text("DETAIL DU PRIX", marginL + 4, y + 5);
+  y += 10;
+
+  // Column positions
+  const colDesc = marginL + 3;
+  const colQty = marginL + contentW * 0.6;
+  const colPU = marginL + contentW * 0.78;
+  const colTotal = colR - 3;
 
   if (devisLines.length > 0) {
     // Table header
-    doc.setFillColor(230, 230, 230);
-    doc.rect(marginL, y - 4, contentW, 7, "F");
+    doc.setFillColor(brandR, brandG, brandB);
+    doc.rect(marginL, y, contentW, 7, "F");
     doc.setFont("helvetica", "bold");
-    doc.text("Description", marginL + 3, y + 1);
-    doc.text("Qté", marginL + contentW - 55, y + 1, { align: "right" });
-    doc.text("P.U. HT", marginL + contentW - 30, y + 1, { align: "right" });
-    doc.text("Total HT", colR - 3, y + 1, { align: "right" });
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.text("Description", colDesc, y + 5);
+    doc.text("Qte", colQty, y + 5, { align: "center" });
+    doc.text("P.U. HT", colPU, y + 5, { align: "right" });
+    doc.text("Total HT", colTotal, y + 5, { align: "right" });
+    y += 9;
 
-    y += 5;
     doc.setFont("helvetica", "normal");
+    doc.setTextColor(30, 30, 30);
+    doc.setFontSize(8);
 
+    let rowAlt = false;
     for (const line of devisLines) {
-      // Check page break
-      if (y > 245) {
-        doc.addPage();
-        y = 20;
+      if (y > 245) { doc.addPage(); y = 20; }
+
+      const descLines = doc.splitTextToSize(line.description, contentW * 0.55);
+      const rowH = Math.max(descLines.length * 4, 6);
+
+      // Alternating row background
+      if (rowAlt) {
+        doc.setFillColor(250, 250, 250);
+        doc.rect(marginL, y - 1, contentW, rowH + 2, "F");
       }
+      rowAlt = !rowAlt;
 
-      const descLines = doc.splitTextToSize(line.description, contentW - 70);
-      const lineHeight = Math.max(descLines.length * 4.5, 6);
-
-      doc.setDrawColor(230, 230, 230);
-      doc.line(marginL, y + lineHeight - 2, colR, y + lineHeight - 2);
-
-      doc.text(descLines, marginL + 3, y + 2);
-      doc.text(String(line.quantity), marginL + contentW - 55, y + 2, { align: "right" });
-      doc.text(fmtEur(Number(line.unit_price)), marginL + contentW - 30, y + 2, { align: "right" });
+      doc.setTextColor(30, 30, 30);
+      doc.text(descLines, colDesc, y + 3);
+      doc.text(String(line.quantity), colQty, y + 3, { align: "center" });
+      doc.text(`${fmtEur(Number(line.unit_price))} EUR`, colPU, y + 3, { align: "right" });
       const lineTotal = line.total != null ? Number(line.total) : Number(line.quantity) * Number(line.unit_price);
-      doc.text(fmtEur(lineTotal), colR - 3, y + 2, { align: "right" });
+      doc.text(`${fmtEur(lineTotal)} EUR`, colTotal, y + 3, { align: "right" });
 
-      y += lineHeight + 1;
+      // Bottom line
+      doc.setDrawColor(230, 230, 230);
+      doc.setLineWidth(0.2);
+      doc.line(marginL, y + rowH + 1, colR, y + rowH + 1);
+
+      y += rowH + 3;
     }
   } else if (devis.notes) {
-    // Fallback: use notes as description
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
     const noteLines = doc.splitTextToSize(devis.notes, contentW - 10);
-    doc.text(noteLines.slice(0, 8), marginL + 3, y);
-    y += Math.min(noteLines.length, 8) * 4.5;
+    doc.text(noteLines.slice(0, 8), colDesc, y);
+    y += Math.min(noteLines.length, 8) * 4;
   }
 
-  // ========== TABLEAU TVA ==========
-  y += 8;
+  // ===================== TOTALS TABLE =====================
+  y += 6;
   if (y > 230) { doc.addPage(); y = 20; }
 
-  // Header
-  doc.setFillColor(200, 80, 30);
-  doc.rect(marginL, y - 4, contentW, 8, "F");
+  const totalsX = marginL + contentW * 0.45;
+  const totalsW = colR - totalsX;
+
+  // Total HT row
+  doc.setFillColor(245, 245, 245);
+  doc.rect(totalsX, y, totalsW, 7, "F");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(60, 60, 60);
+  doc.text("Total HT", totalsX + 4, y + 5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 0, 0);
+  doc.text(`${fmtEur(amount)} EUR`, colR - 4, y + 5, { align: "right" });
+  y += 8;
+
+  // TVA row
+  doc.setFillColor(245, 245, 245);
+  doc.rect(totalsX, y, totalsW, 7, "F");
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(60, 60, 60);
+  doc.text("TVA 20,00 %", totalsX + 4, y + 5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 0, 0);
+  doc.text(`${fmtEur(tvaAmount)} EUR`, colR - 4, y + 5, { align: "right" });
+  y += 8;
+
+  // TTC row (brand colored)
+  doc.setFillColor(brandR, brandG, brandB);
+  doc.rect(totalsX, y, totalsW, 8, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.setTextColor(255, 255, 255);
-  doc.text("TOTAL H.T", marginL + 5, y + 1);
-  doc.text("TVA* de 20,00 %", marginL + contentW / 2 - 15, y + 1);
-  doc.text("PRIX TTC", colR - 30, y + 1);
-
-  // Values
-  y += 6;
-  doc.setTextColor(0, 0, 0);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
-  doc.setDrawColor(180, 180, 180);
-  doc.rect(marginL, y - 3, contentW, 8);
-  doc.text(`${fmtEur(amount)} €`, marginL + 5, y + 2.5);
-  doc.text(`${fmtEur(tvaAmount)} €`, marginL + contentW / 2 - 15, y + 2.5);
-  doc.text(`${fmtEur(totalTTC)} €`, colR - 30, y + 2.5);
-
-  // ========== PAYMENT TERMS ==========
+  doc.text("TOTAL TTC", totalsX + 4, y + 5.5);
+  doc.text(`${fmtEur(totalTTC)} EUR`, colR - 4, y + 5.5, { align: "right" });
   y += 14;
-  doc.setFontSize(9);
+
+  // ===================== PAYMENT TERMS =====================
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  const paymentTerms = client?.payment_terms || "A définir";
+  doc.setTextColor(0, 0, 0);
+  const paymentTerms = client?.payment_terms || "A definir";
   doc.text(`Condition de paiement : ${paymentTerms}`, marginL, y);
-
   y += 5;
-  doc.setTextColor(100, 100, 100);
-  doc.setFontSize(8);
-  doc.text("* NON ASSUJETI A L'AUTOLIQUIDATION", marginL, y);
-
-  y += 5;
-  doc.text("Garantie : Valeur globale à préciser", marginL, y);
-
-  // ========== CONDITIONS ==========
+  doc.setTextColor(120, 120, 120);
+  doc.setFontSize(7);
+  doc.text("* NON ASSUJETTI A L'AUTOLIQUIDATION", marginL, y);
   y += 8;
+
+  // ===================== CONDITIONS =====================
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.setTextColor(180, 50, 20);
+  doc.setFontSize(7);
+  doc.setTextColor(brandR, brandG, brandB);
   doc.text("APRES VALIDATION", marginL, y);
   y += 4;
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(60, 60, 60);
-  const condText = "TOUTES MODIFICATIONS, REPORT OU ANNULATION DEVRA ETRE EFFECTUE DANS LES 48H SOUS PEINE DE FACTURATION TOTALE";
-  const condLines = doc.splitTextToSize(condText, contentW);
-  doc.text(condLines, marginL, y);
-  y += condLines.length * 3.5;
-
-  y += 3;
-  doc.text("TOUTE HEURE D'ATTENTE NON TRAVAILLEE SERA FACTUREE", marginL, y);
-
-  // Acceptance note
-  y += 8;
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(8);
-  doc.text("Pour l'acceptation du présent devis, veuillez nous retourner un exemplaire du devis", marginL, y);
+  doc.setTextColor(80, 80, 80);
+  doc.setFontSize(7);
+  doc.text("TOUTES MODIFICATIONS, REPORT OU ANNULATION DEVRA ETRE EFFECTUE DANS LES 48H SOUS PEINE DE FACTURATION TOTALE.", marginL, y);
   y += 3.5;
-  doc.text("accompagné des conditions générales dûment signé et tamponné.", marginL, y);
+  doc.text("TOUTE HEURE D'ATTENTE NON TRAVAILLEE SERA FACTUREE.", marginL, y);
+  y += 6;
 
-  // ========== FOOTER ==========
-  const footerY = 270;
-  doc.setDrawColor(200, 80, 30);
-  doc.setLineWidth(1);
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(7);
+  doc.text("Pour l'acceptation du present devis, veuillez nous retourner un exemplaire du devis", marginL, y);
+  y += 3;
+  doc.text("accompagne des conditions generales dument signe et tamponne.", marginL, y);
+
+  // ===================== FOOTER =====================
+  drawFooter(doc, company, pageW, marginL, marginR, brandR, brandG, brandB);
+
+  // ===================== PAGE 2 - CONDITIONS GENERALES =====================
+  doc.addPage();
+  generateConditionsPage(doc, company, devis, pageW, marginL, marginR, contentW, colR, brandR, brandG, brandB);
+  drawFooter(doc, company, pageW, marginL, marginR, brandR, brandG, brandB);
+
+  const fileName = `Devis_${devis.code || devis.id.slice(0, 8)}.pdf`;
+  doc.save(fileName);
+}
+
+function drawFooter(doc: jsPDF, company: any, pageW: number, marginL: number, marginR: number, r: number, g: number, b: number) {
+  const footerY = 280;
+  doc.setDrawColor(r, g, b);
+  doc.setLineWidth(0.5);
   doc.line(marginL, footerY, pageW - marginR, footerY);
 
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(60, 60, 60);
-
-  const footerParts: string[] = [];
-  if (company?.address) footerParts.push(`Siège social : ${company.address}`);
-  if (company?.phone) footerParts[footerParts.length - 1] += ` • Tél. ${company.phone}`;
-  if (company?.email) footerParts.push(company.email);
-  if (company?.siret) footerParts.push(`SIRET ${company.siret} • N° TVA Intra FR ${company.siret.replace(/\s/g, "").slice(0, 11)}`);
-
-  let fy = footerY + 4;
-  footerParts.forEach((line) => {
-    doc.text(line, pageW / 2, fy, { align: "center" });
-    fy += 3.5;
-  });
-
-  // ========== PAGE 2 - CONDITIONS GENERALES ==========
-  doc.addPage();
-  let cy = 20;
-
-  // Header p2
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(200, 80, 30);
-  doc.text(company?.short_name || company?.name || "SOCIÉTÉ", marginL, cy);
-
-  cy += 6;
-  doc.setFontSize(8);
+  doc.setFontSize(6.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
-  doc.text(`DEVIS N°: ${devis.code || "—"}`, colR, cy, { align: "right" });
 
-  cy += 10;
+  const parts: string[] = [];
+  if (company?.address) parts.push(`Siege social : ${company.address}`);
+  if (company?.phone) parts[parts.length - 1] = (parts[parts.length - 1] || "") + ` - Tel. ${company.phone}`;
+  if (company?.email) parts.push(company.email);
+  if (company?.siret) parts.push(`SIRET ${company.siret}`);
+
+  let fy = footerY + 3;
+  for (const line of parts) {
+    doc.text(line, pageW / 2, fy, { align: "center" });
+    fy += 3;
+  }
+}
+
+function generateConditionsPage(doc: jsPDF, company: any, devis: any, pageW: number, marginL: number, _marginR: number, contentW: number, colR: number, r: number, g: number, b: number) {
+  let y = 15;
+
+  // Header
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(0, 0, 0);
-  doc.text("CONDITIONS GENERALES", pageW / 2, cy, { align: "center" });
+  doc.setTextColor(r, g, b);
+  doc.text(company?.short_name || company?.name || "", marginL, y);
 
-  cy += 10;
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
+  doc.setTextColor(120, 120, 120);
+  doc.text(`DEVIS N° ${devis.code || "---"}`, colR, y, { align: "right" });
+
+  y += 10;
+  doc.setFillColor(r, g, b);
+  doc.roundedRect(marginL, y, contentW, 8, 1, 1, "F");
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(255, 255, 255);
+  doc.text("CONDITIONS GENERALES", pageW / 2, y + 5.5, { align: "center" });
+
+  y += 14;
+  doc.setFontSize(7.5);
   doc.setTextColor(40, 40, 40);
 
   const conditions = [
-    { title: "1 – Préambule", text: "Les présentes conditions générales s'appliquent à tout contrat conclu entre le PRESTATAIRE et le CLIENT, lequel reconnaît en avoir pris connaissance et les accepte, sans aucune réserve." },
-    { title: "2 – Nature du contrat", text: "Toute commande passée par le CLIENT constitue un contrat d'entreprise dénommé « contrat de levage – manutention » au sens des articles 1710 et 1779 suivants du Code Civil." },
-    { title: "3 – Commande", text: "Sauf cas de force majeure, aucun report, aucune modification ou aucune annulation de commande ne pourra se faire sans acceptation écrite du PRESTATAIRE. En cas de report ou d'annulation, tous les frais déjà engagés seront facturés." },
-    { title: "4 – Prestation", text: "Le PRESTATAIRE fournit les moyens en personnel et matériels nécessaires. Le CLIENT s'engage à donner par écrit les précisions nécessaires : définition de l'opération, nature et poids des objets, emplacement des points d'ancrage, moyens d'accès." },
-    { title: "5 – Conditions d'exécution", text: "Le CLIENT s'engage à informer le PRESTATAIRE des contraintes liées au site et à prendre les mesures nécessaires pour que l'opération s'effectue en toute sécurité. Le CLIENT doit procéder au contrôle préalable des sols et sous-sols." },
-    { title: "10 – Assurances", text: "Lorsque la valeur des objets confiés est supérieure au plafond de garantie, le CLIENT peut obtenir une garantie plus étendue moyennant facturation." },
-    { title: "11 – Résiliation", text: "Le PRESTATAIRE se réserve la faculté de résilier le contrat en cas d'inexécution par le CLIENT de ses obligations, à l'issue d'un délai de huit jours calendaires." },
-    { title: "12 – Prescriptions", text: "Les actions en responsabilité se prescrivent dans le délai d'une année à compter du jour de l'événement." },
-    { title: "13 – Droit applicable", text: "Tout contrat est soumis au droit français. En cas de litige, le Tribunal de Commerce du lieu du siège social du PRESTATAIRE sera seul compétent." },
+    { title: "1 - Preambule", text: "Les presentes conditions generales s'appliquent a tout contrat conclu entre le PRESTATAIRE et le CLIENT, lequel reconnait en avoir pris connaissance et les accepte, sans aucune reserve." },
+    { title: "2 - Nature du contrat", text: "Toute commande passee par le CLIENT constitue un contrat d'entreprise denomme contrat de levage - manutention au sens des articles 1710 et 1779 suivants du Code Civil." },
+    { title: "3 - Commande", text: "Sauf cas de force majeure, aucun report, aucune modification ou aucune annulation de commande ne pourra se faire sans acceptation ecrite du PRESTATAIRE. En cas de report ou d'annulation, tous les frais deja engages seront factures." },
+    { title: "4 - Prestation", text: "Le PRESTATAIRE fournit les moyens en personnel et materiels necessaires. Le CLIENT s'engage a donner par ecrit les precisions necessaires : definition de l'operation, nature et poids des objets, emplacement des points d'ancrage, moyens d'acces." },
+    { title: "5 - Conditions d'execution", text: "Le CLIENT s'engage a informer le PRESTATAIRE des contraintes liees au site et a prendre les mesures necessaires pour que l'operation s'effectue en toute securite. Le CLIENT doit proceder au controle prealable des sols et sous-sols." },
+    { title: "10 - Assurances", text: "Lorsque la valeur des objets confies est superieure au plafond de garantie, le CLIENT peut obtenir une garantie plus etendue moyennant facturation." },
+    { title: "11 - Resiliation", text: "Le PRESTATAIRE se reserve la faculte de resilier le contrat en cas d'inexecution par le CLIENT de ses obligations, a l'issue d'un delai de huit jours calendaires." },
+    { title: "12 - Prescriptions", text: "Les actions en responsabilite se prescrivent dans le delai d'une annee a compter du jour de l'evenement." },
+    { title: "13 - Droit applicable", text: "Tout contrat est soumis au droit francais. En cas de litige, le Tribunal de Commerce du lieu du siege social du PRESTATAIRE sera seul competent." },
   ];
 
   for (const cond of conditions) {
-    if (cy > 265) { doc.addPage(); cy = 20; }
+    if (y > 260) { doc.addPage(); y = 20; }
     doc.setFont("helvetica", "bold");
-    doc.text(cond.title, marginL, cy);
-    cy += 4;
+    doc.setTextColor(r, g, b);
+    doc.text(cond.title, marginL, y);
+    y += 3.5;
     doc.setFont("helvetica", "normal");
+    doc.setTextColor(40, 40, 40);
     const textLines = doc.splitTextToSize(cond.text, contentW);
-    doc.text(textLines, marginL, cy);
-    cy += textLines.length * 3.5 + 4;
+    doc.text(textLines, marginL, y);
+    y += textLines.length * 3.2 + 4;
   }
 
   // Signature area
-  cy += 5;
-  if (cy > 250) { doc.addPage(); cy = 20; }
+  y += 8;
+  if (y > 245) { doc.addPage(); y = 20; }
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.text("Le Client", marginL + contentW - 40, cy);
-  cy += 5;
+  doc.setFontSize(8);
+  doc.setTextColor(0, 0, 0);
+  doc.text("Le Client", marginL + contentW - 35, y);
+  y += 4;
   doc.setFont("helvetica", "normal");
-  doc.text("Lu et approuvé", marginL + contentW - 40, cy);
-  cy += 15;
-  doc.setDrawColor(180, 180, 180);
-  doc.rect(marginL + contentW - 60, cy - 12, 60, 20);
-
-  // Footer p2
-  doc.setDrawColor(200, 80, 30);
-  doc.setLineWidth(1);
-  doc.line(marginL, footerY, pageW - marginR, footerY);
-  doc.setFontSize(7);
-  doc.setTextColor(60, 60, 60);
-  doc.setFont("helvetica", "normal");
-  fy = footerY + 4;
-  footerParts.forEach((line) => {
-    doc.text(line, pageW / 2, fy, { align: "center" });
-    fy += 3.5;
-  });
-
-  // Save
-  const fileName = `Devis_${devis.code || devis.id.slice(0, 8)}.pdf`;
-  doc.save(fileName);
+  doc.text("Lu et approuve", marginL + contentW - 35, y);
+  y += 3;
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(marginL + contentW - 55, y, 55, 20, 1, 1);
 }
