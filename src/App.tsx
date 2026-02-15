@@ -7,8 +7,10 @@ import { CompanyProvider } from "@/contexts/CompanyContext";
 import { AppLayout } from "@/components/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import Clients from "@/pages/Clients";
+import ClientDetail from "@/pages/ClientDetail";
 import Planning from "@/pages/Planning";
 import Dossiers from "@/pages/Dossiers";
+import Devis from "@/pages/Devis";
 import Visites from "@/pages/Visites";
 import InboxPage from "@/pages/InboxPage";
 import Finance from "@/pages/Finance";
@@ -29,8 +31,10 @@ const App = () => (
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/clients" element={<Clients />} />
+              <Route path="/clients/:id" element={<ClientDetail />} />
               <Route path="/planning" element={<Planning />} />
               <Route path="/dossiers" element={<Dossiers />} />
+              <Route path="/devis" element={<Devis />} />
               <Route path="/visites" element={<Visites />} />
               <Route path="/inbox" element={<InboxPage />} />
               <Route path="/finance" element={<Finance />} />
