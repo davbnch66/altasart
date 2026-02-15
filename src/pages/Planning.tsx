@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useCompany, companies, type CompanyId } from "@/contexts/CompanyContext";
+import { useCompany, type CompanyId } from "@/contexts/CompanyContext";
 import { useState } from "react";
 
 const companyBg: Record<CompanyId, string> = {
@@ -32,7 +32,7 @@ const mockEvents = [
 ];
 
 const Planning = () => {
-  const { current, setCurrent } = useCompany();
+  const { current, setCurrent, companies } = useCompany();
   const [view, setView] = useState<ViewMode>("week");
 
   const events = current === "global" ? mockEvents : mockEvents.filter((e) => e.company === current);
