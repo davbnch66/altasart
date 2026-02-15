@@ -177,11 +177,14 @@ const fmt = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency", c
 
 const Finance = () => {
   const companyIds = useCompanyFilter();
+  const { dbCompanies } = useCompany();
   const queryClient = useQueryClient();
+  const [chartCompanyId, setChartCompanyId] = useState<string>("all");
+  const chartCompanyIds = chartCompanyId === "all" ? companyIds : [chartCompanyId];
   const { data: stats, isLoading: statsLoading } = useFinanceStats(companyIds);
   const { data: factures, isLoading: facturesLoading } = useRecentFactures(companyIds);
   const { data: reglements, isLoading: reglementsLoading } = useRecentReglements(companyIds);
-  const { data: evolutionData, isLoading: evolutionLoading } = useMonthlyEvolution(companyIds);
+  const { data: evolutionData, isLoading: evolutionLoading } = useMonthlyEvolution(chartCompanyIds);
 
   const [editFacture, setEditFacture] = useState<any>(null);
   const [deleteFacture, setDeleteFacture] = useState<any>(null);
@@ -253,7 +256,19 @@ const Finance = () => {
       </div>
 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="rounded-xl border bg-card p-5">
-        <h2 className="font-semibold mb-4">Évolution sur 12 mois</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold">Évolution sur 12 mois</h2>
+          <select
+            value={chartCompanyId}
+            onChange={(e) => setChartCompanyId(e.target.value)}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            <option value="all">Toutes les sociétés</option>
+            {dbCompanies.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
         {evolutionLoading ? (
           <Skeleton className="h-[280px] w-full" />
         ) : (
