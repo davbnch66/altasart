@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Search, Filter, FileText, Pencil, Trash2 } from "lucide-react";
+import { Search, Filter, FileText, Pencil, Trash2, Download } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,7 @@ import { fr } from "date-fns/locale";
 import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
 import { EditDevisDialog } from "@/components/forms/EditDevisDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
+import { generateDevisPdf } from "@/lib/generateDevisPdf";
 import { toast } from "sonner";
 
 const statusLabels: Record<string, string> = {
@@ -190,6 +191,9 @@ const Devis = () => {
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex gap-1">
+                      <button onClick={(e) => { e.stopPropagation(); generateDevisPdf(d.id).catch(() => toast.error("Erreur lors de la génération du PDF")); }} className="p-1 rounded hover:bg-primary/10" title="Télécharger PDF">
+                        <Download className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                      </button>
                       <button onClick={() => setEditingDevis(d)} className="p-1 rounded hover:bg-muted" title="Modifier">
                         <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                       </button>
