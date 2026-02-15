@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { loadCompanyLogo } from "./pdfLogoHelper";
 
 // Number to French words converter (simplified for amounts)
 function numberToFrenchWords(n: number): string {
@@ -107,16 +108,22 @@ export async function generateFacturePdf(factureId: string) {
   const contentW = pageW - marginL - marginR;
 
   // ========== HEADER ==========
-  // Company name as logo substitute
-  doc.setFontSize(22);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(200, 80, 30); // Orange color similar to ART Levage
-  doc.text(company?.short_name || company?.name || "SOCIÉTÉ", marginL, 25);
+  // Company logo
+  const logoData = await loadCompanyLogo(company?.short_name || "");
+  if (logoData) {
+    doc.addImage(logoData, "PNG", marginL, 10, 45, 20);
+  } else {
+    // Fallback: company name as text
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(200, 80, 30);
+    doc.text(company?.short_name || company?.name || "SOCIÉTÉ", marginL, 25);
+  }
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
-  doc.text("Spécialiste en Manutention Lourde", marginL, 31);
+  doc.text("Spécialiste en Manutention Lourde", marginL, 33);
 
   // Client info (right side)
   doc.setFontSize(10);
