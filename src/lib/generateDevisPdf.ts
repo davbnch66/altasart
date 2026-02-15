@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { loadCompanyLogo } from "./pdfLogoHelper";
 
 function fmtEur(n: number): string {
   return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -47,16 +48,21 @@ export async function generateDevisPdf(devisId: string) {
   const colR = marginL + contentW;
 
   // ========== HEADER ==========
-  doc.setFontSize(22);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(200, 80, 30);
-  doc.text(company?.short_name || company?.name || "SOCIÉTÉ", marginL, 22);
+  const logoData = await loadCompanyLogo(company?.short_name || "");
+  if (logoData) {
+    doc.addImage(logoData, "PNG", marginL, 8, 45, 20);
+  } else {
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(200, 80, 30);
+    doc.text(company?.short_name || company?.name || "SOCIÉTÉ", marginL, 22);
+  }
 
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100, 100, 100);
-  doc.text("Transport • Grutage • Portage • Levage • Manutention lourde", marginL, 27);
-  doc.text("Spécialiste en Manutention Lourde", marginL, 31);
+  doc.text("Transport • Grutage • Portage • Levage • Manutention lourde", marginL, 30);
+  doc.text("Spécialiste en Manutention Lourde", marginL, 34);
 
   // Date (right side)
   doc.setFontSize(10);
