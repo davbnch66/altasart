@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { DollarSign, TrendingUp, AlertTriangle, CheckCircle2, ArrowUpRight, ArrowDownRight, Pencil, Trash2 } from "lucide-react";
+import { DollarSign, TrendingUp, AlertTriangle, CheckCircle2, ArrowUpRight, ArrowDownRight, Pencil, Trash2, CreditCard } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -10,7 +10,10 @@ import { fr } from "date-fns/locale";
 import { startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { CreateFactureDialog } from "@/components/forms/CreateFactureDialog";
 import { EditFactureDialog } from "@/components/forms/EditFactureDialog";
+import { CreateReglementDialog } from "@/components/forms/CreateReglementDialog";
+import { EditReglementDialog } from "@/components/forms/EditReglementDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 function useCompanyFilter() {
@@ -77,6 +80,22 @@ function useRecentFactures(companyIds: string[]) {
   });
 }
 
+function useRecentReglements(companyIds: string[]) {
+  return useQuery({
+    queryKey: ["reglements-list", companyIds],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("reglements")
+        .select("id, code, amount, payment_date, encaissement_date, reference, bank, notes, facture_id, company_id, factures(code, clients(name))")
+        .in("company_id", companyIds)
+        .order("payment_date", { ascending: false })
+        .limit(20);
+      return data ?? [];
+    },
+    enabled: companyIds.length > 0,
+  });
+}
+
 const statusLabels: Record<string, string> = {
   brouillon: "Brouillon",
   envoyee: "Envoyée",
@@ -100,11 +119,14 @@ const Finance = () => {
   const queryClient = useQueryClient();
   const { data: stats, isLoading: statsLoading } = useFinanceStats(companyIds);
   const { data: factures, isLoading: facturesLoading } = useRecentFactures(companyIds);
+  const { data: reglements, isLoading: reglementsLoading } = useRecentReglements(companyIds);
 
   const [editFacture, setEditFacture] = useState<any>(null);
   const [deleteFacture, setDeleteFacture] = useState<any>(null);
+  const [editReglement, setEditReglement] = useState<any>(null);
+  const [deleteReglement, setDeleteReglement] = useState<any>(null);
 
-  const deleteMutation = useMutation({
+  const deleteFactureMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("factures").delete().eq("id", id);
       if (error) throw error;
@@ -114,6 +136,20 @@ const Finance = () => {
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       queryClient.invalidateQueries({ queryKey: ["client-factures"] });
       setDeleteFacture(null);
+    },
+    onError: () => toast.error("Erreur lors de la suppression"),
+  });
+
+  const deleteReglementMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("reglements").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Règlement supprimé");
+      queryClient.invalidateQueries({ queryKey: ["finance"] });
+      queryClient.invalidateQueries({ queryKey: ["reglements"] });
+      setDeleteReglement(null);
     },
     onError: () => toast.error("Erreur lors de la suppression"),
   });
@@ -132,7 +168,10 @@ const Finance = () => {
           <h1 className="text-2xl font-bold tracking-tight">Finance</h1>
           <p className="text-muted-foreground mt-1">Suivi facturation et paiements</p>
         </div>
-        <CreateFactureDialog />
+        <div className="flex items-center gap-2">
+          <CreateReglementDialog />
+          <CreateFactureDialog />
+        </div>
       </motion.div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -151,69 +190,137 @@ const Finance = () => {
         ))}
       </div>
 
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="rounded-xl border bg-card">
-        <div className="p-5 border-b">
-          <h2 className="font-semibold">Dernières factures</h2>
-        </div>
-        {facturesLoading ? (
-          <div className="p-5 space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
-            ))}
-          </div>
-        ) : factures && factures.length > 0 ? (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/30">
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">N°</th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">Client</th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">Montant</th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">Date</th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">Statut</th>
-                <th className="text-right font-medium text-muted-foreground px-5 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {factures.map((inv) => (
-                <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
-                  <td className="px-5 py-3 font-mono text-xs">{inv.code || "—"}</td>
-                  <td className="px-5 py-3 font-medium">{(inv.clients as any)?.name ?? "—"}</td>
-                  <td className="px-5 py-3 font-semibold">{fmt(Number(inv.amount))}</td>
-                  <td className="px-5 py-3 text-muted-foreground">{format(new Date(inv.created_at), "d MMM", { locale: fr })}</td>
-                  <td className="px-5 py-3">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${invoiceStatusClass[inv.status] || "bg-muted text-muted-foreground"}`}>
-                      {statusLabels[inv.status] || inv.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => setEditFacture(inv)} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button onClick={() => setDeleteFacture(inv)} className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="px-5 py-8 text-center text-sm text-muted-foreground">Aucune facture pour le moment</div>
-        )}
-      </motion.div>
+      <Tabs defaultValue="factures">
+        <TabsList>
+          <TabsTrigger value="factures" className="gap-2"><DollarSign className="h-4 w-4" /> Factures</TabsTrigger>
+          <TabsTrigger value="reglements" className="gap-2"><CreditCard className="h-4 w-4" /> Règlements</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="factures">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border bg-card">
+            <div className="p-5 border-b">
+              <h2 className="font-semibold">Dernières factures</h2>
+            </div>
+            {facturesLoading ? (
+              <div className="p-5 space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+              </div>
+            ) : factures && factures.length > 0 ? (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="text-left font-medium text-muted-foreground px-5 py-3">N°</th>
+                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Client</th>
+                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Montant</th>
+                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Date</th>
+                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Statut</th>
+                    <th className="text-right font-medium text-muted-foreground px-5 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {factures.map((inv) => (
+                    <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-5 py-3 font-mono text-xs">{inv.code || "—"}</td>
+                      <td className="px-5 py-3 font-medium">{(inv.clients as any)?.name ?? "—"}</td>
+                      <td className="px-5 py-3 font-semibold">{fmt(Number(inv.amount))}</td>
+                      <td className="px-5 py-3 text-muted-foreground">{format(new Date(inv.created_at), "d MMM", { locale: fr })}</td>
+                      <td className="px-5 py-3">
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${invoiceStatusClass[inv.status] || "bg-muted text-muted-foreground"}`}>
+                          {statusLabels[inv.status] || inv.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => setEditFacture(inv)} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => setDeleteFacture(inv)} className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="px-5 py-8 text-center text-sm text-muted-foreground">Aucune facture pour le moment</div>
+            )}
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="reglements">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border bg-card">
+            <div className="p-5 border-b">
+              <h2 className="font-semibold">Derniers règlements</h2>
+            </div>
+            {reglementsLoading ? (
+              <div className="p-5 space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+              </div>
+            ) : reglements && reglements.length > 0 ? (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Code</th>
+                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Facture</th>
+                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Client</th>
+                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Montant</th>
+                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Date</th>
+                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Banque</th>
+                    <th className="text-right font-medium text-muted-foreground px-5 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {reglements.map((reg) => (
+                    <tr key={reg.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-5 py-3 font-mono text-xs">{reg.code || "—"}</td>
+                      <td className="px-5 py-3 text-xs">{(reg.factures as any)?.code || "—"}</td>
+                      <td className="px-5 py-3 font-medium">{(reg.factures as any)?.clients?.name ?? "—"}</td>
+                      <td className="px-5 py-3 font-semibold text-success">{fmt(Number(reg.amount))}</td>
+                      <td className="px-5 py-3 text-muted-foreground">{format(new Date(reg.payment_date), "d MMM yyyy", { locale: fr })}</td>
+                      <td className="px-5 py-3 text-muted-foreground">{reg.bank || "—"}</td>
+                      <td className="px-5 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => setEditReglement(reg)} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => setDeleteReglement(reg)} className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="px-5 py-8 text-center text-sm text-muted-foreground">Aucun règlement pour le moment</div>
+            )}
+          </motion.div>
+        </TabsContent>
+      </Tabs>
 
       {editFacture && (
         <EditFactureDialog facture={editFacture} open={!!editFacture} onOpenChange={(v) => !v && setEditFacture(null)} />
+      )}
+      {editReglement && (
+        <EditReglementDialog reglement={editReglement} open={!!editReglement} onOpenChange={(v) => !v && setEditReglement(null)} />
       )}
 
       <DeleteConfirmDialog
         open={!!deleteFacture}
         onOpenChange={(v) => !v && setDeleteFacture(null)}
-        onConfirm={() => deleteFacture && deleteMutation.mutate(deleteFacture.id)}
+        onConfirm={() => deleteFacture && deleteFactureMutation.mutate(deleteFacture.id)}
         title="Supprimer la facture"
         description={`Voulez-vous vraiment supprimer la facture ${deleteFacture?.code || ""} ? Cette action est irréversible.`}
+      />
+      <DeleteConfirmDialog
+        open={!!deleteReglement}
+        onOpenChange={(v) => !v && setDeleteReglement(null)}
+        onConfirm={() => deleteReglement && deleteReglementMutation.mutate(deleteReglement.id)}
+        title="Supprimer le règlement"
+        description={`Voulez-vous vraiment supprimer le règlement ${deleteReglement?.code || ""} ? Cette action est irréversible.`}
       />
     </div>
   );
