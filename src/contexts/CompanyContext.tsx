@@ -35,7 +35,10 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const fetchCompanies = async () => {
       if (!user) { setLoading(false); return; }
 
-      // Check if user has memberships
+      // Auto-assign memberships if needed (bypasses RLS via security definer)
+      await supabase.rpc("auto_assign_companies_for_new_user", { p_user_id: user.id });
+
+      // Now fetch companies the user is a member of
       const { data: memberships } = await supabase
         .from("company_memberships")
         .select("company_id")
@@ -50,28 +53,6 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         if (companiesData) {
           setDbCompanies(companiesData.map((c) => ({
-            id: c.id,
-            name: c.name,
-            shortName: c.short_name,
-            color: c.color,
-          })));
-        }
-      } else {
-        // Auto-assign admin to all 3 companies for first user
-        const { data: allCompanies } = await supabase
-          .from("companies")
-          .select("*");
-
-        if (allCompanies && allCompanies.length > 0) {
-          // Insert memberships - ignore errors if they exist
-          for (const company of allCompanies) {
-            await supabase.from("company_memberships").upsert({
-              company_id: company.id,
-              profile_id: user.id,
-              role: "admin" as any,
-            }, { onConflict: "company_id,profile_id" });
-          }
-          setDbCompanies(allCompanies.map((c) => ({
             id: c.id,
             name: c.name,
             shortName: c.short_name,
