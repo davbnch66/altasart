@@ -1,48 +1,92 @@
 import { motion } from "framer-motion";
-import { Search, Plus, Filter, FileText, Eye, Download, Send, MoreHorizontal } from "lucide-react";
-import { useCompany, type CompanyId } from "@/contexts/CompanyContext";
+import { Search, Plus, Filter, FileText, Eye, Download, Send } from "lucide-react";
+import { useCompany } from "@/contexts/CompanyContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useState, useMemo } from "react";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 
-const companyDot: Record<CompanyId, string> = {
-  global: "bg-primary",
-  art: "bg-company-art",
-  altigrues: "bg-company-altigrues",
-  asdgm: "bg-company-asdgm",
+const statusLabels: Record<string, string> = {
+  brouillon: "Brouillon",
+  envoye: "Envoyé",
+  accepte: "Accepté",
+  refuse: "Refusé",
+  expire: "Expiré",
 };
-
-const mockDevis = [
-  { id: "DEV-2026-162", client: "LVMH Paris", objet: "Déménagement coffre-fort", date: "14/02/2026", validite: "14/03/2026", montant: "6 500,00 €", status: "En attente", company: "art" as CompanyId },
-  { id: "DEV-2026-161", client: "Bouygues Construction", objet: "Grutage 200T — 3 jours", date: "13/02/2026", validite: "13/03/2026", montant: "24 800,00 €", status: "Envoyé", company: "altigrues" as CompanyId },
-  { id: "DEV-2026-156", client: "LVMH Paris", objet: "Levage piano Steinway", date: "10/02/2026", validite: "10/03/2026", montant: "4 200,00 €", status: "Accepté", company: "art" as CompanyId },
-  { id: "DEV-2026-150", client: "Vinci Immobilier", objet: "Manutention lourde chantier", date: "08/02/2026", validite: "08/03/2026", montant: "18 900,00 €", status: "Accepté", company: "art" as CompanyId },
-  { id: "DEV-2026-148", client: "M. Dupont Pierre", objet: "Garde-meuble 6 mois", date: "06/02/2026", validite: "06/03/2026", montant: "2 400,00 €", status: "Refusé", company: "asdgm" as CompanyId },
-  { id: "DEV-2026-145", client: "Eiffage TP", objet: "Location grue 50T", date: "04/02/2026", validite: "04/03/2026", montant: "45 000,00 €", status: "Relance J+5", company: "altigrues" as CompanyId },
-];
 
 const statusStyles: Record<string, string> = {
-  "En attente": "bg-warning/10 text-warning",
-  "Envoyé": "bg-info/10 text-info",
-  "Accepté": "bg-success/10 text-success",
-  "Refusé": "bg-destructive/10 text-destructive",
-  "Relance J+5": "bg-warning/10 text-warning",
+  brouillon: "bg-muted text-muted-foreground",
+  envoye: "bg-info/10 text-info",
+  accepte: "bg-success/10 text-success",
+  refuse: "bg-destructive/10 text-destructive",
+  expire: "bg-warning/10 text-warning",
 };
 
-const stats = [
-  { label: "En attente", count: 1, amount: "6 500 €" },
-  { label: "Envoyés", count: 1, amount: "24 800 €" },
-  { label: "Acceptés", count: 2, amount: "23 100 €" },
-  { label: "Refusés", count: 1, amount: "2 400 €" },
-];
+const formatAmount = (amount: number) =>
+  new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
+
+const formatDate = (dateStr: string | null) => {
+  if (!dateStr) return "—";
+  try {
+    return format(new Date(dateStr), "dd/MM/yyyy");
+  } catch {
+    return "—";
+  }
+};
 
 const Devis = () => {
   const { current } = useCompany();
-  const devis = current === "global" ? mockDevis : mockDevis.filter((d) => d.company === current);
+  const [search, setSearch] = useState("");
+
+  const { data: devis = [], isLoading } = useQuery({
+    queryKey: ["devis", current],
+    queryFn: async () => {
+      let query = supabase
+        .from("devis")
+        .select("*, clients(name), companies(short_name, color)")
+        .order("created_at", { ascending: false });
+
+      if (current !== "global") {
+        query = query.eq("company_id", current);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const filtered = search
+    ? devis.filter(
+        (d) =>
+          d.objet.toLowerCase().includes(search.toLowerCase()) ||
+          d.code?.toLowerCase().includes(search.toLowerCase()) ||
+          (d.clients as any)?.name?.toLowerCase().includes(search.toLowerCase())
+      )
+    : devis;
+
+  const stats = useMemo(() => {
+    const grouped: Record<string, { count: number; amount: number }> = {};
+    for (const s of ["brouillon", "envoye", "accepte", "refuse", "expire"]) {
+      const items = filtered.filter((d) => d.status === s);
+      grouped[s] = { count: items.length, amount: items.reduce((sum, d) => sum + (d.amount || 0), 0) };
+    }
+    return [
+      { label: "Brouillons", ...grouped.brouillon },
+      { label: "Envoyés", ...grouped.envoye },
+      { label: "Acceptés", ...grouped.accepte },
+      { label: "Refusés", ...grouped.refuse },
+    ];
+  }, [filtered]);
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Devis / Cotations</h1>
-          <p className="text-muted-foreground mt-1">{devis.length} devis</p>
+          <p className="text-muted-foreground mt-1">{filtered.length} devis</p>
         </div>
         <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
           <Plus className="h-4 w-4" />
@@ -56,16 +100,21 @@ const Devis = () => {
           <div key={s.label} className="rounded-xl border bg-card p-4">
             <p className="text-xs text-muted-foreground">{s.label}</p>
             <p className="text-lg font-bold mt-1">{s.count}</p>
-            <p className="text-xs text-muted-foreground">{s.amount}</p>
+            <p className="text-xs text-muted-foreground">{formatAmount(s.amount)}</p>
           </div>
         ))}
       </motion.div>
 
-      {/* Search */}
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input type="text" placeholder="Rechercher un devis..." className="w-full rounded-lg border bg-card pl-10 pr-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Rechercher un devis..."
+            className="w-full rounded-lg border bg-card pl-10 pr-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
         </div>
         <button className="flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted transition-colors">
           <Filter className="h-4 w-4" />
@@ -73,7 +122,6 @@ const Devis = () => {
         </button>
       </div>
 
-      {/* Table */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="rounded-xl border bg-card overflow-hidden">
         <table className="w-full text-sm">
           <thead>
@@ -89,38 +137,51 @@ const Devis = () => {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {devis.map((d) => (
-              <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <span className="font-mono text-xs">{d.id}</span>
-                  </div>
-                </td>
-                <td className="px-5 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className={`h-2 w-2 rounded-full ${companyDot[d.company]}`} />
-                    <span className="font-medium">{d.client}</span>
-                  </div>
-                </td>
-                <td className="px-5 py-3 text-muted-foreground hidden lg:table-cell">{d.objet}</td>
-                <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{d.date}</td>
-                <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{d.validite}</td>
-                <td className="px-5 py-3 text-right font-semibold">{d.montant}</td>
-                <td className="px-5 py-3">
-                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[d.status] || ""}`}>{d.status}</span>
-                </td>
-                <td className="px-5 py-3">
-                  <div className="flex gap-1">
-                    <button className="p-1 rounded hover:bg-muted"><Eye className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                    <button className="p-1 rounded hover:bg-muted"><Send className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                    <button className="p-1 rounded hover:bg-muted"><Download className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                  </div>
+            {isLoading ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <tr key={i}>
+                  <td className="px-5 py-3" colSpan={8}><Skeleton className="h-5 w-full" /></td>
+                </tr>
+              ))
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-5 py-12 text-center text-muted-foreground">
+                  Aucun devis trouvé
                 </td>
               </tr>
-            ))}
+            ) : (
+              filtered.map((d) => (
+                <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <span className="font-mono text-xs">{d.code || d.id.slice(0, 8)}</span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-3">
+                    <span className="font-medium">{(d.clients as any)?.name || "—"}</span>
+                  </td>
+                  <td className="px-5 py-3 text-muted-foreground hidden lg:table-cell">{d.objet}</td>
+                  <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{formatDate(d.created_at)}</td>
+                  <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{formatDate(d.valid_until)}</td>
+                  <td className="px-5 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
+                  <td className="px-5 py-3">
+                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[d.status] || ""}`}>
+                      {statusLabels[d.status] || d.status}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3">
+                    <div className="flex gap-1">
+                      <button className="p-1 rounded hover:bg-muted"><Eye className="h-3.5 w-3.5 text-muted-foreground" /></button>
+                      <button className="p-1 rounded hover:bg-muted"><Send className="h-3.5 w-3.5 text-muted-foreground" /></button>
+                      <button className="p-1 rounded hover:bg-muted"><Download className="h-3.5 w-3.5 text-muted-foreground" /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </motion.div>
