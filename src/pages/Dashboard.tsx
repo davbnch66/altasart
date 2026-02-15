@@ -11,6 +11,10 @@ import {
   FileText,
   Eye,
 } from "lucide-react";
+import { CreateClientDialog } from "@/components/forms/CreateClientDialog";
+import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
+import { CreateDossierDialog } from "@/components/forms/CreateDossierDialog";
+import { CreateFactureDialog } from "@/components/forms/CreateFactureDialog";
 import { useCompany, type CompanyId } from "@/contexts/CompanyContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -348,20 +352,10 @@ const Dashboard = () => {
 
       {/* Quick Actions */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: "Nouveau client", icon: Users },
-          { label: "Créer devis", icon: FolderOpen },
-          { label: "Planifier mission", icon: CalendarDays },
-          { label: "Nouvelle visite", icon: CheckCircle2 },
-        ].map((action) => (
-          <button
-            key={action.label}
-            className="flex items-center gap-3 rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-          >
-            <action.icon className="h-4 w-4" />
-            {action.label}
-          </button>
-        ))}
+        <CreateClientDialog />
+        <CreateDevisDialog />
+        <CreateDossierDialog />
+        <CreateFactureDialog />
       </motion.div>
     </div>
   );
