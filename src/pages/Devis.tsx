@@ -1,13 +1,16 @@
 import { motion } from "framer-motion";
-import { Search, Filter, FileText, Eye, Download, Send } from "lucide-react";
+import { Search, Filter, FileText, Pencil, Trash2 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
+import { EditDevisDialog } from "@/components/forms/EditDevisDialog";
+import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
+import { toast } from "sonner";
 
 const statusLabels: Record<string, string> = {
   brouillon: "Brouillon",
@@ -39,8 +42,23 @@ const formatDate = (dateStr: string | null) => {
 
 const Devis = () => {
   const { current } = useCompany();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [editingDevis, setEditingDevis] = useState<any>(null);
+  const [deletingDevis, setDeletingDevis] = useState<any>(null);
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("devis").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Devis supprimé");
+      queryClient.invalidateQueries({ queryKey: ["devis"] });
+      setDeletingDevis(null);
+    },
+    onError: () => toast.error("Erreur lors de la suppression"),
+  });
   const { data: devis = [], isLoading } = useQuery({
     queryKey: ["devis", current],
     queryFn: async () => {
@@ -172,9 +190,12 @@ const Devis = () => {
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex gap-1">
-                      <button className="p-1 rounded hover:bg-muted"><Eye className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                      <button className="p-1 rounded hover:bg-muted"><Send className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                      <button className="p-1 rounded hover:bg-muted"><Download className="h-3.5 w-3.5 text-muted-foreground" /></button>
+                      <button onClick={() => setEditingDevis(d)} className="p-1 rounded hover:bg-muted" title="Modifier">
+                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                      <button onClick={() => setDeletingDevis(d)} className="p-1 rounded hover:bg-muted" title="Supprimer">
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -183,6 +204,18 @@ const Devis = () => {
           </tbody>
         </table>
       </motion.div>
+
+      {editingDevis && (
+        <EditDevisDialog devis={editingDevis} open={!!editingDevis} onOpenChange={(v) => !v && setEditingDevis(null)} />
+      )}
+      <DeleteConfirmDialog
+        open={!!deletingDevis}
+        onOpenChange={(v) => !v && setDeletingDevis(null)}
+        onConfirm={() => deletingDevis && deleteMutation.mutate(deletingDevis.id)}
+        title="Supprimer ce devis ?"
+        description={`Le devis "${deletingDevis?.objet}" sera définitivement supprimé.`}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   );
 };
