@@ -1,12 +1,17 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { DollarSign, TrendingUp, AlertTriangle, CheckCircle2, ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { DollarSign, TrendingUp, AlertTriangle, CheckCircle2, ArrowUpRight, ArrowDownRight, Pencil, Trash2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { CreateFactureDialog } from "@/components/forms/CreateFactureDialog";
+import { EditFactureDialog } from "@/components/forms/EditFactureDialog";
+import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
+import { toast } from "sonner";
 
 function useCompanyFilter() {
   const { current, dbCompanies } = useCompany();
@@ -62,10 +67,10 @@ function useRecentFactures(companyIds: string[]) {
     queryFn: async () => {
       const { data } = await supabase
         .from("factures")
-        .select("id, code, amount, status, created_at, clients(name)")
+        .select("id, code, amount, paid_amount, status, due_date, notes, created_at, company_id, clients(name)")
         .in("company_id", companyIds)
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(20);
       return data ?? [];
     },
     enabled: companyIds.length > 0,
@@ -92,8 +97,26 @@ const fmt = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency", c
 
 const Finance = () => {
   const companyIds = useCompanyFilter();
+  const queryClient = useQueryClient();
   const { data: stats, isLoading: statsLoading } = useFinanceStats(companyIds);
   const { data: factures, isLoading: facturesLoading } = useRecentFactures(companyIds);
+
+  const [editFacture, setEditFacture] = useState<any>(null);
+  const [deleteFacture, setDeleteFacture] = useState<any>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("factures").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Facture supprimée");
+      queryClient.invalidateQueries({ queryKey: ["finance"] });
+      queryClient.invalidateQueries({ queryKey: ["client-factures"] });
+      setDeleteFacture(null);
+    },
+    onError: () => toast.error("Erreur lors de la suppression"),
+  });
 
   const statCards = [
     { label: "CA du mois", value: fmt(stats?.caThisMonth ?? 0), icon: TrendingUp, change: stats?.caChange ? `${Number(stats.caChange) >= 0 ? "+" : ""}${stats.caChange}%` : "—", positive: !stats?.caChange || Number(stats.caChange) >= 0 },
@@ -104,9 +127,12 @@ const Finance = () => {
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="text-2xl font-bold tracking-tight">Finance</h1>
-        <p className="text-muted-foreground mt-1">Suivi facturation et paiements</p>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Finance</h1>
+          <p className="text-muted-foreground mt-1">Suivi facturation et paiements</p>
+        </div>
+        <CreateFactureDialog />
       </motion.div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -144,11 +170,12 @@ const Finance = () => {
                 <th className="text-left font-medium text-muted-foreground px-5 py-3">Montant</th>
                 <th className="text-left font-medium text-muted-foreground px-5 py-3">Date</th>
                 <th className="text-left font-medium text-muted-foreground px-5 py-3">Statut</th>
+                <th className="text-right font-medium text-muted-foreground px-5 py-3">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {factures.map((inv) => (
-                <tr key={inv.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
+                <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-5 py-3 font-mono text-xs">{inv.code || "—"}</td>
                   <td className="px-5 py-3 font-medium">{(inv.clients as any)?.name ?? "—"}</td>
                   <td className="px-5 py-3 font-semibold">{fmt(Number(inv.amount))}</td>
@@ -158,6 +185,16 @@ const Finance = () => {
                       {statusLabels[inv.status] || inv.status}
                     </span>
                   </td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => setEditFacture(inv)} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => setDeleteFacture(inv)} className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -166,6 +203,18 @@ const Finance = () => {
           <div className="px-5 py-8 text-center text-sm text-muted-foreground">Aucune facture pour le moment</div>
         )}
       </motion.div>
+
+      {editFacture && (
+        <EditFactureDialog facture={editFacture} open={!!editFacture} onOpenChange={(v) => !v && setEditFacture(null)} />
+      )}
+
+      <DeleteConfirmDialog
+        open={!!deleteFacture}
+        onOpenChange={(v) => !v && setDeleteFacture(null)}
+        onConfirm={() => deleteFacture && deleteMutation.mutate(deleteFacture.id)}
+        title="Supprimer la facture"
+        description={`Voulez-vous vraiment supprimer la facture ${deleteFacture?.code || ""} ? Cette action est irréversible.`}
+      />
     </div>
   );
 };
