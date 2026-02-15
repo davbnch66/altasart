@@ -852,6 +852,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      auto_assign_companies_for_new_user: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       get_my_company_ids: { Args: never; Returns: string[] }
       has_role_in_company: {
         Args: {
