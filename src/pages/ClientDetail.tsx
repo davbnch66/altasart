@@ -3,13 +3,19 @@ import { motion } from "framer-motion";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Mail, Phone, MapPin, Building2, User, FileText, Receipt, CreditCard,
-  FolderOpen, ClipboardCheck, Plus, Download, Eye
+  FolderOpen, ClipboardCheck, Pencil, Trash2
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
 import { CreateDossierDialog } from "@/components/forms/CreateDossierDialog";
+import { EditClientDialog } from "@/components/forms/EditClientDialog";
+import { EditDossierDialog } from "@/components/forms/EditDossierDialog";
+import { EditDevisDialog } from "@/components/forms/EditDevisDialog";
+import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
+import { toast } from "sonner";
 
 type TabKey = "infos" | "factures" | "devis" | "reglements" | "dossiers" | "visites";
 
@@ -95,7 +101,16 @@ const formatDate = (dateStr: string | null) => {
 const ClientDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabKey>("infos");
+
+  // Edit/Delete state
+  const [editClientOpen, setEditClientOpen] = useState(false);
+  const [deleteClientOpen, setDeleteClientOpen] = useState(false);
+  const [editingDossier, setEditingDossier] = useState<any>(null);
+  const [deletingDossier, setDeletingDossier] = useState<any>(null);
+  const [editingDevis, setEditingDevis] = useState<any>(null);
+  const [deletingDevis, setDeletingDevis] = useState<any>(null);
 
   const { data: client, isLoading: clientLoading } = useQuery({
     queryKey: ["client", id],
@@ -183,6 +198,48 @@ const ClientDetail = () => {
     enabled: !!id,
   });
 
+  // Delete mutations
+  const deleteClientMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("clients").delete().eq("id", id!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Client supprimé");
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      navigate("/clients");
+    },
+    onError: () => toast.error("Erreur lors de la suppression. Vérifiez qu'il n'a pas de données liées."),
+  });
+
+  const deleteDossierMutation = useMutation({
+    mutationFn: async (dossierId: string) => {
+      const { error } = await supabase.from("dossiers").delete().eq("id", dossierId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Dossier supprimé");
+      queryClient.invalidateQueries({ queryKey: ["client-dossiers"] });
+      queryClient.invalidateQueries({ queryKey: ["dossiers"] });
+      setDeletingDossier(null);
+    },
+    onError: () => toast.error("Erreur lors de la suppression"),
+  });
+
+  const deleteDevisMutation = useMutation({
+    mutationFn: async (devisId: string) => {
+      const { error } = await supabase.from("devis").delete().eq("id", devisId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Devis supprimé");
+      queryClient.invalidateQueries({ queryKey: ["client-devis"] });
+      queryClient.invalidateQueries({ queryKey: ["devis"] });
+      setDeletingDevis(null);
+    },
+    onError: () => toast.error("Erreur lors de la suppression"),
+  });
+
   if (clientLoading) {
     return (
       <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -234,6 +291,12 @@ const ClientDetail = () => {
                 <Phone className="h-4 w-4" /> Appeler
               </a>
             )}
+            <Button variant="outline" size="sm" onClick={() => setEditClientOpen(true)}>
+              <Pencil className="h-4 w-4 mr-1" /> Modifier
+            </Button>
+            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteClientOpen(true)}>
+              <Trash2 className="h-4 w-4 mr-1" /> Supprimer
+            </Button>
             <CreateDevisDialog preselectedClientId={id} preselectedCompanyId={client.company_id} />
           </div>
         </div>
@@ -348,15 +411,26 @@ const ClientDetail = () => {
                   <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Objet</th>
                   <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Montant</th>
                   <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Statut</th>
+                  <th className="px-4 py-2.5"></th>
                 </tr></thead>
                 <tbody className="divide-y">
                   {devis.map((d) => (
-                    <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
+                    <tr key={d.id} className="hover:bg-muted/30 transition-colors">
                       <td className="px-4 py-3 font-mono text-xs">{d.code || "—"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{formatDate(d.created_at)}</td>
                       <td className="px-4 py-3 font-medium">{d.objet}</td>
                       <td className="px-4 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
                       <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${devisStatusStyles[d.status] || ""}`}>{devisLabels[d.status] || d.status}</span></td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1">
+                          <button onClick={() => setEditingDevis(d)} className="p-1 rounded hover:bg-muted" title="Modifier">
+                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                          <button onClick={() => setDeletingDevis(d)} className="p-1 rounded hover:bg-muted" title="Supprimer">
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -413,15 +487,26 @@ const ClientDetail = () => {
                   <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Date</th>
                   <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Montant</th>
                   <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Statut</th>
+                  <th className="px-4 py-2.5"></th>
                 </tr></thead>
                 <tbody className="divide-y">
                   {dossiers.map((d) => (
-                    <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
+                    <tr key={d.id} className="hover:bg-muted/30 transition-colors">
                       <td className="px-4 py-3 font-mono text-xs">{d.code || "—"}</td>
                       <td className="px-4 py-3 font-medium">{d.title}</td>
                       <td className="px-4 py-3 text-muted-foreground">{formatDate(d.start_date || d.created_at)}</td>
                       <td className="px-4 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
                       <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${dossierStageStyles[d.stage] || ""}`}>{dossierStageLabels[d.stage] || d.stage}</span></td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1">
+                          <button onClick={() => setEditingDossier(d)} className="p-1 rounded hover:bg-muted" title="Modifier">
+                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                          <button onClick={() => setDeletingDossier(d)} className="p-1 rounded hover:bg-muted" title="Supprimer">
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -460,6 +545,39 @@ const ClientDetail = () => {
           </div>
         )}
       </motion.div>
+
+      {/* Edit/Delete Dialogs */}
+      <EditClientDialog client={client} open={editClientOpen} onOpenChange={setEditClientOpen} />
+      <DeleteConfirmDialog
+        open={deleteClientOpen}
+        onOpenChange={setDeleteClientOpen}
+        onConfirm={() => deleteClientMutation.mutate()}
+        title="Supprimer ce client ?"
+        description="Cette action est irréversible. Tous les dossiers, devis et factures liés devront être supprimés au préalable."
+        isPending={deleteClientMutation.isPending}
+      />
+      {editingDossier && (
+        <EditDossierDialog dossier={editingDossier} open={!!editingDossier} onOpenChange={(v) => !v && setEditingDossier(null)} />
+      )}
+      <DeleteConfirmDialog
+        open={!!deletingDossier}
+        onOpenChange={(v) => !v && setDeletingDossier(null)}
+        onConfirm={() => deletingDossier && deleteDossierMutation.mutate(deletingDossier.id)}
+        title="Supprimer ce dossier ?"
+        description={`Le dossier "${deletingDossier?.title}" sera définitivement supprimé.`}
+        isPending={deleteDossierMutation.isPending}
+      />
+      {editingDevis && (
+        <EditDevisDialog devis={editingDevis} open={!!editingDevis} onOpenChange={(v) => !v && setEditingDevis(null)} />
+      )}
+      <DeleteConfirmDialog
+        open={!!deletingDevis}
+        onOpenChange={(v) => !v && setDeletingDevis(null)}
+        onConfirm={() => deletingDevis && deleteDevisMutation.mutate(deletingDevis.id)}
+        title="Supprimer ce devis ?"
+        description={`Le devis "${deletingDevis?.objet}" sera définitivement supprimé.`}
+        isPending={deleteDevisMutation.isPending}
+      />
     </div>
   );
 };

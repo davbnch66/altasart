@@ -1,11 +1,14 @@
 import { motion } from "framer-motion";
-import { Search, Filter, FolderOpen, MoreHorizontal } from "lucide-react";
+import { Search, Filter, FolderOpen, Pencil, Trash2 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { CreateDossierDialog } from "@/components/forms/CreateDossierDialog";
+import { EditDossierDialog } from "@/components/forms/EditDossierDialog";
+import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
+import { toast } from "sonner";
 
 const pipelineStages = [
   { key: "prospect", label: "Prospect" },
@@ -47,8 +50,23 @@ const formatAmount = (amount: number | null) => {
 
 const Dossiers = () => {
   const { current } = useCompany();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [editingDossier, setEditingDossier] = useState<any>(null);
+  const [deletingDossier, setDeletingDossier] = useState<any>(null);
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("dossiers").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Dossier supprimé");
+      queryClient.invalidateQueries({ queryKey: ["dossiers"] });
+      setDeletingDossier(null);
+    },
+    onError: () => toast.error("Erreur lors de la suppression"),
+  });
   const { data: dossiers = [], isLoading } = useQuery({
     queryKey: ["dossiers", current],
     queryFn: async () => {
@@ -142,13 +160,30 @@ const Dossiers = () => {
                 {pipelineStages.find((s) => s.key === dossier.stage)?.label}
               </span>
               <span className="text-sm font-semibold whitespace-nowrap">{formatAmount(dossier.amount)}</span>
-              <button className="p-1 rounded hover:bg-muted transition-colors">
-                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-              </button>
+              <div className="flex gap-1">
+                <button onClick={(e) => { e.stopPropagation(); setEditingDossier(dossier); }} className="p-1 rounded hover:bg-muted" title="Modifier">
+                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); setDeletingDossier(dossier); }} className="p-1 rounded hover:bg-muted" title="Supprimer">
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </button>
+              </div>
             </div>
           ))
         )}
       </motion.div>
+
+      {editingDossier && (
+        <EditDossierDialog dossier={editingDossier} open={!!editingDossier} onOpenChange={(v) => !v && setEditingDossier(null)} />
+      )}
+      <DeleteConfirmDialog
+        open={!!deletingDossier}
+        onOpenChange={(v) => !v && setDeletingDossier(null)}
+        onConfirm={() => deletingDossier && deleteMutation.mutate(deletingDossier.id)}
+        title="Supprimer ce dossier ?"
+        description={`Le dossier "${deletingDossier?.title}" sera définitivement supprimé.`}
+        isPending={deleteMutation.isPending}
+      />
     </div>
   );
 };
