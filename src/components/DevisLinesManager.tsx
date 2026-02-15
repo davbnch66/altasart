@@ -49,7 +49,6 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount }: Props) => {
         description: line.description,
         quantity: line.quantity,
         unit_price: line.unit_price,
-        total,
         sort_order: lines.length,
       });
       if (error) throw error;
@@ -73,7 +72,6 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount }: Props) => {
         description: line.description,
         quantity: line.quantity,
         unit_price: line.unit_price,
-        total,
       }).eq("id", id);
       if (error) throw error;
       // Recalculate devis total
