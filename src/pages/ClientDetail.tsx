@@ -8,6 +8,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
+import { CreateDossierDialog } from "@/components/forms/CreateDossierDialog";
 
 type TabKey = "infos" | "factures" | "devis" | "reglements" | "dossiers" | "visites";
 
@@ -232,9 +234,7 @@ const ClientDetail = () => {
                 <Phone className="h-4 w-4" /> Appeler
               </a>
             )}
-            <button className="flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-              <Plus className="h-4 w-4" /> Nouveau devis
-            </button>
+            <CreateDevisDialog preselectedClientId={id} preselectedCompanyId={client.company_id} />
           </div>
         </div>
       </motion.div>
@@ -336,6 +336,7 @@ const ClientDetail = () => {
           <div className="rounded-xl border bg-card overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="font-semibold">Devis du client</h3>
+              <CreateDevisDialog preselectedClientId={id} preselectedCompanyId={client.company_id} />
             </div>
             {devis.length === 0 ? (
               <p className="px-4 py-12 text-center text-muted-foreground">Aucun devis</p>
@@ -400,6 +401,7 @@ const ClientDetail = () => {
           <div className="rounded-xl border bg-card overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="font-semibold">Dossiers du client</h3>
+              <CreateDossierDialog preselectedClientId={id} preselectedCompanyId={client.company_id} />
             </div>
             {dossiers.length === 0 ? (
               <p className="px-4 py-12 text-center text-muted-foreground">Aucun dossier</p>
