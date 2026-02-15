@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { generateFacturePdf } from "@/lib/generateFacturePdf";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -121,11 +122,16 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
               <Textarea id="edit-fac-notes" {...register("notes")} rows={2} />
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
-            <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "Enregistrement..." : "Enregistrer"}
+          <div className="flex justify-between gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => generateFacturePdf(facture.id).catch(() => toast.error("Erreur PDF"))}>
+              Télécharger PDF
             </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
+              <Button type="submit" disabled={mutation.isPending}>
+                {mutation.isPending ? "Enregistrement..." : "Enregistrer"}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

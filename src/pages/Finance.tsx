@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { DollarSign, TrendingUp, AlertTriangle, CheckCircle2, ArrowUpRight, ArrowDownRight, Pencil, Trash2, CreditCard } from "lucide-react";
+import { DollarSign, TrendingUp, AlertTriangle, CheckCircle2, ArrowUpRight, ArrowDownRight, Pencil, Trash2, CreditCard, Download } from "lucide-react";
+import { generateFacturePdf } from "@/lib/generateFacturePdf";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -327,6 +328,9 @@ const Finance = () => {
                       </td>
                       <td className="px-5 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => generateFacturePdf(inv.id).catch(() => toast.error("Erreur lors de la génération du PDF"))} className="p-1.5 rounded-md hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary" title="Télécharger PDF">
+                            <Download className="h-3.5 w-3.5" />
+                          </button>
                           <button onClick={() => setEditFacture(inv)} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
