@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
 
 const fmt = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
@@ -132,28 +131,32 @@ export const CreateReglementDialog = ({ preselectedFactureId, preselectedCompany
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Label>Société *</Label>
-              <Select value={watch("company_id")} onValueChange={handleCompanyChange}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-                <SelectContent>
-                  {dbCompanies.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                value={watch("company_id")}
+                onChange={(e) => handleCompanyChange(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value="">Sélectionner</option>
+                {dbCompanies.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
               {errors.company_id && <p className="text-xs text-destructive mt-1">{errors.company_id.message}</p>}
             </div>
             <div className="col-span-2">
               <Label>Facture *</Label>
-              <Select value={watch("facture_id")} onValueChange={handleFactureChange}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner une facture" /></SelectTrigger>
-                <SelectContent>
-                  {factures.map((f) => (
-                    <SelectItem key={f.id} value={f.id}>
-                      {f.code || "Sans code"} — {(f.clients as any)?.name ?? "?"} — Reste: {fmt(Number(f.amount) - Number(f.paid_amount))}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                value={watch("facture_id")}
+                onChange={(e) => handleFactureChange(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value="">Sélectionner une facture</option>
+                {factures.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.code || "Sans code"} — {(f.clients as any)?.name ?? "?"} — Reste: {fmt(Number(f.amount) - Number(f.paid_amount))}
+                  </option>
+                ))}
+              </select>
               {errors.facture_id && <p className="text-xs text-destructive mt-1">{errors.facture_id.message}</p>}
             </div>
             <div>
