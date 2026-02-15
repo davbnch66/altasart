@@ -1,5 +1,5 @@
 import React from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard,
@@ -14,8 +14,10 @@ import {
   Settings,
   Building2,
   ChevronDown,
+  LogOut,
 } from "lucide-react";
-import { useCompany, companies, type CompanyId } from "@/contexts/CompanyContext";
+import { useCompany } from "@/contexts/CompanyContext";
+import { useAuth } from "@/hooks/useAuth";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,16 +38,24 @@ const navItems = [
   { to: "/parametres", icon: Settings, label: "Paramètres" },
 ];
 
-const companyDotColor: Record<CompanyId, string> = {
-  global: "bg-primary",
-  art: "bg-company-art",
-  altigrues: "bg-company-altigrues",
-  asdgm: "bg-company-asdgm",
+const companyDotColor: Record<string, string> = {
+  "global": "bg-primary",
+  "company-art": "bg-company-art",
+  "company-altigrues": "bg-company-altigrues",
+  "company-asdgm": "bg-company-asdgm",
+  "primary": "bg-primary",
 };
 
 export const AppSidebar: React.FC = () => {
-  const { current, setCurrent, currentCompany } = useCompany();
+  const { current, setCurrent, currentCompany, companies } = useCompany();
+  const { user, signOut } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+  };
 
   return (
     <aside className="flex h-screen w-60 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
@@ -53,7 +63,7 @@ export const AppSidebar: React.FC = () => {
       <div className="p-4 border-b border-sidebar-border">
         <DropdownMenu>
           <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium hover:bg-sidebar-accent transition-colors outline-none">
-            <div className={`h-2.5 w-2.5 rounded-full ${companyDotColor[current]}`} />
+            <div className={`h-2.5 w-2.5 rounded-full ${companyDotColor[currentCompany.color] || "bg-primary"}`} />
             <span className="flex-1 text-left text-sidebar-primary truncate">
               {currentCompany.name}
             </span>
@@ -66,7 +76,7 @@ export const AppSidebar: React.FC = () => {
                 onClick={() => setCurrent(c.id)}
                 className="flex items-center gap-3"
               >
-                <div className={`h-2 w-2 rounded-full ${companyDotColor[c.id]}`} />
+                <div className={`h-2 w-2 rounded-full ${companyDotColor[c.color] || "bg-primary"}`} />
                 <span>{c.name}</span>
               </DropdownMenuItem>
             ))}
@@ -108,12 +118,17 @@ export const AppSidebar: React.FC = () => {
       <div className="border-t border-sidebar-border p-4">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-semibold text-sidebar-accent-foreground">
-            AD
+            {user?.email?.substring(0, 2).toUpperCase() || "??"}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-primary truncate">Admin</p>
-            <p className="text-xs text-sidebar-muted truncate">admin@artlevage.fr</p>
+            <p className="text-sm font-medium text-sidebar-primary truncate">
+              {user?.user_metadata?.full_name || "Utilisateur"}
+            </p>
+            <p className="text-xs text-sidebar-muted truncate">{user?.email}</p>
           </div>
+          <button onClick={handleSignOut} className="p-1.5 rounded hover:bg-sidebar-accent transition-colors" title="Se déconnecter">
+            <LogOut className="h-4 w-4 text-sidebar-muted" />
+          </button>
         </div>
       </div>
     </aside>

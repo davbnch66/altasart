@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
-export type CompanyId = "art" | "altigrues" | "asdgm" | "global";
+export type CompanyId = string;
 
 export interface Company {
   id: CompanyId;
@@ -9,27 +11,85 @@ export interface Company {
   color: string;
 }
 
-export const companies: Company[] = [
-  { id: "global", name: "Vue globale", shortName: "Global", color: "primary" },
-  { id: "art", name: "ART Levage", shortName: "ART", color: "company-art" },
-  { id: "altigrues", name: "Altigrues", shortName: "ALT", color: "company-altigrues" },
-  { id: "asdgm", name: "ASDGM", shortName: "ASDGM", color: "company-asdgm" },
-];
+// Static global entry
+const globalCompany: Company = { id: "global", name: "Vue globale", shortName: "Global", color: "primary" };
 
 interface CompanyContextType {
   current: CompanyId;
   setCurrent: (id: CompanyId) => void;
   currentCompany: Company;
+  companies: Company[];
+  dbCompanies: Company[];
+  loading: boolean;
 }
 
 const CompanyContext = createContext<CompanyContextType | null>(null);
 
 export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [current, setCurrent] = useState<CompanyId>("global");
-  const currentCompany = companies.find((c) => c.id === current) || companies[0];
+  const [dbCompanies, setDbCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      if (!user) { setLoading(false); return; }
+
+      // Check if user has memberships
+      const { data: memberships } = await supabase
+        .from("company_memberships")
+        .select("company_id")
+        .eq("profile_id", user.id);
+
+      if (memberships && memberships.length > 0) {
+        const companyIds = memberships.map((m) => m.company_id);
+        const { data: companiesData } = await supabase
+          .from("companies")
+          .select("*")
+          .in("id", companyIds);
+
+        if (companiesData) {
+          setDbCompanies(companiesData.map((c) => ({
+            id: c.id,
+            name: c.name,
+            shortName: c.short_name,
+            color: c.color,
+          })));
+        }
+      } else {
+        // Auto-assign admin to all 3 companies for first user
+        const { data: allCompanies } = await supabase
+          .from("companies")
+          .select("*");
+
+        if (allCompanies && allCompanies.length > 0) {
+          // Insert memberships - ignore errors if they exist
+          for (const company of allCompanies) {
+            await supabase.from("company_memberships").upsert({
+              company_id: company.id,
+              profile_id: user.id,
+              role: "admin" as any,
+            }, { onConflict: "company_id,profile_id" });
+          }
+          setDbCompanies(allCompanies.map((c) => ({
+            id: c.id,
+            name: c.name,
+            shortName: c.short_name,
+            color: c.color,
+          })));
+        }
+      }
+      setLoading(false);
+    };
+
+    fetchCompanies();
+  }, [user]);
+
+  const companies = [globalCompany, ...dbCompanies];
+  const currentCompany = companies.find((c) => c.id === current) || globalCompany;
 
   return (
-    <CompanyContext.Provider value={{ current, setCurrent, currentCompany }}>
+    <CompanyContext.Provider value={{ current, setCurrent, currentCompany, companies, dbCompanies, loading }}>
       {children}
     </CompanyContext.Provider>
   );
@@ -40,3 +100,11 @@ export const useCompany = () => {
   if (!ctx) throw new Error("useCompany must be used within CompanyProvider");
   return ctx;
 };
+
+// Helper: static companies for backward compat
+export const companies = [
+  globalCompany,
+  { id: "a0000000-0000-0000-0000-000000000001", name: "ART Levage", shortName: "ART", color: "company-art" },
+  { id: "a0000000-0000-0000-0000-000000000002", name: "Altigrues", shortName: "ALT", color: "company-altigrues" },
+  { id: "a0000000-0000-0000-0000-000000000003", name: "ASDGM", shortName: "ASDGM", color: "company-asdgm" },
+];

@@ -9,7 +9,7 @@ import {
   AlertTriangle,
   CheckCircle2,
 } from "lucide-react";
-import { useCompany, companies, type CompanyId } from "@/contexts/CompanyContext";
+import { useCompany, type CompanyId } from "@/contexts/CompanyContext";
 
 const companyBg: Record<CompanyId, string> = {
   global: "bg-primary/10 text-primary",
@@ -49,7 +49,7 @@ const companyDot: Record<CompanyId, string> = {
 };
 
 const Dashboard = () => {
-  const { current, currentCompany } = useCompany();
+  const { current, currentCompany, dbCompanies } = useCompany();
 
   const filteredActivity = current === "global"
     ? recentActivity
@@ -75,12 +75,12 @@ const Dashboard = () => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
         >
-          {companies.filter((c) => c.id !== "global").map((c) => (
+          {dbCompanies.map((c) => (
             <div
               key={c.id}
-              className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium ${companyBg[c.id]}`}
+              className={`flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium bg-primary/10 text-primary`}
             >
-              <div className={`h-2 w-2 rounded-full ${companyDot[c.id]}`} />
+              <div className={`h-2 w-2 rounded-full bg-primary`} />
               {c.shortName}
             </div>
           ))}
