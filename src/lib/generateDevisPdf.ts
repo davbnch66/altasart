@@ -28,7 +28,10 @@ export async function generateDevisPdf(devisId: string) {
   const devisLines = lines ?? [];
   const client = devis.clients as any;
   const company = devis.companies as any;
-  const amount = Number(devis.amount);
+  // Always compute amount from lines to stay in sync
+  const amount = devisLines.length > 0
+    ? devisLines.reduce((sum: number, l: any) => sum + (l.total != null ? Number(l.total) : Number(l.quantity) * Number(l.unit_price)), 0)
+    : Number(devis.amount);
   const tvaRate = 20;
   const tvaAmount = amount * tvaRate / 100;
   const totalTTC = amount + tvaAmount;
