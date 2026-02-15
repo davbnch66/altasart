@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Search, Plus, Filter, FileText, Eye, Download, Send } from "lucide-react";
+import { Search, Filter, FileText, Eye, Download, Send } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
 
 const statusLabels: Record<string, string> = {
   brouillon: "Brouillon",
@@ -88,10 +89,7 @@ const Devis = () => {
           <h1 className="text-2xl font-bold tracking-tight">Devis / Cotations</h1>
           <p className="text-muted-foreground mt-1">{filtered.length} devis</p>
         </div>
-        <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-          <Plus className="h-4 w-4" />
-          Nouveau devis
-        </button>
+        <CreateDevisDialog />
       </motion.div>
 
       {/* Stats */}

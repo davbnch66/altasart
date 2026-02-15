@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
-import { Search, Plus, Filter, MoreHorizontal } from "lucide-react";
+import { Search, Filter, MoreHorizontal } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
+import { CreateClientDialog } from "@/components/forms/CreateClientDialog";
 
 const statusLabels: Record<string, string> = {
   nouveau_lead: "Nouveau lead",
@@ -61,10 +62,7 @@ const Clients = () => {
           <h1 className="text-2xl font-bold tracking-tight">Clients / Agents</h1>
           <p className="text-muted-foreground mt-1">{filtered.length} clients</p>
         </div>
-        <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
-          <Plus className="h-4 w-4" />
-          Nouveau client
-        </button>
+        <CreateClientDialog />
       </motion.div>
 
       <div className="flex gap-3">
