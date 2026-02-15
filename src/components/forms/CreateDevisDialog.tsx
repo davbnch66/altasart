@@ -29,14 +29,19 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export const CreateDevisDialog = () => {
+interface CreateDevisDialogProps {
+  preselectedClientId?: string;
+  preselectedCompanyId?: string;
+}
+
+export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId }: CreateDevisDialogProps) => {
   const [open, setOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
 
-  const defaultCompanyId = current !== "global" ? current : dbCompanies[0]?.id || "";
+  const defaultCompanyId = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || "");
   const [selectedCompanyId, setSelectedCompanyId] = useState(defaultCompanyId);
-  const [selectedClientId, setSelectedClientId] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState(preselectedClientId || "");
 
   const { data: clients = [] } = useQuery({
     queryKey: ["clients-for-select", selectedCompanyId],
@@ -102,7 +107,7 @@ export const CreateDevisDialog = () => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = current !== "global" ? current : dbCompanies[0]?.id || ""; setSelectedCompanyId(cid); setSelectedClientId(""); reset({ company_id: cid, amount: 0 }); } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); setSelectedClientId(preselectedClientId || ""); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), amount: 0 }); } }}>
       <DialogTrigger asChild>
         <Button className="flex items-center gap-2">
           <Plus className="h-4 w-4" /> Nouveau devis

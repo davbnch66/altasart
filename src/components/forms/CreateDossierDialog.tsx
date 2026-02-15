@@ -28,12 +28,17 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export const CreateDossierDialog = () => {
+interface CreateDossierDialogProps {
+  preselectedClientId?: string;
+  preselectedCompanyId?: string;
+}
+
+export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId }: CreateDossierDialogProps) => {
   const [open, setOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
 
-  const defaultCompanyId = current !== "global" ? current : dbCompanies[0]?.id || "";
+  const defaultCompanyId = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || "");
   const [selectedCompanyId, setSelectedCompanyId] = useState(defaultCompanyId);
 
   const { data: clients = [] } = useQuery({
@@ -68,6 +73,7 @@ export const CreateDossierDialog = () => {
     onSuccess: () => {
       toast.success("Dossier créé avec succès");
       queryClient.invalidateQueries({ queryKey: ["dossiers"] });
+      queryClient.invalidateQueries({ queryKey: ["client-dossiers"] });
       reset();
       setOpen(false);
     },
@@ -81,7 +87,7 @@ export const CreateDossierDialog = () => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = current !== "global" ? current : dbCompanies[0]?.id || ""; setSelectedCompanyId(cid); reset({ company_id: cid, amount: 0 }); } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), amount: 0 }); } }}>
       <DialogTrigger asChild>
         <Button className="flex items-center gap-2">
           <Plus className="h-4 w-4" /> Nouveau dossier
