@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { CreateFactureDialog } from "@/components/forms/CreateFactureDialog";
 import { EditFactureDialog } from "@/components/forms/EditFactureDialog";
 import { CreateReglementDialog } from "@/components/forms/CreateReglementDialog";
@@ -96,6 +97,66 @@ function useRecentReglements(companyIds: string[]) {
   });
 }
 
+function useMonthlyEvolution(companyIds: string[]) {
+  return useQuery({
+    queryKey: ["finance-evolution", companyIds],
+    queryFn: async () => {
+      const now = new Date();
+      const months: { label: string; start: string; end: string }[] = [];
+      for (let i = 11; i >= 0; i--) {
+        const d = subMonths(now, i);
+        months.push({
+          label: format(startOfMonth(d), "MMM yy", { locale: fr }),
+          start: startOfMonth(d).toISOString(),
+          end: endOfMonth(d).toISOString(),
+        });
+      }
+
+      const [{ data: allFactures }, { data: allReglements }] = await Promise.all([
+        supabase
+          .from("factures")
+          .select("amount, created_at")
+          .in("company_id", companyIds)
+          .gte("created_at", months[0].start)
+          .lte("created_at", months[11].end),
+        supabase
+          .from("reglements")
+          .select("amount, payment_date")
+          .in("company_id", companyIds)
+          .gte("payment_date", months[0].start.slice(0, 10))
+          .lte("payment_date", months[11].end.slice(0, 10)),
+      ]);
+
+      return months.map((m) => {
+        const ca = (allFactures ?? [])
+          .filter((f) => f.created_at >= m.start && f.created_at <= m.end)
+          .reduce((s, f) => s + Number(f.amount), 0);
+        const enc = (allReglements ?? [])
+          .filter((r) => r.payment_date >= m.start.slice(0, 10) && r.payment_date <= m.end.slice(0, 10))
+          .reduce((s, r) => s + Number(r.amount), 0);
+        return { name: m.label, ca, encaissements: enc };
+      });
+    },
+    enabled: companyIds.length > 0,
+  });
+}
+
+const ChartTooltipContent = ({ active, payload, label }: any) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border bg-card p-3 shadow-md text-sm">
+      <p className="font-medium mb-1">{label}</p>
+      {payload.map((p: any) => (
+        <div key={p.dataKey} className="flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: p.color }} />
+          <span className="text-muted-foreground">{p.dataKey === "ca" ? "CA facturé" : "Encaissements"}</span>
+          <span className="ml-auto font-medium">{fmt(p.value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const statusLabels: Record<string, string> = {
   brouillon: "Brouillon",
   envoyee: "Envoyée",
@@ -120,6 +181,7 @@ const Finance = () => {
   const { data: stats, isLoading: statsLoading } = useFinanceStats(companyIds);
   const { data: factures, isLoading: facturesLoading } = useRecentFactures(companyIds);
   const { data: reglements, isLoading: reglementsLoading } = useRecentReglements(companyIds);
+  const { data: evolutionData, isLoading: evolutionLoading } = useMonthlyEvolution(companyIds);
 
   const [editFacture, setEditFacture] = useState<any>(null);
   const [deleteFacture, setDeleteFacture] = useState<any>(null);
@@ -189,6 +251,25 @@ const Finance = () => {
           </motion.div>
         ))}
       </div>
+
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="rounded-xl border bg-card p-5">
+        <h2 className="font-semibold mb-4">Évolution sur 12 mois</h2>
+        {evolutionLoading ? (
+          <Skeleton className="h-[280px] w-full" />
+        ) : (
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={evolutionData} barGap={2}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <XAxis dataKey="name" tick={{ fontSize: 12 }} className="text-muted-foreground" />
+              <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} className="text-muted-foreground" />
+              <Tooltip content={<ChartTooltipContent />} />
+              <Legend formatter={(v) => (v === "ca" ? "CA facturé" : "Encaissements")} />
+              <Bar dataKey="ca" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="encaissements" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </motion.div>
 
       <Tabs defaultValue="factures">
         <TabsList>
