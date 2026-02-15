@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Pencil, Trash2, Check, X } from "lucide-react";
@@ -29,7 +29,19 @@ const formatAmount = (amount: number) =>
 const emptyLine = { description: "", quantity: 1, unit_price: 0 };
 
 export const DevisLinesManager = ({ devisId, lines, totalAmount }: Props) => {
+  // Always compute total from lines to stay in sync
+  const computedTotal = lines.reduce((sum, l) => sum + (l.total ?? l.quantity * l.unit_price), 0);
   const queryClient = useQueryClient();
+
+  // Auto-sync devis.amount if it doesn't match the sum of lines
+  useEffect(() => {
+    if (lines.length > 0 && Math.abs(computedTotal - totalAmount) > 0.01) {
+      supabase.from("devis").update({ amount: computedTotal }).eq("id", devisId).then(() => {
+        queryClient.invalidateQueries({ queryKey: ["devis-detail", devisId] });
+        queryClient.invalidateQueries({ queryKey: ["devis"] });
+      });
+    }
+  }, [computedTotal, totalAmount, devisId, lines.length]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState(emptyLine);
   const [adding, setAdding] = useState(false);
@@ -43,7 +55,7 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount }: Props) => {
 
   const addMutation = useMutation({
     mutationFn: async (line: typeof emptyLine) => {
-      const total = line.quantity * line.unit_price;
+      const lineTotal = line.quantity * line.unit_price;
       const { error } = await supabase.from("devis_lines").insert({
         devis_id: devisId,
         description: line.description,
@@ -52,8 +64,7 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount }: Props) => {
         sort_order: lines.length,
       });
       if (error) throw error;
-      // Update devis total
-      const newTotal = totalAmount + total;
+      const newTotal = computedTotal + lineTotal;
       await supabase.from("devis").update({ amount: newTotal }).eq("id", devisId);
     },
     onSuccess: () => {
@@ -67,17 +78,16 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount }: Props) => {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...line }: typeof emptyLine & { id: string }) => {
-      const total = line.quantity * line.unit_price;
+      const lineTotal = line.quantity * line.unit_price;
       const { error } = await supabase.from("devis_lines").update({
         description: line.description,
         quantity: line.quantity,
         unit_price: line.unit_price,
       }).eq("id", id);
       if (error) throw error;
-      // Recalculate devis total
       const oldLine = lines.find((l) => l.id === id);
       const oldTotal = oldLine ? (oldLine.total ?? oldLine.quantity * oldLine.unit_price) : 0;
-      const newAmount = totalAmount - oldTotal + total;
+      const newAmount = computedTotal - oldTotal + lineTotal;
       await supabase.from("devis").update({ amount: newAmount }).eq("id", devisId);
     },
     onSuccess: () => {
@@ -93,7 +103,7 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount }: Props) => {
       const { error } = await supabase.from("devis_lines").delete().eq("id", line.id);
       if (error) throw error;
       const lineTotal = line.total ?? line.quantity * line.unit_price;
-      const newAmount = Math.max(0, totalAmount - lineTotal);
+      const newAmount = Math.max(0, computedTotal - lineTotal);
       await supabase.from("devis").update({ amount: newAmount }).eq("id", devisId);
     },
     onSuccess: () => {
@@ -270,7 +280,7 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount }: Props) => {
           <tfoot>
             <tr className="border-t bg-muted/20">
               <td colSpan={3} className="px-5 py-3 text-right font-semibold">Total HT</td>
-              <td className="px-5 py-3 text-right font-bold">{formatAmount(totalAmount)}</td>
+              <td className="px-5 py-3 text-right font-bold">{formatAmount(computedTotal)}</td>
               <td></td>
             </tr>
           </tfoot>
