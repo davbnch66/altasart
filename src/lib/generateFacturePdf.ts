@@ -50,7 +50,7 @@ function numberToFrenchWords(n: number): string {
 }
 
 function fmtEur(n: number): string {
-  return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  return n.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
 interface FactureData {
@@ -109,9 +109,14 @@ export async function generateFacturePdf(factureId: string) {
 
   // ========== HEADER ==========
   // Company logo
-  const logoData = await loadCompanyLogo(company?.short_name || "");
-  if (logoData) {
-    doc.addImage(logoData, "PNG", marginL, 10, 45, 20);
+  const logoResult = await loadCompanyLogo(company?.short_name || "");
+  if (logoResult) {
+    const maxW = 40, maxH = 18;
+    const ratio = logoResult.width / logoResult.height;
+    let imgW = maxW;
+    let imgH = imgW / ratio;
+    if (imgH > maxH) { imgH = maxH; imgW = imgH * ratio; }
+    doc.addImage(logoResult.dataUrl, "PNG", marginL, 10, imgW, imgH);
   } else {
     // Fallback: company name as text
     doc.setFontSize(22);
