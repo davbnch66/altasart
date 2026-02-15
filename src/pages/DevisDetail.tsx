@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { DevisLinesManager } from "@/components/DevisLinesManager";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import { ArrowLeft, Download, Pencil, FileText } from "lucide-react";
@@ -150,36 +151,7 @@ const DevisDetail = () => {
       </div>
 
       {/* Lignes du devis */}
-      {lines.length > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="rounded-xl border bg-card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/30">
-                <th className="text-left font-medium text-muted-foreground px-5 py-3">Description</th>
-                <th className="text-right font-medium text-muted-foreground px-5 py-3">Qté</th>
-                <th className="text-right font-medium text-muted-foreground px-5 py-3">P.U.</th>
-                <th className="text-right font-medium text-muted-foreground px-5 py-3">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {lines.map((line) => (
-                <tr key={line.id}>
-                  <td className="px-5 py-3">{line.description}</td>
-                  <td className="px-5 py-3 text-right">{line.quantity}</td>
-                  <td className="px-5 py-3 text-right">{formatAmount(line.unit_price)}</td>
-                  <td className="px-5 py-3 text-right font-semibold">{formatAmount(line.total ?? line.quantity * line.unit_price)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t bg-muted/20">
-                <td colSpan={3} className="px-5 py-3 text-right font-semibold">Total HT</td>
-                <td className="px-5 py-3 text-right font-bold">{formatAmount(devis.amount)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </motion.div>
-      )}
+      <DevisLinesManager devisId={devis.id} lines={lines} totalAmount={devis.amount} />
 
       {/* Notes */}
       {devis.notes && (
