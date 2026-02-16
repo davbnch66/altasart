@@ -49,7 +49,7 @@ export const AppLayout: React.FC = () => {
             >
               {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
-            <span className="text-sm font-semibold text-foreground">GruesPro</span>
+            <span className="text-sm font-semibold text-foreground">altasart.app</span>
           </div>
         )}
         <Outlet />
