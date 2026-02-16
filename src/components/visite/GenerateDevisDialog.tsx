@@ -74,6 +74,7 @@ export const GenerateDevisDialog = ({ visiteId, companyId, dossierId, trigger }:
         amount: totalAmount,
         notes,
         dossier_id: dossierId || null,
+        visite_id: visiteId,
         status: "brouillon",
       }).select("id").single();
       if (devisErr) throw devisErr;
@@ -94,6 +95,7 @@ export const GenerateDevisDialog = ({ visiteId, companyId, dossierId, trigger }:
     onSuccess: (devisId) => {
       toast.success("Devis créé avec succès");
       queryClient.invalidateQueries({ queryKey: ["devis"] });
+      queryClient.invalidateQueries({ queryKey: ["visite-devis-history", visiteId] });
       setOpen(false);
       navigate(`/devis/${devisId}`);
     },

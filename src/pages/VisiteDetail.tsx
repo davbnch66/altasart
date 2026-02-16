@@ -25,6 +25,7 @@ import { VisiteSmartAlerts } from "@/components/visite/VisiteSmartAlerts";
 import { generateVisitePdf } from "@/lib/generateVisitePdf";
 import { ApplyTemplateDialog } from "@/components/visite/ApplyTemplateDialog";
 import { GenerateDevisDialog } from "@/components/visite/GenerateDevisDialog";
+import { VisiteDevisHistory } from "@/components/visite/VisiteDevisHistory";
 
 const statusLabels: Record<string, string> = {
   planifiee: "Planifiée",
@@ -434,6 +435,15 @@ const VisiteDetail = () => {
             <h3 className="font-semibold text-primary flex items-center gap-2"><FileText className="h-4 w-4" /> Mémo devis</h3>
             <Textarea value={editData.notes || ""} onChange={(e) => updateField("notes", e.target.value)} rows={12} placeholder="Description détaillée pour le devis..." />
             <p className="text-xs text-muted-foreground">Le texte saisi dans le champ Mémo devis sera disponible au moment de la création du devis.</p>
+          </div>
+
+          {/* Historique des devis générés par IA */}
+          <div className="rounded-xl border bg-card p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-primary flex items-center gap-2"><FileText className="h-4 w-4" /> Historique des devis IA</h3>
+              <GenerateDevisDialog visiteId={visite.id} companyId={visite.company_id} dossierId={visite.dossier_id} />
+            </div>
+            <VisiteDevisHistory visiteId={visite.id} />
           </div>
         </TabsContent>
 

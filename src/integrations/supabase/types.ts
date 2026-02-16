@@ -187,6 +187,7 @@ export type Database = {
           status: Database["public"]["Enums"]["devis_status"]
           updated_at: string
           valid_until: string | null
+          visite_id: string | null
         }
         Insert: {
           accepted_at?: string | null
@@ -204,6 +205,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["devis_status"]
           updated_at?: string
           valid_until?: string | null
+          visite_id?: string | null
         }
         Update: {
           accepted_at?: string | null
@@ -221,6 +223,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["devis_status"]
           updated_at?: string
           valid_until?: string | null
+          visite_id?: string | null
         }
         Relationships: [
           {
@@ -249,6 +252,13 @@ export type Database = {
             columns: ["dossier_id"]
             isOneToOne: false
             referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "devis_visite_id_fkey"
+            columns: ["visite_id"]
+            isOneToOne: false
+            referencedRelation: "visites"
             referencedColumns: ["id"]
           },
         ]
