@@ -297,20 +297,37 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
   const undo = () => setAnnotations((prev) => prev.slice(0, -1));
   const clearAll = () => setAnnotations([]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const canvas = canvasRef.current;
     if (!canvas || !imgRef.current) return;
 
-    // Render at full resolution
+    // Create a fresh canvas at full resolution using a re-fetched image to avoid CORS taint
     const fullCanvas = document.createElement("canvas");
-    fullCanvas.width = imgRef.current.width;
-    fullCanvas.height = imgRef.current.height;
+    fullCanvas.width = imgRef.current.naturalWidth || imgRef.current.width;
+    fullCanvas.height = imgRef.current.naturalHeight || imgRef.current.height;
     const fctx = fullCanvas.getContext("2d")!;
-    const scaleX = imgRef.current.width / canvas.width;
-    const scaleY = imgRef.current.height / canvas.height;
+    const scaleX = fullCanvas.width / canvas.width;
+    const scaleY = fullCanvas.height / canvas.height;
 
-    fctx.drawImage(imgRef.current, 0, 0);
+    // Try to draw the image on the full canvas safely
+    try {
+      // Re-fetch as blob to guarantee no CORS taint
+      let drawImg = imgRef.current;
+      if (imageSrc.startsWith("http")) {
+        const resp = await fetch(imageSrc);
+        const blob = await resp.blob();
+        const bmpOrImg = await createImageBitmap(blob);
+        fctx.drawImage(bmpOrImg, 0, 0, fullCanvas.width, fullCanvas.height);
+        bmpOrImg.close();
+      } else {
+        fctx.drawImage(drawImg, 0, 0, fullCanvas.width, fullCanvas.height);
+      }
+    } catch {
+      // Fallback: draw from the display canvas (lower res but works)
+      fctx.drawImage(canvas, 0, 0, fullCanvas.width, fullCanvas.height);
+    }
 
+    // Draw annotations at full resolution
     annotations.forEach((a) => {
       const scaled: Annotation = {
         ...a,
@@ -327,7 +344,19 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
 
     fullCanvas.toBlob(
       (blob) => {
-        if (blob) onSave(blob);
+        if (blob) {
+          onSave(blob);
+        } else {
+          // Ultimate fallback: export the display canvas directly
+          canvas.toBlob(
+            (fallbackBlob) => {
+              if (fallbackBlob) onSave(fallbackBlob);
+              else console.error("[AnnotationEditor] toBlob failed on both canvases");
+            },
+            "image/jpeg",
+            0.9
+          );
+        }
       },
       "image/jpeg",
       0.9
