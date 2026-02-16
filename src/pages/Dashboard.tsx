@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   FolderOpen,
@@ -231,10 +232,12 @@ function formatRelativeTime(dateStr: string) {
 }
 
 const Dashboard = () => {
-  const { current, currentCompany, dbCompanies } = useCompany();
+  const { current, currentCompany, dbCompanies, setCurrent } = useCompany();
   const companyIds = useCompanyFilter();
   const { data: stats, isLoading: statsLoading } = useStats(companyIds);
   const { data: activity, isLoading: activityLoading } = useRecentActivity(companyIds);
+
+  const navigate = useNavigate();
 
   const statCards = [
     {
@@ -242,24 +245,28 @@ const Dashboard = () => {
       value: stats?.dossiersActifs ?? 0,
       icon: FolderOpen,
       trend: `${stats?.dossiersActifs ?? 0} en cours`,
+      link: "/dossiers",
     },
     {
       label: "Clients",
       value: stats?.totalClients ?? 0,
       icon: Users,
       trend: stats?.clientsNew ? `+${stats.clientsNew} ce mois` : "—",
+      link: "/clients",
     },
     {
       label: "Missions planifiées",
       value: stats?.eventsThisWeek ?? 0,
       icon: CalendarDays,
       trend: "Cette semaine",
+      link: "/planning",
     },
     {
       label: "CA du mois",
       value: new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(stats?.caThisMonth ?? 0),
       icon: DollarSign,
       trend: stats?.caChange ? `${Number(stats.caChange) >= 0 ? "+" : ""}${stats.caChange}%` : "—",
+      link: "/finance",
     },
   ];
 
@@ -274,16 +281,26 @@ const Dashboard = () => {
       </motion.div>
 
       {/* Company pills (global view) */}
-      {current === "global" && (
-        <motion.div className="flex gap-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
-          {dbCompanies.map((c) => (
-            <div key={c.id} className="flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium bg-primary/10 text-primary">
-              <div className="h-2 w-2 rounded-full bg-primary" />
-              {c.shortName}
-            </div>
-          ))}
-        </motion.div>
-      )}
+      <motion.div className="flex gap-3 flex-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+        {current === "global" && dbCompanies.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => setCurrent(c.id as CompanyId)}
+            className="flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
+          >
+            <div className="h-2 w-2 rounded-full bg-primary" />
+            {c.shortName}
+          </button>
+        ))}
+        {current !== "global" && (
+          <button
+            onClick={() => setCurrent("global")}
+            className="flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+          >
+            ← Vue globale
+          </button>
+        )}
+      </motion.div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -293,7 +310,8 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 * i, duration: 0.3 }}
-            className="rounded-xl border bg-card p-5 space-y-3"
+            className="rounded-xl border bg-card p-5 space-y-3 cursor-pointer hover:shadow-md hover:border-primary/30 transition-all"
+            onClick={() => navigate(stat.link)}
           >
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">{stat.label}</span>
@@ -330,18 +348,30 @@ const Dashboard = () => {
               </div>
             ))
           ) : activity && activity.length > 0 ? (
-            activity.map((item, i) => (
-              <div key={i} className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/50 transition-colors">
-                {statusIcon[item.type] || <Clock className="h-4 w-4 text-muted-foreground" />}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{item.label}</p>
-                  <p className="text-xs text-muted-foreground">{item.client}</p>
+            activity.map((item, i) => {
+              const linkMap: Record<string, string> = {
+                devis: "/devis",
+                dossier: "/dossiers",
+                facture: "/finance",
+                visite: "/visites",
+              };
+              return (
+                <div
+                  key={i}
+                  className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/50 transition-colors cursor-pointer"
+                  onClick={() => navigate(linkMap[item.type] || "/")}
+                >
+                  {statusIcon[item.type] || <Clock className="h-4 w-4 text-muted-foreground" />}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{item.label}</p>
+                    <p className="text-xs text-muted-foreground">{item.client}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {formatRelativeTime(item.time)}
+                  </span>
                 </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {formatRelativeTime(item.time)}
-                </span>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="px-5 py-8 text-center text-sm text-muted-foreground">
               Aucune activité récente
