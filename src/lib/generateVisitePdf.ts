@@ -181,6 +181,23 @@ export async function generateVisitePdf(visiteId: string) {
   }
   y += 4;
 
+  // ===== SECTION: INSTRUCTIONS =====
+  if (visite.instructions) {
+    y = checkPage(doc, y, 20, logo, company, pageW, marginL, marginR);
+    y = sectionTitle(doc, "INSTRUCTIONS", y, marginL, contentW, pageW);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(30, 30, 30);
+    const instrLines = doc.splitTextToSize(visite.instructions, contentW - 6);
+    for (const line of instrLines) {
+      y = checkPage(doc, y, 4, logo, company, pageW, marginL, marginR);
+      doc.text(line, marginL + 3, y);
+      y += 3.8;
+    }
+    y += 4;
+  }
+
   // ===== SECTION: MATERIEL GLOBAL =====
   if (materiel.length > 0) {
     y = checkPage(doc, y, 30, logo, company, pageW, marginL, marginR);
