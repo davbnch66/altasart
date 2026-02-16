@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2, Image, Loader2, MapPin, GripVertical, ChevronUp, ChevronDown, WifiOff, PenTool } from "lucide-react";
+import { Plus, Trash2, Image, Loader2, MapPin, GripVertical, ChevronUp, ChevronDown, WifiOff, PenTool, X } from "lucide-react";
 import { toast } from "sonner";
 import { useSortableList } from "@/hooks/useSortableList";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -24,6 +24,7 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
   const [newPiece, setNewPiece] = useState({ name: "", floor_level: "", dimensions: "", access_comments: "" });
   const [uploading, setUploading] = useState<string | null>(null);
   const [offlinePhotos, setOfflinePhotos] = useState<OfflinePhoto[]>([]);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [annotating, setAnnotating] = useState<{
     src: string;
     photoId?: string;
@@ -325,17 +326,17 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
               <div className="space-y-2">
                 {piecePhotos(piece.id).map((photo: any) => (
                   <div key={photo.id} className="space-y-1">
-                    <div className="relative group w-full max-w-[200px] aspect-square rounded-lg overflow-hidden border">
-                      <img src={getPhotoUrl(photo.storage_path)} alt={photo.file_name || ""} className="w-full h-full object-cover" />
+                    <div className="relative group w-full max-w-[200px] aspect-square rounded-lg overflow-hidden border cursor-pointer" onClick={() => setLightboxSrc(getPhotoUrl(photo.storage_path))}>
+                      <img src={getPhotoUrl(photo.storage_path)} alt={photo.file_name || ""} className="w-full h-full object-cover" loading="lazy" />
                       <button
-                        onClick={() => setAnnotating({ src: getPhotoUrl(photo.storage_path), photoId: photo.id, storagePath: photo.storage_path, pieceId: piece.id })}
+                        onClick={(e) => { e.stopPropagation(); setAnnotating({ src: getPhotoUrl(photo.storage_path), photoId: photo.id, storagePath: photo.storage_path, pieceId: piece.id }); }}
                         className="absolute bottom-0.5 left-0.5 bg-primary text-primary-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Annoter"
                       >
                         <PenTool className="h-3 w-3" />
                       </button>
                       <button
-                        onClick={() => deletePhoto(photo.id, photo.storage_path)}
+                        onClick={(e) => { e.stopPropagation(); deletePhoto(photo.id, photo.storage_path); }}
                         className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -433,6 +434,27 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
           imageSrc={annotating.src}
           onSave={handleAnnotationSave}
         />
+      )}
+
+      {/* Lightbox */}
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <img
+            src={lightboxSrc}
+            alt="Photo agrandie"
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxSrc(null)}
+            className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/70"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
       )}
     </div>
   );
