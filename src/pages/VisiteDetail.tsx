@@ -75,6 +75,7 @@ const VisiteDetail = () => {
   const isOnline = useOnlineStatus();
   const [editData, setEditData] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [photosPerRow, setPhotosPerRow] = useState<1 | 2>(1);
   const [exporting, setExporting] = useState(false);
   const [activeTab, setActiveTab] = useState("rdv");
   const isMobile = useIsMobile();
@@ -214,13 +215,21 @@ const VisiteDetail = () => {
             <Checkbox checked={editData.on_hold || false} onCheckedChange={(v) => updateField("on_hold", v)} />
             En attente
           </label>
+          <select
+            value={photosPerRow}
+            onChange={(e) => setPhotosPerRow(Number(e.target.value) as 1 | 2)}
+            className="flex h-9 rounded-md border border-input bg-background px-2 py-1 text-xs"
+          >
+            <option value={1}>Photos : 1/ligne</option>
+            <option value={2}>Photos : 2/ligne</option>
+          </select>
           <Button
             variant="outline"
             size="sm"
             onClick={async () => {
               setExporting(true);
               try {
-                await generateVisitePdf(id!);
+                await generateVisitePdf(id!, { photosPerRow });
                 toast.success("Rapport PDF généré");
               } catch (e: any) {
                 toast.error(e.message || "Erreur export PDF");
@@ -241,13 +250,21 @@ const VisiteDetail = () => {
           </Button>
         </div>
         <div className="flex md:hidden items-center gap-1">
+          <select
+            value={photosPerRow}
+            onChange={(e) => setPhotosPerRow(Number(e.target.value) as 1 | 2)}
+            className="flex h-8 rounded-md border border-input bg-background px-1 py-0.5 text-xs w-16"
+          >
+            <option value={1}>1/l</option>
+            <option value={2}>2/l</option>
+          </select>
           <Button
             size="icon"
             variant="outline"
             onClick={async () => {
               setExporting(true);
               try {
-                await generateVisitePdf(id!);
+                await generateVisitePdf(id!, { photosPerRow });
                 toast.success("Rapport PDF généré");
               } catch (e: any) {
                 toast.error(e.message || "Erreur export PDF");
