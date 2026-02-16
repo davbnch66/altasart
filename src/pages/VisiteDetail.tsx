@@ -596,6 +596,8 @@ const VisiteDetail = () => {
         onClose={() => setPdfPreview(null)}
         blobUrl={pdfPreview?.blobUrl || null}
         fileName={pdfPreview?.fileName || ""}
+        clientEmail={client?.email || ""}
+        visiteCode={visite.code || ""}
       />
     </div>
   );
