@@ -179,11 +179,11 @@ const Devis = () => {
   const hasActiveFilters = statusFilter || companyFilter;
 
   return (
-    <div className={`max-w-7xl mx-auto space-y-4 ${isMobile ? "p-3 pb-20" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`max-w-7xl mx-auto ${isMobile ? "p-2 pb-20 space-y-2" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Devis / Cotations</h1>
+          <h1 className={`font-bold tracking-tight ${isMobile ? "text-base" : "text-2xl"}`}>Devis / Cotations</h1>
           {!isMobile && <p className="text-muted-foreground mt-1">{filtered.length} devis{filtered.length !== devis.length ? ` sur ${devis.length}` : ""}</p>}
         </div>
         <CreateDevisDialog
@@ -196,7 +196,7 @@ const Devis = () => {
       </motion.div>
 
       {/* Status filter chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+      <div className={`flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none`}>
         {([
           { key: "all", label: "Tous" },
           { key: "brouillon", label: "Brouillons" },
@@ -208,7 +208,9 @@ const Devis = () => {
           <button
             key={key}
             onClick={() => setStatusFilter(key === "all" ? null : statusFilter === key ? null : key)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            className={`shrink-0 rounded-full font-medium transition-colors ${
+              isMobile ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
+            } ${
               (key === "all" && !statusFilter) || statusFilter === key
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -261,12 +263,12 @@ const Devis = () => {
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className={`absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground ${isMobile ? "h-3.5 w-3.5" : "h-4 w-4"}`} />
         <Input
-          placeholder="Rechercher par code, client, objet..."
+          placeholder={isMobile ? "Rechercher..." : "Rechercher par code, client, objet..."}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 h-9"
+          className={isMobile ? "pl-8 h-8 text-xs" : "pl-9 h-9"}
         />
       </div>
 
@@ -279,44 +281,32 @@ const Devis = () => {
         <div className="text-center py-12 text-muted-foreground">Aucun devis trouvé</div>
       ) : isMobile ? (
         /* Mobile cards */
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid gap-3">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid gap-1.5">
           {filtered.map((d) => {
             const comp = d.companies as any;
             return (
               <div
                 key={d.id}
                 onClick={() => navigate(`/devis/${d.id}`)}
-                className="rounded-xl border bg-card p-3 active:bg-muted/50 transition-colors cursor-pointer"
+                className="rounded-lg border bg-card px-2.5 py-2 active:bg-muted/50 transition-colors cursor-pointer"
               >
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                  </div>
+                <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-sm truncate">{d.objet}</p>
-                      {d.code && <span className="text-[10px] font-mono text-muted-foreground shrink-0">{d.code}</span>}
+                    <div className="flex items-center gap-1.5">
+                      <p className="font-medium text-xs truncate">{d.objet}</p>
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">{(d.clients as any)?.name || "—"}</p>
-                    <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
-                      {d.created_at && (
-                        <span className="shrink-0">{formatDateShort(d.created_at)}</span>
-                      )}
-                      <span className="flex items-center gap-0.5 shrink-0 font-medium">
-                        <Euro className="h-3 w-3" />
-                        {formatAmount(d.amount)}
-                      </span>
-                      {comp?.short_name && (
-                        <span className="shrink-0">{comp.short_name}</span>
-                      )}
+                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                      <span className="truncate">{(d.clients as any)?.name || "—"}</span>
+                      {d.code && <span className="font-mono shrink-0">{d.code}</span>}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${statusStyles[d.status] || "bg-muted text-muted-foreground"}`}>
+                  <div className="flex flex-col items-end gap-0.5 shrink-0">
+                    <span className="text-xs font-semibold">{formatAmount(d.amount)}</span>
+                    <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none ${statusStyles[d.status] || "bg-muted text-muted-foreground"}`}>
                       {statusLabels[d.status] || d.status}
                     </span>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 </div>
               </div>
             );
