@@ -33,10 +33,14 @@ serve(async (req) => {
       ? `<div style="font-family:sans-serif;white-space:pre-wrap">${body.replace(/\n/g, "<br>")}</div>`
       : "<p></p>";
 
+    // En mode test Resend (sans domaine vérifié), on ne peut envoyer qu'à son propre email
+    const testEmail = "david.soler.verlaine@gmail.com";
+    const recipientEmail = to === testEmail ? to : testEmail;
+
     const emailPayload: Record<string, unknown> = {
       from: "Altas Art <onboarding@resend.dev>",
-      to: [to],
-      subject,
+      to: [recipientEmail],
+      subject: to !== testEmail ? `[Pour: ${to}] ${subject}` : subject,
       html: htmlBody,
     };
 
