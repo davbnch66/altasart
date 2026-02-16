@@ -75,7 +75,8 @@ const vehiculeLabels: Record<string, string> = {
   chariot: "Chariot", palan: "Palan", autre: "Autre",
 };
 
-export async function generateVisitePdf(visiteId: string) {
+export async function generateVisitePdf(visiteId: string, options?: { photosPerRow?: 1 | 2 }) {
+  const photosPerRow = options?.photosPerRow || 1;
   // Fetch all data in parallel
   const [visiteRes, piecesRes, materielRes, affectationsRes, rhRes, vehiculesRes, contraintesRes, methodoRes, photosRes] = await Promise.all([
     supabase.from("visites").select("*, clients(name, code, address, city, postal_code, email, phone, mobile, contact_name), companies(name, short_name, address, phone, email, siret)").eq("id", visiteId).single(),
@@ -308,6 +309,7 @@ export async function generateVisitePdf(visiteId: string) {
       y = subTitle(doc, pieceName, y, marginL);
 
       // Try to load and add photos
+      let rowMaxH = 0;
       for (let i = 0; i < piecePhotos.length; i++) {
         const ph = piecePhotos[i];
         try {
@@ -323,7 +325,6 @@ export async function generateVisitePdf(visiteId: string) {
                 reader.readAsDataURL(blob);
               });
 
-              // Calculate real aspect ratio to avoid deformation
               const imgEl = await new Promise<HTMLImageElement>((resolve, reject) => {
                 const img = new Image();
                 img.onload = () => resolve(img);
@@ -332,31 +333,50 @@ export async function generateVisitePdf(visiteId: string) {
               });
 
               const aspectRatio = imgEl.naturalWidth / imgEl.naturalHeight;
-              const imgW = contentW;
-              let imgH = imgW / aspectRatio;
-              // Cap max height to avoid overflowing the page
-              if (imgH > 180) { imgH = 180; }
 
-              y = checkPage(doc, y, imgH + 10, logo, company, pageW, marginL, marginR);
-              // Center the image horizontally if aspect ratio makes it narrower
-              let finalW = imgW;
-              let finalH = imgH;
-              if (aspectRatio > 2.5) {
-                // Very wide panoramic: use full width
-                finalW = imgW;
-                finalH = imgW / aspectRatio;
+              if (photosPerRow === 2) {
+                const col = i % 2;
+                const colW = contentW / 2 - 3;
+                const imgX = marginL + col * (colW + 6);
+                let imgH = colW / aspectRatio;
+                if (imgH > 90) imgH = 90;
+
+                if (col === 0) {
+                  rowMaxH = 0;
+                  y = checkPage(doc, y, imgH + 10, logo, company, pageW, marginL, marginR);
+                }
+                doc.addImage(dataUrl, "JPEG", imgX, y, colW, imgH);
+                const cellH = imgH + (ph.caption ? 8 : 4);
+                if (cellH > rowMaxH) rowMaxH = cellH;
+
+                if (ph.caption) {
+                  doc.setFontSize(7);
+                  doc.setFont("helvetica", "italic");
+                  doc.setTextColor(100, 100, 100);
+                  doc.text(ph.caption, imgX, y + imgH + 3);
+                }
+
+                if (col === 1 || i === piecePhotos.length - 1) {
+                  y += rowMaxH;
+                }
+              } else {
+                const imgW = contentW;
+                let imgH = imgW / aspectRatio;
+                if (imgH > 180) imgH = 180;
+
+                y = checkPage(doc, y, imgH + 10, logo, company, pageW, marginL, marginR);
+                const imgX = marginL + (contentW - imgW) / 2;
+                doc.addImage(dataUrl, "JPEG", imgX, y, imgW, imgH);
+
+                if (ph.caption) {
+                  doc.setFontSize(7);
+                  doc.setFont("helvetica", "italic");
+                  doc.setTextColor(100, 100, 100);
+                  doc.text(ph.caption, marginL, y + imgH + 3);
+                }
+
+                y += imgH + (ph.caption ? 8 : 4);
               }
-              const imgX = marginL + (contentW - finalW) / 2;
-              doc.addImage(dataUrl, "JPEG", imgX, y, finalW, finalH);
-
-              if (ph.caption) {
-                doc.setFontSize(7);
-                doc.setFont("helvetica", "italic");
-                doc.setTextColor(100, 100, 100);
-                doc.text(ph.caption, marginL, y + finalH + 3);
-              }
-
-              y += finalH + (ph.caption ? 8 : 4);
             }
           }
         } catch {
