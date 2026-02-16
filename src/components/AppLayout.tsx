@@ -17,7 +17,7 @@ export const AppLayout: React.FC = () => {
   }, [location.pathname, isMobile]);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden max-w-[100vw]">
       {/* Desktop sidebar — always visible */}
       {!isMobile && (
         <AppSidebar />
@@ -36,7 +36,7 @@ export const AppLayout: React.FC = () => {
         </>
       )}
 
-      <main className="flex-1 overflow-y-auto bg-background">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background">
         <OfflineBanner />
         {/* Mobile top bar with hamburger */}
         {isMobile && (
