@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Pencil, MapPin, Calendar, Clock, User, ClipboardCheck, FileText, FolderOpen, BookOpen, Save, Loader2, LayoutGrid, Package, Link2, Users, Truck, ShieldAlert, ClipboardList } from "lucide-react";
+import { ArrowLeft, Pencil, MapPin, Calendar, Clock, User, ClipboardCheck, FileText, FolderOpen, BookOpen, Save, Loader2, LayoutGrid, Package, Link2, Users, Truck, ShieldAlert, ClipboardList, Download } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useState, useEffect } from "react";
@@ -20,6 +20,7 @@ import { VisiteRHTab } from "@/components/visite/VisiteRHTab";
 import { VisiteVehiculesTab } from "@/components/visite/VisiteVehiculesTab";
 import { VisiteContraintesTab } from "@/components/visite/VisiteContraintesTab";
 import { VisiteMethodologieTab } from "@/components/visite/VisiteMethodologieTab";
+import { generateVisitePdf } from "@/lib/generateVisitePdf";
 
 const statusLabels: Record<string, string> = {
   planifiee: "Planifiée",
@@ -39,6 +40,7 @@ const VisiteDetail = () => {
   const queryClient = useQueryClient();
   const [editData, setEditData] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const { data: visite, isLoading } = useQuery({
     queryKey: ["visite-detail", id],
@@ -172,6 +174,25 @@ const VisiteDetail = () => {
             <Checkbox checked={editData.on_hold || false} onCheckedChange={(v) => updateField("on_hold", v)} />
             En attente
           </label>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              setExporting(true);
+              try {
+                await generateVisitePdf(id!);
+                toast.success("Rapport PDF généré");
+              } catch (e: any) {
+                toast.error(e.message || "Erreur export PDF");
+              } finally {
+                setExporting(false);
+              }
+            }}
+            disabled={exporting}
+          >
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Download className="h-4 w-4 mr-1" />}
+            Rapport PDF
+          </Button>
           <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending}>
             {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
             Enregistrer
