@@ -1,1 +1,4 @@
 project_id = "bsqqdtqzxajecgxgulce"
+
+[functions.import-materiel]
+verify_jwt = false
