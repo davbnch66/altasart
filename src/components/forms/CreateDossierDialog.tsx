@@ -31,9 +31,10 @@ type FormData = z.infer<typeof schema>;
 interface CreateDossierDialogProps {
   preselectedClientId?: string;
   preselectedCompanyId?: string;
+  trigger?: React.ReactNode;
 }
 
-export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId }: CreateDossierDialogProps) => {
+export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId, trigger }: CreateDossierDialogProps) => {
   const [open, setOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
@@ -89,9 +90,11 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId 
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), amount: 0 }); } }}>
       <DialogTrigger asChild>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Nouveau dossier
-        </Button>
+        {trigger || (
+          <Button className="flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Nouveau dossier
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>

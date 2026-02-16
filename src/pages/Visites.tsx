@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
-import { ClipboardCheck, MapPin, Camera, Calendar, User, Search, ChevronRight } from "lucide-react";
+import { ClipboardCheck, MapPin, Camera, Calendar, User, Search, ChevronRight, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { format } from "date-fns";
@@ -74,7 +75,13 @@ const Visites = () => {
           <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Visites techniques</h1>
           {!isMobile && <p className="text-muted-foreground mt-1">Planification et comptes rendus</p>}
         </div>
-        <CreateVisiteDialog />
+        <CreateVisiteDialog
+          trigger={isMobile ? (
+            <Button size="icon" className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg">
+              <Plus className="h-6 w-6" />
+            </Button>
+          ) : undefined}
+        />
       </motion.div>
 
       {/* Status filter chips */}
