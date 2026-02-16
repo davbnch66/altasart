@@ -184,27 +184,32 @@ const VisiteDetail = () => {
   return (
     <div className={`p-4 md:p-6 lg:p-8 max-w-5xl mx-auto space-y-4 md:space-y-6 ${isMobile ? "pb-24" : ""}`}>
       {/* Header */}
-      <div className="flex items-center gap-2 md:gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/visites")}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-lg md:text-2xl font-bold tracking-tight break-words">
+      <div className="space-y-2">
+        {/* Title row */}
+        <div className="flex items-start gap-2">
+          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => navigate("/visites")}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg md:text-2xl font-bold tracking-tight">
               Visite {visite.code ? `#${visite.code}` : visite.title}
             </h1>
-            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle[visite.status]}`}>
-              {statusLabels[visite.status] || visite.status}
-            </span>
-            {visite.on_hold && <span className="text-xs bg-warning/10 text-warning rounded-full px-2 py-0.5">En attente</span>}
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle[visite.status]}`}>
+                {statusLabels[visite.status] || visite.status}
+              </span>
+              {visite.on_hold && <span className="text-xs bg-warning/10 text-warning rounded-full px-2 py-0.5">En attente</span>}
+            </div>
+            {client && (
+              <p className="text-muted-foreground text-sm mt-1 cursor-pointer hover:text-primary transition-colors" onClick={() => navigate(`/clients/${client.id}`)}>
+                {client.name} {client.code ? `(${client.code})` : ""}
+              </p>
+            )}
           </div>
-          {client && (
-            <p className="text-muted-foreground text-sm mt-0.5 break-words cursor-pointer hover:text-primary transition-colors" onClick={() => navigate(`/clients/${client.id}`)}>
-              {client.name} {client.code ? `(${client.code})` : ""}
-            </p>
-          )}
         </div>
-        <div className="hidden md:flex items-center gap-2">
+
+        {/* Desktop actions */}
+        <div className="hidden md:flex items-center gap-2 pl-10">
           <select
             value={editData.status}
             onChange={(e) => updateField("status", e.target.value)}
@@ -252,36 +257,54 @@ const VisiteDetail = () => {
             Enregistrer
           </Button>
         </div>
-        <div className="flex md:hidden items-center gap-1">
+
+        {/* Mobile actions */}
+        <div className="flex md:hidden items-center gap-1 pl-10">
           <select
-            value={photosPerRow}
-            onChange={(e) => setPhotosPerRow(Number(e.target.value) as 1 | 2)}
-            className="flex h-8 rounded-md border border-input bg-background px-1 py-0.5 text-xs w-16"
+            value={editData.status}
+            onChange={(e) => updateField("status", e.target.value)}
+            className="flex h-8 rounded-md border border-input bg-background px-2 py-0.5 text-xs"
           >
-            <option value={1}>1/l</option>
-            <option value={2}>2/l</option>
+            <option value="planifiee">Planifiée</option>
+            <option value="realisee">Réalisée</option>
+            <option value="annulee">Annulée</option>
           </select>
-          <Button
-            size="icon"
-            variant="outline"
-            onClick={async () => {
-              setExporting(true);
-              try {
-                const result = await generateVisitePdf(id!, { photosPerRow });
-                setPdfPreview(result);
-              } catch (e: any) {
-                toast.error(e.message || "Erreur export PDF");
-              } finally {
-                setExporting(false);
-              }
-            }}
-            disabled={exporting}
-          >
-            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-          </Button>
-          <Button size="icon" variant="outline" onClick={handleSave} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          </Button>
+          <label className="flex items-center gap-1.5 text-xs">
+            <Checkbox checked={editData.on_hold || false} onCheckedChange={(v) => updateField("on_hold", v)} className="h-3.5 w-3.5" />
+            En attente
+          </label>
+          <div className="ml-auto flex items-center gap-1">
+            <select
+              value={photosPerRow}
+              onChange={(e) => setPhotosPerRow(Number(e.target.value) as 1 | 2)}
+              className="flex h-8 rounded-md border border-input bg-background px-1 py-0.5 text-xs w-16"
+            >
+              <option value={1}>1/l</option>
+              <option value={2}>2/l</option>
+            </select>
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-8 w-8"
+              onClick={async () => {
+                setExporting(true);
+                try {
+                  const result = await generateVisitePdf(id!, { photosPerRow });
+                  setPdfPreview(result);
+                } catch (e: any) {
+                  toast.error(e.message || "Erreur export PDF");
+                } finally {
+                  setExporting(false);
+                }
+              }}
+              disabled={exporting}
+            >
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            </Button>
+            <Button size="icon" variant="outline" className="h-8 w-8" onClick={handleSave} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
       </div>
 
