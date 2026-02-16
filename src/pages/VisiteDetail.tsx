@@ -392,6 +392,12 @@ const VisiteDetail = () => {
 
         {/* ============ TAB 2 : SITE ============ */}
         <TabsContent value="site" className="space-y-3">
+          <Section title="Instructions" icon={BookOpen} defaultOpen>
+            <div className="rounded-xl border bg-card p-5 space-y-3">
+              <Textarea value={editData.instructions || ""} onChange={(e) => updateField("instructions", e.target.value)} rows={10} placeholder="Instructions détaillées pour l'opération..." />
+            </div>
+          </Section>
+
           <Section title="Pièces / Zones" icon={LayoutGrid} defaultOpen>
             <VisitePiecesTab visiteId={visite.id} companyId={visite.company_id} />
           </Section>
@@ -423,11 +429,6 @@ const VisiteDetail = () => {
             <VisiteMethodologieTab visiteId={visite.id} companyId={visite.company_id} />
           </Section>
 
-          <Section title="Instructions" icon={BookOpen}>
-            <div className="rounded-xl border bg-card p-5 space-y-3">
-              <Textarea value={editData.instructions || ""} onChange={(e) => updateField("instructions", e.target.value)} rows={10} placeholder="Instructions détaillées pour l'opération..." />
-            </div>
-          </Section>
         </TabsContent>
 
         {/* ============ TAB 4 : DEVIS & DOSSIER ============ */}
