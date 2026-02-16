@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { DollarSign, TrendingUp, AlertTriangle, CheckCircle2, ArrowUpRight, ArrowDownRight, Pencil, Trash2, CreditCard, Download } from "lucide-react";
+import { DollarSign, TrendingUp, AlertTriangle, CheckCircle2, ArrowUpRight, ArrowDownRight, Pencil, Trash2, CreditCard, Download, ChevronRight, Euro } from "lucide-react";
 import { generateFacturePdf } from "@/lib/generateFacturePdf";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,7 @@ import { EditReglementDialog } from "@/components/forms/EditReglementDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function useCompanyFilter() {
   const { current, dbCompanies } = useCompany();
@@ -115,27 +116,13 @@ function useMonthlyEvolution(companyIds: string[]) {
       }
 
       const [{ data: allFactures }, { data: allReglements }] = await Promise.all([
-        supabase
-          .from("factures")
-          .select("amount, created_at")
-          .in("company_id", companyIds)
-          .gte("created_at", months[0].start)
-          .lte("created_at", months[11].end),
-        supabase
-          .from("reglements")
-          .select("amount, payment_date")
-          .in("company_id", companyIds)
-          .gte("payment_date", months[0].start.slice(0, 10))
-          .lte("payment_date", months[11].end.slice(0, 10)),
+        supabase.from("factures").select("amount, created_at").in("company_id", companyIds).gte("created_at", months[0].start).lte("created_at", months[11].end),
+        supabase.from("reglements").select("amount, payment_date").in("company_id", companyIds).gte("payment_date", months[0].start.slice(0, 10)).lte("payment_date", months[11].end.slice(0, 10)),
       ]);
 
       return months.map((m) => {
-        const ca = (allFactures ?? [])
-          .filter((f) => f.created_at >= m.start && f.created_at <= m.end)
-          .reduce((s, f) => s + Number(f.amount), 0);
-        const enc = (allReglements ?? [])
-          .filter((r) => r.payment_date >= m.start.slice(0, 10) && r.payment_date <= m.end.slice(0, 10))
-          .reduce((s, r) => s + Number(r.amount), 0);
+        const ca = (allFactures ?? []).filter((f) => f.created_at >= m.start && f.created_at <= m.end).reduce((s, f) => s + Number(f.amount), 0);
+        const enc = (allReglements ?? []).filter((r) => r.payment_date >= m.start.slice(0, 10) && r.payment_date <= m.end.slice(0, 10)).reduce((s, r) => s + Number(r.amount), 0);
         return { name: m.label, ca, encaissements: enc };
       });
     },
@@ -182,6 +169,7 @@ const Finance = () => {
   const { dbCompanies } = useCompany();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [chartCompanyId, setChartCompanyId] = useState<string>("all");
   const chartCompanyIds = chartCompanyId === "all" ? companyIds : [chartCompanyId];
   const { data: stats, isLoading: statsLoading } = useFinanceStats(companyIds);
@@ -224,17 +212,18 @@ const Finance = () => {
 
   const statCards = [
     { label: "CA du mois", value: fmt(stats?.caThisMonth ?? 0), icon: TrendingUp, change: stats?.caChange ? `${Number(stats.caChange) >= 0 ? "+" : ""}${stats.caChange}%` : "—", positive: !stats?.caChange || Number(stats.caChange) >= 0 },
-    { label: "Encours clients", value: fmt(stats?.encours ?? 0), icon: DollarSign, change: `${stats?.encoursCount ?? 0} facture${(stats?.encoursCount ?? 0) > 1 ? "s" : ""}`, positive: true },
-    { label: "Impayés > 30j", value: fmt(stats?.impayesTotal ?? 0), icon: AlertTriangle, change: `${stats?.impayesCount ?? 0} facture${(stats?.impayesCount ?? 0) > 1 ? "s" : ""}`, positive: (stats?.impayesTotal ?? 0) === 0 },
-    { label: "Encaissé ce mois", value: fmt(stats?.encaisseThisMonth ?? 0), icon: CheckCircle2, change: "Ce mois", positive: true },
+    { label: "Encours", value: fmt(stats?.encours ?? 0), icon: DollarSign, change: `${stats?.encoursCount ?? 0} fact.`, positive: true },
+    { label: "Impayés", value: fmt(stats?.impayesTotal ?? 0), icon: AlertTriangle, change: `${stats?.impayesCount ?? 0} fact.`, positive: (stats?.impayesTotal ?? 0) === 0 },
+    { label: "Encaissé", value: fmt(stats?.encaisseThisMonth ?? 0), icon: CheckCircle2, change: "Ce mois", positive: true },
   ];
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+    <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20 space-y-4" : "p-6 lg:p-8 space-y-8"}`}>
+      {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Finance</h1>
-          <p className="text-muted-foreground mt-1">Suivi facturation et paiements</p>
+          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Finance</h1>
+          {!isMobile && <p className="text-muted-foreground mt-1">Suivi facturation et paiements</p>}
         </div>
         <div className="flex items-center gap-2">
           <CreateReglementDialog />
@@ -242,15 +231,20 @@ const Finance = () => {
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats cards */}
+      <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"}`}>
         {statCards.map((stat, i) => (
-          <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * i }} className="rounded-xl border bg-card p-5 space-y-3">
+          <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * i }}
+            className={`rounded-xl border bg-card space-y-1 ${isMobile ? "p-3" : "p-5 space-y-3"}`}
+          >
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{stat.label}</span>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
+              <span className={`text-muted-foreground ${isMobile ? "text-[11px]" : "text-sm"}`}>{stat.label}</span>
+              {!isMobile && <stat.icon className="h-4 w-4 text-muted-foreground" />}
             </div>
-            {statsLoading ? <Skeleton className="h-8 w-24" /> : <p className="text-2xl font-bold tracking-tight">{stat.value}</p>}
-            <div className="flex items-center gap-1 text-xs">
+            {statsLoading ? <Skeleton className={`${isMobile ? "h-6 w-16" : "h-8 w-24"}`} /> : (
+              <p className={`font-bold tracking-tight ${isMobile ? "text-base" : "text-2xl"}`}>{stat.value}</p>
+            )}
+            <div className="flex items-center gap-1 text-[11px]">
               {stat.positive ? <ArrowUpRight className="h-3 w-3 text-success" /> : <ArrowDownRight className="h-3 w-3 text-destructive" />}
               <span className={stat.positive ? "text-success" : "text-destructive"}>{stat.change}</span>
             </div>
@@ -258,30 +252,31 @@ const Finance = () => {
         ))}
       </div>
 
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="rounded-xl border bg-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold">Évolution sur 12 mois</h2>
+      {/* Chart */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className={`font-semibold ${isMobile ? "text-sm" : ""}`}>Évolution 12 mois</h2>
           <select
             value={chartCompanyId}
             onChange={(e) => setChartCompanyId(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            className={`rounded-md border border-input bg-background px-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring ${isMobile ? "h-7 text-xs" : "h-9 px-3"}`}
           >
-            <option value="all">Toutes les sociétés</option>
+            <option value="all">{isMobile ? "Toutes" : "Toutes les sociétés"}</option>
             {dbCompanies.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
         </div>
         {evolutionLoading ? (
-          <Skeleton className="h-[280px] w-full" />
+          <Skeleton className={`w-full ${isMobile ? "h-[200px]" : "h-[280px]"}`} />
         ) : (
-          <ResponsiveContainer width="100%" height={280}>
+          <ResponsiveContainer width="100%" height={isMobile ? 200 : 280}>
             <BarChart data={evolutionData} barGap={2}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} className="text-muted-foreground" />
-              <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} className="text-muted-foreground" />
+              <XAxis dataKey="name" tick={{ fontSize: isMobile ? 10 : 12 }} className="text-muted-foreground" />
+              <YAxis tick={{ fontSize: isMobile ? 10 : 12 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} className="text-muted-foreground" width={isMobile ? 30 : 40} />
               <Tooltip content={<ChartTooltipContent />} />
-              <Legend formatter={(v) => (v === "ca" ? "CA facturé" : "Encaissements")} />
+              {!isMobile && <Legend formatter={(v) => (v === "ca" ? "CA facturé" : "Encaissements")} />}
               <Bar dataKey="ca" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               <Bar dataKey="encaissements" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -289,22 +284,60 @@ const Finance = () => {
         )}
       </motion.div>
 
+      {/* Factures & Reglements tabs */}
       <Tabs defaultValue="factures">
-        <TabsList>
+        <TabsList className={isMobile ? "w-full" : ""}>
           <TabsTrigger value="factures" className="gap-2"><DollarSign className="h-4 w-4" /> Factures</TabsTrigger>
           <TabsTrigger value="reglements" className="gap-2"><CreditCard className="h-4 w-4" /> Règlements</TabsTrigger>
         </TabsList>
 
         <TabsContent value="factures">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border bg-card">
-            <div className="p-5 border-b">
-              <h2 className="font-semibold">Dernières factures</h2>
+          {facturesLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className={`w-full rounded-xl ${isMobile ? "h-20" : "h-14"}`} />)}
             </div>
-            {facturesLoading ? (
-              <div className="p-5 space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-              </div>
-            ) : factures && factures.length > 0 ? (
+          ) : !factures || factures.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground text-sm">Aucune facture pour le moment</div>
+          ) : isMobile ? (
+            /* Mobile factures cards */
+            <div className="grid gap-3 mt-3">
+              {factures.map((inv) => (
+                <div
+                  key={inv.id}
+                  onClick={() => navigate(`/finance/${inv.id}`)}
+                  className="rounded-xl border bg-card p-3 active:bg-muted/50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm truncate">{(inv.clients as any)?.name || "—"}</p>
+                        {inv.code && <span className="text-[10px] font-mono text-muted-foreground shrink-0">{inv.code}</span>}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                        <span className="shrink-0">{format(new Date(inv.created_at), "d MMM", { locale: fr })}</span>
+                        <span className="flex items-center gap-0.5 shrink-0 font-medium">
+                          <Euro className="h-3 w-3" />
+                          {fmt(Number(inv.amount))}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${invoiceStatusClass[inv.status] || "bg-muted text-muted-foreground"}`}>
+                        {statusLabels[inv.status] || inv.status}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Desktop factures table */
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border bg-card">
+              <div className="p-5 border-b"><h2 className="font-semibold">Dernières factures</h2></div>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/30">
@@ -330,7 +363,7 @@ const Finance = () => {
                       </td>
                       <td className="px-5 py-3 text-right">
                         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                          <button onClick={() => generateFacturePdf(inv.id).catch(() => toast.error("Erreur lors de la génération du PDF"))} className="p-1.5 rounded-md hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary" title="Télécharger PDF">
+                          <button onClick={() => generateFacturePdf(inv.id).catch(() => toast.error("Erreur PDF"))} className="p-1.5 rounded-md hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary" title="Télécharger PDF">
                             <Download className="h-3.5 w-3.5" />
                           </button>
                           <button onClick={() => setEditFacture(inv)} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
@@ -345,22 +378,59 @@ const Finance = () => {
                   ))}
                 </tbody>
               </table>
-            ) : (
-              <div className="px-5 py-8 text-center text-sm text-muted-foreground">Aucune facture pour le moment</div>
-            )}
-          </motion.div>
+            </motion.div>
+          )}
         </TabsContent>
 
         <TabsContent value="reglements">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border bg-card">
-            <div className="p-5 border-b">
-              <h2 className="font-semibold">Derniers règlements</h2>
+          {reglementsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => <Skeleton key={i} className={`w-full rounded-xl ${isMobile ? "h-20" : "h-14"}`} />)}
             </div>
-            {reglementsLoading ? (
-              <div className="p-5 space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-              </div>
-            ) : reglements && reglements.length > 0 ? (
+          ) : !reglements || reglements.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground text-sm">Aucun règlement pour le moment</div>
+          ) : isMobile ? (
+            /* Mobile reglements cards */
+            <div className="grid gap-3 mt-3">
+              {reglements.map((reg) => (
+                <div
+                  key={reg.id}
+                  className="rounded-xl border bg-card p-3 active:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-success/10 flex items-center justify-center shrink-0">
+                      <CreditCard className="h-4 w-4 text-success" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm truncate">{(reg.factures as any)?.clients?.name ?? "—"}</p>
+                        {reg.code && <span className="text-[10px] font-mono text-muted-foreground shrink-0">{reg.code}</span>}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                        <span className="shrink-0">{format(new Date(reg.payment_date), "d MMM", { locale: fr })}</span>
+                        <span className="shrink-0">Fact. {(reg.factures as any)?.code || "—"}</span>
+                        {reg.bank && <span className="shrink-0">{reg.bank}</span>}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="font-semibold text-sm text-success">{fmt(Number(reg.amount))}</span>
+                      <div className="flex gap-1">
+                        <button onClick={() => setEditReglement(reg)} className="p-1 rounded hover:bg-muted">
+                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                        <button onClick={() => setDeleteReglement(reg)} className="p-1 rounded hover:bg-muted">
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Desktop reglements table */
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border bg-card">
+              <div className="p-5 border-b"><h2 className="font-semibold">Derniers règlements</h2></div>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/30">
@@ -396,10 +466,8 @@ const Finance = () => {
                   ))}
                 </tbody>
               </table>
-            ) : (
-              <div className="px-5 py-8 text-center text-sm text-muted-foreground">Aucun règlement pour le moment</div>
-            )}
-          </motion.div>
+            </motion.div>
+          )}
         </TabsContent>
       </Tabs>
 
