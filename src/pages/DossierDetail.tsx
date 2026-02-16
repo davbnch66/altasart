@@ -3,16 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft,
-  FolderOpen,
-  Pencil,
-  FileText,
-  DollarSign,
-  Eye,
-  MapPin,
-  Calendar,
-  User,
-  Building2,
+  ArrowLeft, FolderOpen, Pencil, FileText, DollarSign, Eye, User, Building2, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,69 +12,35 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useState } from "react";
 import { EditDossierDialog } from "@/components/forms/EditDossierDialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const stageLabels: Record<string, string> = {
-  prospect: "Prospect",
-  devis: "Devis envoyé",
-  accepte: "Accepté",
-  planifie: "Planifié",
-  en_cours: "En cours",
-  termine: "Terminé",
-  facture: "Facturé",
-  paye: "Payé",
+  prospect: "Prospect", devis: "Devis envoyé", accepte: "Accepté", planifie: "Planifié",
+  en_cours: "En cours", termine: "Terminé", facture: "Facturé", paye: "Payé",
 };
-
 const stageStyles: Record<string, string> = {
-  prospect: "bg-muted text-muted-foreground",
-  devis: "bg-info/10 text-info",
-  accepte: "bg-success/10 text-success",
-  planifie: "bg-primary/10 text-primary",
-  en_cours: "bg-warning/10 text-warning",
-  termine: "bg-success/10 text-success",
-  facture: "bg-info/10 text-info",
-  paye: "bg-success/10 text-success",
+  prospect: "bg-muted text-muted-foreground", devis: "bg-info/10 text-info",
+  accepte: "bg-success/10 text-success", planifie: "bg-primary/10 text-primary",
+  en_cours: "bg-warning/10 text-warning", termine: "bg-success/10 text-success",
+  facture: "bg-info/10 text-info", paye: "bg-success/10 text-success",
 };
-
 const formatAmount = (amount: number | null) => {
   if (!amount) return "—";
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
 };
-
 const formatDate = (dateStr: string | null) => {
   if (!dateStr) return "—";
-  try {
-    return format(new Date(dateStr), "dd/MM/yyyy", { locale: fr });
-  } catch {
-    return "—";
-  }
+  try { return format(new Date(dateStr), "dd/MM/yyyy", { locale: fr }); } catch { return "—"; }
 };
-
-const statusLabelsDevis: Record<string, string> = {
-  brouillon: "Brouillon",
-  envoye: "Envoyé",
-  accepte: "Accepté",
-  refuse: "Refusé",
-  expire: "Expiré",
-};
-
-const statusLabelsFacture: Record<string, string> = {
-  brouillon: "Brouillon",
-  envoyee: "Envoyée",
-  payee: "Payée",
-  en_retard: "En retard",
-  annulee: "Annulée",
-};
-
-const statusLabelsVisite: Record<string, string> = {
-  planifiee: "Planifiée",
-  realisee: "Réalisée",
-  annulee: "Annulée",
-};
+const statusLabelsDevis: Record<string, string> = { brouillon: "Brouillon", envoye: "Envoyé", accepte: "Accepté", refuse: "Refusé", expire: "Expiré" };
+const statusLabelsFacture: Record<string, string> = { brouillon: "Brouillon", envoyee: "Envoyée", payee: "Payée", en_retard: "En retard", annulee: "Annulée" };
+const statusLabelsVisite: Record<string, string> = { planifiee: "Planifiée", realisee: "Réalisée", annulee: "Annulée" };
 
 const DossierDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
+  const isMobile = useIsMobile();
 
   const { data: dossier, isLoading } = useQuery({
     queryKey: ["dossier-detail", id],
@@ -102,11 +59,7 @@ const DossierDetail = () => {
   const { data: devis = [] } = useQuery({
     queryKey: ["dossier-devis", id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("devis")
-        .select("id, code, objet, amount, status, created_at")
-        .eq("dossier_id", id!)
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("devis").select("id, code, objet, amount, status, created_at").eq("dossier_id", id!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -116,11 +69,7 @@ const DossierDetail = () => {
   const { data: factures = [] } = useQuery({
     queryKey: ["dossier-factures", id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("factures")
-        .select("id, code, amount, paid_amount, status, created_at, due_date")
-        .eq("dossier_id", id!)
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("factures").select("id, code, amount, paid_amount, status, created_at, due_date").eq("dossier_id", id!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -130,11 +79,7 @@ const DossierDetail = () => {
   const { data: visites = [] } = useQuery({
     queryKey: ["dossier-visites", id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("visites")
-        .select("id, title, status, scheduled_date, completed_date")
-        .eq("dossier_id", id!)
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("visites").select("id, title, status, scheduled_date, completed_date").eq("dossier_id", id!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -143,7 +88,7 @@ const DossierDetail = () => {
 
   if (isLoading) {
     return (
-      <div className="p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
+      <div className={`max-w-5xl mx-auto space-y-4 ${isMobile ? "p-3" : "p-6 lg:p-8 space-y-6"}`}>
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -152,11 +97,9 @@ const DossierDetail = () => {
 
   if (!dossier) {
     return (
-      <div className="p-6 lg:p-8 max-w-5xl mx-auto text-center py-20">
+      <div className={`max-w-5xl mx-auto text-center py-20 ${isMobile ? "p-3" : "p-6 lg:p-8"}`}>
         <p className="text-muted-foreground">Dossier introuvable</p>
-        <Button variant="outline" className="mt-4" onClick={() => navigate("/dossiers")}>
-          Retour
-        </Button>
+        <Button variant="outline" className="mt-4" onClick={() => navigate("/dossiers")}>Retour</Button>
       </div>
     );
   }
@@ -165,231 +108,186 @@ const DossierDetail = () => {
   const company = dossier.companies as any;
   const totalFacture = factures.reduce((s, f) => s + Number(f.amount), 0);
   const totalRegle = factures.reduce((s, f) => s + Number(f.paid_amount), 0);
-
-  // Pipeline progress
   const stageKeys = Object.keys(stageLabels);
   const currentStageIdx = stageKeys.indexOf(dossier.stage);
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
+    <div className={`max-w-5xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/dossiers")}>
-          <ArrowLeft className="h-5 w-5" />
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/dossiers")} className={isMobile ? "h-8 w-8" : ""}>
+          <ArrowLeft className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
         </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-            <FolderOpen className="h-6 w-6 text-muted-foreground" />
-            {dossier.code || `Dossier`}
+        <div className="flex-1 min-w-0">
+          <h1 className={`font-bold tracking-tight flex items-center gap-2 ${isMobile ? "text-base" : "text-2xl gap-3"}`}>
+            {!isMobile && <FolderOpen className="h-6 w-6 text-muted-foreground" />}
+            <span className="truncate">{dossier.code || "Dossier"}</span>
           </h1>
-          <p className="text-muted-foreground mt-0.5">{dossier.title}</p>
+          <p className={`text-muted-foreground mt-0.5 truncate ${isMobile ? "text-xs" : ""}`}>{dossier.title}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-          <Pencil className="h-4 w-4 mr-2" /> Modifier
+        <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => setEditing(true)}>
+          <Pencil className="h-4 w-4" />
+          {!isMobile && <span className="ml-1">Modifier</span>}
         </Button>
       </motion.div>
 
-      {/* Pipeline progress bar */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="rounded-xl border bg-card p-4">
-        <div className="flex gap-1">
+      {/* Pipeline */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
+        <div className="flex gap-0.5">
           {stageKeys.map((key, i) => (
-            <div
-              key={key}
-              className={`flex-1 h-2 rounded-full transition-colors ${
-                i <= currentStageIdx ? "bg-primary" : "bg-muted"
-              }`}
-            />
+            <div key={key} className={`flex-1 h-1.5 rounded-full transition-colors ${i <= currentStageIdx ? "bg-primary" : "bg-muted"}`} />
           ))}
         </div>
-        <div className="flex justify-between mt-2">
-          <span className="text-xs text-muted-foreground">Prospect</span>
-          <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${stageStyles[dossier.stage]}`}>
+        <div className="flex justify-between mt-1.5">
+          <span className="text-[10px] text-muted-foreground">Prospect</span>
+          <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${stageStyles[dossier.stage]}`}>
             {stageLabels[dossier.stage]}
           </span>
-          <span className="text-xs text-muted-foreground">Payé</span>
+          <span className="text-[10px] text-muted-foreground">Payé</span>
         </div>
       </motion.div>
 
       {/* Summary cards */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Montant dossier</p>
-          <p className="text-lg font-bold mt-1">{formatAmount(dossier.amount)}</p>
-        </div>
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Facturé</p>
-          <p className="text-lg font-bold mt-1">{formatAmount(totalFacture)}</p>
-        </div>
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Réglé</p>
-          <p className="text-lg font-bold mt-1 text-success">{formatAmount(totalRegle)}</p>
-        </div>
-        <div className="rounded-xl border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Solde</p>
-          <p className={`text-lg font-bold mt-1 ${totalFacture - totalRegle > 0 ? "text-destructive" : "text-success"}`}>
-            {formatAmount(totalFacture - totalRegle)}
-          </p>
-        </div>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4 gap-4"}`}>
+        {[
+          { label: "Montant", value: formatAmount(dossier.amount) },
+          { label: "Facturé", value: formatAmount(totalFacture) },
+          { label: "Réglé", value: formatAmount(totalRegle), className: "text-success" },
+          { label: "Solde", value: formatAmount(totalFacture - totalRegle), className: totalFacture - totalRegle > 0 ? "text-destructive" : "text-success" },
+        ].map((card) => (
+          <div key={card.label} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
+            <p className="text-[11px] text-muted-foreground">{card.label}</p>
+            <p className={`font-bold mt-0.5 ${isMobile ? "text-sm" : "text-lg"} ${card.className || ""}`}>{card.value}</p>
+          </div>
+        ))}
       </motion.div>
 
       {/* Info cards */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        <div className="rounded-xl border bg-card p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <User className="h-4 w-4" /> Client
+      <div className={`grid gap-3 ${isMobile ? "" : "lg:grid-cols-2 gap-4"}`}>
+        <div className={`rounded-xl border bg-card space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
+          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <User className="h-3.5 w-3.5" /> Client
           </h3>
-          <p
-            className="font-medium cursor-pointer hover:text-primary transition-colors"
-            onClick={() => client?.id && navigate(`/clients/${client.id}`)}
-          >
+          <p className={`font-medium cursor-pointer hover:text-primary transition-colors ${isMobile ? "text-sm" : ""}`} onClick={() => client?.id && navigate(`/clients/${client.id}`)}>
             {client?.name || "—"}
           </p>
-          {client?.contact_name && <p className="text-sm text-muted-foreground">{client.contact_name}</p>}
-          {client?.email && <p className="text-sm text-muted-foreground">{client.email}</p>}
-          {client?.phone && <p className="text-sm text-muted-foreground">{client.phone}</p>}
+          {client?.contact_name && <p className="text-xs text-muted-foreground">{client.contact_name}</p>}
+          {client?.email && <p className="text-xs text-muted-foreground truncate">{client.email}</p>}
+          {client?.phone && <p className="text-xs text-muted-foreground">{client.phone}</p>}
         </div>
-        <div className="rounded-xl border bg-card p-5 space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-            <Building2 className="h-4 w-4" /> Informations
+        <div className={`rounded-xl border bg-card space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
+          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+            <Building2 className="h-3.5 w-3.5" /> Informations
           </h3>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-muted-foreground">Société</p>
-              <p className="font-medium">{company?.name || "—"}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Début</p>
-              <p className="font-medium">{formatDate(dossier.start_date)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Fin</p>
-              <p className="font-medium">{formatDate(dossier.end_date)}</p>
-            </div>
-            {dossier.address && (
-              <div>
-                <p className="text-muted-foreground">Adresse</p>
-                <p className="font-medium">{dossier.address}</p>
-              </div>
-            )}
+          <div className={`grid grid-cols-2 gap-2 ${isMobile ? "text-xs" : "text-sm"}`}>
+            <div><p className="text-muted-foreground">Société</p><p className="font-medium">{company?.name || "—"}</p></div>
+            <div><p className="text-muted-foreground">Début</p><p className="font-medium">{formatDate(dossier.start_date)}</p></div>
+            <div><p className="text-muted-foreground">Fin</p><p className="font-medium">{formatDate(dossier.end_date)}</p></div>
+            {dossier.address && <div><p className="text-muted-foreground">Adresse</p><p className="font-medium truncate">{dossier.address}</p></div>}
           </div>
         </div>
       </div>
 
-      {/* Tabs: Devis, Factures, Visites */}
+      {/* Tabs */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
         <Tabs defaultValue="devis">
-          <TabsList>
-            <TabsTrigger value="devis" className="gap-1.5">
-              <FileText className="h-3.5 w-3.5" /> Devis ({devis.length})
-            </TabsTrigger>
-            <TabsTrigger value="factures" className="gap-1.5">
-              <DollarSign className="h-3.5 w-3.5" /> Factures ({factures.length})
-            </TabsTrigger>
-            <TabsTrigger value="visites" className="gap-1.5">
-              <Eye className="h-3.5 w-3.5" /> Visites ({visites.length})
-            </TabsTrigger>
-          </TabsList>
+          {isMobile ? (
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-3 px-3 pb-1">
+              {[
+                { key: "devis", label: "Devis", count: devis.length, icon: FileText },
+                { key: "factures", label: "Factures", count: factures.length, icon: DollarSign },
+                { key: "visites", label: "Visites", count: visites.length, icon: Eye },
+              ].map((tab) => (
+                <TabsList key={tab.key} className="bg-transparent p-0">
+                  <TabsTrigger value={tab.key} className="rounded-full px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                    {tab.label} ({tab.count})
+                  </TabsTrigger>
+                </TabsList>
+              ))}
+            </div>
+          ) : (
+            <TabsList>
+              <TabsTrigger value="devis" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Devis ({devis.length})</TabsTrigger>
+              <TabsTrigger value="factures" className="gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Factures ({factures.length})</TabsTrigger>
+              <TabsTrigger value="visites" className="gap-1.5"><Eye className="h-3.5 w-3.5" /> Visites ({visites.length})</TabsTrigger>
+            </TabsList>
+          )}
 
           <TabsContent value="devis">
             <div className="rounded-xl border bg-card divide-y">
               {devis.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm text-muted-foreground">Aucun devis lié</div>
-              ) : (
-                devis.map((d) => (
-                  <div
-                    key={d.id}
-                    className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/devis/${d.id}`)}
-                  >
-                    <FileText className="h-4 w-4 text-info" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{d.code} — {d.objet}</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(d.created_at)}</p>
-                    </div>
-                    <span className="text-xs rounded-full px-2 py-0.5 bg-muted font-medium">
-                      {statusLabelsDevis[d.status] || d.status}
-                    </span>
-                    <span className="text-sm font-semibold">{formatAmount(d.amount)}</span>
+                <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucun devis lié</div>
+              ) : devis.map((d) => (
+                <div key={d.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/devis/${d.id}`)}>
+                  <FileText className="h-4 w-4 text-info shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-medium truncate ${isMobile ? "text-xs" : "text-sm"}`}>{d.code} — {d.objet}</p>
+                    <p className="text-[11px] text-muted-foreground">{formatDate(d.created_at)}</p>
                   </div>
-                ))
-              )}
+                  <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsDevis[d.status] || d.status}</span>
+                  {isMobile ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" /> : <span className="text-sm font-semibold shrink-0">{formatAmount(d.amount)}</span>}
+                </div>
+              ))}
             </div>
           </TabsContent>
 
           <TabsContent value="factures">
             <div className="rounded-xl border bg-card divide-y">
               {factures.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm text-muted-foreground">Aucune facture liée</div>
-              ) : (
-                factures.map((f) => (
-                  <div
-                    key={f.id}
-                    className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/50 transition-colors"
-                  >
-                    <DollarSign className="h-4 w-4 text-success" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{f.code || "Facture"}</p>
-                      <p className="text-xs text-muted-foreground">Échéance: {formatDate(f.due_date)}</p>
-                    </div>
-                    <span className="text-xs rounded-full px-2 py-0.5 bg-muted font-medium">
-                      {statusLabelsFacture[f.status] || f.status}
-                    </span>
-                    <span className="text-sm font-semibold">{formatAmount(f.amount)}</span>
+                <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucune facture liée</div>
+              ) : factures.map((f) => (
+                <div key={f.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/finance/${f.id}`)}>
+                  <DollarSign className="h-4 w-4 text-success shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-medium truncate ${isMobile ? "text-xs" : "text-sm"}`}>{f.code || "Facture"}</p>
+                    <p className="text-[11px] text-muted-foreground">Éch.: {formatDate(f.due_date)}</p>
                   </div>
-                ))
-              )}
+                  <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsFacture[f.status] || f.status}</span>
+                  {isMobile ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" /> : <span className="text-sm font-semibold shrink-0">{formatAmount(f.amount)}</span>}
+                </div>
+              ))}
             </div>
           </TabsContent>
 
           <TabsContent value="visites">
             <div className="rounded-xl border bg-card divide-y">
               {visites.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm text-muted-foreground">Aucune visite liée</div>
-              ) : (
-                visites.map((v) => (
-                  <div
-                    key={v.id}
-                    className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/50 transition-colors"
-                  >
-                    <Eye className="h-4 w-4 text-warning" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{v.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {v.scheduled_date ? formatDate(v.scheduled_date) : "Non planifiée"}
-                      </p>
-                    </div>
-                    <span className="text-xs rounded-full px-2 py-0.5 bg-muted font-medium">
-                      {statusLabelsVisite[v.status] || v.status}
-                    </span>
+                <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucune visite liée</div>
+              ) : visites.map((v) => (
+                <div key={v.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/visites/${v.id}`)}>
+                  <Eye className="h-4 w-4 text-warning shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-medium truncate ${isMobile ? "text-xs" : "text-sm"}`}>{v.title}</p>
+                    <p className="text-[11px] text-muted-foreground">{v.scheduled_date ? formatDate(v.scheduled_date) : "Non planifiée"}</p>
                   </div>
-                ))
-              )}
+                  <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsVisite[v.status] || v.status}</span>
+                  {isMobile && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+                </div>
+              ))}
             </div>
           </TabsContent>
         </Tabs>
       </motion.div>
 
-      {/* Notes / Description */}
+      {/* Notes */}
       {(dossier.description || dossier.notes) && (
-        <div className="rounded-xl border bg-card p-5 space-y-3">
+        <div className={`rounded-xl border bg-card space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
           {dossier.description && (
             <>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Description</h3>
-              <p className="text-sm whitespace-pre-wrap">{dossier.description}</p>
+              <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Description</h3>
+              <p className="text-xs whitespace-pre-wrap">{dossier.description}</p>
             </>
           )}
           {dossier.notes && (
             <>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Notes</h3>
-              <p className="text-sm whitespace-pre-wrap">{dossier.notes}</p>
+              <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Notes</h3>
+              <p className="text-xs whitespace-pre-wrap">{dossier.notes}</p>
             </>
           )}
         </div>
       )}
 
-      {editing && (
-        <EditDossierDialog dossier={dossier} open={editing} onOpenChange={(v) => !v && setEditing(false)} />
-      )}
+      {editing && <EditDossierDialog dossier={dossier} open={editing} onOpenChange={(v) => !v && setEditing(false)} />}
     </div>
   );
 };

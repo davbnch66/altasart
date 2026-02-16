@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCompany, type CompanyId } from "@/contexts/CompanyContext";
 import { useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const companyBg: Record<CompanyId, string> = {
   global: "bg-primary/80",
@@ -34,24 +35,24 @@ const mockEvents = [
 const Planning = () => {
   const { current, setCurrent, companies } = useCompany();
   const [view, setView] = useState<ViewMode>("week");
+  const isMobile = useIsMobile();
 
   const events = current === "global" ? mockEvents : mockEvents.filter((e) => e.company === current);
 
   return (
-    <div className="p-6 lg:p-8 max-w-full mx-auto space-y-6 h-full flex flex-col">
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between flex-wrap gap-4">
+    <div className={`max-w-full mx-auto h-full flex flex-col ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Planning</h1>
-          <p className="text-muted-foreground mt-1">Semaine du 10 février 2026</p>
+          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Planning</h1>
+          {!isMobile && <p className="text-muted-foreground mt-1">Semaine du 10 février 2026</p>}
         </div>
-        <div className="flex items-center gap-2">
-          {/* Company filter tabs */}
-          <div className="flex rounded-lg border bg-card p-0.5 gap-0.5">
+        <div className="flex items-center gap-1.5">
+          <div className={`flex rounded-lg border bg-card p-0.5 gap-0.5 ${isMobile ? "overflow-x-auto scrollbar-none" : ""}`}>
             {companies.map((c) => (
               <button
                 key={c.id}
                 onClick={() => setCurrent(c.id)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${
                   current === c.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
                 }`}
               >
@@ -63,15 +64,15 @@ const Planning = () => {
       </motion.div>
 
       {/* View switcher + navigation */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button className="p-2 rounded-lg border hover:bg-muted transition-colors">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
+          <button className="p-1.5 rounded-lg border hover:bg-muted transition-colors">
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <button className="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-muted transition-colors">
+          <button className={`rounded-lg border font-medium hover:bg-muted transition-colors ${isMobile ? "px-2.5 py-1 text-xs" : "px-4 py-2 text-sm"}`}>
             Aujourd'hui
           </button>
-          <button className="p-2 rounded-lg border hover:bg-muted transition-colors">
+          <button className="p-1.5 rounded-lg border hover:bg-muted transition-colors">
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
@@ -80,11 +81,11 @@ const Planning = () => {
             <button
               key={v}
               onClick={() => setView(v)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
                 view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
               }`}
             >
-              {v === "day" ? "Jour" : v === "week" ? "Semaine" : "Mois"}
+              {v === "day" ? "Jour" : v === "week" ? "Sem." : "Mois"}
             </button>
           ))}
         </div>
@@ -97,22 +98,22 @@ const Planning = () => {
         transition={{ delay: 0.1 }}
         className="flex-1 rounded-xl border bg-card overflow-auto"
       >
-        <div className="min-w-[800px]">
+        <div className={isMobile ? "min-w-[600px]" : "min-w-[800px]"}>
           {/* Day headers */}
-          <div className="grid grid-cols-[80px_repeat(5,1fr)] border-b sticky top-0 bg-card z-10">
-            <div className="px-3 py-2 border-r" />
+          <div className="grid grid-cols-[60px_repeat(5,1fr)] border-b sticky top-0 bg-card z-10">
+            <div className="px-2 py-1.5 border-r" />
             {days.slice(0, 5).map((day, i) => (
-              <div key={day} className="px-3 py-2 text-center border-r last:border-r-0">
-                <span className="text-xs text-muted-foreground">{day}</span>
-                <p className="text-sm font-semibold mt-0.5">{10 + i}</p>
+              <div key={day} className="px-2 py-1.5 text-center border-r last:border-r-0">
+                <span className="text-[10px] text-muted-foreground">{day}</span>
+                <p className="text-xs font-semibold mt-0.5">{10 + i}</p>
               </div>
             ))}
           </div>
 
           {/* Time slots */}
           {hours.map((hour, hi) => (
-            <div key={hour} className="grid grid-cols-[80px_repeat(5,1fr)] border-b last:border-b-0 min-h-[60px]">
-              <div className="px-3 py-2 text-xs text-muted-foreground border-r flex items-start justify-end">
+            <div key={hour} className="grid grid-cols-[60px_repeat(5,1fr)] border-b last:border-b-0 min-h-[50px]">
+              <div className="px-2 py-1.5 text-[10px] text-muted-foreground border-r flex items-start justify-end">
                 {hour}
               </div>
               {days.slice(0, 5).map((_, di) => {
@@ -121,8 +122,8 @@ const Planning = () => {
                   <div key={di} className="border-r last:border-r-0 relative p-0.5">
                     {event && (
                       <div
-                        className={`absolute inset-x-1 rounded-md px-2 py-1 text-xs cursor-pointer hover:opacity-90 transition-opacity ${companyBg[event.company]} ${companyText[event.company]}`}
-                        style={{ height: `${event.duration * 60 - 4}px`, zIndex: 5 }}
+                        className={`absolute inset-x-0.5 rounded-md px-1.5 py-0.5 text-[10px] cursor-pointer hover:opacity-90 transition-opacity ${companyBg[event.company]} ${companyText[event.company]}`}
+                        style={{ height: `${event.duration * 50 - 4}px`, zIndex: 5 }}
                       >
                         <p className="font-medium truncate">{event.title}</p>
                         <p className="opacity-80 truncate">{event.resource}</p>
