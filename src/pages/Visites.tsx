@@ -143,10 +143,10 @@ const Visites = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm truncate">{visite.title}</p>
+                        <p className="font-medium text-sm break-words">{visite.title}</p>
                         {visite.on_hold && <span className="text-[10px] bg-warning/10 text-warning rounded-full px-1.5 py-0.5 shrink-0">Att.</span>}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">{client?.name || "—"}</p>
+                      <p className="text-xs text-muted-foreground break-words">{client?.name || "—"}</p>
                       <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
                         {visite.scheduled_date && (
                           <span className="flex items-center gap-0.5">
@@ -186,17 +186,17 @@ const Visites = () => {
                 className="rounded-xl border bg-card p-5 hover:shadow-sm transition-shadow cursor-pointer"
               >
                 <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4">
-                    <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center mt-0.5">
-                      <ClipboardCheck className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{visite.title}</p>
+                    <div className="flex items-start gap-4 min-w-0 flex-1">
+                     <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center mt-0.5 shrink-0">
+                       <ClipboardCheck className="h-5 w-5 text-muted-foreground" />
+                     </div>
+                     <div className="min-w-0">
+                       <div className="flex items-center gap-2 flex-wrap">
+                         <p className="font-medium break-words">{visite.title}</p>
                         {visite.code && <span className="text-xs font-mono text-muted-foreground">#{visite.code}</span>}
                         {visite.on_hold && <span className="text-xs bg-warning/10 text-warning rounded-full px-2 py-0.5">En attente</span>}
                       </div>
-                      <p className="text-sm text-muted-foreground mt-0.5">{client?.name || "—"}</p>
+                      <p className="text-sm text-muted-foreground mt-0.5 break-words">{client?.name || "—"}</p>
                       <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-muted-foreground">
                         {visite.address && (
                           <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {visite.address}</span>
