@@ -80,16 +80,18 @@ export const CreateReglementDialog = ({ preselectedFactureId, preselectedCompany
       });
       if (error) throw error;
 
-      // Update facture paid_amount
+      // Recalculate paid_amount from all reglements for this facture
+      const { data: allReglements } = await supabase
+        .from("reglements")
+        .select("amount")
+        .eq("facture_id", data.facture_id);
+      const totalPaid = (allReglements ?? []).reduce((s, r) => s + Number(r.amount), 0);
+      const updates: any = { paid_amount: totalPaid };
       const facture = factures.find((f) => f.id === data.facture_id);
-      if (facture) {
-        const newPaid = Number(facture.paid_amount) + data.amount;
-        const updates: any = { paid_amount: newPaid };
-        if (newPaid >= Number(facture.amount)) {
-          updates.status = "payee";
-        }
-        await supabase.from("factures").update(updates).eq("id", data.facture_id);
+      if (facture && totalPaid >= Number(facture.amount)) {
+        updates.status = "payee";
       }
+      await supabase.from("factures").update(updates).eq("id", data.facture_id);
     },
     onSuccess: () => {
       toast.success("Règlement enregistré");
