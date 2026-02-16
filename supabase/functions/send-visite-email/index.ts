@@ -32,12 +32,16 @@ serve(async (req) => {
     }
 
     const transport = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
+      host: "smtp.office365.com",
+      port: 587,
+      secure: false,
       auth: {
         user: smtpUser,
         pass: smtpPass,
+      },
+      tls: {
+        ciphers: "SSLv3",
+        rejectUnauthorized: false,
       },
     });
 
