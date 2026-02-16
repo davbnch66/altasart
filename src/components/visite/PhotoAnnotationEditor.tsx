@@ -41,6 +41,8 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const currentAnnotationRef = useRef<Annotation | null>(null);
+  const drawingRef = useRef(false);
 
   const [tool, setTool] = useState<Tool>("pen");
   const [color, setColor] = useState("#ef4444");
@@ -219,6 +221,7 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
       return;
     }
 
+    drawingRef.current = true;
     setDrawing(true);
     const newAnnotation: Annotation = {
       id: crypto.randomUUID(),
@@ -232,41 +235,40 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
       endX: pos.x,
       endY: pos.y,
     };
+    currentAnnotationRef.current = newAnnotation;
     setCurrentAnnotation(newAnnotation);
   };
 
   const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!drawing || !currentAnnotation) return;
+    if (!drawingRef.current || !currentAnnotationRef.current) return;
     e.preventDefault();
     const pos = getPos(e);
 
-    setCurrentAnnotation((prev) => {
-      if (!prev) return prev;
-      if (prev.tool === "pen" || prev.tool === "highlight") {
-        return { ...prev, points: [...(prev.points || []), pos] };
-      }
-      return { ...prev, endX: pos.x, endY: pos.y };
-    });
+    const prev = currentAnnotationRef.current;
+    let updated: Annotation;
+    if (prev.tool === "pen" || prev.tool === "highlight") {
+      updated = { ...prev, points: [...(prev.points || []), pos] };
+    } else {
+      updated = { ...prev, endX: pos.x, endY: pos.y };
+    }
+    currentAnnotationRef.current = updated;
+    setCurrentAnnotation(updated);
 
     // Draw current on overlay
     const overlay = overlayRef.current;
     const octx = overlay?.getContext("2d");
     if (!octx || !overlay) return;
     octx.clearRect(0, 0, overlay.width, overlay.height);
-    const updated = { ...currentAnnotation };
-    if (updated.tool === "pen" || updated.tool === "highlight") {
-      updated.points = [...(updated.points || []), pos];
-    } else {
-      updated.endX = pos.x;
-      updated.endY = pos.y;
-    }
     drawAnnotation(octx, updated);
   };
 
   const handlePointerUp = () => {
-    if (!drawing || !currentAnnotation) return;
+    if (!drawingRef.current || !currentAnnotationRef.current) return;
+    drawingRef.current = false;
     setDrawing(false);
-    setAnnotations((prev) => [...prev, currentAnnotation]);
+    const finalAnnotation = currentAnnotationRef.current;
+    setAnnotations((prev) => [...prev, finalAnnotation]);
+    currentAnnotationRef.current = null;
     setCurrentAnnotation(null);
     const overlay = overlayRef.current;
     overlay?.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
