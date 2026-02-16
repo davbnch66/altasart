@@ -31,7 +31,11 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export const CreateVisiteDialog = () => {
+interface CreateVisiteDialogProps {
+  trigger?: React.ReactNode;
+}
+
+export const CreateVisiteDialog = ({ trigger }: CreateVisiteDialogProps = {}) => {
   const [open, setOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
@@ -96,9 +100,11 @@ export const CreateVisiteDialog = () => {
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = current !== "global" ? current : dbCompanies[0]?.id || ""; setSelectedCompanyId(cid); reset({ company_id: cid, title: "" }); } }}>
       <DialogTrigger asChild>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Nouvelle visite
-        </Button>
+        {trigger || (
+          <Button className="flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Nouvelle visite
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>

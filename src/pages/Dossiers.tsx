@@ -1,10 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, FolderOpen, Pencil, Trash2, ChevronRight, MapPin, Euro } from "lucide-react";
+import { Search, FolderOpen, Pencil, Trash2, ChevronRight, MapPin, Euro, Plus } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { CreateDossierDialog } from "@/components/forms/CreateDossierDialog";
@@ -114,7 +115,13 @@ const Dossiers = () => {
           <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Dossiers</h1>
           {!isMobile && <p className="text-muted-foreground mt-1">{filtered.length} dossiers</p>}
         </div>
-        <CreateDossierDialog />
+        <CreateDossierDialog
+          trigger={isMobile ? (
+            <Button size="icon" className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg">
+              <Plus className="h-6 w-6" />
+            </Button>
+          ) : undefined}
+        />
       </motion.div>
 
       {/* Stage filter chips */}

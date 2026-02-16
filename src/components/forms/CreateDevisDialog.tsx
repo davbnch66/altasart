@@ -32,9 +32,10 @@ type FormData = z.infer<typeof schema>;
 interface CreateDevisDialogProps {
   preselectedClientId?: string;
   preselectedCompanyId?: string;
+  trigger?: React.ReactNode;
 }
 
-export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId }: CreateDevisDialogProps) => {
+export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, trigger }: CreateDevisDialogProps) => {
   const [open, setOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
@@ -109,9 +110,11 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId }:
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); setSelectedClientId(preselectedClientId || ""); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), amount: 0 }); } }}>
       <DialogTrigger asChild>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Nouveau devis
-        </Button>
+        {trigger || (
+          <Button className="flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Nouveau devis
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>

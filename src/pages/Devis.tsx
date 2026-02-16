@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
-import { Search, FileText, Pencil, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, X, ChevronRight, Euro } from "lucide-react";
+import { Search, FileText, Pencil, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, X, ChevronRight, Euro, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useState, useMemo } from "react";
@@ -185,7 +186,13 @@ const Devis = () => {
           <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Devis / Cotations</h1>
           {!isMobile && <p className="text-muted-foreground mt-1">{filtered.length} devis{filtered.length !== devis.length ? ` sur ${devis.length}` : ""}</p>}
         </div>
-        <CreateDevisDialog />
+        <CreateDevisDialog
+          trigger={isMobile ? (
+            <Button size="icon" className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg">
+              <Plus className="h-6 w-6" />
+            </Button>
+          ) : undefined}
+        />
       </motion.div>
 
       {/* Status filter chips */}
