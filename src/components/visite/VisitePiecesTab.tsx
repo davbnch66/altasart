@@ -197,7 +197,7 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
     if (error) toast.error("Erreur mise à jour légende");
   };
 
-  const [cacheBuster, setCacheBuster] = useState(0);
+  const [cacheBuster, setCacheBuster] = useState(() => Date.now());
 
   const getPhotoUrl = (path: string) => {
     const { data } = supabase.storage.from("visite-photos").getPublicUrl(path);
