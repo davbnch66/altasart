@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const schema = z.object({
   code: z.string().trim().max(20).optional(),
   amount: z.coerce.number().min(0, "Le montant doit être positif"),
+  paid_amount: z.coerce.number().min(0),
   notes: z.string().trim().max(2000).optional(),
   due_date: z.string().optional(),
   status: z.string(),
@@ -51,6 +52,7 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
       reset({
         code: facture.code || "",
         amount: facture.amount || 0,
+        paid_amount: facture.paid_amount || 0,
         notes: facture.notes || "",
         due_date: facture.due_date || "",
         status: facture.status,
@@ -63,6 +65,7 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
       const { error } = await supabase.from("factures").update({
         code: data.code || null,
         amount: data.amount,
+        paid_amount: data.paid_amount,
         notes: data.notes || null,
         due_date: data.due_date || null,
         status: data.status as any,
@@ -109,6 +112,10 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
               <Label htmlFor="edit-fac-amount">Montant (€) *</Label>
               <Input id="edit-fac-amount" type="number" step="0.01" {...register("amount")} />
               {errors.amount && <p className="text-xs text-destructive mt-1">{errors.amount.message}</p>}
+            </div>
+            <div>
+              <Label htmlFor="edit-fac-paid">Montant réglé (€)</Label>
+              <Input id="edit-fac-paid" type="number" step="0.01" {...register("paid_amount")} />
             </div>
             <div className="col-span-2">
               <Label htmlFor="edit-fac-due">Date d'échéance</Label>
