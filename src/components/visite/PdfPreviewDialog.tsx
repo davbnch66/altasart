@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Mail, X } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SendEmailDialog } from "./SendEmailDialog";
+import { PdfCanvasViewer } from "./PdfCanvasViewer";
 
 interface PdfPreviewDialogProps {
   open: boolean;
@@ -67,18 +68,8 @@ export function PdfPreviewDialog({ open, onClose, blobUrl, dataUri, fileName, cl
                     Ouvrir dans un nouvel onglet
                   </Button>
                 </div>
-              ) : dataUri ? (
-                <iframe
-                  src={dataUri}
-                  className="w-full h-full border-0"
-                  title="Aperçu PDF"
-                />
               ) : (
-                <iframe
-                  src={`${blobUrl}#zoom=50`}
-                  className="w-full h-full border-0"
-                  title="Aperçu PDF"
-                />
+                <PdfCanvasViewer data={dataUri || blobUrl} />
               )
             )}
           </div>
