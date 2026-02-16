@@ -105,8 +105,8 @@ const FactureDetail = () => {
     );
   }
 
-  const solde = Number(facture.amount) - Number(facture.paid_amount);
-  const totalReglements = (reglements ?? []).reduce((s, r) => s + Number(r.amount), 0);
+  const paidAmount = Number(facture.paid_amount);
+  const solde = Number(facture.amount) - paidAmount;
   const client = facture.clients as any;
   const dossier = facture.dossiers as any;
   const devis = facture.devis as any;
@@ -162,7 +162,7 @@ const FactureDetail = () => {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CheckCircle2 className="h-4 w-4 text-success" /> Réglé
           </div>
-          <p className="text-2xl font-bold text-success">{fmt(totalReglements)}</p>
+          <p className="text-2xl font-bold text-success">{fmt(paidAmount)}</p>
         </div>
         <div className="rounded-xl border bg-card p-5 space-y-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
