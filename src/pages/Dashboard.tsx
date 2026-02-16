@@ -357,7 +357,7 @@ const Dashboard = () => {
               const linkMap: Record<string, string> = {
                 devis: `/devis/${item.id}`,
                 dossier: `/dossiers/${item.id}`,
-                facture: "/finance",
+                facture: `/finance/${item.id}`,
                 visite: "/visites",
               };
               return (

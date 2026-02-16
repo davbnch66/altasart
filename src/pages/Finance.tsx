@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { DollarSign, TrendingUp, AlertTriangle, CheckCircle2, ArrowUpRight, ArrowDownRight, Pencil, Trash2, CreditCard, Download } from "lucide-react";
 import { generateFacturePdf } from "@/lib/generateFacturePdf";
@@ -180,6 +181,7 @@ const Finance = () => {
   const companyIds = useCompanyFilter();
   const { dbCompanies } = useCompany();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [chartCompanyId, setChartCompanyId] = useState<string>("all");
   const chartCompanyIds = chartCompanyId === "all" ? companyIds : [chartCompanyId];
   const { data: stats, isLoading: statsLoading } = useFinanceStats(companyIds);
@@ -316,7 +318,7 @@ const Finance = () => {
                 </thead>
                 <tbody className="divide-y">
                   {factures.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
+                    <tr key={inv.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/finance/${inv.id}`)}>
                       <td className="px-5 py-3 font-mono text-xs">{inv.code || "—"}</td>
                       <td className="px-5 py-3 font-medium">{(inv.clients as any)?.name ?? "—"}</td>
                       <td className="px-5 py-3 font-semibold">{fmt(Number(inv.amount))}</td>
@@ -327,7 +329,7 @@ const Finance = () => {
                         </span>
                       </td>
                       <td className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                           <button onClick={() => generateFacturePdf(inv.id).catch(() => toast.error("Erreur lors de la génération du PDF"))} className="p-1.5 rounded-md hover:bg-primary/10 transition-colors text-muted-foreground hover:text-primary" title="Télécharger PDF">
                             <Download className="h-3.5 w-3.5" />
                           </button>
