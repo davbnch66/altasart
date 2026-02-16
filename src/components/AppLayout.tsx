@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { OfflineBanner } from "@/components/OfflineBanner";
 
 export const AppLayout: React.FC = () => {
   const isMobile = useIsMobile();
@@ -36,6 +37,7 @@ export const AppLayout: React.FC = () => {
       )}
 
       <main className="flex-1 overflow-y-auto bg-background">
+        <OfflineBanner />
         {/* Mobile top bar with hamburger */}
         {isMobile && (
           <div className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/95 backdrop-blur-sm px-3 py-2">

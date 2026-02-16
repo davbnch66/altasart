@@ -1,5 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { addToQueue } from "@/lib/offlineQueue";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -70,6 +72,7 @@ const VisiteDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const isOnline = useOnlineStatus();
   const [editData, setEditData] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -102,11 +105,15 @@ const VisiteDetail = () => {
       const { clients, resources, dossiers, ...rest } = data;
       delete rest.created_at;
       delete rest.updated_at;
+      if (!isOnline) {
+        addToQueue({ table: "visites", operation: "update", data: rest, matchColumn: "id", matchValue: id! });
+        return;
+      }
       const { error } = await supabase.from("visites").update(rest).eq("id", id!);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Visite mise à jour");
+      toast.success(isOnline ? "Visite mise à jour" : "Modifications sauvegardées hors-ligne");
       queryClient.invalidateQueries({ queryKey: ["visite-detail", id] });
       queryClient.invalidateQueries({ queryKey: ["visites"] });
     },
