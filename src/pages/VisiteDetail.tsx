@@ -241,6 +241,24 @@ const VisiteDetail = () => {
           </Button>
         </div>
         <div className="flex md:hidden items-center gap-1">
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={async () => {
+              setExporting(true);
+              try {
+                await generateVisitePdf(id!);
+                toast.success("Rapport PDF généré");
+              } catch (e: any) {
+                toast.error(e.message || "Erreur export PDF");
+              } finally {
+                setExporting(false);
+              }
+            }}
+            disabled={exporting}
+          >
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          </Button>
           <Button size="icon" variant="outline" onClick={handleSave} disabled={saveMutation.isPending}>
             {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           </Button>
