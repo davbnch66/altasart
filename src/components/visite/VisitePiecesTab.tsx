@@ -225,15 +225,17 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
       }
     } else if (photoId && storagePath) {
       try {
-        const { error: updateError } = await supabase.storage.from("visite-photos").update(storagePath, blob, {
+        // Use upload with upsert instead of update - more reliable
+        const { error: uploadError } = await supabase.storage.from("visite-photos").upload(storagePath, blob, {
           contentType: "image/jpeg",
           upsert: true,
         });
-        if (updateError) throw updateError;
+        if (uploadError) throw uploadError;
         toast.success("Photo annotée et sauvegardée");
         setCacheBuster(Date.now());
         queryClient.invalidateQueries({ queryKey: ["visite-photos", visiteId] });
       } catch (e: any) {
+        console.error("[Annotation Save Error]", e);
         toast.error(e.message || "Erreur sauvegarde annotation");
       }
     } else {
