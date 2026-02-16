@@ -30,6 +30,7 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
     storagePath?: string;
     pieceId: string;
     offlineId?: string;
+    preUploadFile?: File;
   } | null>(null);
 
   // Load offline photos for this visite
@@ -204,9 +205,14 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
 
   const handleAnnotationSave = async (blob: Blob) => {
     if (!annotating) return;
-    const { photoId, storagePath, pieceId, offlineId } = annotating;
+    const { photoId, storagePath, pieceId, offlineId, preUploadFile } = annotating;
 
-    if (offlineId) {
+    if (preUploadFile) {
+      // Pre-upload annotation: upload the annotated blob as a new photo
+      const fileName = preUploadFile.name.replace(/\.[^.]+$/, "") + "_annotated.jpg";
+      const file = new File([blob], fileName, { type: "image/jpeg" });
+      await uploadPhoto(pieceId, file);
+    } else if (offlineId) {
       const op = offlinePhotos.find((p) => p.id === offlineId);
       if (op) {
         await saveOfflinePhoto({ ...op, blob, mimeType: "image/jpeg" });
@@ -228,6 +234,10 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
     } else {
       const file = new File([blob], `annotated_${Date.now()}.jpg`, { type: "image/jpeg" });
       await uploadPhoto(pieceId, file);
+    }
+    // Revoke object URL if it was a pre-upload
+    if (preUploadFile && annotating.src.startsWith("blob:")) {
+      URL.revokeObjectURL(annotating.src);
     }
     setAnnotating(null);
   };
@@ -374,7 +384,7 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                 ))}
               </div>
 
-              <div>
+              <div className="flex items-center gap-3">
                 <label className="cursor-pointer inline-flex items-center gap-1 text-xs text-primary hover:underline">
                   <Image className="h-3 w-3" />
                   {uploading === piece.id ? "Upload..." : "Ajouter photo"}
@@ -386,6 +396,24 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (file) uploadPhoto(piece.id, file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <label className="cursor-pointer inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary hover:underline">
+                  <PenTool className="h-3 w-3" />
+                  Annoter avant upload
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const url = URL.createObjectURL(file);
+                        setAnnotating({ src: url, pieceId: piece.id, preUploadFile: file });
+                      }
                       e.target.value = "";
                     }}
                   />
