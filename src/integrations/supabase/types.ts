@@ -370,6 +370,64 @@ export type Database = {
           },
         ]
       }
+      email_actions: {
+        Row: {
+          action_type: Database["public"]["Enums"]["email_action_type"]
+          company_id: string
+          created_at: string
+          executed_at: string | null
+          executed_by: string | null
+          id: string
+          inbound_email_id: string
+          payload: Json | null
+          status: Database["public"]["Enums"]["email_action_status"]
+        }
+        Insert: {
+          action_type: Database["public"]["Enums"]["email_action_type"]
+          company_id: string
+          created_at?: string
+          executed_at?: string | null
+          executed_by?: string | null
+          id?: string
+          inbound_email_id: string
+          payload?: Json | null
+          status?: Database["public"]["Enums"]["email_action_status"]
+        }
+        Update: {
+          action_type?: Database["public"]["Enums"]["email_action_type"]
+          company_id?: string
+          created_at?: string
+          executed_at?: string | null
+          executed_by?: string | null
+          id?: string
+          inbound_email_id?: string
+          payload?: Json | null
+          status?: Database["public"]["Enums"]["email_action_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_actions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_actions_executed_by_fkey"
+            columns: ["executed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_actions_inbound_email_id_fkey"
+            columns: ["inbound_email_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       factures: {
         Row: {
           amount: number
@@ -450,6 +508,102 @@ export type Database = {
           },
         ]
       }
+      inbound_emails: {
+        Row: {
+          ai_analysis: Json | null
+          attachments: Json | null
+          body_html: string | null
+          body_text: string | null
+          client_id: string | null
+          company_id: string
+          created_at: string
+          devis_id: string | null
+          dossier_id: string | null
+          from_email: string | null
+          from_name: string | null
+          id: string
+          processed_at: string | null
+          status: Database["public"]["Enums"]["inbound_email_status"]
+          subject: string | null
+          to_email: string | null
+          visite_id: string | null
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          attachments?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          client_id?: string | null
+          company_id: string
+          created_at?: string
+          devis_id?: string | null
+          dossier_id?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          processed_at?: string | null
+          status?: Database["public"]["Enums"]["inbound_email_status"]
+          subject?: string | null
+          to_email?: string | null
+          visite_id?: string | null
+        }
+        Update: {
+          ai_analysis?: Json | null
+          attachments?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          client_id?: string | null
+          company_id?: string
+          created_at?: string
+          devis_id?: string | null
+          dossier_id?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          processed_at?: string | null
+          status?: Database["public"]["Enums"]["inbound_email_status"]
+          subject?: string | null
+          to_email?: string | null
+          visite_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbound_emails_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_emails_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_emails_devis_id_fkey"
+            columns: ["devis_id"]
+            isOneToOne: false
+            referencedRelation: "devis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_emails_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_emails_visite_id_fkey"
+            columns: ["visite_id"]
+            isOneToOne: false
+            referencedRelation: "visites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           body: string | null
@@ -460,6 +614,7 @@ export type Database = {
           created_by: string | null
           direction: string
           id: string
+          inbound_email_id: string | null
           is_read: boolean
           read_at: string | null
           sender: string | null
@@ -474,6 +629,7 @@ export type Database = {
           created_by?: string | null
           direction?: string
           id?: string
+          inbound_email_id?: string | null
           is_read?: boolean
           read_at?: string | null
           sender?: string | null
@@ -488,6 +644,7 @@ export type Database = {
           created_by?: string | null
           direction?: string
           id?: string
+          inbound_email_id?: string | null
           is_read?: boolean
           read_at?: string | null
           sender?: string | null
@@ -511,6 +668,64 @@ export type Database = {
           {
             foreignKeyName: "messages_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_inbound_email_id_fkey"
+            columns: ["inbound_email_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          company_id: string
+          created_at: string
+          id: string
+          link: string | null
+          read: boolean
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          link?: string | null
+          read?: boolean
+          title: string
+          type: Database["public"]["Enums"]["notification_type"]
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          link?: string | null
+          read?: boolean
+          title?: string
+          type?: Database["public"]["Enums"]["notification_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1492,13 +1707,28 @@ export type Database = {
         | "termine"
         | "facture"
         | "paye"
+      email_action_status: "suggested" | "accepted" | "rejected"
+      email_action_type:
+        | "create_client"
+        | "create_dossier"
+        | "create_devis"
+        | "plan_visite"
+        | "extract_materiel"
+        | "link_dossier"
       facture_status:
         | "brouillon"
         | "envoyee"
         | "payee"
         | "en_retard"
         | "annulee"
+      inbound_email_status: "pending" | "processing" | "processed" | "error"
       message_channel: "email" | "whatsapp" | "phone" | "internal"
+      notification_type:
+        | "new_lead"
+        | "materiel_detected"
+        | "visite_requested"
+        | "client_response"
+        | "date_to_validate"
       resource_status: "disponible" | "occupe" | "maintenance" | "absent"
       resource_type: "employe" | "grue" | "vehicule" | "equipement" | "equipe"
       vehicule_type:
@@ -1660,8 +1890,25 @@ export const Constants = {
         "facture",
         "paye",
       ],
+      email_action_status: ["suggested", "accepted", "rejected"],
+      email_action_type: [
+        "create_client",
+        "create_dossier",
+        "create_devis",
+        "plan_visite",
+        "extract_materiel",
+        "link_dossier",
+      ],
       facture_status: ["brouillon", "envoyee", "payee", "en_retard", "annulee"],
+      inbound_email_status: ["pending", "processing", "processed", "error"],
       message_channel: ["email", "whatsapp", "phone", "internal"],
+      notification_type: [
+        "new_lead",
+        "materiel_detected",
+        "visite_requested",
+        "client_response",
+        "date_to_validate",
+      ],
       resource_status: ["disponible", "occupe", "maintenance", "absent"],
       resource_type: ["employe", "grue", "vehicule", "equipement", "equipe"],
       vehicule_type: [
