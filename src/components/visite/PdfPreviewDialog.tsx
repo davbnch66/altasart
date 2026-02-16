@@ -13,10 +13,12 @@ interface PdfPreviewDialogProps {
   dataUri?: string | null;
   fileName: string;
   clientEmail?: string;
+  clientName?: string;
   visiteCode?: string;
+  visiteTitle?: string;
 }
 
-export function PdfPreviewDialog({ open, onClose, blobUrl, dataUri, fileName, clientEmail, visiteCode }: PdfPreviewDialogProps) {
+export function PdfPreviewDialog({ open, onClose, blobUrl, dataUri, fileName, clientEmail, clientName, visiteCode, visiteTitle }: PdfPreviewDialogProps) {
   const isMobile = useIsMobile();
   const [emailOpen, setEmailOpen] = useState(false);
 
@@ -83,6 +85,9 @@ export function PdfPreviewDialog({ open, onClose, blobUrl, dataUri, fileName, cl
         defaultSubject={`Rapport de visite technique${visiteCode ? ` N° ${visiteCode}` : ""}`}
         pdfBlobUrl={blobUrl}
         fileName={fileName}
+        clientName={clientName}
+        visiteCode={visiteCode}
+        visiteTitle={visiteTitle}
       />
     </>
   );
