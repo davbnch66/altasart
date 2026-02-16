@@ -61,9 +61,9 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     img.crossOrigin = "anonymous";
     img.onload = () => {
       imgRef.current = img;
-      // Fit within container
-      const maxW = Math.min(900, window.innerWidth - 80);
-      const maxH = Math.min(600, window.innerHeight - 300);
+      // Fit within fullscreen container
+      const maxW = window.innerWidth - 40;
+      const maxH = window.innerHeight - 160;
       const scale = Math.min(maxW / img.width, maxH / img.height, 1);
       setCanvasSize({ w: Math.round(img.width * scale), h: Math.round(img.height * scale) });
       setImageLoaded(true);
@@ -317,7 +317,7 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] w-fit p-3 overflow-hidden">
+      <DialogContent className="max-w-[100vw] max-h-[100vh] w-screen h-screen p-3 overflow-hidden flex flex-col rounded-none"  style={{ margin: 0 }}>
         <DialogHeader>
           <DialogTitle className="text-sm">Annoter la photo</DialogTitle>
         </DialogHeader>
@@ -368,26 +368,27 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
         </div>
 
         {/* Canvas */}
-        <div ref={containerRef} className="relative" style={{ width: canvasSize.w, height: canvasSize.h }}>
-          <canvas
-            ref={canvasRef}
-            width={canvasSize.w}
-            height={canvasSize.h}
-            className="absolute inset-0 rounded"
-          />
-          <canvas
-            ref={overlayRef}
-            width={canvasSize.w}
-            height={canvasSize.h}
-            className="absolute inset-0 rounded cursor-crosshair"
-            onMouseDown={handlePointerDown}
-            onMouseMove={handlePointerMove}
-            onMouseUp={handlePointerUp}
-            onMouseLeave={handlePointerUp}
-            onTouchStart={handlePointerDown}
-            onTouchMove={handlePointerMove}
-            onTouchEnd={handlePointerUp}
-          />
+        <div ref={containerRef} className="relative flex-1 flex items-center justify-center overflow-hidden">
+          <div className="relative" style={{ width: canvasSize.w, height: canvasSize.h }}>
+            <canvas
+              ref={canvasRef}
+              width={canvasSize.w}
+              height={canvasSize.h}
+              className="absolute inset-0 rounded"
+            />
+            <canvas
+              ref={overlayRef}
+              width={canvasSize.w}
+              height={canvasSize.h}
+              className="absolute inset-0 rounded cursor-crosshair"
+              onMouseDown={handlePointerDown}
+              onMouseMove={handlePointerMove}
+              onMouseUp={handlePointerUp}
+              onMouseLeave={handlePointerUp}
+              onTouchStart={handlePointerDown}
+              onTouchMove={handlePointerMove}
+              onTouchEnd={handlePointerUp}
+            />
           {textInput && (
             <div
               className="absolute z-10"
@@ -404,6 +405,7 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
               />
             </div>
           )}
+          </div>
         </div>
 
         {/* Actions */}
