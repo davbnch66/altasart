@@ -1,16 +1,16 @@
 import { motion } from "framer-motion";
-import { ClipboardCheck, Plus, MapPin, Camera, Calendar, Clock, User, Search, Filter } from "lucide-react";
+import { ClipboardCheck, MapPin, Camera, Calendar, User, Search, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CreateVisiteDialog } from "@/components/forms/CreateVisiteDialog";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const statusLabels: Record<string, string> = {
   planifiee: "Planifiée",
@@ -27,6 +27,7 @@ const statusStyle: Record<string, string> = {
 const Visites = () => {
   const { current, dbCompanies } = useCompany();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -58,50 +59,119 @@ const Visites = () => {
     return matchSearch && matchStatus;
   });
 
+  const counts = {
+    all: visites.length,
+    planifiee: visites.filter((v: any) => v.status === "planifiee").length,
+    realisee: visites.filter((v: any) => v.status === "realisee").length,
+    annulee: visites.filter((v: any) => v.status === "annulee").length,
+  };
+
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <div className={`max-w-7xl mx-auto space-y-4 ${isMobile ? "p-3 pb-20" : "p-6 lg:p-8 space-y-6"}`}>
+      {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Visites techniques</h1>
-          <p className="text-muted-foreground mt-1">Planification et comptes rendus</p>
+          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Visites techniques</h1>
+          {!isMobile && <p className="text-muted-foreground mt-1">Planification et comptes rendus</p>}
         </div>
         <CreateVisiteDialog />
       </motion.div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        >
-          <option value="all">Tous les statuts</option>
-          <option value="planifiee">Planifiée</option>
-          <option value="realisee">Réalisée</option>
-          <option value="annulee">Annulée</option>
-        </select>
+      {/* Status filter chips */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+        {([
+          { key: "all", label: "Toutes" },
+          { key: "planifiee", label: "Planifiées" },
+          { key: "realisee", label: "Réalisées" },
+          { key: "annulee", label: "Annulées" },
+        ] as const).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setStatusFilter(key)}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              statusFilter === key
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {label} ({counts[key]})
+          </button>
+        ))}
       </div>
 
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Rechercher client, adresse, code..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9 h-9"
+        />
+      </div>
+
+      {/* List */}
       {isLoading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-24 w-full rounded-xl" />)}
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => <Skeleton key={i} className={`w-full rounded-xl ${isMobile ? "h-20" : "h-24"}`} />)}
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">Aucune visite trouvée</div>
       ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid gap-4">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid gap-3">
           {filtered.map((visite: any) => {
             const client = visite.clients as any;
             const tech = visite.resources as any;
+
+            if (isMobile) {
+              return (
+                <div
+                  key={visite.id}
+                  onClick={() => navigate(`/visites/${visite.id}`)}
+                  className="rounded-xl border bg-card p-3 active:bg-muted/50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm truncate">{visite.title}</p>
+                        {visite.on_hold && <span className="text-[10px] bg-warning/10 text-warning rounded-full px-1.5 py-0.5 shrink-0">Att.</span>}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{client?.name || "—"}</p>
+                      <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                        {visite.scheduled_date && (
+                          <span className="flex items-center gap-0.5">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(visite.scheduled_date), "d MMM", { locale: fr })}
+                          </span>
+                        )}
+                        {visite.address && (
+                          <span className="flex items-center gap-0.5 truncate">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{visite.address.length > 20 ? visite.address.slice(0, 20) + "…" : visite.address}</span>
+                          </span>
+                        )}
+                        {(visite.photos_count || 0) > 0 && (
+                          <span className="flex items-center gap-0.5 shrink-0">
+                            <Camera className="h-3 w-3" /> {visite.photos_count}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${statusStyle[visite.status] || "bg-muted text-muted-foreground"}`}>
+                        {statusLabels[visite.status] || visite.status}
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            // Desktop card
             return (
               <div
                 key={visite.id}
