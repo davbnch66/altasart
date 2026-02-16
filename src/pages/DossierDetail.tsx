@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import {
-  ArrowLeft, FolderOpen, Pencil, FileText, DollarSign, Eye, User, Building2, ChevronRight,
+  ArrowLeft, FolderOpen, Pencil, FileText, DollarSign, Eye, User, Building2, ChevronRight, Cog, BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +13,8 @@ import { fr } from "date-fns/locale";
 import { useState } from "react";
 import { EditDossierDialog } from "@/components/forms/EditDossierDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { DossierOperationsTab } from "@/components/dossier/DossierOperationsTab";
+import { DossierSituationTab } from "@/components/dossier/DossierSituationTab";
 
 const stageLabels: Record<string, string> = {
   prospect: "Prospect", devis: "Devis envoyé", accepte: "Accepté", planifie: "Planifié",
@@ -194,13 +196,15 @@ const DossierDetail = () => {
           {isMobile ? (
             <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-3 px-3 pb-1">
               {[
-                { key: "devis", label: "Devis", count: devis.length, icon: FileText },
-                { key: "factures", label: "Factures", count: factures.length, icon: DollarSign },
-                { key: "visites", label: "Visites", count: visites.length, icon: Eye },
+                { key: "devis", label: "Devis", count: devis.length },
+                { key: "operations", label: "Opérations", count: null },
+                { key: "factures", label: "Factures", count: factures.length },
+                { key: "situation", label: "Situation", count: null },
+                { key: "visites", label: "Visites", count: visites.length },
               ].map((tab) => (
                 <TabsList key={tab.key} className="bg-transparent p-0">
                   <TabsTrigger value={tab.key} className="rounded-full px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                    {tab.label} ({tab.count})
+                    {tab.label}{tab.count !== null ? ` (${tab.count})` : ""}
                   </TabsTrigger>
                 </TabsList>
               ))}
@@ -208,7 +212,9 @@ const DossierDetail = () => {
           ) : (
             <TabsList>
               <TabsTrigger value="devis" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Devis ({devis.length})</TabsTrigger>
+              <TabsTrigger value="operations" className="gap-1.5"><Cog className="h-3.5 w-3.5" /> Opérations</TabsTrigger>
               <TabsTrigger value="factures" className="gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Factures ({factures.length})</TabsTrigger>
+              <TabsTrigger value="situation" className="gap-1.5"><BarChart3 className="h-3.5 w-3.5" /> Situation</TabsTrigger>
               <TabsTrigger value="visites" className="gap-1.5"><Eye className="h-3.5 w-3.5" /> Visites ({visites.length})</TabsTrigger>
             </TabsList>
           )}
@@ -231,6 +237,10 @@ const DossierDetail = () => {
             </div>
           </TabsContent>
 
+          <TabsContent value="operations">
+            <DossierOperationsTab dossierId={id!} companyId={dossier.company_id} />
+          </TabsContent>
+
           <TabsContent value="factures">
             <div className="rounded-xl border bg-card divide-y">
               {factures.length === 0 ? (
@@ -247,6 +257,10 @@ const DossierDetail = () => {
                 </div>
               ))}
             </div>
+          </TabsContent>
+
+          <TabsContent value="situation">
+            <DossierSituationTab dossierId={id!} dossierAmount={dossier.amount || 0} dossierCost={(dossier as any).cost || 0} />
           </TabsContent>
 
           <TabsContent value="visites">

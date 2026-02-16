@@ -311,6 +311,7 @@ export type Database = {
           client_id: string
           code: string | null
           company_id: string
+          cost: number | null
           created_at: string
           description: string | null
           end_date: string | null
@@ -327,6 +328,7 @@ export type Database = {
           client_id: string
           code?: string | null
           company_id: string
+          cost?: number | null
           created_at?: string
           description?: string | null
           end_date?: string | null
@@ -343,6 +345,7 @@ export type Database = {
           client_id?: string
           code?: string | null
           company_id?: string
+          cost?: number | null
           created_at?: string
           description?: string | null
           end_date?: string | null
@@ -728,6 +731,91 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operations: {
+        Row: {
+          company_id: string
+          completed: boolean
+          created_at: string
+          delivery_address: string | null
+          delivery_city: string | null
+          dossier_id: string
+          facture_id: string | null
+          id: string
+          loading_address: string | null
+          loading_city: string | null
+          loading_date: string | null
+          lv_bt_number: string | null
+          notes: string | null
+          operation_number: number
+          sort_order: number
+          type: string
+          updated_at: string
+          volume: number | null
+        }
+        Insert: {
+          company_id: string
+          completed?: boolean
+          created_at?: string
+          delivery_address?: string | null
+          delivery_city?: string | null
+          dossier_id: string
+          facture_id?: string | null
+          id?: string
+          loading_address?: string | null
+          loading_city?: string | null
+          loading_date?: string | null
+          lv_bt_number?: string | null
+          notes?: string | null
+          operation_number?: number
+          sort_order?: number
+          type?: string
+          updated_at?: string
+          volume?: number | null
+        }
+        Update: {
+          company_id?: string
+          completed?: boolean
+          created_at?: string
+          delivery_address?: string | null
+          delivery_city?: string | null
+          dossier_id?: string
+          facture_id?: string | null
+          id?: string
+          loading_address?: string | null
+          loading_city?: string | null
+          loading_date?: string | null
+          lv_bt_number?: string | null
+          notes?: string | null
+          operation_number?: number
+          sort_order?: number
+          type?: string
+          updated_at?: string
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operations_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operations_facture_id_fkey"
+            columns: ["facture_id"]
+            isOneToOne: false
+            referencedRelation: "factures"
             referencedColumns: ["id"]
           },
         ]
