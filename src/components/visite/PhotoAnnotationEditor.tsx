@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import {
   Pencil, MousePointer2, ArrowUp, Type, Square, Circle,
-  Highlighter, Undo2, Trash2, Save, X
+  Highlighter, Undo2, Trash2, Save, X, Move
 } from "lucide-react";
 
 type Tool = "select" | "pen" | "arrow" | "text" | "rect" | "circle" | "highlight";
@@ -36,6 +36,86 @@ const COLORS = [
   "#3b82f6", "#8b5cf6", "#ec4899", "#ffffff", "#000000",
 ];
 
+// Hit-test helpers
+const distToSegment = (px: number, py: number, x1: number, y1: number, x2: number, y2: number) => {
+  const dx = x2 - x1, dy = y2 - y1;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+  let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+};
+
+const hitTestAnnotation = (a: Annotation, px: number, py: number, threshold = 15): boolean => {
+  switch (a.tool) {
+    case "pen":
+    case "highlight": {
+      if (!a.points || a.points.length < 2) return false;
+      for (let i = 1; i < a.points.length; i++) {
+        if (distToSegment(px, py, a.points[i - 1].x, a.points[i - 1].y, a.points[i].x, a.points[i].y) < threshold)
+          return true;
+      }
+      return false;
+    }
+    case "arrow": {
+      if (a.startX == null || a.startY == null || a.endX == null || a.endY == null) return false;
+      return distToSegment(px, py, a.startX, a.startY, a.endX, a.endY) < threshold;
+    }
+    case "text": {
+      if (a.startX == null || a.startY == null || !a.text) return false;
+      const fs = a.fontSize || 24;
+      const w = a.text.length * fs * 0.6;
+      const h = fs;
+      return px >= a.startX && px <= a.startX + w && py >= a.startY - h && py <= a.startY;
+    }
+    case "rect": {
+      if (a.startX == null || a.startY == null || a.endX == null || a.endY == null) return false;
+      const minX = Math.min(a.startX, a.endX), maxX = Math.max(a.startX, a.endX);
+      const minY = Math.min(a.startY, a.endY), maxY = Math.max(a.startY, a.endY);
+      // Check proximity to edges
+      const nearLeft = Math.abs(px - minX) < threshold && py >= minY - threshold && py <= maxY + threshold;
+      const nearRight = Math.abs(px - maxX) < threshold && py >= minY - threshold && py <= maxY + threshold;
+      const nearTop = Math.abs(py - minY) < threshold && px >= minX - threshold && px <= maxX + threshold;
+      const nearBottom = Math.abs(py - maxY) < threshold && px >= minX - threshold && px <= maxX + threshold;
+      return nearLeft || nearRight || nearTop || nearBottom;
+    }
+    case "circle": {
+      if (a.startX == null || a.startY == null || a.endX == null || a.endY == null) return false;
+      const cx = (a.startX + a.endX) / 2, cy = (a.startY + a.endY) / 2;
+      const rx = Math.abs(a.endX - a.startX) / 2, ry = Math.abs(a.endY - a.startY) / 2;
+      if (rx === 0 || ry === 0) return false;
+      const normalized = ((px - cx) / rx) ** 2 + ((py - cy) / ry) ** 2;
+      return Math.abs(normalized - 1) < 0.5;
+    }
+    default:
+      return false;
+  }
+};
+
+const getAnnotationBounds = (a: Annotation): { cx: number; cy: number } => {
+  if (a.tool === "pen" || a.tool === "highlight") {
+    if (!a.points || a.points.length === 0) return { cx: 0, cy: 0 };
+    const sumX = a.points.reduce((s, p) => s + p.x, 0);
+    const sumY = a.points.reduce((s, p) => s + p.y, 0);
+    return { cx: sumX / a.points.length, cy: sumY / a.points.length };
+  }
+  if (a.tool === "text") return { cx: a.startX || 0, cy: a.startY || 0 };
+  return {
+    cx: ((a.startX || 0) + (a.endX || 0)) / 2,
+    cy: ((a.startY || 0) + (a.endY || 0)) / 2,
+  };
+};
+
+const moveAnnotation = (a: Annotation, dx: number, dy: number): Annotation => {
+  const moved = { ...a };
+  if (moved.startX != null) moved.startX += dx;
+  if (moved.startY != null) moved.startY += dy;
+  if (moved.endX != null) moved.endX += dx;
+  if (moved.endY != null) moved.endY += dy;
+  if (moved.points) moved.points = moved.points.map((p) => ({ x: p.x + dx, y: p.y + dy }));
+  return moved;
+};
+
 export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
@@ -55,6 +135,9 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
   const [textValue, setTextValue] = useState("");
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 600 });
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
 
   // Load image
   useEffect(() => {
@@ -63,23 +146,17 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     let cancelled = false;
 
     const img = new Image();
-
-    // Register handlers BEFORE setting src to avoid race conditions
     img.onload = () => {
       if (cancelled) return;
       imgRef.current = img;
       const maxW = window.innerWidth - 40;
-      const maxH = window.innerHeight - 160;
+      const maxH = window.innerHeight - 200;
       const scale = Math.min(maxW / img.width, maxH / img.height, 1);
       setCanvasSize({ w: Math.round(img.width * scale), h: Math.round(img.height * scale) });
       setImageLoaded(true);
     };
+    img.onerror = () => console.error("[AnnotationEditor] Failed to load image:", imageSrc);
 
-    img.onerror = () => {
-      console.error("[AnnotationEditor] Failed to load image:", imageSrc);
-    };
-
-    // For remote URLs, fetch as blob to avoid CORS tainting the canvas
     if (imageSrc.startsWith("http")) {
       fetch(imageSrc)
         .then((resp) => resp.blob())
@@ -103,10 +180,11 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
       setAnnotations([]);
       setImageLoaded(false);
       setTextInput(null);
+      setSelectedId(null);
     };
   }, [open, imageSrc]);
 
-  // Redraw everything
+  // Redraw
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -114,9 +192,25 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(imgRef.current, 0, 0, canvas.width, canvas.height);
-
     annotations.forEach((a) => drawAnnotation(ctx, a));
-  }, [annotations]);
+
+    // Draw selection indicator
+    if (selectedId) {
+      const sel = annotations.find((a) => a.id === selectedId);
+      if (sel) {
+        const { cx, cy } = getAnnotationBounds(sel);
+        ctx.save();
+        ctx.strokeStyle = "#3b82f6";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+    }
+  }, [annotations, selectedId]);
 
   useEffect(() => {
     if (imageLoaded) redraw();
@@ -154,7 +248,6 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
         if (a.text && a.startX != null && a.startY != null) {
           ctx.font = `bold ${a.fontSize || 24}px sans-serif`;
           ctx.globalAlpha = 1;
-          // Stroke for readability
           ctx.strokeStyle = a.color === "#ffffff" ? "#000000" : "#ffffff";
           ctx.lineWidth = 3;
           ctx.strokeText(a.text, a.startX, a.startY);
@@ -215,12 +308,28 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     e.preventDefault();
     const pos = getPos(e);
 
+    // Select mode: try to pick an annotation
+    if (tool === "select") {
+      // Check from top (last drawn) to bottom
+      for (let i = annotations.length - 1; i >= 0; i--) {
+        if (hitTestAnnotation(annotations[i], pos.x, pos.y)) {
+          setSelectedId(annotations[i].id);
+          setDragging(true);
+          dragStartRef.current = pos;
+          return;
+        }
+      }
+      setSelectedId(null);
+      return;
+    }
+
     if (tool === "text") {
       setTextInput(pos);
       setTextValue("");
       return;
     }
 
+    setSelectedId(null);
     drawingRef.current = true;
     setDrawing(true);
     const newAnnotation: Annotation = {
@@ -240,8 +349,21 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
   };
 
   const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!drawingRef.current || !currentAnnotationRef.current) return;
     e.preventDefault();
+
+    // Handle drag move for selected annotation
+    if (tool === "select" && dragging && selectedId && dragStartRef.current) {
+      const pos = getPos(e);
+      const dx = pos.x - dragStartRef.current.x;
+      const dy = pos.y - dragStartRef.current.y;
+      dragStartRef.current = pos;
+      setAnnotations((prev) =>
+        prev.map((a) => (a.id === selectedId ? moveAnnotation(a, dx, dy) : a))
+      );
+      return;
+    }
+
+    if (!drawingRef.current || !currentAnnotationRef.current) return;
     const pos = getPos(e);
 
     const prev = currentAnnotationRef.current;
@@ -254,7 +376,6 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     currentAnnotationRef.current = updated;
     setCurrentAnnotation(updated);
 
-    // Draw current on overlay
     const overlay = overlayRef.current;
     const octx = overlay?.getContext("2d");
     if (!octx || !overlay) return;
@@ -263,6 +384,12 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
   };
 
   const handlePointerUp = () => {
+    if (tool === "select" && dragging) {
+      setDragging(false);
+      dragStartRef.current = null;
+      return;
+    }
+
     if (!drawingRef.current || !currentAnnotationRef.current) return;
     drawingRef.current = false;
     setDrawing(false);
@@ -296,14 +423,27 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     setTextValue("");
   };
 
-  const undo = () => setAnnotations((prev) => prev.slice(0, -1));
-  const clearAll = () => setAnnotations([]);
+  const undo = () => {
+    setAnnotations((prev) => prev.slice(0, -1));
+    setSelectedId(null);
+  };
+  const clearAll = () => {
+    setAnnotations([]);
+    setSelectedId(null);
+  };
+  const deleteSelected = () => {
+    if (!selectedId) return;
+    setAnnotations((prev) => prev.filter((a) => a.id !== selectedId));
+    setSelectedId(null);
+  };
 
   const handleSave = async () => {
     const canvas = canvasRef.current;
     if (!canvas || !imgRef.current) return;
 
-    // Create a fresh canvas at full resolution using a re-fetched image to avoid CORS taint
+    // Deselect before saving so selection indicator isn't baked in
+    setSelectedId(null);
+
     const fullCanvas = document.createElement("canvas");
     fullCanvas.width = imgRef.current.naturalWidth || imgRef.current.width;
     fullCanvas.height = imgRef.current.naturalHeight || imgRef.current.height;
@@ -311,10 +451,7 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     const scaleX = fullCanvas.width / canvas.width;
     const scaleY = fullCanvas.height / canvas.height;
 
-    // Try to draw the image on the full canvas safely
     try {
-      // Re-fetch as blob to guarantee no CORS taint
-      let drawImg = imgRef.current;
       if (imageSrc.startsWith("http")) {
         const resp = await fetch(imageSrc);
         const blob = await resp.blob();
@@ -322,14 +459,12 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
         fctx.drawImage(bmpOrImg, 0, 0, fullCanvas.width, fullCanvas.height);
         bmpOrImg.close();
       } else {
-        fctx.drawImage(drawImg, 0, 0, fullCanvas.width, fullCanvas.height);
+        fctx.drawImage(imgRef.current, 0, 0, fullCanvas.width, fullCanvas.height);
       }
     } catch {
-      // Fallback: draw from the display canvas (lower res but works)
       fctx.drawImage(canvas, 0, 0, fullCanvas.width, fullCanvas.height);
     }
 
-    // Draw annotations at full resolution
     annotations.forEach((a) => {
       const scaled: Annotation = {
         ...a,
@@ -349,11 +484,9 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
         if (blob) {
           onSave(blob);
         } else {
-          // Ultimate fallback: export the display canvas directly
           canvas.toBlob(
             (fallbackBlob) => {
               if (fallbackBlob) onSave(fallbackBlob);
-              else console.error("[AnnotationEditor] toBlob failed on both canvases");
             },
             "image/jpeg",
             0.9
@@ -365,7 +498,8 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     );
   };
 
-  const tools: { id: Tool; icon: any; label: string }[] = [
+  const toolItems: { id: Tool; icon: any; label: string }[] = [
+    { id: "select", icon: MousePointer2, label: "Sélectionner / Déplacer" },
     { id: "pen", icon: Pencil, label: "Stylo" },
     { id: "arrow", icon: ArrowUp, label: "Flèche" },
     { id: "text", icon: Type, label: "Texte" },
@@ -376,54 +510,65 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[100vw] max-h-[100vh] w-screen h-screen p-3 overflow-hidden flex flex-col rounded-none"  style={{ margin: 0 }}>
+      <DialogContent className="max-w-[100vw] max-h-[100vh] w-screen h-screen p-3 overflow-hidden flex flex-col rounded-none" style={{ margin: 0 }}>
         <DialogHeader>
           <DialogTitle className="text-sm">Annoter la photo</DialogTitle>
         </DialogHeader>
 
         {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b">
-          {tools.map((t) => (
+        <div className="flex flex-wrap items-center gap-1 pb-2 border-b overflow-x-auto">
+          {toolItems.map((t) => (
             <Button
               key={t.id}
               variant={tool === t.id ? "default" : "outline"}
               size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => setTool(t.id)}
+              className="h-8 w-8 p-0 shrink-0"
+              onClick={() => { setTool(t.id); if (t.id !== "select") setSelectedId(null); }}
               title={t.label}
             >
               <t.icon className="h-4 w-4" />
             </Button>
           ))}
-          <div className="w-px h-6 bg-border mx-1" />
+          <div className="w-px h-6 bg-border mx-0.5 shrink-0" />
           {COLORS.map((c) => (
             <button
               key={c}
-              className={`h-6 w-6 rounded-full border-2 transition-transform ${
+              className={`h-6 w-6 rounded-full border-2 transition-transform shrink-0 ${
                 color === c ? "scale-125 border-foreground" : "border-transparent"
               }`}
               style={{ backgroundColor: c }}
               onClick={() => setColor(c)}
             />
           ))}
-          <div className="w-px h-6 bg-border mx-1" />
-          <div className="flex items-center gap-1 w-24">
-            <span className="text-[10px] text-muted-foreground">Trait</span>
-            <Slider value={[lineWidth]} min={1} max={10} step={1} onValueChange={(v) => setLineWidth(v[0])} />
+        </div>
+
+        {/* Size controls + actions row */}
+        <div className="flex items-center gap-2 pb-1">
+          <div className="flex items-center gap-1 flex-1 min-w-0">
+            <span className="text-[10px] text-muted-foreground shrink-0">Trait</span>
+            <Slider value={[lineWidth]} min={1} max={10} step={1} onValueChange={(v) => setLineWidth(v[0])} className="w-20" />
+            <span className="text-xs font-mono w-4 text-center">{lineWidth}</span>
           </div>
           {tool === "text" && (
-            <div className="flex items-center gap-1 w-24">
-              <span className="text-[10px] text-muted-foreground">Taille</span>
-              <Slider value={[fontSize]} min={12} max={72} step={2} onValueChange={(v) => setFontSize(v[0])} />
+            <div className="flex items-center gap-1 flex-1 min-w-0">
+              <span className="text-[10px] text-muted-foreground shrink-0">Taille</span>
+              <Slider value={[fontSize]} min={12} max={72} step={2} onValueChange={(v) => setFontSize(v[0])} className="w-20" />
+              <span className="text-xs font-mono w-6 text-center">{fontSize}</span>
             </div>
           )}
-          <div className="w-px h-6 bg-border mx-1" />
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={undo} title="Annuler">
-            <Undo2 className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={clearAll} title="Tout effacer">
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={undo} title="Annuler dernière">
+              <Undo2 className="h-4 w-4" />
+            </Button>
+            {selectedId && (
+              <Button variant="destructive" size="sm" className="h-8 px-2 text-xs" onClick={deleteSelected} title="Supprimer la sélection">
+                <Trash2 className="h-3.5 w-3.5 mr-1" /> Suppr.
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={clearAll} title="Tout effacer">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Canvas */}
@@ -439,7 +584,7 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
               ref={overlayRef}
               width={canvasSize.w}
               height={canvasSize.h}
-              className="absolute inset-0 rounded cursor-crosshair"
+              className={`absolute inset-0 rounded ${tool === "select" ? "cursor-grab" : "cursor-crosshair"}`}
               onMouseDown={handlePointerDown}
               onMouseMove={handlePointerMove}
               onMouseUp={handlePointerUp}
@@ -448,22 +593,22 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
               onTouchMove={handlePointerMove}
               onTouchEnd={handlePointerUp}
             />
-          {textInput && (
-            <div
-              className="absolute z-10"
-              style={{ left: textInput.x, top: textInput.y - 16 }}
-            >
-              <Input
-                autoFocus
-                value={textValue}
-                onChange={(e) => setTextValue(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addTextAnnotation()}
-                onBlur={addTextAnnotation}
-                className="h-7 text-sm w-40"
-                placeholder="Tapez votre texte..."
-              />
-            </div>
-          )}
+            {textInput && (
+              <div
+                className="absolute z-10"
+                style={{ left: textInput.x, top: textInput.y - 16 }}
+              >
+                <Input
+                  autoFocus
+                  value={textValue}
+                  onChange={(e) => setTextValue(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addTextAnnotation()}
+                  onBlur={addTextAnnotation}
+                  className="h-7 text-sm w-40"
+                  placeholder="Tapez votre texte..."
+                />
+              </div>
+            )}
           </div>
         </div>
 
