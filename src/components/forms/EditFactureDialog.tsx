@@ -75,7 +75,11 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
     onSuccess: () => {
       toast.success("Facture modifiée avec succès");
       queryClient.invalidateQueries({ queryKey: ["finance"] });
+      queryClient.invalidateQueries({ queryKey: ["finance-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["finance-factures"] });
+      queryClient.invalidateQueries({ queryKey: ["facture-detail"] });
       queryClient.invalidateQueries({ queryKey: ["client-factures"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       onOpenChange(false);
     },
     onError: () => toast.error("Erreur lors de la modification"),
