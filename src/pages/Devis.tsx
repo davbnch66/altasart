@@ -1,18 +1,21 @@
 import { motion } from "framer-motion";
-import { Search, FileText, Pencil, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
+import { Search, FileText, Pencil, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, X, ChevronRight, Euro } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
+import { fr } from "date-fns/locale";
 import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
 import { EditDevisDialog } from "@/components/forms/EditDevisDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { generateDevisPdf } from "@/lib/generateDevisPdf";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const statusLabels: Record<string, string> = {
   brouillon: "Brouillon",
@@ -37,7 +40,7 @@ const companyColors: Record<string, string> = {
 };
 
 const formatAmount = (amount: number) =>
-  new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
+  new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(amount);
 
 const formatDate = (dateStr: string | null) => {
   if (!dateStr) return "—";
@@ -48,6 +51,15 @@ const formatDate = (dateStr: string | null) => {
   }
 };
 
+const formatDateShort = (dateStr: string | null) => {
+  if (!dateStr) return "";
+  try {
+    return format(new Date(dateStr), "d MMM", { locale: fr });
+  } catch {
+    return "";
+  }
+};
+
 type SortField = "code" | "client" | "company" | "date" | "amount" | "status";
 type SortDir = "asc" | "desc";
 
@@ -55,6 +67,7 @@ const Devis = () => {
   const { current } = useCompany();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [companyFilter, setCompanyFilter] = useState<string | null>(null);
@@ -94,7 +107,6 @@ const Devis = () => {
     },
   });
 
-  // Unique companies for filter
   const availableCompanies = useMemo(() => {
     const map = new Map<string, { short_name: string; color: string }>();
     for (const d of devis) {
@@ -106,7 +118,6 @@ const Devis = () => {
     return Array.from(map.values());
   }, [devis]);
 
-  // Filter + search
   const filtered = useMemo(() => {
     let result = devis;
 
@@ -129,28 +140,15 @@ const Devis = () => {
       result = result.filter((d) => (d.companies as any)?.short_name === companyFilter);
     }
 
-    // Sort
     result = [...result].sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
-        case "code":
-          cmp = (a.code || "").localeCompare(b.code || "");
-          break;
-        case "client":
-          cmp = ((a.clients as any)?.name || "").localeCompare((b.clients as any)?.name || "");
-          break;
-        case "company":
-          cmp = ((a.companies as any)?.short_name || "").localeCompare((b.companies as any)?.short_name || "");
-          break;
-        case "date":
-          cmp = (a.created_at || "").localeCompare(b.created_at || "");
-          break;
-        case "amount":
-          cmp = (a.amount || 0) - (b.amount || 0);
-          break;
-        case "status":
-          cmp = (a.status || "").localeCompare(b.status || "");
-          break;
+        case "code": cmp = (a.code || "").localeCompare(b.code || ""); break;
+        case "client": cmp = ((a.clients as any)?.name || "").localeCompare((b.clients as any)?.name || ""); break;
+        case "company": cmp = ((a.companies as any)?.short_name || "").localeCompare((b.companies as any)?.short_name || ""); break;
+        case "date": cmp = (a.created_at || "").localeCompare(b.created_at || ""); break;
+        case "amount": cmp = (a.amount || 0) - (b.amount || 0); break;
+        case "status": cmp = (a.status || "").localeCompare(b.status || ""); break;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -158,19 +156,10 @@ const Devis = () => {
     return result;
   }, [devis, search, statusFilter, companyFilter, sortField, sortDir]);
 
-  const stats = useMemo(() => {
-    const grouped: Record<string, { count: number; amount: number }> = {};
-    for (const s of ["brouillon", "envoye", "accepte", "refuse", "expire"]) {
-      const items = devis.filter((d) => d.status === s);
-      grouped[s] = { count: items.length, amount: items.reduce((sum, d) => sum + (d.amount || 0), 0) };
-    }
-    return [
-      { label: "Brouillons", key: "brouillon", ...grouped.brouillon },
-      { label: "Envoyés", key: "envoye", ...grouped.envoye },
-      { label: "Acceptés", key: "accepte", ...grouped.accepte },
-      { label: "Refusés", key: "refuse", ...grouped.refuse },
-    ];
-  }, [devis]);
+  const counts: Record<string, number> = { all: devis.length };
+  for (const s of ["brouillon", "envoye", "accepte", "refuse", "expire"]) {
+    counts[s] = devis.filter((d) => d.status === s).length;
+  }
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -189,130 +178,176 @@ const Devis = () => {
   const hasActiveFilters = statusFilter || companyFilter;
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <div className={`max-w-7xl mx-auto space-y-4 ${isMobile ? "p-3 pb-20" : "p-6 lg:p-8 space-y-6"}`}>
+      {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Devis / Cotations</h1>
-          <p className="text-muted-foreground mt-1">{filtered.length} devis{filtered.length !== devis.length ? ` sur ${devis.length}` : ""}</p>
+          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Devis / Cotations</h1>
+          {!isMobile && <p className="text-muted-foreground mt-1">{filtered.length} devis{filtered.length !== devis.length ? ` sur ${devis.length}` : ""}</p>}
         </div>
         <CreateDevisDialog />
       </motion.div>
 
-      {/* Stats - clickable for filtering */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {stats.map((s) => (
-          <div
-            key={s.label}
-            onClick={() => setStatusFilter(statusFilter === s.key ? null : s.key)}
-            className={`rounded-xl border bg-card p-4 cursor-pointer transition-all hover:shadow-sm ${statusFilter === s.key ? "ring-2 ring-primary" : ""}`}
+      {/* Status filter chips */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+        {([
+          { key: "all", label: "Tous" },
+          { key: "brouillon", label: "Brouillons" },
+          { key: "envoye", label: "Envoyés" },
+          { key: "accepte", label: "Acceptés" },
+          { key: "refuse", label: "Refusés" },
+          { key: "expire", label: "Expirés" },
+        ] as const).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setStatusFilter(key === "all" ? null : statusFilter === key ? null : key)}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              (key === "all" && !statusFilter) || statusFilter === key
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
           >
-            <p className="text-xs text-muted-foreground">{s.label}</p>
-            <p className="text-lg font-bold mt-1">{s.count}</p>
-            <p className="text-xs text-muted-foreground">{formatAmount(s.amount)}</p>
-          </div>
+            {label} ({counts[key] || 0})
+          </button>
         ))}
-      </motion.div>
-
-      {/* Search + Company filter chips */}
-      <div className="space-y-3">
-        <div className="flex gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher par code, client, objet ou société..."
-              className="w-full rounded-lg border bg-card pl-10 pr-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-        </div>
-
-        {/* Company filter chips */}
-        {current === "global" && availableCompanies.length > 1 && (
-          <div className="flex flex-wrap gap-2">
-            <span className="text-xs text-muted-foreground self-center mr-1">Société :</span>
-            {availableCompanies.map((c) => (
-              <button
-                key={c.short_name}
-                onClick={() => setCompanyFilter(companyFilter === c.short_name ? null : c.short_name)}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                  companyFilter === c.short_name
-                    ? companyColors[c.color] || "bg-primary/10 text-primary"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                } ${companyFilter === c.short_name ? "ring-2 ring-primary/30" : ""}`}
-              >
-                {c.short_name}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Active filters display */}
-        {hasActiveFilters && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Filtres actifs :</span>
-            {statusFilter && (
-              <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => setStatusFilter(null)}>
-                {statusLabels[statusFilter]} <X className="h-3 w-3" />
-              </Badge>
-            )}
-            {companyFilter && (
-              <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => setCompanyFilter(null)}>
-                {companyFilter} <X className="h-3 w-3" />
-              </Badge>
-            )}
-            <button onClick={() => { setStatusFilter(null); setCompanyFilter(null); }} className="text-xs text-muted-foreground hover:text-foreground underline">
-              Tout effacer
-            </button>
-          </div>
-        )}
       </div>
 
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="rounded-xl border bg-card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/30">
-              <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("code")}>
-                <span className="flex items-center">N° <SortIcon field="code" /></span>
-              </th>
-              {current === "global" && (
-                <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("company")}>
-                  <span className="flex items-center">Société <SortIcon field="company" /></span>
+      {/* Company filter chips */}
+      {current === "global" && availableCompanies.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs text-muted-foreground self-center mr-1">Société :</span>
+          {availableCompanies.map((c) => (
+            <button
+              key={c.short_name}
+              onClick={() => setCompanyFilter(companyFilter === c.short_name ? null : c.short_name)}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                companyFilter === c.short_name
+                  ? companyColors[c.color] || "bg-primary/10 text-primary"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              } ${companyFilter === c.short_name ? "ring-2 ring-primary/30" : ""}`}
+            >
+              {c.short_name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Active filters */}
+      {hasActiveFilters && !isMobile && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Filtres actifs :</span>
+          {statusFilter && (
+            <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => setStatusFilter(null)}>
+              {statusLabels[statusFilter]} <X className="h-3 w-3" />
+            </Badge>
+          )}
+          {companyFilter && (
+            <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => setCompanyFilter(null)}>
+              {companyFilter} <X className="h-3 w-3" />
+            </Badge>
+          )}
+          <button onClick={() => { setStatusFilter(null); setCompanyFilter(null); }} className="text-xs text-muted-foreground hover:text-foreground underline">
+            Tout effacer
+          </button>
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Rechercher par code, client, objet..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9 h-9"
+        />
+      </div>
+
+      {/* List */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className={`w-full rounded-xl ${isMobile ? "h-20" : "h-14"}`} />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">Aucun devis trouvé</div>
+      ) : isMobile ? (
+        /* Mobile cards */
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid gap-3">
+          {filtered.map((d) => {
+            const comp = d.companies as any;
+            return (
+              <div
+                key={d.id}
+                onClick={() => navigate(`/devis/${d.id}`)}
+                className="rounded-xl border bg-card p-3 active:bg-muted/50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm truncate">{d.objet}</p>
+                      {d.code && <span className="text-[10px] font-mono text-muted-foreground shrink-0">{d.code}</span>}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{(d.clients as any)?.name || "—"}</p>
+                    <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                      {d.created_at && (
+                        <span className="shrink-0">{formatDateShort(d.created_at)}</span>
+                      )}
+                      <span className="flex items-center gap-0.5 shrink-0 font-medium">
+                        <Euro className="h-3 w-3" />
+                        {formatAmount(d.amount)}
+                      </span>
+                      {comp?.short_name && (
+                        <span className="shrink-0">{comp.short_name}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${statusStyles[d.status] || "bg-muted text-muted-foreground"}`}>
+                      {statusLabels[d.status] || d.status}
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </motion.div>
+      ) : (
+        /* Desktop table */
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="rounded-xl border bg-card overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b bg-muted/30">
+                <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("code")}>
+                  <span className="flex items-center">N° <SortIcon field="code" /></span>
                 </th>
-              )}
-              <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("client")}>
-                <span className="flex items-center">Client <SortIcon field="client" /></span>
-              </th>
-              <th className="text-left font-medium text-muted-foreground px-5 py-3 hidden lg:table-cell">Objet</th>
-              <th className="text-left font-medium text-muted-foreground px-5 py-3 hidden md:table-cell cursor-pointer select-none" onClick={() => toggleSort("date")}>
-                <span className="flex items-center">Date <SortIcon field="date" /></span>
-              </th>
-              <th className="text-left font-medium text-muted-foreground px-5 py-3 hidden md:table-cell">Validité</th>
-              <th className="text-right font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("amount")}>
-                <span className="flex items-center justify-end">Montant <SortIcon field="amount" /></span>
-              </th>
-              <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("status")}>
-                <span className="flex items-center">Statut <SortIcon field="status" /></span>
-              </th>
-              <th className="px-5 py-3"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {isLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <tr key={i}>
-                  <td className="px-5 py-3" colSpan={current === "global" ? 9 : 8}><Skeleton className="h-5 w-full" /></td>
-                </tr>
-              ))
-            ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={current === "global" ? 9 : 8} className="px-5 py-12 text-center text-muted-foreground">
-                  Aucun devis trouvé
-                </td>
+                {current === "global" && (
+                  <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("company")}>
+                    <span className="flex items-center">Société <SortIcon field="company" /></span>
+                  </th>
+                )}
+                <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("client")}>
+                  <span className="flex items-center">Client <SortIcon field="client" /></span>
+                </th>
+                <th className="text-left font-medium text-muted-foreground px-5 py-3 hidden lg:table-cell">Objet</th>
+                <th className="text-left font-medium text-muted-foreground px-5 py-3 hidden md:table-cell cursor-pointer select-none" onClick={() => toggleSort("date")}>
+                  <span className="flex items-center">Date <SortIcon field="date" /></span>
+                </th>
+                <th className="text-left font-medium text-muted-foreground px-5 py-3 hidden md:table-cell">Validité</th>
+                <th className="text-right font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("amount")}>
+                  <span className="flex items-center justify-end">Montant <SortIcon field="amount" /></span>
+                </th>
+                <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("status")}>
+                  <span className="flex items-center">Statut <SortIcon field="status" /></span>
+                </th>
+                <th className="px-5 py-3"></th>
               </tr>
-            ) : (
-              filtered.map((d) => {
+            </thead>
+            <tbody className="divide-y">
+              {filtered.map((d) => {
                 const comp = d.companies as any;
                 return (
                   <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/devis/${d.id}`)}>
@@ -331,9 +366,7 @@ const Devis = () => {
                         </span>
                       </td>
                     )}
-                    <td className="px-5 py-3">
-                      <span className="font-medium">{(d.clients as any)?.name || "—"}</span>
-                    </td>
+                    <td className="px-5 py-3"><span className="font-medium">{(d.clients as any)?.name || "—"}</span></td>
                     <td className="px-5 py-3 text-muted-foreground hidden lg:table-cell max-w-[200px] truncate">{d.objet}</td>
                     <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{formatDate(d.created_at)}</td>
                     <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{formatDate(d.valid_until)}</td>
@@ -358,11 +391,11 @@ const Devis = () => {
                     </td>
                   </tr>
                 );
-              })
-            )}
-          </tbody>
-        </table>
-      </motion.div>
+              })}
+            </tbody>
+          </table>
+        </motion.div>
+      )}
 
       {editingDevis && (
         <EditDevisDialog devis={editingDevis} open={!!editingDevis} onOpenChange={(v) => !v && setEditingDevis(null)} />
