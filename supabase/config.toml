@@ -2,3 +2,6 @@ project_id = "bsqqdtqzxajecgxgulce"
 
 [functions.import-materiel]
 verify_jwt = false
+
+[functions.generate-devis-from-visite]
+verify_jwt = false
