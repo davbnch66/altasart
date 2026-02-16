@@ -57,48 +57,46 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
   // Load image
   useEffect(() => {
     if (!open) return;
+    let objectUrl: string | null = null;
+    let cancelled = false;
 
-    const loadImage = async () => {
-      let objectUrl: string | null = null;
-      const img = new Image();
+    const img = new Image();
 
-      try {
-        // For remote URLs, fetch as blob to avoid CORS tainting the canvas
-        if (imageSrc.startsWith("http")) {
-          const resp = await fetch(imageSrc);
-          const blob = await resp.blob();
-          objectUrl = URL.createObjectURL(blob);
-          img.src = objectUrl;
-        } else {
-          // blob: or data: URLs don't need crossOrigin
-          img.src = imageSrc;
-        }
-      } catch {
-        // Fallback: try direct load with crossOrigin
-        img.crossOrigin = "anonymous";
-        img.src = imageSrc;
-      }
-
-      img.onload = () => {
-        imgRef.current = img;
-        const maxW = window.innerWidth - 40;
-        const maxH = window.innerHeight - 160;
-        const scale = Math.min(maxW / img.width, maxH / img.height, 1);
-        setCanvasSize({ w: Math.round(img.width * scale), h: Math.round(img.height * scale) });
-        setImageLoaded(true);
-      };
-
-      img.onerror = () => {
-        console.error("[AnnotationEditor] Failed to load image:", imageSrc);
-      };
-
-      return objectUrl;
+    // Register handlers BEFORE setting src to avoid race conditions
+    img.onload = () => {
+      if (cancelled) return;
+      imgRef.current = img;
+      const maxW = window.innerWidth - 40;
+      const maxH = window.innerHeight - 160;
+      const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+      setCanvasSize({ w: Math.round(img.width * scale), h: Math.round(img.height * scale) });
+      setImageLoaded(true);
     };
 
-    let objectUrl: string | null = null;
-    loadImage().then((url) => { objectUrl = url; });
+    img.onerror = () => {
+      console.error("[AnnotationEditor] Failed to load image:", imageSrc);
+    };
+
+    // For remote URLs, fetch as blob to avoid CORS tainting the canvas
+    if (imageSrc.startsWith("http")) {
+      fetch(imageSrc)
+        .then((resp) => resp.blob())
+        .then((blob) => {
+          if (cancelled) return;
+          objectUrl = URL.createObjectURL(blob);
+          img.src = objectUrl;
+        })
+        .catch(() => {
+          if (cancelled) return;
+          img.crossOrigin = "anonymous";
+          img.src = imageSrc;
+        });
+    } else {
+      img.src = imageSrc;
+    }
 
     return () => {
+      cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       setAnnotations([]);
       setImageLoaded(false);
