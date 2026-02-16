@@ -319,20 +319,36 @@ export async function generateVisitePdf(visiteId: string, options?: { photosPerR
             const imgResp = await fetch(fetchUrl);
             if (imgResp.ok) {
               const blob = await imgResp.blob();
-              const dataUrl = await new Promise<string>((resolve) => {
+              const origUrl = await new Promise<string>((resolve) => {
                 const reader = new FileReader();
                 reader.onload = () => resolve(reader.result as string);
                 reader.readAsDataURL(blob);
               });
 
+              // Draw through canvas to fix EXIF orientation + compress
               const imgEl = await new Promise<HTMLImageElement>((resolve, reject) => {
                 const img = new Image();
                 img.onload = () => resolve(img);
                 img.onerror = reject;
-                img.src = dataUrl;
+                img.src = origUrl;
               });
 
-              const aspectRatio = imgEl.naturalWidth / imgEl.naturalHeight;
+              // Resize large images to max 1200px on longest side for PDF
+              const MAX_PX = 1200;
+              let cw = imgEl.naturalWidth;
+              let ch = imgEl.naturalHeight;
+              if (cw > MAX_PX || ch > MAX_PX) {
+                if (cw > ch) { ch = Math.round(ch * MAX_PX / cw); cw = MAX_PX; }
+                else { cw = Math.round(cw * MAX_PX / ch); ch = MAX_PX; }
+              }
+              const canvas = document.createElement("canvas");
+              canvas.width = cw;
+              canvas.height = ch;
+              const ctx = canvas.getContext("2d")!;
+              ctx.drawImage(imgEl, 0, 0, cw, ch);
+              const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+
+              const aspectRatio = cw / ch;
 
               if (photosPerRow === 2) {
                 const col = i % 2;
