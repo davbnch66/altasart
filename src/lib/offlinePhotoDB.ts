@@ -81,6 +81,24 @@ export async function removeOfflinePhoto(id: string): Promise<void> {
   });
 }
 
+export async function updateOfflinePhotoCaption(id: string, caption: string): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, "readwrite");
+    const store = tx.objectStore(STORE_NAME);
+    const getReq = store.get(id);
+    getReq.onsuccess = () => {
+      const photo = getReq.result;
+      if (photo) {
+        photo.caption = caption;
+        store.put(photo);
+      }
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 export async function getOfflinePhotoCount(): Promise<number> {
   const db = await openDB();
   return new Promise((resolve, reject) => {

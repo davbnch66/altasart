@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useSortableList } from "@/hooks/useSortableList";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
-import { saveOfflinePhoto, getOfflinePhotosByVisite, removeOfflinePhoto, type OfflinePhoto } from "@/lib/offlinePhotoDB";
+import { saveOfflinePhoto, getOfflinePhotosByVisite, removeOfflinePhoto, updateOfflinePhotoCaption, type OfflinePhoto } from "@/lib/offlinePhotoDB";
 
 interface Props {
   visiteId: string;
@@ -177,6 +177,12 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
     toast.success("Photo hors-ligne supprimée");
   };
 
+  const updateOfflineCaption = async (id: string, caption: string) => {
+    await updateOfflinePhotoCaption(id, caption);
+    const photos = await getOfflinePhotosByVisite(visiteId);
+    setOfflinePhotos(photos);
+  };
+
   const updateCaption = async (photoId: string, caption: string) => {
     const { error } = await supabase.from("visite_photos").update({ caption }).eq("id", photoId);
     if (error) {
@@ -316,6 +322,17 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                         <Trash2 className="h-3 w-3" />
                       </button>
                     </div>
+                    <Input
+                      defaultValue={op.caption || ""}
+                      onBlur={async (e) => {
+                        const val = e.target.value;
+                        if (val !== (op.caption || "")) {
+                          await updateOfflineCaption(op.id, val);
+                        }
+                      }}
+                      placeholder="Légende (hors-ligne)..."
+                      className="text-xs h-7"
+                    />
                   </div>
                 ))}
               </div>
