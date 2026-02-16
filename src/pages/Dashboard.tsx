@@ -115,6 +115,7 @@ function useStats(companyIds: string[]) {
 }
 
 interface ActivityItem {
+  id: string;
   type: string;
   label: string;
   client: string;
@@ -169,6 +170,7 @@ function useRecentActivity(companyIds: string[]) {
           expire: "Expiré",
         };
         items.push({
+          id: d.id,
           type: "devis",
           label: `Devis ${d.code || ""} — ${statusLabel[d.status] || d.status}`,
           client: (d.clients as any)?.name ?? "—",
@@ -179,6 +181,7 @@ function useRecentActivity(companyIds: string[]) {
 
       (recentDossiers ?? []).forEach((d) => {
         items.push({
+          id: d.id,
           type: "dossier",
           label: `Dossier ${d.code || ""} — ${d.title}`,
           client: (d.clients as any)?.name ?? "—",
@@ -190,6 +193,7 @@ function useRecentActivity(companyIds: string[]) {
       (recentFactures ?? []).forEach((f) => {
         const amount = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(Number(f.amount));
         items.push({
+          id: f.id,
           type: "facture",
           label: `Facture ${f.code || ""} — ${amount}`,
           client: (f.clients as any)?.name ?? "—",
@@ -200,6 +204,7 @@ function useRecentActivity(companyIds: string[]) {
 
       (recentVisites ?? []).forEach((v) => {
         items.push({
+          id: v.id,
           type: "visite",
           label: `Visite — ${v.title}`,
           client: (v.clients as any)?.name ?? "—",
@@ -350,7 +355,7 @@ const Dashboard = () => {
           ) : activity && activity.length > 0 ? (
             activity.map((item, i) => {
               const linkMap: Record<string, string> = {
-                devis: "/devis",
+                devis: `/devis/${item.id}`,
                 dossier: "/dossiers",
                 facture: "/finance",
                 visite: "/visites",
