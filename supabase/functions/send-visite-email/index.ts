@@ -1,9 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import nodemailer from "npm:nodemailer@6.9.10";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
@@ -12,12 +11,11 @@ serve(async (req) => {
   }
 
   try {
-    const smtpUser = Deno.env.get("SMTP_USER");
-    const smtpPass = Deno.env.get("SMTP_PASS");
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
-    if (!smtpUser || !smtpPass) {
+    if (!resendApiKey) {
       return new Response(
-        JSON.stringify({ error: "SMTP non configuré. Veuillez renseigner SMTP_USER et SMTP_PASS dans les secrets." }),
+        JSON.stringify({ error: "RESEND_API_KEY non configuré. Veuillez renseigner la clé API Resend dans les secrets." }),
         { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -31,43 +29,44 @@ serve(async (req) => {
       );
     }
 
-    const transport = nodemailer.createTransport({
-      host: "smtp.office365.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-      tls: {
-        ciphers: "SSLv3",
-        rejectUnauthorized: false,
-      },
-    });
+    const htmlBody = body
+      ? `<div style="font-family:sans-serif;white-space:pre-wrap">${body.replace(/\n/g, "<br>")}</div>`
+      : "<p></p>";
 
-    const mailOptions: Record<string, unknown> = {
-      from: smtpUser,
-      to,
+    const emailPayload: Record<string, unknown> = {
+      from: "Altas Art <onboarding@resend.dev>",
+      to: [to],
       subject,
-      text: body || "",
-      html: body ? `<div style="font-family:sans-serif;white-space:pre-wrap">${body.replace(/\n/g, "<br>")}</div>` : undefined,
+      html: htmlBody,
     };
 
     if (pdfBase64) {
-      mailOptions.attachments = [
+      emailPayload.attachments = [
         {
           filename: fileName || "rapport.pdf",
           content: pdfBase64,
-          encoding: "base64",
-          contentType: "application/pdf",
         },
       ];
     }
 
-    await transport.sendMail(mailOptions);
+    const resendResponse = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(emailPayload),
+    });
+
+    const resendData = await resendResponse.json();
+
+    if (!resendResponse.ok) {
+      console.error("Resend API error:", resendData);
+      throw new Error(resendData.message || `Resend error: ${resendResponse.status}`);
+    }
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, id: resendData.id }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
