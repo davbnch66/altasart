@@ -196,9 +196,11 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
     if (error) toast.error("Erreur mise à jour légende");
   };
 
+  const [cacheBuster, setCacheBuster] = useState(0);
+
   const getPhotoUrl = (path: string) => {
     const { data } = supabase.storage.from("visite-photos").getPublicUrl(path);
-    return data.publicUrl;
+    return `${data.publicUrl}?t=${cacheBuster}`;
   };
 
   const piecePhotos = (pieceId: string) => photos.filter((p) => p.piece_id === pieceId);
@@ -227,6 +229,7 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
           upsert: true,
         });
         toast.success("Photo annotée et sauvegardée");
+        setCacheBuster(Date.now());
         queryClient.invalidateQueries({ queryKey: ["visite-photos", visiteId] });
       } catch (e: any) {
         toast.error(e.message || "Erreur sauvegarde annotation");
