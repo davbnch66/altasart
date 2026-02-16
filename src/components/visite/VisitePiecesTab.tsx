@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2, Image, Loader2, MapPin } from "lucide-react";
+import { Plus, Trash2, Image, Loader2, MapPin, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { useSortableList } from "@/hooks/useSortableList";
 
 interface Props {
   visiteId: string;
@@ -43,6 +44,29 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
       return data;
     },
   });
+
+  const reorderMutation = useMutation({
+    mutationFn: async (updates: { id: string; sort_order: number }[]) => {
+      const promises = updates.map(({ id, sort_order }) =>
+        supabase.from("visite_pieces").update({ sort_order }).eq("id", id)
+      );
+      await Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["visite-pieces", visiteId] });
+    },
+    onError: () => toast.error("Erreur de réordonnement"),
+  });
+
+  const handleReorder = useCallback(
+    (updates: { id: string; sort_order: number }[]) => {
+      reorderMutation.mutate(updates);
+    },
+    [reorderMutation]
+  );
+
+  const { dragIndex, overIndex, handleDragStart, handleDragOver, handleDrop, handleDragEnd, moveItem } =
+    useSortableList(pieces, handleReorder);
 
   const addPiece = useMutation({
     mutationFn: async () => {
@@ -155,17 +179,52 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
         <p className="text-muted-foreground text-sm text-center py-8">Aucune pièce ajoutée. Commencez par créer des pièces ou zones.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {pieces.map((piece: any) => (
-            <Card key={piece.id} className="p-4 space-y-3">
+          {pieces.map((piece: any, idx: number) => (
+            <Card
+              key={piece.id}
+              className={`p-4 space-y-3 transition-all ${
+                dragIndex === idx ? "opacity-50 scale-95" : ""
+              } ${overIndex === idx && dragIndex !== idx ? "ring-2 ring-primary" : ""}`}
+              draggable
+              onDragStart={() => handleDragStart(idx)}
+              onDragOver={(e) => handleDragOver(e, idx)}
+              onDrop={() => handleDrop(idx)}
+              onDragEnd={handleDragEnd}
+            >
               <div className="flex items-start justify-between">
-                <div>
-                  <h4 className="font-semibold flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    {piece.name}
-                  </h4>
-                  {piece.floor_level && <p className="text-xs text-muted-foreground">Étage: {piece.floor_level}</p>}
-                  {piece.dimensions && <p className="text-xs text-muted-foreground">Dimensions: {piece.dimensions}</p>}
-                  {piece.access_comments && <p className="text-xs text-muted-foreground">Accès: {piece.access_comments}</p>}
+                <div className="flex items-start gap-2">
+                  <div className="flex flex-col items-center gap-0.5 pt-1">
+                    <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab active:cursor-grabbing" />
+                    <div className="flex flex-col md:hidden">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5"
+                        disabled={idx === 0}
+                        onClick={() => moveItem(idx, "up")}
+                      >
+                        <ChevronUp className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5"
+                        disabled={idx === pieces.length - 1}
+                        onClick={() => moveItem(idx, "down")}
+                      >
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-primary" />
+                      {piece.name}
+                    </h4>
+                    {piece.floor_level && <p className="text-xs text-muted-foreground">Étage: {piece.floor_level}</p>}
+                    {piece.dimensions && <p className="text-xs text-muted-foreground">Dimensions: {piece.dimensions}</p>}
+                    {piece.access_comments && <p className="text-xs text-muted-foreground">Accès: {piece.access_comments}</p>}
+                  </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => deletePiece.mutate(piece.id)}>
                   <Trash2 className="h-4 w-4 text-destructive" />

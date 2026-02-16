@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Loader2, Package, Sparkles } from "lucide-react";
+import { Plus, Trash2, Loader2, Package, Sparkles, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { useSortableList } from "@/hooks/useSortableList";
 
 const DESIGNATIONS_COURANTES = [
   "Armoire haute",
@@ -65,6 +66,29 @@ export const VisiteMaterielTab = ({ visiteId, companyId }: Props) => {
       return data;
     },
   });
+
+  const reorderMutation = useMutation({
+    mutationFn: async (updates: { id: string; sort_order: number }[]) => {
+      const promises = updates.map(({ id, sort_order }) =>
+        supabase.from("visite_materiel").update({ sort_order }).eq("id", id)
+      );
+      await Promise.all(promises);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["visite-materiel", visiteId] });
+    },
+    onError: () => toast.error("Erreur de réordonnement"),
+  });
+
+  const handleReorder = useCallback(
+    (updates: { id: string; sort_order: number }[]) => {
+      reorderMutation.mutate(updates);
+    },
+    [reorderMutation]
+  );
+
+  const { dragIndex, overIndex, handleDragStart, handleDragOver, handleDrop, handleDragEnd, moveItem } =
+    useSortableList(materiel, handleReorder);
 
   const addItem = useMutation({
     mutationFn: async () => {
@@ -219,6 +243,7 @@ export const VisiteMaterielTab = ({ visiteId, companyId }: Props) => {
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
+                <th className="w-10"></th>
                 <th className="text-left p-2 font-medium">Désignation</th>
                 <th className="text-center p-2 font-medium w-16">Qté</th>
                 <th className="text-left p-2 font-medium hidden md:table-cell">Dimensions</th>
@@ -228,7 +253,38 @@ export const VisiteMaterielTab = ({ visiteId, companyId }: Props) => {
             </thead>
             <tbody>
               {materiel.map((item: any, idx: number) => (
-                <tr key={item.id} className={idx % 2 === 0 ? "" : "bg-muted/20"}>
+                <tr
+                  key={item.id}
+                  className={`${idx % 2 === 0 ? "" : "bg-muted/20"} transition-all ${
+                    dragIndex === idx ? "opacity-50" : ""
+                  } ${overIndex === idx && dragIndex !== idx ? "ring-2 ring-inset ring-primary" : ""}`}
+                  draggable
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDrop={() => handleDrop(idx)}
+                  onDragEnd={handleDragEnd}
+                >
+                  <td className="p-2">
+                    <div className="flex flex-col items-center">
+                      <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab active:cursor-grabbing" />
+                      <div className="flex flex-col md:hidden">
+                        <button
+                          className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                          disabled={idx === 0}
+                          onClick={() => moveItem(idx, "up")}
+                        >
+                          <ChevronUp className="h-3 w-3" />
+                        </button>
+                        <button
+                          className="p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                          disabled={idx === materiel.length - 1}
+                          onClick={() => moveItem(idx, "down")}
+                        >
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </td>
                   <td className="p-2 font-medium">{item.designation}</td>
                   <td className="p-2 text-center">{item.quantity}</td>
                   <td className="p-2 hidden md:table-cell text-muted-foreground">{item.dimensions || "—"}</td>
