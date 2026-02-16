@@ -17,6 +17,7 @@ import DevisDetail from "@/pages/DevisDetail";
 import Visites from "@/pages/Visites";
 import InboxPage from "@/pages/InboxPage";
 import Finance from "@/pages/Finance";
+import FactureDetail from "@/pages/FactureDetail";
 import Ressources from "@/pages/Ressources";
 import Parametres from "@/pages/Parametres";
 import Auth from "@/pages/Auth";
@@ -52,6 +53,7 @@ const ProtectedRoutes = () => {
           <Route path="/visites" element={<Visites />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/finance" element={<Finance />} />
+          <Route path="/finance/:id" element={<FactureDetail />} />
           <Route path="/ressources" element={<Ressources />} />
           <Route path="/parametres" element={<Parametres />} />
         </Route>
