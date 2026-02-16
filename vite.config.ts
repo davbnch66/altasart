@@ -34,9 +34,9 @@ export default defineConfig(({ mode }) => ({
         ],
       },
       manifest: {
-        name: "GruesPro – Gestion de visites",
-        short_name: "GruesPro",
-        description: "Application de gestion de visites techniques, devis et dossiers",
+        name: "altasart.app",
+        short_name: "altasart.app",
+        description: "Application de gestion logistique, visites techniques, devis et dossiers",
         theme_color: "#1a1a2e",
         background_color: "#0f0f23",
         display: "standalone",
