@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Mail, Phone, MapPin, Building2, User, FileText, Receipt, CreditCard,
-  FolderOpen, ClipboardCheck, Pencil, Trash2, ChevronRight, Euro
+  FolderOpen, ClipboardCheck, Pencil, Trash2, ChevronRight, Euro, MessageSquare
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,11 +17,13 @@ import { EditDevisDialog } from "@/components/forms/EditDevisDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ClientExchangesTab } from "@/components/client/ClientExchangesTab";
 
-type TabKey = "infos" | "factures" | "devis" | "reglements" | "dossiers" | "visites";
+type TabKey = "infos" | "echanges" | "factures" | "devis" | "reglements" | "dossiers" | "visites";
 
 const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: "infos", label: "Infos", icon: User },
+  { key: "echanges", label: "Échanges", icon: MessageSquare },
   { key: "factures", label: "Factures", icon: Receipt },
   { key: "devis", label: "Devis", icon: FileText },
   { key: "reglements", label: "Règlements", icon: CreditCard },
@@ -403,6 +405,10 @@ const ClientDetail = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === "echanges" && (
+          <ClientExchangesTab clientId={id!} />
         )}
 
         {activeTab === "factures" && (
