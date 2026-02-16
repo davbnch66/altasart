@@ -1,5 +1,6 @@
 import React from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NotificationBell } from "@/components/NotificationBell";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard,
@@ -154,6 +155,7 @@ export const AppSidebar: React.FC = () => {
             </p>
             <p className="text-xs text-sidebar-muted truncate">{user?.email}</p>
           </div>
+          <NotificationBell />
           <button onClick={handleSignOut} className="p-1.5 rounded hover:bg-sidebar-accent transition-colors" title="Se déconnecter">
             <LogOut className="h-4 w-4 text-sidebar-muted" />
           </button>
