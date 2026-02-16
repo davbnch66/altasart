@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Le nom est requis").max(200),
@@ -123,7 +124,16 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
             </div>
             <div className="col-span-2">
               <Label htmlFor="address">Adresse</Label>
-              <Input id="address" {...register("address")} placeholder="Adresse complète" />
+              <AddressAutocomplete
+                id="address"
+                value={watch("address") || ""}
+                onChange={(v) => setValue("address", v)}
+                onSelect={(s) => {
+                  if (s.postcode) setValue("postal_code", s.postcode);
+                  if (s.city) setValue("city", s.city);
+                }}
+                placeholder="Adresse complète"
+              />
             </div>
             <div className="col-span-2">
               <Label>Société *</Label>

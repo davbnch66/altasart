@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 const schema = z.object({
   title: z.string().trim().min(1, "L'intitulé est requis").max(300),
@@ -134,7 +135,12 @@ export const EditDossierDialog = ({ dossier, open, onOpenChange }: EditDossierDi
             </div>
             <div className="col-span-2">
               <Label htmlFor="edit-address">Adresse du chantier</Label>
-              <Input id="edit-address" {...register("address")} />
+              <AddressAutocomplete
+                id="edit-address"
+                value={watch("address") || ""}
+                onChange={(v) => setValue("address", v)}
+                placeholder="Adresse du chantier"
+              />
             </div>
             <div className="col-span-2">
               <Label htmlFor="edit-desc">Description</Label>

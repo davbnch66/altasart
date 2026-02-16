@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 const schema = z.object({
   name: z.string().trim().min(1, "Le nom est requis").max(200),
@@ -148,11 +149,23 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
             </div>
             <div className="col-span-2">
               <Label htmlFor="edit-address">Adresse</Label>
-              <Input id="edit-address" {...register("address")} />
+              <AddressAutocomplete
+                id="edit-address"
+                value={watch("address") || ""}
+                onChange={(v) => setValue("address", v)}
+                onSelect={(s) => {
+                  if (s.postcode) setValue("postal_code", s.postcode);
+                  if (s.city) setValue("city", s.city);
+                }}
+              />
             </div>
             <div className="col-span-2">
               <Label htmlFor="edit-billing">Adresse de facturation</Label>
-              <Input id="edit-billing" {...register("billing_address")} />
+              <AddressAutocomplete
+                id="edit-billing"
+                value={watch("billing_address") || ""}
+                onChange={(v) => setValue("billing_address", v)}
+              />
             </div>
             <div>
               <Label htmlFor="edit-payment">Mode de règlement</Label>
