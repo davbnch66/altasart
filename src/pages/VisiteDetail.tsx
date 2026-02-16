@@ -79,7 +79,7 @@ const VisiteDetail = () => {
   const [saving, setSaving] = useState(false);
   const [photosPerRow, setPhotosPerRow] = useState<1 | 2>(1);
   const [exporting, setExporting] = useState(false);
-  const [pdfPreview, setPdfPreview] = useState<{ blobUrl: string; fileName: string } | null>(null);
+  const [pdfPreview, setPdfPreview] = useState<{ blobUrl: string; fileName: string; dataUri?: string } | null>(null);
   const [activeTab, setActiveTab] = useState("rdv");
   const isMobile = useIsMobile();
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -627,6 +627,7 @@ const VisiteDetail = () => {
         open={!!pdfPreview}
         onClose={() => setPdfPreview(null)}
         blobUrl={pdfPreview?.blobUrl || null}
+        dataUri={pdfPreview?.dataUri || null}
         fileName={pdfPreview?.fileName || ""}
         clientEmail={client?.email || ""}
         visiteCode={visite.code || ""}

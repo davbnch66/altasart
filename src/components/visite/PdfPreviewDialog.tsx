@@ -9,12 +9,13 @@ interface PdfPreviewDialogProps {
   open: boolean;
   onClose: () => void;
   blobUrl: string | null;
+  dataUri?: string | null;
   fileName: string;
   clientEmail?: string;
   visiteCode?: string;
 }
 
-export function PdfPreviewDialog({ open, onClose, blobUrl, fileName, clientEmail, visiteCode }: PdfPreviewDialogProps) {
+export function PdfPreviewDialog({ open, onClose, blobUrl, dataUri, fileName, clientEmail, visiteCode }: PdfPreviewDialogProps) {
   const isMobile = useIsMobile();
   const [emailOpen, setEmailOpen] = useState(false);
 
@@ -66,6 +67,12 @@ export function PdfPreviewDialog({ open, onClose, blobUrl, fileName, clientEmail
                     Ouvrir dans un nouvel onglet
                   </Button>
                 </div>
+              ) : dataUri ? (
+                <iframe
+                  src={dataUri}
+                  className="w-full h-full border-0"
+                  title="Aperçu PDF"
+                />
               ) : (
                 <iframe
                   src={`${blobUrl}#zoom=50`}
