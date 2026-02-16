@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Mail, Phone, MapPin, Building2, User, FileText, Receipt, CreditCard,
-  FolderOpen, ClipboardCheck, Pencil, Trash2
+  FolderOpen, ClipboardCheck, Pencil, Trash2, ChevronRight, Euro
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,11 +16,12 @@ import { EditDossierDialog } from "@/components/forms/EditDossierDialog";
 import { EditDevisDialog } from "@/components/forms/EditDevisDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type TabKey = "infos" | "factures" | "devis" | "reglements" | "dossiers" | "visites";
 
 const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
-  { key: "infos", label: "Informations", icon: User },
+  { key: "infos", label: "Infos", icon: User },
   { key: "factures", label: "Factures", icon: Receipt },
   { key: "devis", label: "Devis", icon: FileText },
   { key: "reglements", label: "Règlements", icon: CreditCard },
@@ -102,6 +103,7 @@ const ClientDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<TabKey>("infos");
 
   // Edit/Delete state
@@ -198,7 +200,6 @@ const ClientDetail = () => {
     enabled: !!id,
   });
 
-  // Delete mutations
   const deleteClientMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("clients").delete().eq("id", id!);
@@ -242,13 +243,13 @@ const ClientDetail = () => {
 
   if (clientLoading) {
     return (
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+      <div className={`max-w-7xl mx-auto space-y-4 ${isMobile ? "p-3" : "p-6 lg:p-8 space-y-6"}`}>
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-20 w-full" />
-        <div className="grid grid-cols-3 gap-4">
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
+        <div className={`grid gap-3 ${isMobile ? "grid-cols-3" : "grid-cols-3 gap-4"}`}>
+          <Skeleton className="h-16" />
+          <Skeleton className="h-16" />
+          <Skeleton className="h-16" />
         </div>
       </div>
     );
@@ -262,75 +263,118 @@ const ClientDetail = () => {
   const soldeColor = solde > 0 ? "text-destructive" : "text-success";
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-        <button onClick={() => navigate("/clients")} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-4 w-4" /> Retour aux clients
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+        <button onClick={() => navigate("/clients")} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Retour
         </button>
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
-              {client.name.substring(0, 2).toUpperCase()}
+
+        {isMobile ? (
+          /* Mobile header: compact */
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+                {client.name.substring(0, 2).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-lg font-bold tracking-tight truncate">{client.name}</h1>
+                <p className="text-xs text-muted-foreground truncate">
+                  {client.code || "—"} · {client.contact_name || "—"}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">{client.name}</h1>
-              <p className="text-muted-foreground text-sm">
-                Code : {client.code || "—"} · {client.contact_name || "—"}
-              </p>
+            {/* Mobile quick actions */}
+            <div className="flex gap-2">
+              {client.email && (
+                <a href={`mailto:${client.email}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs hover:bg-muted transition-colors">
+                  <Mail className="h-3.5 w-3.5" /> Email
+                </a>
+              )}
+              {(client.phone || client.mobile) && (
+                <a href={`tel:${client.phone || client.mobile}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs hover:bg-muted transition-colors">
+                  <Phone className="h-3.5 w-3.5" /> Appeler
+                </a>
+              )}
+              <button onClick={() => setEditClientOpen(true)} className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs hover:bg-muted transition-colors">
+                <Pencil className="h-3.5 w-3.5" /> Modifier
+              </button>
             </div>
           </div>
-          <div className="flex gap-2">
-            {client.email && (
-              <a href={`mailto:${client.email}`} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors">
-                <Mail className="h-4 w-4" /> Email
-              </a>
-            )}
-            {(client.phone || client.mobile) && (
-              <a href={`tel:${client.phone || client.mobile}`} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors">
-                <Phone className="h-4 w-4" /> Appeler
-              </a>
-            )}
-            <Button variant="outline" size="sm" onClick={() => setEditClientOpen(true)}>
-              <Pencil className="h-4 w-4 mr-1" /> Modifier
-            </Button>
-            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteClientOpen(true)}>
-              <Trash2 className="h-4 w-4 mr-1" /> Supprimer
-            </Button>
-            <CreateDevisDialog preselectedClientId={id} preselectedCompanyId={client.company_id} />
+        ) : (
+          /* Desktop header */
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
+                {client.name.substring(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">{client.name}</h1>
+                <p className="text-muted-foreground text-sm">
+                  Code : {client.code || "—"} · {client.contact_name || "—"}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {client.email && (
+                <a href={`mailto:${client.email}`} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors">
+                  <Mail className="h-4 w-4" /> Email
+                </a>
+              )}
+              {(client.phone || client.mobile) && (
+                <a href={`tel:${client.phone || client.mobile}`} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted transition-colors">
+                  <Phone className="h-4 w-4" /> Appeler
+                </a>
+              )}
+              <Button variant="outline" size="sm" onClick={() => setEditClientOpen(true)}>
+                <Pencil className="h-4 w-4 mr-1" /> Modifier
+              </Button>
+              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteClientOpen(true)}>
+                <Trash2 className="h-4 w-4 mr-1" /> Supprimer
+              </Button>
+              <CreateDevisDialog preselectedClientId={id} preselectedCompanyId={client.company_id} />
+            </div>
           </div>
-        </div>
+        )}
       </motion.div>
 
       {/* Financial summary */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="grid grid-cols-3 gap-4">
-        <div className="rounded-xl border bg-card p-4 text-center">
-          <p className="text-xs text-muted-foreground mb-1">Facturé</p>
-          <p className="text-xl font-bold text-foreground">{formatAmount(totalFacture)}</p>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="grid grid-cols-3 gap-2 md:gap-4">
+        <div className={`rounded-xl border bg-card text-center ${isMobile ? "p-2.5" : "p-4"}`}>
+          <p className="text-[10px] md:text-xs text-muted-foreground mb-0.5">Facturé</p>
+          <p className={`font-bold text-foreground ${isMobile ? "text-sm" : "text-xl"}`}>{formatAmount(totalFacture)}</p>
         </div>
-        <div className="rounded-xl border bg-card p-4 text-center">
-          <p className="text-xs text-muted-foreground mb-1">Réglé</p>
-          <p className="text-xl font-bold text-info">{formatAmount(totalRegle)}</p>
+        <div className={`rounded-xl border bg-card text-center ${isMobile ? "p-2.5" : "p-4"}`}>
+          <p className="text-[10px] md:text-xs text-muted-foreground mb-0.5">Réglé</p>
+          <p className={`font-bold text-info ${isMobile ? "text-sm" : "text-xl"}`}>{formatAmount(totalRegle)}</p>
         </div>
-        <div className="rounded-xl border bg-card p-4 text-center">
-          <p className="text-xs text-muted-foreground mb-1">Solde</p>
-          <p className={`text-xl font-bold ${soldeColor}`}>{formatAmount(solde)}</p>
+        <div className={`rounded-xl border bg-card text-center ${isMobile ? "p-2.5" : "p-4"}`}>
+          <p className="text-[10px] md:text-xs text-muted-foreground mb-0.5">Solde</p>
+          <p className={`font-bold ${soldeColor} ${isMobile ? "text-sm" : "text-xl"}`}>{formatAmount(solde)}</p>
         </div>
       </motion.div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b">
+      {/* Tabs - scrollable on mobile */}
+      <div className={`flex gap-1 overflow-x-auto scrollbar-none ${isMobile ? "-mx-3 px-3 pb-1" : "border-b"}`}>
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === tab.key
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+            className={`flex items-center gap-1.5 shrink-0 font-medium transition-colors ${
+              isMobile
+                ? `px-3 py-1.5 rounded-full text-xs ${
+                    activeTab === tab.key
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  }`
+                : `px-4 py-2.5 text-sm border-b-2 ${
+                    activeTab === tab.key
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`
             }`}
           >
-            <tab.icon className="h-4 w-4" />
+            <tab.icon className={isMobile ? "h-3.5 w-3.5" : "h-4 w-4"} />
             {tab.label}
           </button>
         ))}
@@ -339,203 +383,304 @@ const ClientDetail = () => {
       {/* Tab content */}
       <motion.div key={activeTab} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
         {activeTab === "infos" && (
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="rounded-xl border bg-card p-5 space-y-4">
+          <div className={`grid gap-4 ${isMobile ? "grid-cols-1" : "md:grid-cols-2 gap-6"}`}>
+            <div className={`rounded-xl border bg-card space-y-3 ${isMobile ? "p-3" : "p-5 space-y-4"}`}>
               <h3 className="font-semibold text-sm">Informations client</h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-start gap-3"><Building2 className="h-4 w-4 text-muted-foreground mt-0.5" /><div><p className="font-medium">{client.name}</p><p className="text-muted-foreground">Code : {client.code || "—"}</p></div></div>
-                <div className="flex items-start gap-3"><MapPin className="h-4 w-4 text-muted-foreground mt-0.5" /><div><p>{client.address || "—"}</p><p className="text-muted-foreground">{client.postal_code} {client.city}</p></div></div>
-                <div className="flex items-center gap-3"><Mail className="h-4 w-4 text-muted-foreground" /><span>{client.email || "—"}</span></div>
-                <div className="flex items-center gap-3"><Phone className="h-4 w-4 text-muted-foreground" /><span>{client.phone || "—"}</span></div>
-                {client.mobile && <div className="flex items-center gap-3"><Phone className="h-4 w-4 text-muted-foreground" /><span>{client.mobile} (mobile)</span></div>}
+              <div className="space-y-2.5 text-sm">
+                <div className="flex items-start gap-2.5"><Building2 className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" /><div className="min-w-0"><p className="font-medium truncate">{client.name}</p><p className="text-xs text-muted-foreground">Code : {client.code || "—"}</p></div></div>
+                <div className="flex items-start gap-2.5"><MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" /><div className="min-w-0"><p className="truncate">{client.address || "—"}</p><p className="text-xs text-muted-foreground">{client.postal_code} {client.city}</p></div></div>
+                <div className="flex items-center gap-2.5"><Mail className="h-4 w-4 text-muted-foreground shrink-0" /><span className="truncate text-xs">{client.email || "—"}</span></div>
+                <div className="flex items-center gap-2.5"><Phone className="h-4 w-4 text-muted-foreground shrink-0" /><span className="text-xs">{client.phone || "—"}</span></div>
+                {client.mobile && <div className="flex items-center gap-2.5"><Phone className="h-4 w-4 text-muted-foreground shrink-0" /><span className="text-xs">{client.mobile} (mobile)</span></div>}
               </div>
             </div>
-            <div className="rounded-xl border bg-card p-5 space-y-4">
-              <h3 className="font-semibold text-sm">Informations de facturation</h3>
-              <div className="space-y-3 text-sm">
-                <div><p className="text-muted-foreground">Adresse de facturation</p><p className="font-medium">{client.billing_address || client.address || "—"}</p></div>
-                <div><p className="text-muted-foreground">Mode de règlement</p><p className="font-medium">{client.payment_terms || "—"}</p></div>
-                <div><p className="text-muted-foreground">Conseiller</p><p className="font-medium">{client.advisor || "—"}</p></div>
+            <div className={`rounded-xl border bg-card space-y-3 ${isMobile ? "p-3" : "p-5 space-y-4"}`}>
+              <h3 className="font-semibold text-sm">Facturation</h3>
+              <div className="space-y-2.5 text-sm">
+                <div><p className="text-xs text-muted-foreground">Adresse de facturation</p><p className="font-medium text-xs">{client.billing_address || client.address || "—"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Mode de règlement</p><p className="font-medium text-xs">{client.payment_terms || "—"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Conseiller</p><p className="font-medium text-xs">{client.advisor || "—"}</p></div>
               </div>
             </div>
           </div>
         )}
 
         {activeTab === "factures" && (
-          <div className="rounded-xl border bg-card overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold">Factures du client</h3>
+          isMobile ? (
+            <div className="space-y-2">
+              {factures.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground text-sm">Aucune facture</p>
+              ) : factures.map((f) => (
+                <div key={f.id} className="rounded-xl border bg-card p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-mono text-xs font-medium">{f.code || "—"}</span>
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${invoiceStatus[f.status] || ""}`}>{invoiceLabels[f.status] || f.status}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{formatDate(f.created_at)}</span>
+                    <span className="font-semibold text-foreground">{formatAmount(f.amount)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1">
+                    <span>Réglé : {formatAmount(f.paid_amount)}</span>
+                    <span className="font-medium">Solde : {formatAmount(f.amount - f.paid_amount)}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-            {factures.length === 0 ? (
-              <p className="px-4 py-12 text-center text-muted-foreground">Aucune facture</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead><tr className="border-b bg-muted/30">
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">N°</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Date</th>
-                  <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Montant</th>
-                  <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Réglé</th>
-                  <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Solde</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Statut</th>
-                </tr></thead>
-                <tbody className="divide-y">
-                  {factures.map((f) => (
-                    <tr key={f.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
-                      <td className="px-4 py-3 font-mono text-xs">{f.code || "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatDate(f.created_at)}</td>
-                      <td className="px-4 py-3 text-right font-semibold">{formatAmount(f.amount)}</td>
-                      <td className="px-4 py-3 text-right text-muted-foreground">{formatAmount(f.paid_amount)}</td>
-                      <td className="px-4 py-3 text-right font-medium">{formatAmount(f.amount - f.paid_amount)}</td>
-                      <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${invoiceStatus[f.status] || ""}`}>{invoiceLabels[f.status] || f.status}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+          ) : (
+            <div className="rounded-xl border bg-card overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="font-semibold">Factures du client</h3>
+              </div>
+              {factures.length === 0 ? (
+                <p className="px-4 py-12 text-center text-muted-foreground">Aucune facture</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b bg-muted/30">
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">N°</th>
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Date</th>
+                    <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Montant</th>
+                    <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Réglé</th>
+                    <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Solde</th>
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Statut</th>
+                  </tr></thead>
+                  <tbody className="divide-y">
+                    {factures.map((f) => (
+                      <tr key={f.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
+                        <td className="px-4 py-3 font-mono text-xs">{f.code || "—"}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{formatDate(f.created_at)}</td>
+                        <td className="px-4 py-3 text-right font-semibold">{formatAmount(f.amount)}</td>
+                        <td className="px-4 py-3 text-right text-muted-foreground">{formatAmount(f.paid_amount)}</td>
+                        <td className="px-4 py-3 text-right font-medium">{formatAmount(f.amount - f.paid_amount)}</td>
+                        <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${invoiceStatus[f.status] || ""}`}>{invoiceLabels[f.status] || f.status}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )
         )}
 
         {activeTab === "devis" && (
-          <div className="rounded-xl border bg-card overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold">Devis du client</h3>
-              <CreateDevisDialog preselectedClientId={id} preselectedCompanyId={client.company_id} />
+          isMobile ? (
+            <div className="space-y-2">
+              <div className="flex justify-end">
+                <CreateDevisDialog preselectedClientId={id} preselectedCompanyId={client.company_id} trigger={
+                  <Button size="sm" className="text-xs"><FileText className="h-3.5 w-3.5 mr-1" /> Nouveau devis</Button>
+                } />
+              </div>
+              {devis.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground text-sm">Aucun devis</p>
+              ) : devis.map((d) => (
+                <div key={d.id} className="rounded-xl border bg-card p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-mono text-xs font-medium">{d.code || "—"}</span>
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${devisStatusStyles[d.status] || ""}`}>{devisLabels[d.status] || d.status}</span>
+                  </div>
+                  <p className="text-sm font-medium truncate">{d.objet}</p>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
+                    <span>{formatDate(d.created_at)}</span>
+                    <span className="font-semibold text-foreground">{formatAmount(d.amount)}</span>
+                  </div>
+                  <div className="flex gap-1 mt-2 justify-end">
+                    <button onClick={() => setEditingDevis(d)} className="p-1.5 rounded hover:bg-muted"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></button>
+                    <button onClick={() => setDeletingDevis(d)} className="p-1.5 rounded hover:bg-muted"><Trash2 className="h-3.5 w-3.5 text-destructive" /></button>
+                  </div>
+                </div>
+              ))}
             </div>
-            {devis.length === 0 ? (
-              <p className="px-4 py-12 text-center text-muted-foreground">Aucun devis</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead><tr className="border-b bg-muted/30">
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">N°</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Date</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Objet</th>
-                  <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Montant</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Statut</th>
-                  <th className="px-4 py-2.5"></th>
-                </tr></thead>
-                <tbody className="divide-y">
-                  {devis.map((d) => (
-                    <tr key={d.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-mono text-xs">{d.code || "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatDate(d.created_at)}</td>
-                      <td className="px-4 py-3 font-medium">{d.objet}</td>
-                      <td className="px-4 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
-                      <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${devisStatusStyles[d.status] || ""}`}>{devisLabels[d.status] || d.status}</span></td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1">
-                          <button onClick={() => setEditingDevis(d)} className="p-1 rounded hover:bg-muted" title="Modifier">
-                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                          </button>
-                          <button onClick={() => setDeletingDevis(d)} className="p-1 rounded hover:bg-muted" title="Supprimer">
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+          ) : (
+            <div className="rounded-xl border bg-card overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="font-semibold">Devis du client</h3>
+                <CreateDevisDialog preselectedClientId={id} preselectedCompanyId={client.company_id} />
+              </div>
+              {devis.length === 0 ? (
+                <p className="px-4 py-12 text-center text-muted-foreground">Aucun devis</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b bg-muted/30">
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">N°</th>
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Date</th>
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Objet</th>
+                    <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Montant</th>
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Statut</th>
+                    <th className="px-4 py-2.5"></th>
+                  </tr></thead>
+                  <tbody className="divide-y">
+                    {devis.map((d) => (
+                      <tr key={d.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-4 py-3 font-mono text-xs">{d.code || "—"}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{formatDate(d.created_at)}</td>
+                        <td className="px-4 py-3 font-medium">{d.objet}</td>
+                        <td className="px-4 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
+                        <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${devisStatusStyles[d.status] || ""}`}>{devisLabels[d.status] || d.status}</span></td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-1">
+                            <button onClick={() => setEditingDevis(d)} className="p-1 rounded hover:bg-muted" title="Modifier">
+                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                            <button onClick={() => setDeletingDevis(d)} className="p-1 rounded hover:bg-muted" title="Supprimer">
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )
         )}
 
         {activeTab === "reglements" && (
-          <div className="rounded-xl border bg-card overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold">Règlements du client</h3>
+          isMobile ? (
+            <div className="space-y-2">
+              {reglements.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground text-sm">Aucun règlement</p>
+              ) : reglements.map((r) => (
+                <div key={r.id} className="rounded-xl border bg-card p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-mono text-xs font-medium">{r.code || "—"}</span>
+                    <span className="font-semibold text-sm">{formatAmount(r.amount)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{formatDate(r.payment_date)}</span>
+                    <span>{r.bank || "—"}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1">Facture : {(r.factures as any)?.code || "—"}</p>
+                </div>
+              ))}
             </div>
-            {reglements.length === 0 ? (
-              <p className="px-4 py-12 text-center text-muted-foreground">Aucun règlement</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead><tr className="border-b bg-muted/30">
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">N°</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Date</th>
-                  <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Montant</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Banque</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Réf. facture</th>
-                </tr></thead>
-                <tbody className="divide-y">
-                  {reglements.map((r) => (
-                    <tr key={r.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
-                      <td className="px-4 py-3 font-mono text-xs">{r.code || "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatDate(r.payment_date)}</td>
-                      <td className="px-4 py-3 text-right font-semibold">{formatAmount(r.amount)}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{r.bank || "—"}</td>
-                      <td className="px-4 py-3 font-mono text-xs">{(r.factures as any)?.code || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+          ) : (
+            <div className="rounded-xl border bg-card overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="font-semibold">Règlements du client</h3>
+              </div>
+              {reglements.length === 0 ? (
+                <p className="px-4 py-12 text-center text-muted-foreground">Aucun règlement</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b bg-muted/30">
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">N°</th>
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Date</th>
+                    <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Montant</th>
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Banque</th>
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Réf. facture</th>
+                  </tr></thead>
+                  <tbody className="divide-y">
+                    {reglements.map((r) => (
+                      <tr key={r.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
+                        <td className="px-4 py-3 font-mono text-xs">{r.code || "—"}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{formatDate(r.payment_date)}</td>
+                        <td className="px-4 py-3 text-right font-semibold">{formatAmount(r.amount)}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{r.bank || "—"}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{(r.factures as any)?.code || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )
         )}
 
         {activeTab === "dossiers" && (
-          <div className="rounded-xl border bg-card overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold">Dossiers du client</h3>
-              <CreateDossierDialog preselectedClientId={id} preselectedCompanyId={client.company_id} />
+          isMobile ? (
+            <div className="space-y-2">
+              <div className="flex justify-end">
+                <CreateDossierDialog preselectedClientId={id} preselectedCompanyId={client.company_id} trigger={
+                  <Button size="sm" className="text-xs"><FolderOpen className="h-3.5 w-3.5 mr-1" /> Nouveau dossier</Button>
+                } />
+              </div>
+              {dossiers.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground text-sm">Aucun dossier</p>
+              ) : dossiers.map((d) => (
+                <div key={d.id} className="rounded-xl border bg-card p-3" onClick={() => navigate(`/dossiers/${d.id}`)}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-mono text-xs font-medium">{d.code || "—"}</span>
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${dossierStageStyles[d.stage] || ""}`}>{dossierStageLabels[d.stage] || d.stage}</span>
+                  </div>
+                  <p className="text-sm font-medium truncate">{d.title}</p>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
+                    <span>{formatDate(d.start_date || d.created_at)}</span>
+                    <span className="font-semibold text-foreground">{formatAmount(d.amount)}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-            {dossiers.length === 0 ? (
-              <p className="px-4 py-12 text-center text-muted-foreground">Aucun dossier</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead><tr className="border-b bg-muted/30">
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">N°</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Intitulé</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Date</th>
-                  <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Montant</th>
-                  <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Statut</th>
-                  <th className="px-4 py-2.5"></th>
-                </tr></thead>
-                <tbody className="divide-y">
-                  {dossiers.map((d) => (
-                    <tr key={d.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3 font-mono text-xs">{d.code || "—"}</td>
-                      <td className="px-4 py-3 font-medium">{d.title}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatDate(d.start_date || d.created_at)}</td>
-                      <td className="px-4 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
-                      <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${dossierStageStyles[d.stage] || ""}`}>{dossierStageLabels[d.stage] || d.stage}</span></td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1">
-                          <button onClick={() => setEditingDossier(d)} className="p-1 rounded hover:bg-muted" title="Modifier">
-                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                          </button>
-                          <button onClick={() => setDeletingDossier(d)} className="p-1 rounded hover:bg-muted" title="Supprimer">
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+          ) : (
+            <div className="rounded-xl border bg-card overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="font-semibold">Dossiers du client</h3>
+                <CreateDossierDialog preselectedClientId={id} preselectedCompanyId={client.company_id} />
+              </div>
+              {dossiers.length === 0 ? (
+                <p className="px-4 py-12 text-center text-muted-foreground">Aucun dossier</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b bg-muted/30">
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">N°</th>
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Intitulé</th>
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Date</th>
+                    <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Montant</th>
+                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Statut</th>
+                    <th className="px-4 py-2.5"></th>
+                  </tr></thead>
+                  <tbody className="divide-y">
+                    {dossiers.map((d) => (
+                      <tr key={d.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="px-4 py-3 font-mono text-xs">{d.code || "—"}</td>
+                        <td className="px-4 py-3 font-medium">{d.title}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{formatDate(d.start_date || d.created_at)}</td>
+                        <td className="px-4 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
+                        <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${dossierStageStyles[d.stage] || ""}`}>{dossierStageLabels[d.stage] || d.stage}</span></td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-1">
+                            <button onClick={() => setEditingDossier(d)} className="p-1 rounded hover:bg-muted" title="Modifier">
+                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                            <button onClick={() => setDeletingDossier(d)} className="p-1 rounded hover:bg-muted" title="Supprimer">
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )
         )}
 
         {activeTab === "visites" && (
-          <div className="rounded-xl border bg-card overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold">Visites techniques</h3>
-            </div>
+          <div className={`${isMobile ? "space-y-2" : "rounded-xl border bg-card overflow-hidden"}`}>
+            {!isMobile && (
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="font-semibold">Visites techniques</h3>
+              </div>
+            )}
             {visites.length === 0 ? (
-              <p className="px-4 py-12 text-center text-muted-foreground">Aucune visite</p>
+              <p className={`text-center text-muted-foreground text-sm ${isMobile ? "py-8" : "px-4 py-12"}`}>Aucune visite</p>
             ) : (
-              <div className="divide-y">
+              <div className={isMobile ? "space-y-2" : "divide-y"}>
                 {visites.map((v) => (
-                  <div key={v.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-muted/30 transition-colors cursor-pointer">
-                    <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                      <ClipboardCheck className="h-5 w-5 text-muted-foreground" />
+                  <div key={v.id} className={`flex items-center gap-3 transition-colors cursor-pointer ${
+                    isMobile ? "rounded-xl border bg-card p-3" : "px-4 py-3.5 hover:bg-muted/30"
+                  }`} onClick={() => navigate(`/visites/${v.id}`)}>
+                    <div className={`rounded-lg bg-muted flex items-center justify-center shrink-0 ${isMobile ? "h-8 w-8" : "h-10 w-10"}`}>
+                      <ClipboardCheck className={isMobile ? "h-4 w-4 text-muted-foreground" : "h-5 w-5 text-muted-foreground"} />
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{v.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(v.scheduled_date || v.completed_date)} · {(v.resources as any)?.name || "—"} · {v.photos_count || 0} photos
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-medium truncate ${isMobile ? "text-sm" : "text-sm"}`}>{v.title}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {formatDate(v.scheduled_date || v.completed_date)} · {(v.resources as any)?.name || "—"}
                       </p>
                     </div>
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0 ${
                       v.status === "realisee" ? "bg-success/10 text-success" : v.status === "annulee" ? "bg-destructive/10 text-destructive" : "bg-info/10 text-info"
                     }`}>{visiteLabels[v.status] || v.status}</span>
                   </div>
