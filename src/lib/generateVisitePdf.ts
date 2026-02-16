@@ -297,7 +297,6 @@ export async function generateVisitePdf(visiteId: string) {
         try {
           const { data: urlData } = supabase.storage.from("visite-photos").getPublicUrl(ph.storage_path);
           if (urlData?.publicUrl) {
-            // Attempt to load image
             const imgResp = await fetch(urlData.publicUrl);
             if (imgResp.ok) {
               const blob = await imgResp.blob();
@@ -307,10 +306,24 @@ export async function generateVisitePdf(visiteId: string) {
                 reader.readAsDataURL(blob);
               });
 
+              // Calculate real aspect ratio to avoid deformation
+              const imgEl = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = dataUrl;
+              });
+
               const col = i % 2;
               const imgX = marginL + col * (contentW / 2 + 2);
               const imgW = contentW / 2 - 4;
-              const imgH = 40;
+              // Compute height from real aspect ratio
+              const aspectRatio = imgEl.naturalWidth / imgEl.naturalHeight;
+              let imgH = imgW / aspectRatio;
+              // Cap max height to avoid overflowing the page
+              if (imgH > 80) imgH = 80;
+
+              y = checkPage(doc, y, imgH + 8, logo, company, pageW, marginL, marginR);
               doc.addImage(dataUrl, "JPEG", imgX, y, imgW, imgH);
 
               if (ph.caption) {
