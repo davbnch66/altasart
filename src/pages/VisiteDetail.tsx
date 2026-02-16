@@ -20,6 +20,7 @@ import { VisiteRHTab } from "@/components/visite/VisiteRHTab";
 import { VisiteVehiculesTab } from "@/components/visite/VisiteVehiculesTab";
 import { VisiteContraintesTab } from "@/components/visite/VisiteContraintesTab";
 import { VisiteMethodologieTab } from "@/components/visite/VisiteMethodologieTab";
+import { VisiteSmartAlerts } from "@/components/visite/VisiteSmartAlerts";
 import { generateVisitePdf } from "@/lib/generateVisitePdf";
 
 const statusLabels: Record<string, string> = {
@@ -209,6 +210,9 @@ const VisiteDetail = () => {
           <div><span className="text-muted-foreground">Adresse</span><p className="font-medium">{client.address || "—"}</p></div>
         </div>
       )}
+
+      {/* Smart Alerts */}
+      <VisiteSmartAlerts visiteId={visite.id} companyId={visite.company_id} />
 
       {/* Tabs */}
       <Tabs defaultValue="rdv" className="space-y-4">
