@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import nodemailer from "npm:nodemailer@6.9.10";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,32 +31,40 @@ serve(async (req) => {
       );
     }
 
-    const client = new SMTPClient({
-      connection: {
-        hostname: "smtp.office365.com",
-        port: 587,
-        tls: true,
-        auth: {
-          username: smtpUser,
-          password: smtpPass,
-        },
+    const transport = nodemailer.createTransport({
+      host: "smtp.office365.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+      tls: {
+        ciphers: "SSLv3",
+        rejectUnauthorized: false,
       },
     });
 
-    const attachments = pdfBase64
-      ? [{ filename: fileName || "rapport.pdf", content: pdfBase64, encoding: "base64" as const, contentType: "application/pdf" }]
-      : [];
-
-    await client.send({
+    const mailOptions: Record<string, unknown> = {
       from: smtpUser,
       to,
       subject,
-      content: body || "",
+      text: body || "",
       html: body ? `<div style="font-family:sans-serif;white-space:pre-wrap">${body.replace(/\n/g, "<br>")}</div>` : undefined,
-      attachments,
-    });
+    };
 
-    await client.close();
+    if (pdfBase64) {
+      mailOptions.attachments = [
+        {
+          filename: fileName || "rapport.pdf",
+          content: pdfBase64,
+          encoding: "base64",
+          contentType: "application/pdf",
+        },
+      ];
+    }
+
+    await transport.sendMail(mailOptions);
 
     return new Response(
       JSON.stringify({ success: true }),
