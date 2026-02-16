@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   FileText,
   Eye,
+  ChevronRight,
 } from "lucide-react";
 import { CreateClientDialog } from "@/components/forms/CreateClientDialog";
 import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
@@ -22,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const companyDot: Record<string, string> = {
   global: "bg-primary",
@@ -213,7 +215,6 @@ function useRecentActivity(companyIds: string[]) {
         });
       });
 
-      // Sort by time descending, take 10
       items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
       return items.slice(0, 10);
     },
@@ -241,6 +242,7 @@ const Dashboard = () => {
   const companyIds = useCompanyFilter();
   const { data: stats, isLoading: statsLoading } = useStats(companyIds);
   const { data: activity, isLoading: activityLoading } = useRecentActivity(companyIds);
+  const isMobile = useIsMobile();
 
   const navigate = useNavigate();
 
@@ -260,7 +262,7 @@ const Dashboard = () => {
       link: "/clients",
     },
     {
-      label: "Missions planifiées",
+      label: "Missions",
       value: stats?.eventsThisWeek ?? 0,
       icon: CalendarDays,
       trend: "Cette semaine",
@@ -276,31 +278,33 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-8">
+    <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20 space-y-4" : "p-6 lg:p-8 space-y-8"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
-          {current === "global" ? "Vue consolidée — toutes sociétés" : currentCompany.name}
-        </p>
+        <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Dashboard</h1>
+        {!isMobile && (
+          <p className="text-muted-foreground mt-1">
+            {current === "global" ? "Vue consolidée — toutes sociétés" : currentCompany.name}
+          </p>
+        )}
       </motion.div>
 
-      {/* Company pills (global view) */}
-      <motion.div className="flex gap-3 flex-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+      {/* Company pills */}
+      <motion.div className="flex gap-2 flex-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
         {current === "global" && dbCompanies.map((c) => (
           <button
             key={c.id}
             onClick={() => setCurrent(c.id as CompanyId)}
-            className="flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer`}
           >
-            <div className="h-2 w-2 rounded-full bg-primary" />
+            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
             {c.shortName}
           </button>
         ))}
         {current !== "global" && (
           <button
             onClick={() => setCurrent("global")}
-            className="flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-colors cursor-pointer"
           >
             ← Vue globale
           </button>
@@ -308,26 +312,26 @@ const Dashboard = () => {
       </motion.div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"}`}>
         {statCards.map((stat, i) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 * i, duration: 0.3 }}
-            className="rounded-xl border bg-card p-5 space-y-3 cursor-pointer hover:shadow-md hover:border-primary/30 transition-all"
+            className={`rounded-xl border bg-card cursor-pointer hover:shadow-md hover:border-primary/30 transition-all ${isMobile ? "p-3 space-y-1" : "p-5 space-y-3"}`}
             onClick={() => navigate(stat.link)}
           >
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{stat.label}</span>
-              <stat.icon className="h-4 w-4 text-muted-foreground" />
+              <span className={`text-muted-foreground ${isMobile ? "text-[11px]" : "text-sm"}`}>{stat.label}</span>
+              {!isMobile && <stat.icon className="h-4 w-4 text-muted-foreground" />}
             </div>
             {statsLoading ? (
-              <Skeleton className="h-8 w-24" />
+              <Skeleton className={`${isMobile ? "h-6 w-16" : "h-8 w-24"}`} />
             ) : (
-              <p className="text-2xl font-bold tracking-tight">{stat.value}</p>
+              <p className={`font-bold tracking-tight ${isMobile ? "text-base" : "text-2xl"}`}>{stat.value}</p>
             )}
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <TrendingUp className="h-3 w-3 text-success" />
               {stat.trend}
             </div>
@@ -337,19 +341,19 @@ const Dashboard = () => {
 
       {/* Recent Activity */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="rounded-xl border bg-card">
-        <div className="p-5 border-b">
-          <h2 className="font-semibold">Activité récente</h2>
+        <div className={`border-b ${isMobile ? "px-3 py-2" : "p-5"}`}>
+          <h2 className={`font-semibold ${isMobile ? "text-sm" : ""}`}>Activité récente</h2>
         </div>
         <div className="divide-y">
           {activityLoading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 px-5 py-3.5">
+            Array.from({ length: isMobile ? 3 : 5 }).map((_, i) => (
+              <div key={i} className={`flex items-center gap-3 ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`}>
                 <Skeleton className="h-4 w-4 rounded-full" />
                 <div className="flex-1 space-y-1">
-                  <Skeleton className="h-4 w-48" />
-                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className={`h-4 ${isMobile ? "w-32" : "w-48"}`} />
+                  <Skeleton className="h-3 w-24" />
                 </div>
-                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-3 w-12" />
               </div>
             ))
           ) : activity && activity.length > 0 ? (
@@ -363,35 +367,41 @@ const Dashboard = () => {
               return (
                 <div
                   key={i}
-                  className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/50 transition-colors cursor-pointer"
+                  className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`}
                   onClick={() => navigate(linkMap[item.type] || "/")}
                 >
                   {statusIcon[item.type] || <Clock className="h-4 w-4 text-muted-foreground" />}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{item.label}</p>
+                    <p className={`font-medium truncate ${isMobile ? "text-xs" : "text-sm"}`}>{item.label}</p>
                     <p className="text-xs text-muted-foreground">{item.client}</p>
                   </div>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {formatRelativeTime(item.time)}
-                  </span>
+                  {isMobile ? (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  ) : (
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      {formatRelativeTime(item.time)}
+                    </span>
+                  )}
                 </div>
               );
             })
           ) : (
-            <div className="px-5 py-8 text-center text-sm text-muted-foreground">
+            <div className={`text-center text-sm text-muted-foreground ${isMobile ? "px-3 py-6" : "px-5 py-8"}`}>
               Aucune activité récente
             </div>
           )}
         </div>
       </motion.div>
 
-      {/* Quick Actions */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <CreateClientDialog />
-        <CreateDevisDialog />
-        <CreateDossierDialog />
-        <CreateFactureDialog />
-      </motion.div>
+      {/* Quick Actions — hidden on mobile since we have FABs */}
+      {!isMobile && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <CreateClientDialog />
+          <CreateDevisDialog />
+          <CreateDossierDialog />
+          <CreateFactureDialog />
+        </motion.div>
+      )}
     </div>
   );
 };
