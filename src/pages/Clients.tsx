@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
-import { Search, MoreHorizontal, Users, Phone, MapPin, ChevronRight } from "lucide-react";
+import { Search, MoreHorizontal, Users, Phone, MapPin, ChevronRight, Plus } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { CreateClientDialog } from "@/components/forms/CreateClientDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -75,7 +76,13 @@ const Clients = () => {
           <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Clients / Agents</h1>
           {!isMobile && <p className="text-muted-foreground mt-1">{filtered.length} clients</p>}
         </div>
-        <CreateClientDialog />
+        <CreateClientDialog
+          trigger={isMobile ? (
+            <Button size="icon" className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg">
+              <Plus className="h-6 w-6" />
+            </Button>
+          ) : undefined}
+        />
       </motion.div>
 
       {/* Status filter chips */}

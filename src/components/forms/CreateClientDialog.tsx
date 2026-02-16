@@ -30,7 +30,11 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export const CreateClientDialog = () => {
+interface CreateClientDialogProps {
+  trigger?: React.ReactNode;
+}
+
+export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
   const [open, setOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
@@ -71,9 +75,11 @@ export const CreateClientDialog = () => {
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { reset({ company_id: defaultCompanyId }); } }}>
       <DialogTrigger asChild>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Nouveau client
-        </Button>
+        {trigger || (
+          <Button className="flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Nouveau client
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
