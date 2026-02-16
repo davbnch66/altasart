@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Loader2, Package, Sparkles, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Loader2, Package, Sparkles, GripVertical, ChevronUp, ChevronDown, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useSortableList } from "@/hooks/useSortableList";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { addToQueue } from "@/lib/offlineQueue";
 
 const DESIGNATIONS_COURANTES = [
   "Armoire haute",
@@ -48,6 +50,7 @@ interface Props {
 
 export const VisiteMaterielTab = ({ visiteId, companyId }: Props) => {
   const queryClient = useQueryClient();
+  const isOnline = useOnlineStatus();
   const [newItem, setNewItem] = useState({ designation: "", quantity: 1, dimensions: "", weight: "", unit: "", notes: "" });
   const [customDesignation, setCustomDesignation] = useState(false);
   const [importText, setImportText] = useState("");
@@ -93,7 +96,7 @@ export const VisiteMaterielTab = ({ visiteId, companyId }: Props) => {
   const addItem = useMutation({
     mutationFn: async () => {
       if (!newItem.designation.trim()) throw new Error("Désignation requise");
-      const { error } = await supabase.from("visite_materiel").insert({
+      const insertData = {
         visite_id: visiteId,
         company_id: companyId,
         designation: newItem.designation,
@@ -103,11 +106,16 @@ export const VisiteMaterielTab = ({ visiteId, companyId }: Props) => {
         unit: newItem.unit || null,
         notes: newItem.notes || null,
         sort_order: materiel.length,
-      });
+      };
+      if (!isOnline) {
+        addToQueue({ table: "visite_materiel", operation: "insert", data: { ...insertData, id: crypto.randomUUID() } });
+        return;
+      }
+      const { error } = await supabase.from("visite_materiel").insert(insertData);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Matériel ajouté");
+      toast.success(isOnline ? "Matériel ajouté" : "Matériel sauvegardé hors-ligne");
       setNewItem({ designation: "", quantity: 1, dimensions: "", weight: "", unit: "", notes: "" });
       setCustomDesignation(false);
       queryClient.invalidateQueries({ queryKey: ["visite-materiel", visiteId] });

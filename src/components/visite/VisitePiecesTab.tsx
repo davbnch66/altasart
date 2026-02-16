@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2, Image, Loader2, MapPin, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Image, Loader2, MapPin, GripVertical, ChevronUp, ChevronDown, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { useSortableList } from "@/hooks/useSortableList";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { addToQueue } from "@/lib/offlineQueue";
 
 interface Props {
   visiteId: string;
@@ -16,6 +18,7 @@ interface Props {
 
 export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
   const queryClient = useQueryClient();
+  const isOnline = useOnlineStatus();
   const [newPiece, setNewPiece] = useState({ name: "", floor_level: "", dimensions: "", access_comments: "" });
   const [uploading, setUploading] = useState<string | null>(null);
 
@@ -71,16 +74,21 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
   const addPiece = useMutation({
     mutationFn: async () => {
       if (!newPiece.name.trim()) throw new Error("Nom requis");
-      const { error } = await supabase.from("visite_pieces").insert({
+      const insertData = {
         visite_id: visiteId,
         company_id: companyId,
         ...newPiece,
         sort_order: pieces.length,
-      });
+      };
+      if (!isOnline) {
+        addToQueue({ table: "visite_pieces", operation: "insert", data: { ...insertData, id: crypto.randomUUID() } });
+        return;
+      }
+      const { error } = await supabase.from("visite_pieces").insert(insertData);
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Pièce ajoutée");
+      toast.success(isOnline ? "Pièce ajoutée" : "Pièce sauvegardée hors-ligne");
       setNewPiece({ name: "", floor_level: "", dimensions: "", access_comments: "" });
       queryClient.invalidateQueries({ queryKey: ["visite-pieces", visiteId] });
     },
