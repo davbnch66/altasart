@@ -81,7 +81,10 @@ export const CreateVisiteDialog = () => {
       reset();
       setOpen(false);
     },
-    onError: () => toast.error("Erreur lors de la création"),
+    onError: (err: any) => {
+      console.error("Erreur création visite:", err);
+      toast.error(err?.message || "Erreur lors de la création");
+    },
   });
 
   const handleCompanyChange = (v: string) => {
@@ -97,11 +100,11 @@ export const CreateVisiteDialog = () => {
           <Plus className="h-4 w-4" /> Nouvelle visite
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Nouvelle visite</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4 overflow-y-auto flex-1 pr-2">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Label>Société *</Label>
