@@ -2,22 +2,27 @@ import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { loadCompanyLogo } from "./pdfLogoHelper";
+import { loadCompanyLogo, LogoResult } from "./pdfLogoHelper";
 
-// Number to French words converter (simplified for amounts)
+// ── Helpers ──
+
+function fmtEur(n: number): string {
+  return n.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
 function numberToFrenchWords(n: number): string {
   const units = ["", "un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf",
     "dix", "onze", "douze", "treize", "quatorze", "quinze", "seize", "dix-sept", "dix-huit", "dix-neuf"];
   const tens = ["", "dix", "vingt", "trente", "quarante", "cinquante", "soixante", "soixante", "quatre-vingt", "quatre-vingt"];
 
-  if (n === 0) return "zéro";
+  if (n === 0) return "zero";
 
   function convert(num: number): string {
     if (num < 20) return units[num];
     if (num < 70) {
       const t = Math.floor(num / 10);
       const u = num % 10;
-      return tens[t] + (u === 1 && t !== 8 ? " et un" : u ? (t === 8 ? "-" : "-") + units[u] : t === 8 ? "s" : "");
+      return tens[t] + (u === 1 && t !== 8 ? " et un" : u ? "-" + units[u] : t === 8 ? "s" : "");
     }
     if (num < 80) {
       const u = num - 60;
@@ -45,31 +50,69 @@ function numberToFrenchWords(n: number): string {
   const euros = Math.floor(n);
   const cents = Math.round((n - euros) * 100);
   let result = convert(euros) + " euro" + (euros > 1 ? "s" : "");
-  result += " et " + (cents === 0 ? "zéro" : convert(cents)) + " cent" + (cents > 1 ? "s" : "");
+  result += " et " + (cents === 0 ? "zero" : convert(cents)) + " cent" + (cents > 1 ? "s" : "");
   return result;
 }
 
-function fmtEur(n: number): string {
-  return n.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+// ── Brand constants ──
+const brandR = 200, brandG = 80, brandB = 30;
+
+// ── Reusable drawing functions ──
+
+function drawHeader(doc: jsPDF, company: any, logoResult: LogoResult | null, marginL: number, colR: number, dateStr: string) {
+  if (logoResult) {
+    const maxW = 50, maxH = 22;
+    const ratio = logoResult.width / logoResult.height;
+    let imgW = maxW;
+    let imgH = imgW / ratio;
+    if (imgH > maxH) { imgH = maxH; imgW = imgH * ratio; }
+    doc.addImage(logoResult.dataUrl, "PNG", marginL, 10, imgW, imgH);
+  } else {
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(brandR, brandG, brandB);
+    doc.text(company?.short_name || company?.name || "", marginL, 22);
+  }
+
+  // Tagline
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(120, 120, 120);
+  doc.text("Transport - Grutage - Portage - Levage - Manutention lourde", marginL, 31);
+
+  // Date top-right
+  doc.setFontSize(9);
+  doc.setTextColor(60, 60, 60);
+  doc.text(dateStr, colR, 16, { align: "right" });
 }
 
-interface FactureData {
-  id: string;
-  code: string | null;
-  amount: number;
-  paid_amount: number;
-  status: string;
-  due_date: string | null;
-  notes: string | null;
-  created_at: string;
-  company_id: string;
-  client_id: string;
-  dossier_id: string | null;
-  devis_id: string | null;
+function drawFooter(doc: jsPDF, company: any, pageW: number, marginL: number, marginR: number) {
+  const footerY = 280;
+  doc.setDrawColor(brandR, brandG, brandB);
+  doc.setLineWidth(0.5);
+  doc.line(marginL, footerY, pageW - marginR, footerY);
+
+  doc.setFontSize(6.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 100, 100);
+
+  const parts: string[] = [];
+  if (company?.address) parts.push(`Siege social : ${company.address}`);
+  if (company?.phone) parts[parts.length - 1] = (parts[parts.length - 1] || "") + ` - Tel. ${company.phone}`;
+  if (company?.email) parts.push(company.email);
+  if (company?.siret) parts.push(`SIRET ${company.siret}`);
+
+  let fy = footerY + 3;
+  for (const line of parts) {
+    doc.text(line, pageW / 2, fy, { align: "center" });
+    fy += 3;
+  }
 }
+
+// ── Main export ──
 
 export async function generateFacturePdf(factureId: string) {
-  // Fetch full facture data with relations
+  // Fetch facture with relations
   const { data: facture, error: fErr } = await supabase
     .from("factures")
     .select("*, clients(name, address, city, postal_code, email, code, contact_name, payment_terms), companies(name, short_name, address, phone, email, siret)")
@@ -78,14 +121,14 @@ export async function generateFacturePdf(factureId: string) {
 
   if (fErr || !facture) throw new Error("Facture introuvable");
 
-  // Fetch linked devis if any
+  // Fetch linked devis
   let devisCode: string | null = null;
   if (facture.devis_id) {
     const { data: devis } = await supabase.from("devis").select("code, objet").eq("id", facture.devis_id).single();
     if (devis) devisCode = devis.code || devis.objet;
   }
 
-  // Fetch linked dossier if any
+  // Fetch linked dossier
   let dossierCode: string | null = null;
   if (facture.dossier_id) {
     const { data: dossier } = await supabase.from("dossiers").select("code, title").eq("id", facture.dossier_id).single();
@@ -106,194 +149,208 @@ export async function generateFacturePdf(factureId: string) {
   const marginL = 15;
   const marginR = 15;
   const contentW = pageW - marginL - marginR;
+  const colR = marginL + contentW;
 
-  // ========== HEADER ==========
-  // Company logo
   const logoResult = await loadCompanyLogo(company?.short_name || "");
-  if (logoResult) {
-    const maxW = 40, maxH = 18;
-    const ratio = logoResult.width / logoResult.height;
-    let imgW = maxW;
-    let imgH = imgW / ratio;
-    if (imgH > maxH) { imgH = maxH; imgW = imgH * ratio; }
-    doc.addImage(logoResult.dataUrl, "PNG", marginL, 10, imgW, imgH);
-  } else {
-    // Fallback: company name as text
-    doc.setFontSize(22);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(200, 80, 30);
-    doc.text(company?.short_name || company?.name || "SOCIÉTÉ", marginL, 25);
-  }
+  const dateStr = `Paris, le ${format(new Date(facture.created_at), "dd MMMM yyyy", { locale: fr })}`;
 
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 100, 100);
-  doc.text("Spécialiste en Manutention Lourde", marginL, 33);
+  // ===================== HEADER =====================
+  drawHeader(doc, company, logoResult, marginL, colR, dateStr);
 
-  // Client info (right side)
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(0, 0, 0);
-  const clientX = 120;
-  let clientY = 18;
-  doc.text(client?.name || "Client", clientX, clientY);
-  doc.setFont("helvetica", "normal");
-  if (client?.address) { clientY += 5; doc.text(client.address, clientX, clientY); }
-  if (client?.postal_code || client?.city) {
-    clientY += 5;
-    doc.text(`${client?.postal_code || ""} ${client?.city || ""}`.trim(), clientX, clientY);
-  }
-  if (client?.email) { clientY += 5; doc.setTextColor(0, 0, 180); doc.text(client.email, clientX, clientY); doc.setTextColor(0, 0, 0); }
-
-  // ========== TVA & FACTURE NUMBER ==========
-  let y = 48;
-  if (company?.siret) {
-    doc.setFontSize(8);
-    doc.setTextColor(80, 80, 80);
-    doc.text(`TVA FR ${company.siret.replace(/\s/g, "").slice(0, 11)}`, marginL, y);
-  }
-
-  // Facture number box
-  y += 4;
-  doc.setFillColor(240, 240, 240);
-  doc.setDrawColor(0, 0, 0);
-  doc.rect(marginL, y - 4, 80, 8, "FD");
+  // ===================== TITLE BAR =====================
+  let y = 38;
+  doc.setFillColor(brandR, brandG, brandB);
+  doc.roundedRect(marginL, y, contentW, 10, 1, 1, "F");
   doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
+  doc.setTextColor(255, 255, 255);
+  doc.text(`FACTURE N° ${facture.code || "---"}`, pageW / 2, y + 7, { align: "center" });
+
+  // ===================== CLIENT INFO =====================
+  y = 54;
   doc.setTextColor(0, 0, 0);
-  doc.text(`FACTURE N° ${facture.code || "—"}`, marginL + 3, y + 1.5);
 
-  // Date
+  // Client box (right side)
+  const clientBoxX = pageW / 2 + 5;
+  const clientBoxW = colR - clientBoxX;
+  doc.setDrawColor(220, 220, 220);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(clientBoxX, y, clientBoxW, 30, 1.5, 1.5);
+
   doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text(client?.name || "---", clientBoxX + 4, y + 6);
   doc.setFont("helvetica", "normal");
-  const dateStr = `Paris, le ${format(new Date(facture.created_at), "dd MMMM yyyy", { locale: fr })}`;
-  doc.text(dateStr, clientX, y + 1.5);
+  doc.setFontSize(8);
+  let cy = y + 11;
+  if (client?.code) { doc.text(`Code : ${client.code}`, clientBoxX + 4, cy); cy += 4; }
+  if (client?.address) { doc.text(client.address, clientBoxX + 4, cy); cy += 4; }
+  if (client?.postal_code || client?.city) {
+    doc.text(`${client?.postal_code || ""} ${client?.city || ""}`.trim(), clientBoxX + 4, cy); cy += 4;
+  }
+  if (client?.contact_name) {
+    doc.setFont("helvetica", "italic");
+    doc.text(`Att. : ${client.contact_name}`, clientBoxX + 4, cy);
+  }
 
-  // ========== REFERENCES ==========
-  y += 14;
-  doc.setFontSize(9);
-  doc.text(`Référence client : ${client?.code || "—"}`, marginL, y);
-  if (dossierCode) { y += 5; doc.text(`Dossier N° ${dossierCode}`, marginL, y); }
-  if (devisCode) { y += 5; doc.text(`Référence devis : ${devisCode}`, marginL, y); }
+  // Company info (left side)
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(80, 80, 80);
+  let ly = y + 6;
+  if (company?.name) { doc.text(company.name, marginL, ly); ly += 4; }
+  if (company?.address) { doc.text(company.address, marginL, ly); ly += 4; }
+  if (company?.phone) { doc.text(`Tel : ${company.phone}`, marginL, ly); ly += 4; }
+  if (company?.email) { doc.text(company.email, marginL, ly); ly += 4; }
+  if (company?.siret) {
+    doc.setFontSize(7);
+    doc.text(`SIRET ${company.siret}`, marginL, ly);
+  }
 
-  // ========== BODY - Description ==========
-  y += 10;
-  doc.setDrawColor(180, 180, 180);
-  doc.rect(marginL, y, contentW, 30);
+  // ===================== REFERENCES =====================
+  y = 90;
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  if (client?.code) { doc.text(`Reference client : ${client.code}`, marginL, y); y += 5; }
+  if (dossierCode) { doc.text(`Dossier N° ${dossierCode}`, marginL, y); y += 5; }
+  if (devisCode) { doc.text(`Reference devis : ${devisCode}`, marginL, y); y += 5; }
 
-  y += 6;
-  doc.setFontSize(9);
+  // ===================== DESCRIPTION / NOTES =====================
+  y += 3;
   if (facture.notes) {
-    const lines = doc.splitTextToSize(facture.notes, contentW - 10);
-    doc.text(lines.slice(0, 4), marginL + 5, y);
-    y += Math.min(lines.length, 4) * 4.5;
-  } else {
-    doc.text("Prestation selon conditions convenues", marginL + 5, y);
-    y += 5;
+    doc.setFillColor(245, 245, 245);
+    const noteLines = doc.splitTextToSize(facture.notes, contentW - 10);
+    const boxH = Math.max(noteLines.length * 4 + 6, 14);
+    doc.roundedRect(marginL, y, contentW, boxH, 1, 1, "F");
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(30, 30, 30);
+    doc.text(noteLines.slice(0, 6), marginL + 5, y + 5);
+    y += boxH + 4;
   }
 
   if (devisCode) {
-    y += 2;
-    doc.text(`Notre intervention selon devis n°${devisCode}`, marginL + 5, y);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(60, 60, 60);
+    doc.text(`Notre intervention selon devis n°${devisCode}`, marginL, y);
+    y += 8;
   }
 
-  // ========== TABLEAU TVA ==========
-  y = Math.max(y + 15, 130);
-  doc.setFontSize(9);
+  // ===================== TVA TABLE =====================
+  y = Math.max(y, 140);
 
-  // TVA table
-  const cols = [marginL, marginL + 35, marginL + 55, marginL + 80, marginL + 105];
-  const colR = marginL + contentW;
+  // Table header
+  const colMontantHT = marginL + 3;
+  const colCode = marginL + contentW * 0.35;
+  const colTaux = marginL + contentW * 0.55;
+  const colMontantTVA = colR - 3;
 
-  // Header row
-  doc.setFillColor(230, 230, 230);
+  doc.setFillColor(brandR, brandG, brandB);
   doc.rect(marginL, y, contentW, 7, "F");
   doc.setFont("helvetica", "bold");
-  doc.text("Montant H.T.", cols[0] + 2, y + 5);
-  doc.text("Code", cols[1] + 2, y + 5);
-  doc.text("Taux TVA", cols[2] + 2, y + 5);
-  doc.text("Montant TVA", cols[3] + 2, y + 5);
+  doc.setFontSize(8);
+  doc.setTextColor(255, 255, 255);
+  doc.text("Montant H.T.", colMontantHT, y + 5);
+  doc.text("Code", colCode, y + 5);
+  doc.text("Taux TVA", colTaux, y + 5);
+  doc.text("Montant TVA", colMontantTVA, y + 5, { align: "right" });
+  y += 7;
 
   // Data row
-  y += 7;
+  doc.setFillColor(250, 250, 250);
+  doc.rect(marginL, y, contentW, 7, "F");
   doc.setFont("helvetica", "normal");
-  doc.rect(marginL, y, contentW, 7);
-  doc.text(fmtEur(amount), cols[0] + 2, y + 5);
-  doc.text("2", cols[1] + 2, y + 5);
-  doc.text(`${tvaRate.toFixed(2)}`, cols[2] + 2, y + 5);
-  doc.text(fmtEur(tvaAmount), cols[3] + 2, y + 5);
+  doc.setFontSize(8);
+  doc.setTextColor(30, 30, 30);
+  doc.text(`${fmtEur(amount)} EUR`, colMontantHT, y + 5);
+  doc.text("2", colCode, y + 5);
+  doc.text(`${tvaRate.toFixed(2)} %`, colTaux, y + 5);
+  doc.text(`${fmtEur(tvaAmount)} EUR`, colMontantTVA, y + 5, { align: "right" });
 
-  // Totals (right side)
-  y += 7;
-  const totalsX = marginL + contentW - 60;
+  // Bottom line
+  doc.setDrawColor(230, 230, 230);
+  doc.setLineWidth(0.2);
+  doc.line(marginL, y + 7, colR, y + 7);
+  y += 9;
 
+  // ===================== TOTALS =====================
+  y += 4;
+  const totalsX = marginL + contentW * 0.45;
+  const totalsW = colR - totalsX;
+
+  // Total HT
+  doc.setFillColor(245, 245, 245);
+  doc.rect(totalsX, y, totalsW, 7, "F");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(60, 60, 60);
+  doc.text("Total HT", totalsX + 4, y + 5);
   doc.setFont("helvetica", "bold");
-  doc.text("Total H.T.", totalsX, y + 5);
-  doc.text(`${fmtEur(amount)} €`, colR - 2, y + 5, { align: "right" });
-  y += 7;
-  doc.text("Total T.V.A.", totalsX, y + 5);
-  doc.text(`${fmtEur(tvaAmount)} €`, colR - 2, y + 5, { align: "right" });
-  y += 7;
-  doc.setFillColor(220, 235, 250);
-  doc.rect(totalsX - 2, y, contentW - totalsX + marginL + 2, 8, "F");
-  doc.setFontSize(11);
-  doc.text("TOTAL T.T.C.", totalsX, y + 6);
-  doc.text(`${fmtEur(totalTTC)} €`, colR - 2, y + 6, { align: "right" });
+  doc.setTextColor(0, 0, 0);
+  doc.text(`${fmtEur(amount)} EUR`, colR - 4, y + 5, { align: "right" });
+  y += 8;
 
-  // ========== PAIEMENT ==========
-  y += 16;
+  // TVA
+  doc.setFillColor(245, 245, 245);
+  doc.rect(totalsX, y, totalsW, 7, "F");
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(60, 60, 60);
+  doc.text("TVA 20,00 %", totalsX + 4, y + 5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 0, 0);
+  doc.text(`${fmtEur(tvaAmount)} EUR`, colR - 4, y + 5, { align: "right" });
+  y += 8;
+
+  // TTC (brand colored)
+  doc.setFillColor(brandR, brandG, brandB);
+  doc.rect(totalsX, y, totalsW, 8, "F");
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  const paymentTerms = client?.payment_terms || "30 JOURS DATE DE FACTURE";
-  doc.text(paymentTerms.toUpperCase(), marginL, y);
+  doc.setTextColor(255, 255, 255);
+  doc.text("TOTAL TTC", totalsX + 4, y + 5.5);
+  doc.text(`${fmtEur(totalTTC)} EUR`, colR - 4, y + 5.5, { align: "right" });
+  y += 14;
 
-  y += 6;
-  doc.setFont("helvetica", "bold");
-  if (facture.due_date) {
-    doc.text(`Échéance : ${format(new Date(facture.due_date), "dd/MM/yyyy")}`, marginL, y);
-  }
-
-  // Reste dû
-  doc.text("RESTE DÛ :", marginL + contentW - 50, y);
-  doc.text(`${fmtEur(resteDu)} €`, colR - 2, y, { align: "right" });
-
-  // ========== MENTIONS LEGALES ==========
-  y += 12;
+  // ===================== PAIEMENT =====================
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(60, 60, 60);
-  doc.text(`Facture arrêtée à la somme de : ${numberToFrenchWords(totalTTC)}`, marginL, y);
+  doc.setTextColor(0, 0, 0);
+  const paymentTerms = client?.payment_terms || "30 JOURS DATE DE FACTURE";
+  doc.text(`Conditions de paiement : ${paymentTerms.toUpperCase()}`, marginL, y);
   y += 5;
-  doc.text("Pas d'escompte en cas de paiement anticipé.", marginL, y);
-  y += 4;
-  doc.text("Pénalités de retard : 3 fois le taux d'intérêt légal.", marginL, y);
-  y += 4;
-  doc.text("Indemnité forfaitaire pour frais de recouvrement : 40 €", marginL, y);
-  y += 4;
-  doc.text("TVA acquittée sur les encaissements", marginL, y);
 
-  // ========== FOOTER ==========
-  const footerY = 270;
-  doc.setDrawColor(200, 80, 30);
-  doc.setLineWidth(1);
-  doc.line(marginL, footerY, pageW - marginR, footerY);
+  if (facture.due_date) {
+    doc.setFont("helvetica", "bold");
+    doc.text(`Echeance : ${format(new Date(facture.due_date), "dd/MM/yyyy")}`, marginL, y);
+    y += 5;
+  }
 
-  doc.setFontSize(7);
+  // Reste du - right aligned, brand color
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(60, 60, 60);
+  doc.setFontSize(9);
+  doc.setTextColor(brandR, brandG, brandB);
+  doc.text("RESTE DU :", colR - 50, y);
+  doc.text(`${fmtEur(resteDu)} EUR`, colR, y, { align: "right" });
+  y += 10;
 
-  const footerLines = [];
-  if (company?.address) footerLines.push(`Siège social : ${company.address}`);
-  if (company?.phone) footerLines[footerLines.length - 1] += ` • Tél. ${company.phone}`;
-  if (company?.email) footerLines.push(company.email);
-  if (company?.siret) footerLines.push(`SIREN ${company.siret} • N° TVA Intra FR ${company.siret.replace(/\s/g, "").slice(0, 11)}`);
-
-  let fy = footerY + 4;
+  // ===================== MENTIONS LEGALES =====================
+  doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
-  footerLines.forEach((line) => {
-    doc.text(line, pageW / 2, fy, { align: "center" });
-    fy += 3.5;
-  });
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Facture arretee a la somme de : ${numberToFrenchWords(totalTTC)}`, marginL, y);
+  y += 4;
+  doc.text("Pas d'escompte en cas de paiement anticipe.", marginL, y);
+  y += 3.5;
+  doc.text("Penalites de retard : 3 fois le taux d'interet legal.", marginL, y);
+  y += 3.5;
+  doc.text("Indemnite forfaitaire pour frais de recouvrement : 40 EUR", marginL, y);
+  y += 3.5;
+  doc.text("TVA acquittee sur les encaissements", marginL, y);
+
+  // ===================== FOOTER =====================
+  drawFooter(doc, company, pageW, marginL, marginR);
 
   // Save
   const fileName = `Facture_${facture.code || facture.id.slice(0, 8)}.pdf`;
