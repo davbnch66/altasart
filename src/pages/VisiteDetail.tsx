@@ -8,10 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Pencil, MapPin, Calendar, Clock, User, ClipboardCheck, FileText, FolderOpen, BookOpen, Save, Loader2, LayoutGrid, Package, Link2, Users, Truck, ShieldAlert, ClipboardList, Download } from "lucide-react";
+import { ArrowLeft, Pencil, MapPin, Calendar, Clock, User, ClipboardCheck, FileText, FolderOpen, BookOpen, Save, Loader2, LayoutGrid, Package, Link2, Users, Truck, ShieldAlert, ClipboardList, Download, Camera } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { VisitePiecesTab } from "@/components/visite/VisitePiecesTab";
 import { VisiteMaterielTab } from "@/components/visite/VisiteMaterielTab";
@@ -42,6 +43,9 @@ const VisiteDetail = () => {
   const [editData, setEditData] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [activeTab, setActiveTab] = useState("rdv");
+  const isMobile = useIsMobile();
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const { data: visite, isLoading } = useQuery({
     queryKey: ["visite-detail", id],
@@ -139,29 +143,29 @@ const VisiteDetail = () => {
   const dossier = visite.dossiers as any;
 
   return (
-    <div className="p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
+    <div className={`p-4 md:p-6 lg:p-8 max-w-5xl mx-auto space-y-4 md:space-y-6 ${isMobile ? "pb-24" : ""}`}>
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate("/visites")}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-lg md:text-2xl font-bold tracking-tight truncate">
               Visite {visite.code ? `#${visite.code}` : visite.title}
             </h1>
-            <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyle[visite.status]}`}>
+            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle[visite.status]}`}>
               {statusLabels[visite.status] || visite.status}
             </span>
             {visite.on_hold && <span className="text-xs bg-warning/10 text-warning rounded-full px-2 py-0.5">En attente</span>}
           </div>
           {client && (
-            <p className="text-muted-foreground mt-1 cursor-pointer hover:text-primary transition-colors" onClick={() => navigate(`/clients/${client.id}`)}>
+            <p className="text-muted-foreground text-sm mt-0.5 truncate cursor-pointer hover:text-primary transition-colors" onClick={() => navigate(`/clients/${client.id}`)}>
               {client.name} {client.code ? `(${client.code})` : ""}
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="hidden md:flex items-center gap-2">
           <select
             value={editData.status}
             onChange={(e) => updateField("status", e.target.value)}
@@ -199,6 +203,12 @@ const VisiteDetail = () => {
             Enregistrer
           </Button>
         </div>
+        {/* Mobile: compact save button */}
+        <div className="flex md:hidden items-center gap-1">
+          <Button size="icon" variant="outline" onClick={handleSave} disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          </Button>
+        </div>
       </div>
 
       {/* Client info bar */}
@@ -215,7 +225,7 @@ const VisiteDetail = () => {
       <VisiteSmartAlerts visiteId={visite.id} companyId={visite.company_id} />
 
       {/* Tabs */}
-      <Tabs defaultValue="rdv" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="flex flex-wrap h-auto gap-1 w-full">
           <TabsTrigger value="rdv" className="text-xs">RDV</TabsTrigger>
           <TabsTrigger value="visite" className="text-xs">Visite</TabsTrigger>
@@ -431,6 +441,83 @@ const VisiteDetail = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Hidden photo input for mobile quick action */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          // Upload to first piece or general
+          try {
+            const { data: piecesData } = await supabase.from("visite_pieces").select("id").eq("visite_id", visite.id).order("sort_order").limit(1);
+            const pieceId = piecesData?.[0]?.id || null;
+            const path = `${visite.id}/${pieceId || "general"}/${Date.now()}_${file.name}`;
+            const { error: uploadErr } = await supabase.storage.from("visite-photos").upload(path, file);
+            if (uploadErr) throw uploadErr;
+            await supabase.from("visite_photos").insert({
+              visite_id: visite.id,
+              piece_id: pieceId,
+              company_id: visite.company_id,
+              storage_path: path,
+              file_name: file.name,
+            });
+            toast.success("Photo ajoutée");
+            queryClient.invalidateQueries({ queryKey: ["visite-photos", visite.id] });
+          } catch (err: any) {
+            toast.error(err.message || "Erreur upload");
+          }
+          e.target.value = "";
+        }}
+      />
+
+      {/* Mobile floating action bar */}
+      {isMobile && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-t border-border px-2 py-2 safe-area-bottom">
+          <div className="flex items-center justify-around gap-1">
+            <button
+              onClick={() => setActiveTab("pieces")}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${activeTab === "pieces" ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}
+            >
+              <LayoutGrid className="h-5 w-5" />
+              <span>Pièces</span>
+            </button>
+            <button
+              onClick={() => photoInputRef.current?.click()}
+              className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+            >
+              <Camera className="h-5 w-5" />
+              <span>Photo</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("materiel")}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${activeTab === "materiel" ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}
+            >
+              <Package className="h-5 w-5" />
+              <span>Matériel</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("affectation")}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${activeTab === "affectation" ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}
+            >
+              <Link2 className="h-5 w-5" />
+              <span>Affecter</span>
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saveMutation.isPending}
+              className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs text-primary font-medium"
+            >
+              {saveMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+              <span>Sauver</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
