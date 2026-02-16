@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Search, Filter, FolderOpen, Pencil, Trash2 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -50,6 +51,7 @@ const formatAmount = (amount: number | null) => {
 
 const Dossiers = () => {
   const { current } = useCompany();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [editingDossier, setEditingDossier] = useState<any>(null);
@@ -145,7 +147,7 @@ const Dossiers = () => {
           </div>
         ) : (
           filtered.map((dossier) => (
-            <div key={dossier.id} className="flex items-center gap-4 rounded-xl border bg-card px-5 py-4 hover:shadow-sm transition-shadow cursor-pointer">
+            <div key={dossier.id} onClick={() => navigate(`/dossiers/${dossier.id}`)} className="flex items-center gap-4 rounded-xl border bg-card px-5 py-4 hover:shadow-sm transition-shadow cursor-pointer">
               <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
                 <FolderOpen className="h-5 w-5 text-muted-foreground" />
               </div>
