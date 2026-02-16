@@ -288,21 +288,19 @@ const Devis = () => {
               <div
                 key={d.id}
                 onClick={() => navigate(`/devis/${d.id}`)}
-                className="rounded-lg border bg-card px-2.5 py-2 active:bg-muted/50 transition-colors cursor-pointer"
+                className="rounded-lg border bg-card px-2.5 py-2 active:bg-muted/50 transition-colors cursor-pointer overflow-hidden"
               >
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="font-medium text-xs truncate">{d.objet}</p>
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-2 w-full overflow-hidden">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <p className="font-medium text-xs truncate">{d.objet}</p>
+                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground overflow-hidden">
                       <span className="truncate">{(d.clients as any)?.name || "—"}</span>
                       {d.code && <span className="font-mono shrink-0">{d.code}</span>}
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-0.5 shrink-0">
-                    <span className="text-xs font-semibold">{formatAmount(d.amount)}</span>
-                    <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none ${statusStyles[d.status] || "bg-muted text-muted-foreground"}`}>
+                  <div className="flex flex-col items-end gap-0.5 shrink-0 ml-auto">
+                    <span className="text-xs font-semibold whitespace-nowrap">{formatAmount(d.amount)}</span>
+                    <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none whitespace-nowrap ${statusStyles[d.status] || "bg-muted text-muted-foreground"}`}>
                       {statusLabels[d.status] || d.status}
                     </span>
                   </div>
