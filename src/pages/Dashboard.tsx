@@ -356,7 +356,7 @@ const Dashboard = () => {
             activity.map((item, i) => {
               const linkMap: Record<string, string> = {
                 devis: `/devis/${item.id}`,
-                dossier: "/dossiers",
+                dossier: `/dossiers/${item.id}`,
                 facture: "/finance",
                 visite: "/visites",
               };
