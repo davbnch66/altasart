@@ -6,9 +6,39 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, Loader2, Package, Upload, Sparkles } from "lucide-react";
+import { Plus, Trash2, Loader2, Package, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+
+const DESIGNATIONS_COURANTES = [
+  "Armoire haute",
+  "Armoire basse",
+  "Bahut",
+  "Bibliothèque",
+  "Bureau",
+  "Caisson",
+  "Canapé",
+  "Carton standard",
+  "Carton livres",
+  "Chaise",
+  "Coffre-fort",
+  "Commode",
+  "Console",
+  "Étagère",
+  "Fauteuil",
+  "Lit 1 place",
+  "Lit 2 places",
+  "Machine à laver",
+  "Matelas",
+  "Meuble TV",
+  "Piano droit",
+  "Piano à queue",
+  "Réfrigérateur",
+  "Sèche-linge",
+  "Sommier",
+  "Table",
+  "Table basse",
+];
 
 interface Props {
   visiteId: string;
@@ -18,6 +48,7 @@ interface Props {
 export const VisiteMaterielTab = ({ visiteId, companyId }: Props) => {
   const queryClient = useQueryClient();
   const [newItem, setNewItem] = useState({ designation: "", quantity: 1, dimensions: "", weight: "", unit: "", notes: "" });
+  const [customDesignation, setCustomDesignation] = useState(false);
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -54,6 +85,7 @@ export const VisiteMaterielTab = ({ visiteId, companyId }: Props) => {
     onSuccess: () => {
       toast.success("Matériel ajouté");
       setNewItem({ designation: "", quantity: 1, dimensions: "", weight: "", unit: "", notes: "" });
+      setCustomDesignation(false);
       queryClient.invalidateQueries({ queryKey: ["visite-materiel", visiteId] });
     },
     onError: (e) => toast.error(e.message),
@@ -89,6 +121,16 @@ export const VisiteMaterielTab = ({ visiteId, companyId }: Props) => {
     }
   };
 
+  const handleDesignationSelect = (value: string) => {
+    if (value === "__custom__") {
+      setCustomDesignation(true);
+      setNewItem((p) => ({ ...p, designation: "" }));
+    } else {
+      setCustomDesignation(false);
+      setNewItem((p) => ({ ...p, designation: value }));
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Actions bar */}
@@ -119,13 +161,30 @@ export const VisiteMaterielTab = ({ visiteId, companyId }: Props) => {
         <span className="text-sm text-muted-foreground">{materiel.length} élément(s)</span>
       </div>
 
-      {/* Add new item */}
+      {/* Add new item with dropdown */}
       <Card className="p-4 space-y-3">
         <h3 className="font-semibold text-primary flex items-center gap-2"><Plus className="h-4 w-4" /> Ajouter du matériel</h3>
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           <div className="col-span-2">
             <Label>Désignation *</Label>
-            <Input value={newItem.designation} onChange={(e) => setNewItem((p) => ({ ...p, designation: e.target.value }))} placeholder="Armoire, Carton..." />
+            {customDesignation ? (
+              <div className="flex gap-1">
+                <Input value={newItem.designation} onChange={(e) => setNewItem((p) => ({ ...p, designation: e.target.value }))} placeholder="Saisie libre..." />
+                <Button variant="ghost" size="sm" className="shrink-0 text-xs" onClick={() => setCustomDesignation(false)}>Liste</Button>
+              </div>
+            ) : (
+              <select
+                value={newItem.designation}
+                onChange={(e) => handleDesignationSelect(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="">— Choisir —</option>
+                {DESIGNATIONS_COURANTES.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+                <option value="__custom__">✏️ Autre (saisie libre)</option>
+              </select>
+            )}
           </div>
           <div>
             <Label>Qté</Label>

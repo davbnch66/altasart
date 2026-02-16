@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
-import { Save, Loader2, Plus, Trash2, ClipboardList } from "lucide-react";
+import { Save, Loader2, Plus, Trash2, ClipboardList, Sparkles, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 interface ChecklistItem {
@@ -26,6 +26,7 @@ export const VisiteMethodologieTab = ({ visiteId, companyId }: Props) => {
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [newCheckItem, setNewCheckItem] = useState("");
   const [existingId, setExistingId] = useState<string | null>(null);
+  const [generating, setGenerating] = useState(false);
 
   const { data: methodo } = useQuery({
     queryKey: ["visite-methodologie", visiteId],
@@ -64,6 +65,27 @@ export const VisiteMethodologieTab = ({ visiteId, companyId }: Props) => {
     onError: () => toast.error("Erreur"),
   });
 
+  const handleGenerateAI = async () => {
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-methodologie", {
+        body: { visite_id: visiteId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      
+      if (data?.content) setContent(data.content);
+      if (data?.checklist && Array.isArray(data.checklist)) {
+        setChecklist(data.checklist.map((text: string) => ({ text, done: false })));
+      }
+      toast.success("Méthodologie générée par IA — vérifiez et ajustez avant d'enregistrer");
+    } catch (e: any) {
+      toast.error(e.message || "Erreur génération IA");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const addCheckItem = () => {
     if (!newCheckItem.trim()) return;
     setChecklist((prev) => [...prev, { text: newCheckItem, done: false }]);
@@ -80,18 +102,37 @@ export const VisiteMethodologieTab = ({ visiteId, companyId }: Props) => {
 
   return (
     <div className="space-y-4">
+      {/* AI Generate button */}
+      <Card className="p-4 space-y-3 border-primary/20 bg-primary/5">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold text-primary">Génération IA</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          L'IA analysera le matériel, les contraintes d'accès, les véhicules et les RH pour proposer une méthodologie conforme aux réglementations (Code du travail, normes de levage, sécurité).
+        </p>
+        <div className="flex items-center gap-2 text-xs text-warning bg-warning/10 p-2 rounded-lg">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>La méthodologie générée doit être vérifiée et validée avant utilisation.</span>
+        </div>
+        <Button onClick={handleGenerateAI} disabled={generating} className="gap-2">
+          {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          {generating ? "Génération en cours..." : "Générer la méthodologie par IA"}
+        </Button>
+      </Card>
+
       <Card className="p-5 space-y-4">
-        <h3 className="font-semibold text-primary flex items-center gap-2"><ClipboardList className="h-4 w-4" /> Notes techniques / Méthodologie</h3>
+        <h3 className="font-semibold text-primary flex items-center gap-2"><ClipboardList className="h-4 w-4" /> Méthodologie</h3>
         <Textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          rows={10}
+          rows={15}
           placeholder="Décrivez la méthodologie proposée, les étapes de l'opération, les précautions particulières..."
         />
       </Card>
 
       <Card className="p-5 space-y-3">
-        <h3 className="font-semibold text-primary flex items-center gap-2"><ClipboardList className="h-4 w-4" /> Checklist</h3>
+        <h3 className="font-semibold text-primary flex items-center gap-2"><ClipboardList className="h-4 w-4" /> Checklist sécurité</h3>
         <div className="space-y-2">
           {checklist.map((item, idx) => (
             <div key={idx} className="flex items-center gap-2">

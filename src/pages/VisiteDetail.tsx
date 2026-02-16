@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Pencil, MapPin, Calendar, Clock, User, ClipboardCheck, FileText, FolderOpen, BookOpen, Save, Loader2, LayoutGrid, Package, Link2, Users, Truck, ShieldAlert, ClipboardList, Download, Camera } from "lucide-react";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { ArrowLeft, MapPin, Calendar, Clock, User, FileText, FolderOpen, BookOpen, Save, Loader2, LayoutGrid, Package, Users, Truck, ShieldAlert, ClipboardList, Download, Camera, ChevronDown, Wrench, Info } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useState, useEffect, useRef } from "react";
@@ -37,6 +38,32 @@ const statusStyle: Record<string, string> = {
   planifiee: "bg-info/10 text-info",
   realisee: "bg-success/10 text-success",
   annulee: "bg-destructive/10 text-destructive",
+};
+
+/* Collapsible section wrapper */
+const Section = ({ title, icon: Icon, defaultOpen = false, badge, children }: {
+  title: string;
+  icon: React.ElementType;
+  defaultOpen?: boolean;
+  badge?: string | number;
+  children: React.ReactNode;
+}) => {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger className="flex items-center justify-between w-full rounded-xl border bg-card px-4 py-3 hover:bg-muted/50 transition-colors">
+        <div className="flex items-center gap-2 font-semibold text-sm">
+          <Icon className="h-4 w-4 text-primary" />
+          {title}
+          {badge !== undefined && <span className="text-xs font-normal bg-muted rounded-full px-2 py-0.5">{badge}</span>}
+        </div>
+        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-3">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
+  );
 };
 
 const VisiteDetail = () => {
@@ -73,7 +100,6 @@ const VisiteDetail = () => {
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
       const { clients, resources, dossiers, ...rest } = data;
-      // Remove read-only fields
       delete rest.created_at;
       delete rest.updated_at;
       const { error } = await supabase.from("visites").update(rest).eq("id", id!);
@@ -108,7 +134,6 @@ const VisiteDetail = () => {
         code: visite.code ? `DOS-${visite.code}` : null,
       }).select("id").single();
       if (error) throw error;
-      // Link visite to dossier
       await supabase.from("visites").update({ dossier_id: data.id }).eq("id", visite.id);
       return data.id;
     },
@@ -208,7 +233,6 @@ const VisiteDetail = () => {
             Enregistrer
           </Button>
         </div>
-        {/* Mobile: compact save button */}
         <div className="flex md:hidden items-center gap-1">
           <Button size="icon" variant="outline" onClick={handleSave} disabled={saveMutation.isPending}>
             {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -216,243 +240,234 @@ const VisiteDetail = () => {
         </div>
       </div>
 
-      {/* Client info bar */}
-      {client && (
-        <div className="rounded-xl border bg-card p-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-          <div><span className="text-muted-foreground">Client</span><p className="font-medium">{client.name}</p></div>
-          <div><span className="text-muted-foreground">Tél.</span><p className="font-medium">{client.mobile || client.phone || "—"}</p></div>
-          <div><span className="text-muted-foreground">Email</span><p className="font-medium truncate">{client.email || "—"}</p></div>
-          <div><span className="text-muted-foreground">Adresse</span><p className="font-medium">{client.address || "—"}</p></div>
-        </div>
-      )}
-
       {/* Smart Alerts */}
       <VisiteSmartAlerts visiteId={visite.id} companyId={visite.company_id} />
 
-      {/* Tabs */}
+      {/* 4 Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="flex flex-wrap h-auto gap-1 w-full">
-          <TabsTrigger value="rdv" className="text-xs">RDV</TabsTrigger>
-          <TabsTrigger value="visite" className="text-xs">Visite</TabsTrigger>
-          <TabsTrigger value="pieces" className="text-xs"><LayoutGrid className="h-3 w-3 mr-1" />Pièces</TabsTrigger>
-          <TabsTrigger value="materiel" className="text-xs"><Package className="h-3 w-3 mr-1" />Matériel</TabsTrigger>
-          <TabsTrigger value="affectation" className="text-xs"><Link2 className="h-3 w-3 mr-1" />Affectation</TabsTrigger>
-          <TabsTrigger value="rh" className="text-xs"><Users className="h-3 w-3 mr-1" />RH</TabsTrigger>
-          <TabsTrigger value="vehicules" className="text-xs"><Truck className="h-3 w-3 mr-1" />Véhicules</TabsTrigger>
-          <TabsTrigger value="contraintes" className="text-xs"><ShieldAlert className="h-3 w-3 mr-1" />Accès</TabsTrigger>
-          <TabsTrigger value="methodologie" className="text-xs"><ClipboardList className="h-3 w-3 mr-1" />Méthodo</TabsTrigger>
-          <TabsTrigger value="dossier" className="text-xs">Dossier</TabsTrigger>
-          <TabsTrigger value="devis" className="text-xs">Devis</TabsTrigger>
-          <TabsTrigger value="instructions" className="text-xs">Instructions</TabsTrigger>
+        <TabsList className="grid grid-cols-4 w-full">
+          <TabsTrigger value="rdv" className="text-xs gap-1"><Calendar className="h-3.5 w-3.5 hidden sm:block" />RDV</TabsTrigger>
+          <TabsTrigger value="site" className="text-xs gap-1"><LayoutGrid className="h-3.5 w-3.5 hidden sm:block" />Site</TabsTrigger>
+          <TabsTrigger value="moyens" className="text-xs gap-1"><Wrench className="h-3.5 w-3.5 hidden sm:block" />Moyens</TabsTrigger>
+          <TabsTrigger value="devis" className="text-xs gap-1"><FileText className="h-3.5 w-3.5 hidden sm:block" />Devis</TabsTrigger>
         </TabsList>
 
-        {/* Tab: Rendez-vous */}
-        <TabsContent value="rdv" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="rounded-xl border bg-card p-5 space-y-4">
-              <h3 className="font-semibold text-primary flex items-center gap-2"><Calendar className="h-4 w-4" /> Rendez-vous</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Zone</Label>
-                  <Input value={editData.zone || ""} onChange={(e) => updateField("zone", e.target.value)} placeholder="Ex: Paris" />
+        {/* ============ TAB 1 : RENDEZ-VOUS ============ */}
+        <TabsContent value="rdv" className="space-y-3">
+          <Section title="Rendez-vous" icon={Calendar} defaultOpen>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="rounded-xl border bg-card p-5 space-y-4">
+                <h3 className="font-semibold text-primary flex items-center gap-2"><Calendar className="h-4 w-4" /> Date & Heure</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Zone</Label>
+                    <Input value={editData.zone || ""} onChange={(e) => updateField("zone", e.target.value)} placeholder="Ex: Paris" />
+                  </div>
+                  <div>
+                    <Label>Date d'appel</Label>
+                    <Input type="date" value={editData.call_date || ""} onChange={(e) => updateField("call_date", e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Date</Label>
+                    <Input type="date" value={editData.scheduled_date ? editData.scheduled_date.slice(0, 10) : ""} onChange={(e) => updateField("scheduled_date", e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Heure</Label>
+                    <Input type="time" value={editData.scheduled_time || ""} onChange={(e) => updateField("scheduled_time", e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Durée</Label>
+                    <Input value={editData.duration || "01:00:00"} onChange={(e) => updateField("duration", e.target.value)} placeholder="01:00" />
+                  </div>
                 </div>
-                <div>
-                  <Label>Date d'appel</Label>
-                  <Input type="date" value={editData.call_date || ""} onChange={(e) => updateField("call_date", e.target.value)} />
-                </div>
-                <div>
-                  <Label>Date</Label>
-                  <Input type="date" value={editData.scheduled_date ? editData.scheduled_date.slice(0, 10) : ""} onChange={(e) => updateField("scheduled_date", e.target.value)} />
-                </div>
-                <div>
-                  <Label>Heure</Label>
-                  <Input type="time" value={editData.scheduled_time || ""} onChange={(e) => updateField("scheduled_time", e.target.value)} />
-                </div>
-                <div>
-                  <Label>Durée</Label>
-                  <Input value={editData.duration || "01:00:00"} onChange={(e) => updateField("duration", e.target.value)} placeholder="01:00" />
+              </div>
+              <div className="rounded-xl border bg-card p-5 space-y-4">
+                <h3 className="font-semibold text-primary flex items-center gap-2"><User className="h-4 w-4" /> Intervenants</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Conseiller</Label>
+                    <Input value={editData.advisor || ""} onChange={(e) => updateField("advisor", e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Coordinateur</Label>
+                    <Input value={editData.coordinator || ""} onChange={(e) => updateField("coordinator", e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Origine</Label>
+                    <Input value={editData.origin || ""} onChange={(e) => updateField("origin", e.target.value)} placeholder="AC, NC..." />
+                  </div>
+                  <div>
+                    <Label>Type visite</Label>
+                    <Input value={editData.visit_type || ""} onChange={(e) => updateField("visit_type", e.target.value)} placeholder="VT, VC..." />
+                  </div>
                 </div>
               </div>
             </div>
+          </Section>
 
-            <div className="rounded-xl border bg-card p-5 space-y-4">
-              <h3 className="font-semibold text-primary flex items-center gap-2"><User className="h-4 w-4" /> Destinataire de la visite</h3>
-              <div className="grid grid-cols-2 gap-3">
+          <Section title="Client" icon={User} badge={client?.name}>
+            {client && (
+              <div className="rounded-xl border bg-card p-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div><span className="text-muted-foreground">Client</span><p className="font-medium">{client.name}</p></div>
+                <div><span className="text-muted-foreground">Tél.</span><p className="font-medium">{client.mobile || client.phone || "—"}</p></div>
+                <div><span className="text-muted-foreground">Email</span><p className="font-medium truncate">{client.email || "—"}</p></div>
                 <div>
-                  <Label>Conseiller</Label>
-                  <Input value={editData.advisor || ""} onChange={(e) => updateField("advisor", e.target.value)} />
-                </div>
-                <div>
-                  <Label>Coordinateur</Label>
-                  <Input value={editData.coordinator || ""} onChange={(e) => updateField("coordinator", e.target.value)} />
-                </div>
-                <div>
-                  <Label>Origine</Label>
-                  <Input value={editData.origin || ""} onChange={(e) => updateField("origin", e.target.value)} placeholder="AC, NC..." />
-                </div>
-                <div>
-                  <Label>Type visite</Label>
-                  <Input value={editData.visit_type || ""} onChange={(e) => updateField("visit_type", e.target.value)} placeholder="VT, VC..." />
+                  <span className="text-muted-foreground">Adresse</span>
+                  <p className="font-medium">{client.address || "—"}</p>
+                  <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={() => navigate(`/clients/${client.id}`)}>Voir fiche →</Button>
                 </div>
               </div>
-            </div>
-          </div>
+            )}
+          </Section>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="rounded-xl border bg-card p-5 space-y-3">
-              <h3 className="font-semibold text-primary flex items-center gap-2"><MapPin className="h-4 w-4" /> Adresse du rendez-vous</h3>
-              <Input value={editData.address || ""} onChange={(e) => updateField("address", e.target.value)} placeholder="Adresse" />
-              <div className="grid grid-cols-3 gap-3">
-                <Input value={editData.origin_postal_code || ""} onChange={(e) => updateField("origin_postal_code", e.target.value)} placeholder="Code postal" />
-                <Input value={editData.origin_city || ""} onChange={(e) => updateField("origin_city", e.target.value)} placeholder="Ville" className="col-span-2" />
+          <Section title="Adresses" icon={MapPin}>
+            <div className="space-y-3">
+              <div className="rounded-xl border bg-card p-5 space-y-3">
+                <h3 className="font-semibold text-primary">Adresse du rendez-vous</h3>
+                <Input value={editData.address || ""} onChange={(e) => updateField("address", e.target.value)} placeholder="Adresse" />
+                <div className="grid grid-cols-3 gap-3">
+                  <Input value={editData.origin_postal_code || ""} onChange={(e) => updateField("origin_postal_code", e.target.value)} placeholder="Code postal" />
+                  <Input value={editData.origin_city || ""} onChange={(e) => updateField("origin_city", e.target.value)} placeholder="Ville" className="col-span-2" />
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input value={editData.origin_floor || ""} onChange={(e) => updateField("origin_floor", e.target.value)} placeholder="Étage" />
-                <Input value={editData.origin_country || "FRANCE"} onChange={(e) => updateField("origin_country", e.target.value)} placeholder="Pays" />
+              <div className="rounded-xl border bg-card p-5 space-y-3">
+                <h3 className="font-semibold text-primary">Période</h3>
+                <Input value={editData.period || ""} onChange={(e) => updateField("period", e.target.value)} placeholder="Ex: JUIN 2026 ET FIN AOUT 2026" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <AddressBlock title="Adresse origine" prefix="origin" data={editData} onChange={updateField} />
+                <AddressBlock title="Adresse destination" prefix="dest" data={editData} onChange={updateField} />
               </div>
             </div>
+          </Section>
 
-            <div className="rounded-xl border bg-card p-5 space-y-3">
-              <h3 className="font-semibold text-primary">Commentaire</h3>
-              <Textarea value={editData.comment || ""} onChange={(e) => updateField("comment", e.target.value)} rows={6} placeholder="Commentaires sur la visite..." />
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* Tab: Visite */}
-        <TabsContent value="visite" className="space-y-4">
-          <div className="rounded-xl border bg-card p-5 space-y-3">
-            <h3 className="font-semibold text-primary">Période</h3>
-            <Input value={editData.period || ""} onChange={(e) => updateField("period", e.target.value)} placeholder="Ex: JUIN 2026 ET FIN AOUT 2026" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <AddressBlock title="Adresse origine" prefix="origin" data={editData} onChange={updateField} />
-            <AddressBlock title="Adresse destination" prefix="dest" data={editData} onChange={updateField} />
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="rounded-xl border bg-card p-4">
-              <Label>Distance (km)</Label>
-              <Input type="number" value={editData.distance || ""} onChange={(e) => updateField("distance", e.target.value ? Number(e.target.value) : null)} />
-            </div>
-            <div className="rounded-xl border bg-card p-4">
-              <Label>Volume (m³)</Label>
-              <Input type="number" step="0.01" value={editData.volume || 0} onChange={(e) => updateField("volume", Number(e.target.value))} />
-            </div>
-            <div className="rounded-xl border bg-card p-4">
-              <Label>Photos</Label>
-              <p className="text-2xl font-bold mt-1">{visite.photos_count || 0}</p>
-            </div>
-          </div>
-        </TabsContent>
-
-        {/* Tab: Pièces / Zones */}
-        <TabsContent value="pieces">
-          <VisitePiecesTab visiteId={visite.id} companyId={visite.company_id} />
-        </TabsContent>
-
-        {/* Tab: Matériel */}
-        <TabsContent value="materiel">
-          <VisiteMaterielTab visiteId={visite.id} companyId={visite.company_id} />
-        </TabsContent>
-
-        {/* Tab: Affectation */}
-        <TabsContent value="affectation">
-          <VisiteAffectationTab visiteId={visite.id} companyId={visite.company_id} />
-        </TabsContent>
-
-        {/* Tab: Ressources Humaines */}
-        <TabsContent value="rh">
-          <VisiteRHTab visiteId={visite.id} companyId={visite.company_id} />
-        </TabsContent>
-
-        {/* Tab: Véhicules et Engins */}
-        <TabsContent value="vehicules">
-          <VisiteVehiculesTab visiteId={visite.id} companyId={visite.company_id} />
-        </TabsContent>
-
-        {/* Tab: Contraintes */}
-        <TabsContent value="contraintes">
-          <VisiteContraintesTab visiteId={visite.id} companyId={visite.company_id} />
-        </TabsContent>
-
-        {/* Tab: Méthodologie */}
-        <TabsContent value="methodologie">
-          <VisiteMethodologieTab visiteId={visite.id} companyId={visite.company_id} />
-        </TabsContent>
-
-        {/* Tab: Dossier */}
-        <TabsContent value="dossier" className="space-y-4">
-          <div className="rounded-xl border bg-card p-5 space-y-4">
-            <h3 className="font-semibold text-primary">Codification complémentaire</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div>
-                <Label>Date prévisionnelle de chargement</Label>
-                <Input type="date" value={editData.loading_date || ""} onChange={(e) => updateField("loading_date", e.target.value)} />
+          <Section title="Informations complémentaires" icon={Info}>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="rounded-xl border bg-card p-4">
+                <Label>Distance (km)</Label>
+                <Input type="number" value={editData.distance || ""} onChange={(e) => updateField("distance", e.target.value ? Number(e.target.value) : null)} />
               </div>
-              <div>
-                <Label>Type de devis</Label>
-                <Input value={editData.devis_type || ""} onChange={(e) => updateField("devis_type", e.target.value)} placeholder="DN, DA..." />
+              <div className="rounded-xl border bg-card p-4">
+                <Label>Volume (m³)</Label>
+                <Input type="number" step="0.01" value={editData.volume || 0} onChange={(e) => updateField("volume", Number(e.target.value))} />
               </div>
-              <div>
+              <div className="rounded-xl border bg-card p-4">
                 <Label>Nature</Label>
-                <Input value={editData.nature || ""} onChange={(e) => updateField("nature", e.target.value)} placeholder="MANUTENTION, DEMENAGEMENT..." />
+                <Input value={editData.nature || ""} onChange={(e) => updateField("nature", e.target.value)} placeholder="MANUTENTION..." />
               </div>
-              <div>
+              <div className="rounded-xl border bg-card p-4">
                 <Label>Type opération</Label>
                 <Input value={editData.operation_type || ""} onChange={(e) => updateField("operation_type", e.target.value)} placeholder="M, D..." />
               </div>
-              <div>
+              <div className="rounded-xl border bg-card p-4">
+                <Label>Type de devis</Label>
+                <Input value={editData.devis_type || ""} onChange={(e) => updateField("devis_type", e.target.value)} placeholder="DN, DA..." />
+              </div>
+              <div className="rounded-xl border bg-card p-4">
                 <Label>Tractionnaire</Label>
                 <Input value={editData.contractor || ""} onChange={(e) => updateField("contractor", e.target.value)} />
               </div>
-              <div>
+              <div className="rounded-xl border bg-card p-4">
                 <Label>Qualité</Label>
                 <Input type="number" value={editData.quality || 1} onChange={(e) => updateField("quality", Number(e.target.value))} min={1} />
               </div>
+              <div className="rounded-xl border bg-card p-4">
+                <Label>Photos</Label>
+                <p className="text-2xl font-bold mt-1">{visite.photos_count || 0}</p>
+              </div>
             </div>
-          </div>
-
-          {dossier ? (
-            <div className="rounded-xl border bg-card p-5">
-              <h3 className="font-semibold mb-2">Dossier lié</h3>
-              <p className="text-primary cursor-pointer hover:underline flex items-center gap-2" onClick={() => navigate(`/dossiers/${dossier.id}`)}>
-                <FolderOpen className="h-4 w-4" /> {dossier.code || dossier.title}
-              </p>
+            <div className="mt-3 rounded-xl border bg-card p-5 space-y-3">
+              <h3 className="font-semibold text-primary">Commentaire</h3>
+              <Textarea value={editData.comment || ""} onChange={(e) => updateField("comment", e.target.value)} rows={4} placeholder="Commentaires sur la visite..." />
             </div>
-          ) : (
-            <Button variant="outline" onClick={() => convertToDossier.mutate()} disabled={convertToDossier.isPending} className="flex items-center gap-2">
-              <FolderOpen className="h-4 w-4" />
-              {convertToDossier.isPending ? "Conversion..." : "Convertir la visite en dossier"}
-            </Button>
-          )}
+          </Section>
         </TabsContent>
 
-        {/* Tab: Éléments du devis */}
-        <TabsContent value="devis" className="space-y-4">
-          <div className="rounded-xl border bg-card p-5 space-y-3">
-            <h3 className="font-semibold text-primary flex items-center gap-2"><FileText className="h-4 w-4" /> Mémo devis</h3>
-            <Textarea value={editData.notes || ""} onChange={(e) => updateField("notes", e.target.value)} rows={12} placeholder="Description détaillée pour le devis..." />
-            <p className="text-xs text-muted-foreground">Le texte saisi dans le champ Mémo devis sera disponible au moment de la création du devis.</p>
-          </div>
+        {/* ============ TAB 2 : SITE ============ */}
+        <TabsContent value="site" className="space-y-3">
+          <Section title="Pièces / Zones" icon={LayoutGrid} defaultOpen>
+            <VisitePiecesTab visiteId={visite.id} companyId={visite.company_id} />
+          </Section>
 
-          {/* Historique des devis générés par IA */}
-          <div className="rounded-xl border bg-card p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-primary flex items-center gap-2"><FileText className="h-4 w-4" /> Historique des devis IA</h3>
-              <GenerateDevisDialog visiteId={visite.id} companyId={visite.company_id} dossierId={visite.dossier_id} />
-            </div>
-            <VisiteDevisHistory visiteId={visite.id} />
-          </div>
+          <Section title="Inventaire matériel" icon={Package}>
+            <VisiteMaterielTab visiteId={visite.id} companyId={visite.company_id} />
+          </Section>
+
+          <Section title="Affectation matériel ↔ pièces" icon={Package}>
+            <VisiteAffectationTab visiteId={visite.id} companyId={visite.company_id} />
+          </Section>
+
+          <Section title="Contraintes d'accès" icon={ShieldAlert}>
+            <VisiteContraintesTab visiteId={visite.id} companyId={visite.company_id} />
+          </Section>
         </TabsContent>
 
-        {/* Tab: Instructions */}
-        <TabsContent value="instructions" className="space-y-4">
-          <div className="rounded-xl border bg-card p-5 space-y-3">
-            <h3 className="font-semibold text-primary flex items-center gap-2"><BookOpen className="h-4 w-4" /> Instructions</h3>
-            <Textarea value={editData.instructions || ""} onChange={(e) => updateField("instructions", e.target.value)} rows={15} placeholder="Instructions détaillées pour l'opération..." />
-          </div>
+        {/* ============ TAB 3 : MOYENS & MÉTHODOLOGIE ============ */}
+        <TabsContent value="moyens" className="space-y-3">
+          <Section title="Ressources humaines" icon={Users} defaultOpen>
+            <VisiteRHTab visiteId={visite.id} companyId={visite.company_id} />
+          </Section>
+
+          <Section title="Véhicules et engins" icon={Truck}>
+            <VisiteVehiculesTab visiteId={visite.id} companyId={visite.company_id} />
+          </Section>
+
+          <Section title="Méthodologie IA" icon={ClipboardList}>
+            <VisiteMethodologieTab visiteId={visite.id} companyId={visite.company_id} />
+          </Section>
+
+          <Section title="Instructions" icon={BookOpen}>
+            <div className="rounded-xl border bg-card p-5 space-y-3">
+              <Textarea value={editData.instructions || ""} onChange={(e) => updateField("instructions", e.target.value)} rows={10} placeholder="Instructions détaillées pour l'opération..." />
+            </div>
+          </Section>
+        </TabsContent>
+
+        {/* ============ TAB 4 : DEVIS & DOSSIER ============ */}
+        <TabsContent value="devis" className="space-y-3">
+          <Section title="Mémo devis" icon={FileText} defaultOpen>
+            <div className="rounded-xl border bg-card p-5 space-y-3">
+              <Textarea value={editData.notes || ""} onChange={(e) => updateField("notes", e.target.value)} rows={8} placeholder="Description détaillée pour le devis..." />
+              <p className="text-xs text-muted-foreground">Le texte saisi dans le champ Mémo devis sera disponible au moment de la création du devis.</p>
+            </div>
+          </Section>
+
+          <Section title="Historique des devis IA" icon={FileText}>
+            <div className="rounded-xl border bg-card p-5 space-y-3">
+              <div className="flex items-center justify-end mb-2">
+                <GenerateDevisDialog visiteId={visite.id} companyId={visite.company_id} dossierId={visite.dossier_id} />
+              </div>
+              <VisiteDevisHistory visiteId={visite.id} />
+            </div>
+          </Section>
+
+          <Section title="Dossier" icon={FolderOpen}>
+            <div className="space-y-4">
+              <div className="rounded-xl border bg-card p-5 space-y-4">
+                <h3 className="font-semibold text-primary">Codification complémentaire</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Date prévisionnelle de chargement</Label>
+                    <Input type="date" value={editData.loading_date || ""} onChange={(e) => updateField("loading_date", e.target.value)} />
+                  </div>
+                </div>
+              </div>
+
+              {dossier ? (
+                <div className="rounded-xl border bg-card p-5">
+                  <h3 className="font-semibold mb-2">Dossier lié</h3>
+                  <p className="text-primary cursor-pointer hover:underline flex items-center gap-2" onClick={() => navigate(`/dossiers/${dossier.id}`)}>
+                    <FolderOpen className="h-4 w-4" /> {dossier.code || dossier.title}
+                  </p>
+                </div>
+              ) : (
+                <Button variant="outline" onClick={() => convertToDossier.mutate()} disabled={convertToDossier.isPending} className="flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4" />
+                  {convertToDossier.isPending ? "Conversion..." : "Convertir la visite en dossier"}
+                </Button>
+              )}
+            </div>
+          </Section>
         </TabsContent>
       </Tabs>
 
@@ -466,7 +481,6 @@ const VisiteDetail = () => {
         onChange={async (e) => {
           const file = e.target.files?.[0];
           if (!file) return;
-          // Upload to first piece or general
           try {
             const { data: piecesData } = await supabase.from("visite_pieces").select("id").eq("visite_id", visite.id).order("sort_order").limit(1);
             const pieceId = piecesData?.[0]?.id || null;
@@ -489,16 +503,23 @@ const VisiteDetail = () => {
         }}
       />
 
-      {/* Mobile floating action bar */}
+      {/* Mobile floating action bar - 4 tabs */}
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-t border-border px-2 py-2 safe-area-bottom">
           <div className="flex items-center justify-around gap-1">
             <button
-              onClick={() => setActiveTab("pieces")}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${activeTab === "pieces" ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}
+              onClick={() => setActiveTab("rdv")}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${activeTab === "rdv" ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}
+            >
+              <Calendar className="h-5 w-5" />
+              <span>RDV</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("site")}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${activeTab === "site" ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}
             >
               <LayoutGrid className="h-5 w-5" />
-              <span>Pièces</span>
+              <span>Site</span>
             </button>
             <button
               onClick={() => photoInputRef.current?.click()}
@@ -508,18 +529,11 @@ const VisiteDetail = () => {
               <span>Photo</span>
             </button>
             <button
-              onClick={() => setActiveTab("materiel")}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${activeTab === "materiel" ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}
+              onClick={() => setActiveTab("moyens")}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${activeTab === "moyens" ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}
             >
-              <Package className="h-5 w-5" />
-              <span>Matériel</span>
-            </button>
-            <button
-              onClick={() => setActiveTab("affectation")}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs transition-colors ${activeTab === "affectation" ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}
-            >
-              <Link2 className="h-5 w-5" />
-              <span>Affecter</span>
+              <Wrench className="h-5 w-5" />
+              <span>Moyens</span>
             </button>
             <button
               onClick={handleSave}

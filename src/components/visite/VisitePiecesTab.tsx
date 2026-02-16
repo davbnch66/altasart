@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Plus, Trash2, Image, Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
@@ -106,6 +105,13 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
     toast.success("Photo supprimée");
   };
 
+  const updateCaption = async (photoId: string, caption: string) => {
+    const { error } = await supabase.from("visite_photos").update({ caption }).eq("id", photoId);
+    if (error) {
+      toast.error("Erreur mise à jour légende");
+    }
+  };
+
   const getPhotoUrl = (path: string) => {
     const { data } = supabase.storage.from("visite-photos").getPublicUrl(path);
     return data.publicUrl;
@@ -166,17 +172,25 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                 </Button>
               </div>
 
-              {/* Photos */}
-              <div className="flex flex-wrap gap-2">
+              {/* Photos with captions */}
+              <div className="space-y-2">
                 {piecePhotos(piece.id).map((photo: any) => (
-                  <div key={photo.id} className="relative group w-20 h-20 rounded-lg overflow-hidden border">
-                    <img src={getPhotoUrl(photo.storage_path)} alt={photo.file_name || ""} className="w-full h-full object-cover" />
-                    <button
-                      onClick={() => deletePhoto(photo.id, photo.storage_path)}
-                      className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+                  <div key={photo.id} className="space-y-1">
+                    <div className="relative group w-full max-w-[200px] aspect-square rounded-lg overflow-hidden border">
+                      <img src={getPhotoUrl(photo.storage_path)} alt={photo.file_name || ""} className="w-full h-full object-cover" />
+                      <button
+                        onClick={() => deletePhoto(photo.id, photo.storage_path)}
+                        className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                    <Input
+                      defaultValue={photo.caption || ""}
+                      onBlur={(e) => updateCaption(photo.id, e.target.value)}
+                      placeholder="Légende / description..."
+                      className="text-xs h-7"
+                    />
                   </div>
                 ))}
               </div>
