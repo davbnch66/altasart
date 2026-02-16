@@ -630,7 +630,9 @@ const VisiteDetail = () => {
         dataUri={pdfPreview?.dataUri || null}
         fileName={pdfPreview?.fileName || ""}
         clientEmail={client?.email || ""}
+        clientName={client?.name || ""}
         visiteCode={visite.code || ""}
+        visiteTitle={visite.title || ""}
       />
     </div>
   );
