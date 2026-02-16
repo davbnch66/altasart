@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2, Image, Loader2, MapPin, GripVertical, ChevronUp, ChevronDown, WifiOff } from "lucide-react";
+import { Plus, Trash2, Image, Loader2, MapPin, GripVertical, ChevronUp, ChevronDown, WifiOff, PenTool } from "lucide-react";
 import { toast } from "sonner";
 import { useSortableList } from "@/hooks/useSortableList";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
 import { saveOfflinePhoto, getOfflinePhotosByVisite, removeOfflinePhoto, updateOfflinePhotoCaption, type OfflinePhoto } from "@/lib/offlinePhotoDB";
+import { PhotoAnnotationEditor } from "./PhotoAnnotationEditor";
 
 interface Props {
   visiteId: string;
@@ -23,6 +24,13 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
   const [newPiece, setNewPiece] = useState({ name: "", floor_level: "", dimensions: "", access_comments: "" });
   const [uploading, setUploading] = useState<string | null>(null);
   const [offlinePhotos, setOfflinePhotos] = useState<OfflinePhoto[]>([]);
+  const [annotating, setAnnotating] = useState<{
+    src: string;
+    photoId?: string;
+    storagePath?: string;
+    pieceId: string;
+    offlineId?: string;
+  } | null>(null);
 
   // Load offline photos for this visite
   useEffect(() => {
@@ -123,7 +131,6 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
 
   const uploadPhoto = async (pieceId: string, file: File) => {
     if (!isOnline) {
-      // Store offline in IndexedDB
       try {
         const blob = file.slice(0, file.size, file.type);
         await saveOfflinePhoto({
@@ -179,15 +186,13 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
 
   const updateOfflineCaption = async (id: string, caption: string) => {
     await updateOfflinePhotoCaption(id, caption);
-    const photos = await getOfflinePhotosByVisite(visiteId);
-    setOfflinePhotos(photos);
+    const p = await getOfflinePhotosByVisite(visiteId);
+    setOfflinePhotos(p);
   };
 
   const updateCaption = async (photoId: string, caption: string) => {
     const { error } = await supabase.from("visite_photos").update({ caption }).eq("id", photoId);
-    if (error) {
-      toast.error("Erreur mise à jour légende");
-    }
+    if (error) toast.error("Erreur mise à jour légende");
   };
 
   const getPhotoUrl = (path: string) => {
@@ -196,6 +201,36 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
   };
 
   const piecePhotos = (pieceId: string) => photos.filter((p) => p.piece_id === pieceId);
+
+  const handleAnnotationSave = async (blob: Blob) => {
+    if (!annotating) return;
+    const { photoId, storagePath, pieceId, offlineId } = annotating;
+
+    if (offlineId) {
+      const op = offlinePhotos.find((p) => p.id === offlineId);
+      if (op) {
+        await saveOfflinePhoto({ ...op, blob, mimeType: "image/jpeg" });
+        const updated = await getOfflinePhotosByVisite(visiteId);
+        setOfflinePhotos(updated);
+        toast.success("Photo annotée (hors-ligne)");
+      }
+    } else if (photoId && storagePath) {
+      try {
+        await supabase.storage.from("visite-photos").update(storagePath, blob, {
+          contentType: "image/jpeg",
+          upsert: true,
+        });
+        toast.success("Photo annotée et sauvegardée");
+        queryClient.invalidateQueries({ queryKey: ["visite-photos", visiteId] });
+      } catch (e: any) {
+        toast.error(e.message || "Erreur sauvegarde annotation");
+      }
+    } else {
+      const file = new File([blob], `annotated_${Date.now()}.jpg`, { type: "image/jpeg" });
+      await uploadPhoto(pieceId, file);
+    }
+    setAnnotating(null);
+  };
 
   return (
     <div className="space-y-4">
@@ -250,22 +285,10 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                   <div className="flex flex-col items-center gap-0.5 pt-1">
                     <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab active:cursor-grabbing" />
                     <div className="flex flex-col md:hidden">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5"
-                        disabled={idx === 0}
-                        onClick={() => moveItem(idx, "up")}
-                      >
+                      <Button variant="ghost" size="icon" className="h-5 w-5" disabled={idx === 0} onClick={() => moveItem(idx, "up")}>
                         <ChevronUp className="h-3 w-3" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5"
-                        disabled={idx === pieces.length - 1}
-                        onClick={() => moveItem(idx, "down")}
-                      >
+                      <Button variant="ghost" size="icon" className="h-5 w-5" disabled={idx === pieces.length - 1} onClick={() => moveItem(idx, "down")}>
                         <ChevronDown className="h-3 w-3" />
                       </Button>
                     </div>
@@ -292,6 +315,13 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                     <div className="relative group w-full max-w-[200px] aspect-square rounded-lg overflow-hidden border">
                       <img src={getPhotoUrl(photo.storage_path)} alt={photo.file_name || ""} className="w-full h-full object-cover" />
                       <button
+                        onClick={() => setAnnotating({ src: getPhotoUrl(photo.storage_path), photoId: photo.id, storagePath: photo.storage_path, pieceId: piece.id })}
+                        className="absolute bottom-0.5 left-0.5 bg-primary text-primary-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Annoter"
+                      >
+                        <PenTool className="h-3 w-3" />
+                      </button>
+                      <button
                         onClick={() => deletePhoto(photo.id, photo.storage_path)}
                         className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
@@ -306,7 +336,7 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                     />
                   </div>
                 ))}
-                {/* Offline photos for this piece */}
+                {/* Offline photos */}
                 {offlinePhotos.filter(p => p.pieceId === piece.id).map((op) => (
                   <div key={op.id} className="space-y-1">
                     <div className="relative group w-full max-w-[200px] aspect-square rounded-lg overflow-hidden border border-amber-500/50">
@@ -315,6 +345,13 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                         <WifiOff className="h-2.5 w-2.5" />
                         Hors-ligne
                       </div>
+                      <button
+                        onClick={() => setAnnotating({ src: URL.createObjectURL(op.blob), pieceId: piece.id, offlineId: op.id })}
+                        className="absolute bottom-0.5 left-0.5 bg-primary text-primary-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Annoter"
+                      >
+                        <PenTool className="h-3 w-3" />
+                      </button>
                       <button
                         onClick={() => deleteOfflinePhotoHandler(op.id)}
                         className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -357,6 +394,16 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Annotation Editor */}
+      {annotating && (
+        <PhotoAnnotationEditor
+          open={!!annotating}
+          onClose={() => setAnnotating(null)}
+          imageSrc={annotating.src}
+          onSave={handleAnnotationSave}
+        />
       )}
     </div>
   );
