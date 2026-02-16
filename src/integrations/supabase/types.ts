@@ -754,60 +754,213 @@ export type Database = {
       visites: {
         Row: {
           address: string | null
+          advisor: string | null
+          call_date: string | null
           client_id: string
+          code: string | null
+          comment: string | null
           company_id: string
           completed_date: string | null
+          contractor: string | null
+          coordinator: string | null
           created_at: string
           created_by: string | null
+          dest_access: string | null
+          dest_address_line1: string | null
+          dest_address_line2: string | null
+          dest_city: string | null
+          dest_country: string | null
+          dest_elevator: boolean | null
+          dest_floor: string | null
+          dest_furniture_lift: boolean | null
+          dest_heavy_vehicle: boolean | null
+          dest_name: string | null
+          dest_portage: number | null
+          dest_postal_code: string | null
+          dest_reference: string | null
+          dest_transshipment: boolean | null
+          dest_window: boolean | null
+          devis_type: string | null
+          distance: number | null
           dossier_id: string | null
+          duration: unknown
           id: string
+          instructions: string | null
+          loading_date: string | null
+          nature: string | null
           notes: string | null
+          on_hold: boolean | null
+          operation_type: string | null
+          origin: string | null
+          origin_access: string | null
+          origin_address_line1: string | null
+          origin_address_line2: string | null
+          origin_city: string | null
+          origin_country: string | null
+          origin_elevator: boolean | null
+          origin_floor: string | null
+          origin_furniture_lift: boolean | null
+          origin_heavy_vehicle: boolean | null
+          origin_name: string | null
+          origin_portage: number | null
+          origin_postal_code: string | null
+          origin_reference: string | null
+          origin_transshipment: boolean | null
+          origin_window: boolean | null
+          period: string | null
           photos_count: number | null
+          quality: number | null
           report: string | null
           scheduled_date: string | null
+          scheduled_time: string | null
           signature_url: string | null
           status: Database["public"]["Enums"]["visite_status"]
           technician_id: string | null
           title: string
           updated_at: string
+          visit_type: string | null
+          volume: number | null
+          zone: string | null
         }
         Insert: {
           address?: string | null
+          advisor?: string | null
+          call_date?: string | null
           client_id: string
+          code?: string | null
+          comment?: string | null
           company_id: string
           completed_date?: string | null
+          contractor?: string | null
+          coordinator?: string | null
           created_at?: string
           created_by?: string | null
+          dest_access?: string | null
+          dest_address_line1?: string | null
+          dest_address_line2?: string | null
+          dest_city?: string | null
+          dest_country?: string | null
+          dest_elevator?: boolean | null
+          dest_floor?: string | null
+          dest_furniture_lift?: boolean | null
+          dest_heavy_vehicle?: boolean | null
+          dest_name?: string | null
+          dest_portage?: number | null
+          dest_postal_code?: string | null
+          dest_reference?: string | null
+          dest_transshipment?: boolean | null
+          dest_window?: boolean | null
+          devis_type?: string | null
+          distance?: number | null
           dossier_id?: string | null
+          duration?: unknown
           id?: string
+          instructions?: string | null
+          loading_date?: string | null
+          nature?: string | null
           notes?: string | null
+          on_hold?: boolean | null
+          operation_type?: string | null
+          origin?: string | null
+          origin_access?: string | null
+          origin_address_line1?: string | null
+          origin_address_line2?: string | null
+          origin_city?: string | null
+          origin_country?: string | null
+          origin_elevator?: boolean | null
+          origin_floor?: string | null
+          origin_furniture_lift?: boolean | null
+          origin_heavy_vehicle?: boolean | null
+          origin_name?: string | null
+          origin_portage?: number | null
+          origin_postal_code?: string | null
+          origin_reference?: string | null
+          origin_transshipment?: boolean | null
+          origin_window?: boolean | null
+          period?: string | null
           photos_count?: number | null
+          quality?: number | null
           report?: string | null
           scheduled_date?: string | null
+          scheduled_time?: string | null
           signature_url?: string | null
           status?: Database["public"]["Enums"]["visite_status"]
           technician_id?: string | null
           title: string
           updated_at?: string
+          visit_type?: string | null
+          volume?: number | null
+          zone?: string | null
         }
         Update: {
           address?: string | null
+          advisor?: string | null
+          call_date?: string | null
           client_id?: string
+          code?: string | null
+          comment?: string | null
           company_id?: string
           completed_date?: string | null
+          contractor?: string | null
+          coordinator?: string | null
           created_at?: string
           created_by?: string | null
+          dest_access?: string | null
+          dest_address_line1?: string | null
+          dest_address_line2?: string | null
+          dest_city?: string | null
+          dest_country?: string | null
+          dest_elevator?: boolean | null
+          dest_floor?: string | null
+          dest_furniture_lift?: boolean | null
+          dest_heavy_vehicle?: boolean | null
+          dest_name?: string | null
+          dest_portage?: number | null
+          dest_postal_code?: string | null
+          dest_reference?: string | null
+          dest_transshipment?: boolean | null
+          dest_window?: boolean | null
+          devis_type?: string | null
+          distance?: number | null
           dossier_id?: string | null
+          duration?: unknown
           id?: string
+          instructions?: string | null
+          loading_date?: string | null
+          nature?: string | null
           notes?: string | null
+          on_hold?: boolean | null
+          operation_type?: string | null
+          origin?: string | null
+          origin_access?: string | null
+          origin_address_line1?: string | null
+          origin_address_line2?: string | null
+          origin_city?: string | null
+          origin_country?: string | null
+          origin_elevator?: boolean | null
+          origin_floor?: string | null
+          origin_furniture_lift?: boolean | null
+          origin_heavy_vehicle?: boolean | null
+          origin_name?: string | null
+          origin_portage?: number | null
+          origin_postal_code?: string | null
+          origin_reference?: string | null
+          origin_transshipment?: boolean | null
+          origin_window?: boolean | null
+          period?: string | null
           photos_count?: number | null
+          quality?: number | null
           report?: string | null
           scheduled_date?: string | null
+          scheduled_time?: string | null
           signature_url?: string | null
           status?: Database["public"]["Enums"]["visite_status"]
           technician_id?: string | null
           title?: string
           updated_at?: string
+          visit_type?: string | null
+          volume?: number | null
+          zone?: string | null
         }
         Relationships: [
           {
