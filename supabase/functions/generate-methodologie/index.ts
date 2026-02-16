@@ -107,31 +107,72 @@ Réponds en JSON strict :
         "Authorization": `Bearer ${lovableApiKey}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: "Tu es un expert en logistique de déménagement et manutention. Réponds uniquement en JSON valide." },
+          { role: "system", content: "Tu es un expert en logistique de déménagement et manutention lourde. Utilise la fonction fournie pour structurer ta réponse." },
           { role: "user", content: prompt },
         ],
         temperature: 0.3,
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "submit_methodologie",
+              description: "Soumet la méthodologie structurée avec le contenu markdown et la checklist de sécurité",
+              parameters: {
+                type: "object",
+                properties: {
+                  content: {
+                    type: "string",
+                    description: "Texte complet de la méthodologie en markdown (résumé, analyse risques, méthode opératoire, moyens de levage, schémas, conformité, sécurité)"
+                  },
+                  checklist: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Liste de 10-15 points de la checklist sécurité"
+                  }
+                },
+                required: ["content", "checklist"],
+                additionalProperties: false
+              }
+            }
+          }
+        ],
+        tool_choice: { type: "function", function: { name: "submit_methodologie" } },
       }),
     });
 
     if (!aiResponse.ok) {
+      if (aiResponse.status === 429) {
+        throw new Error("Limite de requêtes atteinte, réessayez dans quelques instants");
+      }
+      if (aiResponse.status === 402) {
+        throw new Error("Crédits IA insuffisants");
+      }
       const errText = await aiResponse.text();
       throw new Error(`AI API error: ${aiResponse.status} - ${errText}`);
     }
 
     const aiData = await aiResponse.json();
-    const rawContent = aiData.choices?.[0]?.message?.content || "";
     
-    // Parse JSON from response (handle markdown code blocks)
+    // Extract from tool call
     let parsed;
-    try {
-      const jsonStr = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      parsed = JSON.parse(jsonStr);
-    } catch {
-      // Fallback: use raw content as methodology text
-      parsed = { content: rawContent, checklist: [] };
+    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall?.function?.arguments) {
+      try {
+        parsed = JSON.parse(toolCall.function.arguments);
+      } catch {
+        parsed = { content: toolCall.function.arguments, checklist: [] };
+      }
+    } else {
+      // Fallback to raw content
+      const rawContent = aiData.choices?.[0]?.message?.content || "";
+      try {
+        const jsonStr = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        parsed = JSON.parse(jsonStr);
+      } catch {
+        parsed = { content: rawContent, checklist: [] };
+      }
     }
 
     return new Response(JSON.stringify(parsed), {
