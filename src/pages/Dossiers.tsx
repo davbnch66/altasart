@@ -1,19 +1,21 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Filter, FolderOpen, Pencil, Trash2 } from "lucide-react";
+import { Search, FolderOpen, Pencil, Trash2, ChevronRight, MapPin, Euro } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { CreateDossierDialog } from "@/components/forms/CreateDossierDialog";
 import { EditDossierDialog } from "@/components/forms/EditDossierDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { toast } from "sonner";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const pipelineStages = [
   { key: "prospect", label: "Prospect" },
-  { key: "devis", label: "Devis envoyé" },
+  { key: "devis", label: "Devis" },
   { key: "accepte", label: "Accepté" },
   { key: "planifie", label: "Planifié" },
   { key: "en_cours", label: "En cours" },
@@ -46,14 +48,16 @@ const stageBorderColors: Record<string, string> = {
 
 const formatAmount = (amount: number | null) => {
   if (!amount) return "—";
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
+  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(amount);
 };
 
 const Dossiers = () => {
   const { current } = useCompany();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
+  const [stageFilter, setStageFilter] = useState<string>("all");
   const [editingDossier, setEditingDossier] = useState<any>(null);
   const [deletingDossier, setDeletingDossier] = useState<any>(null);
 
@@ -69,6 +73,7 @@ const Dossiers = () => {
     },
     onError: () => toast.error("Erreur lors de la suppression"),
   });
+
   const { data: dossiers = [], isLoading } = useQuery({
     queryKey: ["dossiers", current],
     queryFn: async () => {
@@ -87,66 +92,120 @@ const Dossiers = () => {
     },
   });
 
-  const filtered = search
-    ? dossiers.filter(
-        (d) =>
-          d.title.toLowerCase().includes(search.toLowerCase()) ||
-          d.code?.toLowerCase().includes(search.toLowerCase()) ||
-          (d.clients as any)?.name?.toLowerCase().includes(search.toLowerCase())
-      )
-    : dossiers;
+  const filtered = dossiers.filter((d) => {
+    const matchSearch = !search ||
+      d.title.toLowerCase().includes(search.toLowerCase()) ||
+      d.code?.toLowerCase().includes(search.toLowerCase()) ||
+      (d.clients as any)?.name?.toLowerCase().includes(search.toLowerCase());
+    const matchStage = stageFilter === "all" || d.stage === stageFilter;
+    return matchSearch && matchStage;
+  });
+
+  const counts: Record<string, number> = { all: dossiers.length };
+  for (const s of pipelineStages) {
+    counts[s.key] = dossiers.filter((d) => d.stage === s.key).length;
+  }
 
   return (
-    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <div className={`max-w-7xl mx-auto space-y-4 ${isMobile ? "p-3 pb-20" : "p-6 lg:p-8 space-y-6"}`}>
+      {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dossiers</h1>
-          <p className="text-muted-foreground mt-1">{filtered.length} dossiers</p>
+          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Dossiers</h1>
+          {!isMobile && <p className="text-muted-foreground mt-1">{filtered.length} dossiers</p>}
         </div>
         <CreateDossierDialog />
       </motion.div>
 
-      {/* Pipeline summary */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="flex gap-2 overflow-x-auto pb-2">
-        {pipelineStages.map((stage) => {
-          const count = filtered.filter((d) => d.stage === stage.key).length;
-          return (
-            <div key={stage.key} className={`flex items-center gap-2 rounded-lg border-2 ${stageBorderColors[stage.key]} px-4 py-2 min-w-fit`}>
-              <span className="text-sm font-medium">{stage.label}</span>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">{count}</span>
-            </div>
-          );
-        })}
-      </motion.div>
-
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher un dossier..."
-            className="w-full rounded-lg border bg-card pl-10 pr-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
-        <button className="flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted transition-colors">
-          <Filter className="h-4 w-4" />
-          Filtres
-        </button>
+      {/* Stage filter chips */}
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+        {([
+          { key: "all", label: "Tous" },
+          ...pipelineStages.filter((s) => counts[s.key] > 0 || !isMobile),
+        ]).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setStageFilter(key)}
+            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              stageFilter === key
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {label} ({counts[key] || 0})
+          </button>
+        ))}
       </div>
 
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="grid gap-3">
-        {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 w-full rounded-xl" />
-          ))
-        ) : filtered.length === 0 ? (
-          <div className="rounded-xl border bg-card px-5 py-12 text-center text-muted-foreground">
-            Aucun dossier trouvé
-          </div>
-        ) : (
-          filtered.map((dossier) => (
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Rechercher un dossier..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9 h-9"
+        />
+      </div>
+
+      {/* List */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className={`w-full rounded-xl ${isMobile ? "h-20" : "h-16"}`} />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">Aucun dossier trouvé</div>
+      ) : isMobile ? (
+        /* Mobile cards */
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid gap-3">
+          {filtered.map((dossier) => (
+            <div
+              key={dossier.id}
+              onClick={() => navigate(`/dossiers/${dossier.id}`)}
+              className="rounded-xl border bg-card p-3 active:bg-muted/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-sm truncate">{dossier.title}</p>
+                    {dossier.code && <span className="text-[10px] font-mono text-muted-foreground shrink-0">{dossier.code}</span>}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">{(dossier.clients as any)?.name || "—"}</p>
+                  <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                    {dossier.address && (
+                      <span className="flex items-center gap-0.5 truncate">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        <span className="truncate">{dossier.address.length > 20 ? dossier.address.slice(0, 20) + "…" : dossier.address}</span>
+                      </span>
+                    )}
+                    {dossier.amount ? (
+                      <span className="flex items-center gap-0.5 shrink-0 font-medium">
+                        <Euro className="h-3 w-3" />
+                        {formatAmount(dossier.amount)}
+                      </span>
+                    ) : null}
+                    {(dossier.companies as any)?.short_name && (
+                      <span className="shrink-0">{(dossier.companies as any).short_name}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${stageStyles[dossier.stage] || "bg-muted text-muted-foreground"}`}>
+                    {pipelineStages.find((s) => s.key === dossier.stage)?.label}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </motion.div>
+      ) : (
+        /* Desktop list */
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="grid gap-3">
+          {filtered.map((dossier) => (
             <div key={dossier.id} onClick={() => navigate(`/dossiers/${dossier.id}`)} className="flex items-center gap-4 rounded-xl border bg-card px-5 py-4 hover:shadow-sm transition-shadow cursor-pointer">
               <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
                 <FolderOpen className="h-5 w-5 text-muted-foreground" />
@@ -171,9 +230,9 @@ const Dossiers = () => {
                 </button>
               </div>
             </div>
-          ))
-        )}
-      </motion.div>
+          ))}
+        </motion.div>
+      )}
 
       {editingDossier && (
         <EditDossierDialog dossier={editingDossier} open={!!editingDossier} onOpenChange={(v) => !v && setEditingDossier(null)} />
