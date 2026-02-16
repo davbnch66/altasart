@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.send-visite-email]
 verify_jwt = false
+
+[functions.process-inbound-email]
+verify_jwt = false
+
+[functions.execute-email-action]
+verify_jwt = false
