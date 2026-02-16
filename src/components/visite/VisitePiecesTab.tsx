@@ -225,10 +225,11 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
       }
     } else if (photoId && storagePath) {
       try {
-        await supabase.storage.from("visite-photos").update(storagePath, blob, {
+        const { error: updateError } = await supabase.storage.from("visite-photos").update(storagePath, blob, {
           contentType: "image/jpeg",
           upsert: true,
         });
+        if (updateError) throw updateError;
         toast.success("Photo annotée et sauvegardée");
         setCacheBuster(Date.now());
         queryClient.invalidateQueries({ queryKey: ["visite-photos", visiteId] });
