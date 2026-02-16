@@ -571,5 +571,7 @@ export async function generateVisitePdf(visiteId: string, options?: { photosPerR
   drawFooter(doc, company, pageW, marginL, marginR);
 
   const fileName = `Visite_${visite.code || visite.id.slice(0, 8)}.pdf`;
-  doc.save(fileName);
+  const blob = doc.output("blob");
+  const blobUrl = URL.createObjectURL(blob);
+  return { blobUrl, fileName };
 }

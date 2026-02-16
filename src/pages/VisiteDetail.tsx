@@ -29,6 +29,7 @@ import { generateVisitePdf } from "@/lib/generateVisitePdf";
 import { ApplyTemplateDialog } from "@/components/visite/ApplyTemplateDialog";
 import { GenerateDevisDialog } from "@/components/visite/GenerateDevisDialog";
 import { VisiteDevisHistory } from "@/components/visite/VisiteDevisHistory";
+import { PdfPreviewDialog } from "@/components/visite/PdfPreviewDialog";
 
 const statusLabels: Record<string, string> = {
   planifiee: "Planifiée",
@@ -77,6 +78,7 @@ const VisiteDetail = () => {
   const [saving, setSaving] = useState(false);
   const [photosPerRow, setPhotosPerRow] = useState<1 | 2>(1);
   const [exporting, setExporting] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<{ blobUrl: string; fileName: string } | null>(null);
   const [activeTab, setActiveTab] = useState("rdv");
   const isMobile = useIsMobile();
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -229,8 +231,8 @@ const VisiteDetail = () => {
             onClick={async () => {
               setExporting(true);
               try {
-                await generateVisitePdf(id!, { photosPerRow });
-                toast.success("Rapport PDF généré");
+                const result = await generateVisitePdf(id!, { photosPerRow });
+                setPdfPreview(result);
               } catch (e: any) {
                 toast.error(e.message || "Erreur export PDF");
               } finally {
@@ -264,8 +266,8 @@ const VisiteDetail = () => {
             onClick={async () => {
               setExporting(true);
               try {
-                await generateVisitePdf(id!, { photosPerRow });
-                toast.success("Rapport PDF généré");
+                const result = await generateVisitePdf(id!, { photosPerRow });
+                setPdfPreview(result);
               } catch (e: any) {
                 toast.error(e.message || "Erreur export PDF");
               } finally {
@@ -589,6 +591,12 @@ const VisiteDetail = () => {
           </div>
         </div>
       )}
+      <PdfPreviewDialog
+        open={!!pdfPreview}
+        onClose={() => setPdfPreview(null)}
+        blobUrl={pdfPreview?.blobUrl || null}
+        fileName={pdfPreview?.fileName || ""}
+      />
     </div>
   );
 };
