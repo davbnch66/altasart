@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useSortableList } from "@/hooks/useSortableList";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
+import { saveOfflinePhoto, getOfflinePhotosByVisite, removeOfflinePhoto, type OfflinePhoto } from "@/lib/offlinePhotoDB";
 
 interface Props {
   visiteId: string;
@@ -21,6 +22,19 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
   const isOnline = useOnlineStatus();
   const [newPiece, setNewPiece] = useState({ name: "", floor_level: "", dimensions: "", access_comments: "" });
   const [uploading, setUploading] = useState<string | null>(null);
+  const [offlinePhotos, setOfflinePhotos] = useState<OfflinePhoto[]>([]);
+
+  // Load offline photos for this visite
+  useEffect(() => {
+    const load = async () => {
+      const photos = await getOfflinePhotosByVisite(visiteId);
+      setOfflinePhotos(photos);
+    };
+    load();
+    const handler = () => { load(); };
+    window.addEventListener("offline-photos-change", handler);
+    return () => window.removeEventListener("offline-photos-change", handler);
+  }, [visiteId]);
 
   const { data: pieces = [], isLoading } = useQuery({
     queryKey: ["visite-pieces", visiteId],
@@ -108,6 +122,27 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
   });
 
   const uploadPhoto = async (pieceId: string, file: File) => {
+    if (!isOnline) {
+      // Store offline in IndexedDB
+      try {
+        const blob = file.slice(0, file.size, file.type);
+        await saveOfflinePhoto({
+          id: crypto.randomUUID(),
+          visiteId,
+          pieceId,
+          companyId,
+          fileName: file.name,
+          mimeType: file.type,
+          blob,
+          timestamp: Date.now(),
+        });
+        toast.info("Photo sauvegardée hors-ligne — sera uploadée au retour de la connexion");
+      } catch (e: any) {
+        toast.error(e.message || "Erreur sauvegarde locale");
+      }
+      return;
+    }
+
     setUploading(pieceId);
     try {
       const path = `${visiteId}/${pieceId}/${Date.now()}_${file.name}`;
@@ -135,6 +170,11 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
     await supabase.from("visite_photos").delete().eq("id", photoId);
     queryClient.invalidateQueries({ queryKey: ["visite-photos", visiteId] });
     toast.success("Photo supprimée");
+  };
+
+  const deleteOfflinePhotoHandler = async (id: string) => {
+    await removeOfflinePhoto(id);
+    toast.success("Photo hors-ligne supprimée");
   };
 
   const updateCaption = async (photoId: string, caption: string) => {
@@ -258,6 +298,24 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                       placeholder="Légende / description..."
                       className="text-xs h-7"
                     />
+                  </div>
+                ))}
+                {/* Offline photos for this piece */}
+                {offlinePhotos.filter(p => p.pieceId === piece.id).map((op) => (
+                  <div key={op.id} className="space-y-1">
+                    <div className="relative group w-full max-w-[200px] aspect-square rounded-lg overflow-hidden border border-amber-500/50">
+                      <img src={URL.createObjectURL(op.blob)} alt={op.fileName} className="w-full h-full object-cover" />
+                      <div className="absolute bottom-0 left-0 right-0 bg-amber-500/80 text-white text-[10px] px-1 py-0.5 flex items-center gap-1">
+                        <WifiOff className="h-2.5 w-2.5" />
+                        Hors-ligne
+                      </div>
+                      <button
+                        onClick={() => deleteOfflinePhotoHandler(op.id)}
+                        className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
