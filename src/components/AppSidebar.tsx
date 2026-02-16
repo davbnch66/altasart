@@ -15,8 +15,11 @@ import {
   Building2,
   ChevronDown,
   LogOut,
+  Bell,
 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import {
   DropdownMenu,
@@ -47,10 +50,30 @@ const companyDotColor: Record<string, string> = {
 };
 
 export const AppSidebar: React.FC = () => {
-  const { current, setCurrent, currentCompany, companies } = useCompany();
+  const { current, setCurrent, currentCompany, companies, dbCompanies } = useCompany();
   const { user, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const companyIds = current === "global"
+    ? dbCompanies.map((c) => c.id)
+    : [current];
+
+  const { data: pendingCount = 0 } = useQuery({
+    queryKey: ["inbox-pending-count", companyIds],
+    queryFn: async () => {
+      if (companyIds.length === 0) return 0;
+      const { count, error } = await supabase
+        .from("inbound_emails")
+        .select("id", { count: "exact", head: true })
+        .in("company_id", companyIds)
+        .eq("status", "pending");
+      if (error) return 0;
+      return count || 0;
+    },
+    enabled: companyIds.length > 0,
+    refetchInterval: 30000,
+  });
 
   const handleSignOut = async () => {
     await signOut();
@@ -106,9 +129,14 @@ export const AppSidebar: React.FC = () => {
                 />
               )}
               <item.icon className="relative z-10 h-4 w-4" />
-              <span className={`relative z-10 ${isActive ? "text-sidebar-accent-foreground font-medium" : ""}`}>
+              <span className={`relative z-10 flex-1 ${isActive ? "text-sidebar-accent-foreground font-medium" : ""}`}>
                 {item.label}
               </span>
+              {item.to === "/inbox" && pendingCount > 0 && (
+                <span className="relative z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1">
+                  {pendingCount > 99 ? "99+" : pendingCount}
+                </span>
+              )}
             </NavLink>
           );
         })}
