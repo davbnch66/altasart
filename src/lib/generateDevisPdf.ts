@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
-import { loadCompanyLogo } from "./pdfLogoHelper";
+import { loadCompanyLogo, LogoResult } from "./pdfLogoHelper";
 
 /** Format number as "1 000,00" with regular spaces (jsPDF-safe) */
 function fmtEur(n: number): string {
@@ -9,6 +9,49 @@ function fmtEur(n: number): string {
     .toFixed(2)
     .replace(".", ",")
     .replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+// Brand color
+const brandR = 200, brandG = 80, brandB = 30;
+
+/** Draw logo on any page — 50x22mm max, aspect ratio preserved */
+function drawLogo(doc: jsPDF, logoResult: LogoResult | null, company: any, marginL: number) {
+  if (logoResult) {
+    const maxW = 50, maxH = 22;
+    const ratio = logoResult.width / logoResult.height;
+    let imgW = maxW;
+    let imgH = imgW / ratio;
+    if (imgH > maxH) { imgH = maxH; imgW = imgH * ratio; }
+    doc.addImage(logoResult.dataUrl, "PNG", marginL, 8, imgW, imgH);
+  } else {
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(brandR, brandG, brandB);
+    doc.text(company?.short_name || company?.name || "", marginL, 22);
+  }
+}
+
+function drawFooter(doc: jsPDF, company: any, pageW: number, marginL: number, marginR: number) {
+  const footerY = 280;
+  doc.setDrawColor(brandR, brandG, brandB);
+  doc.setLineWidth(0.5);
+  doc.line(marginL, footerY, pageW - marginR, footerY);
+
+  doc.setFontSize(6.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(100, 100, 100);
+
+  const parts: string[] = [];
+  if (company?.address) parts.push(`Siege social : ${company.address}`);
+  if (company?.phone) parts[parts.length - 1] = (parts[parts.length - 1] || "") + ` - Tel. ${company.phone}`;
+  if (company?.email) parts.push(company.email);
+  if (company?.siret) parts.push(`SIRET ${company.siret}`);
+
+  let fy = footerY + 3;
+  for (const line of parts) {
+    doc.text(line, pageW / 2, fy, { align: "center" });
+    fy += 3;
+  }
 }
 
 export async function generateDevisPdf(devisId: string) {
@@ -50,31 +93,16 @@ export async function generateDevisPdf(devisId: string) {
   const contentW = pageW - marginL - marginR;
   const colR = marginL + contentW;
 
-  // Brand color
-  const brandR = 200, brandG = 80, brandB = 30;
-
-  // ===================== HEADER =====================
   const logoResult = await loadCompanyLogo(company?.short_name || "");
-  if (logoResult) {
-    // Preserve aspect ratio: max 40mm wide, max 18mm tall
-    const maxW = 40, maxH = 18;
-    const ratio = logoResult.width / logoResult.height;
-    let imgW = maxW;
-    let imgH = imgW / ratio;
-    if (imgH > maxH) { imgH = maxH; imgW = imgH * ratio; }
-    doc.addImage(logoResult.dataUrl, "PNG", marginL, 10, imgW, imgH);
-  } else {
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(brandR, brandG, brandB);
-    doc.text(company?.short_name || company?.name || "", marginL, 22);
-  }
+
+  // ===================== PAGE 1 HEADER =====================
+  drawLogo(doc, logoResult, company, marginL);
 
   // Tagline
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(120, 120, 120);
-  doc.text("Transport - Grutage - Portage - Levage - Manutention lourde", marginL, 31);
+  doc.text("Transport - Grutage - Portage - Levage - Manutention lourde", marginL, 33);
 
   // Date top-right
   doc.setFontSize(9);
@@ -83,7 +111,7 @@ export async function generateDevisPdf(devisId: string) {
   doc.text(dateStr, colR, 16, { align: "right" });
 
   // ===================== TITLE BAR =====================
-  let y = 38;
+  let y = 40;
   doc.setFillColor(brandR, brandG, brandB);
   doc.roundedRect(marginL, y, contentW, 10, 1, 1, "F");
   doc.setFontSize(12);
@@ -92,7 +120,7 @@ export async function generateDevisPdf(devisId: string) {
   doc.text(`DEVIS CONTRAT N° ${devis.code || "---"}`, pageW / 2, y + 7, { align: "center" });
 
   // ===================== CLIENT INFO =====================
-  y = 54;
+  y = 56;
   doc.setTextColor(0, 0, 0);
 
   // Client box (right side)
@@ -129,7 +157,7 @@ export async function generateDevisPdf(devisId: string) {
   if (company?.email) { doc.text(company.email, marginL, ly); ly += 4; }
 
   // ===================== INTRO =====================
-  y = 90;
+  y = 92;
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
@@ -161,7 +189,6 @@ export async function generateDevisPdf(devisId: string) {
   y += 10;
 
   // ===================== TABLE =====================
-  // Section header
   doc.setFillColor(245, 245, 245);
   doc.roundedRect(marginL, y, contentW, 7, 1, 1, "F");
   doc.setFont("helvetica", "bold");
@@ -170,7 +197,6 @@ export async function generateDevisPdf(devisId: string) {
   doc.text("DETAIL DU PRIX", marginL + 4, y + 5);
   y += 10;
 
-  // Column positions
   const colDesc = marginL + 3;
   const colQty = marginL + contentW * 0.6;
   const colPU = marginL + contentW * 0.78;
@@ -195,12 +221,16 @@ export async function generateDevisPdf(devisId: string) {
 
     let rowAlt = false;
     for (const line of devisLines) {
-      if (y > 245) { doc.addPage(); y = 20; }
+      if (y > 245) {
+        drawFooter(doc, company, pageW, marginL, marginR);
+        doc.addPage();
+        drawLogo(doc, logoResult, company, marginL);
+        y = 35;
+      }
 
       const descLines = doc.splitTextToSize(line.description, contentW * 0.55);
       const rowH = Math.max(descLines.length * 4, 6);
 
-      // Alternating row background
       if (rowAlt) {
         doc.setFillColor(250, 250, 250);
         doc.rect(marginL, y - 1, contentW, rowH + 2, "F");
@@ -214,7 +244,6 @@ export async function generateDevisPdf(devisId: string) {
       const lineTotal = line.total != null ? Number(line.total) : Number(line.quantity) * Number(line.unit_price);
       doc.text(`${fmtEur(lineTotal)} EUR`, colTotal, y + 3, { align: "right" });
 
-      // Bottom line
       doc.setDrawColor(230, 230, 230);
       doc.setLineWidth(0.2);
       doc.line(marginL, y + rowH + 1, colR, y + rowH + 1);
@@ -231,12 +260,16 @@ export async function generateDevisPdf(devisId: string) {
 
   // ===================== TOTALS TABLE =====================
   y += 6;
-  if (y > 230) { doc.addPage(); y = 20; }
+  if (y > 230) {
+    drawFooter(doc, company, pageW, marginL, marginR);
+    doc.addPage();
+    drawLogo(doc, logoResult, company, marginL);
+    y = 35;
+  }
 
   const totalsX = marginL + contentW * 0.45;
   const totalsW = colR - totalsX;
 
-  // Total HT row
   doc.setFillColor(245, 245, 245);
   doc.rect(totalsX, y, totalsW, 7, "F");
   doc.setFont("helvetica", "normal");
@@ -248,7 +281,6 @@ export async function generateDevisPdf(devisId: string) {
   doc.text(`${fmtEur(amount)} EUR`, colR - 4, y + 5, { align: "right" });
   y += 8;
 
-  // TVA row
   doc.setFillColor(245, 245, 245);
   doc.rect(totalsX, y, totalsW, 7, "F");
   doc.setFont("helvetica", "normal");
@@ -259,7 +291,6 @@ export async function generateDevisPdf(devisId: string) {
   doc.text(`${fmtEur(tvaAmount)} EUR`, colR - 4, y + 5, { align: "right" });
   y += 8;
 
-  // TTC row (brand colored)
   doc.setFillColor(brandR, brandG, brandB);
   doc.rect(totalsX, y, totalsW, 8, "F");
   doc.setFont("helvetica", "bold");
@@ -301,57 +332,29 @@ export async function generateDevisPdf(devisId: string) {
   y += 3;
   doc.text("accompagne des conditions generales dument signe et tamponne.", marginL, y);
 
-  // ===================== FOOTER =====================
-  drawFooter(doc, company, pageW, marginL, marginR, brandR, brandG, brandB);
+  // ===================== FOOTER PAGE 1 =====================
+  drawFooter(doc, company, pageW, marginL, marginR);
 
   // ===================== PAGE 2 - CONDITIONS GENERALES =====================
   doc.addPage();
-  generateConditionsPage(doc, company, devis, pageW, marginL, marginR, contentW, colR, brandR, brandG, brandB);
-  drawFooter(doc, company, pageW, marginL, marginR, brandR, brandG, brandB);
+  drawLogo(doc, logoResult, company, marginL);
+  generateConditionsPage(doc, company, devis, logoResult, pageW, marginL, marginR, contentW, colR);
 
   const fileName = `Devis_${devis.code || devis.id.slice(0, 8)}.pdf`;
   doc.save(fileName);
 }
 
-function drawFooter(doc: jsPDF, company: any, pageW: number, marginL: number, marginR: number, r: number, g: number, b: number) {
-  const footerY = 280;
-  doc.setDrawColor(r, g, b);
-  doc.setLineWidth(0.5);
-  doc.line(marginL, footerY, pageW - marginR, footerY);
+function generateConditionsPage(doc: jsPDF, company: any, devis: any, logoResult: LogoResult | null, pageW: number, marginL: number, marginR: number, contentW: number, colR: number) {
+  let y = 35;
 
-  doc.setFontSize(6.5);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(100, 100, 100);
-
-  const parts: string[] = [];
-  if (company?.address) parts.push(`Siege social : ${company.address}`);
-  if (company?.phone) parts[parts.length - 1] = (parts[parts.length - 1] || "") + ` - Tel. ${company.phone}`;
-  if (company?.email) parts.push(company.email);
-  if (company?.siret) parts.push(`SIRET ${company.siret}`);
-
-  let fy = footerY + 3;
-  for (const line of parts) {
-    doc.text(line, pageW / 2, fy, { align: "center" });
-    fy += 3;
-  }
-}
-
-function generateConditionsPage(doc: jsPDF, company: any, devis: any, pageW: number, marginL: number, _marginR: number, contentW: number, colR: number, r: number, g: number, b: number) {
-  let y = 15;
-
-  // Header
-  doc.setFontSize(14);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(r, g, b);
-  doc.text(company?.short_name || company?.name || "", marginL, y);
-
+  // Devis ref top-right
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(120, 120, 120);
-  doc.text(`DEVIS N° ${devis.code || "---"}`, colR, y, { align: "right" });
+  doc.text(`DEVIS N° ${devis.code || "---"}`, colR, 16, { align: "right" });
 
-  y += 10;
-  doc.setFillColor(r, g, b);
+  // Title bar
+  doc.setFillColor(brandR, brandG, brandB);
   doc.roundedRect(marginL, y, contentW, 8, 1, 1, "F");
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
@@ -375,9 +378,14 @@ function generateConditionsPage(doc: jsPDF, company: any, devis: any, pageW: num
   ];
 
   for (const cond of conditions) {
-    if (y > 260) { doc.addPage(); y = 20; }
+    if (y > 260) {
+      drawFooter(doc, company, pageW, marginL, marginR);
+      doc.addPage();
+      drawLogo(doc, logoResult, company, marginL);
+      y = 35;
+    }
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(r, g, b);
+    doc.setTextColor(brandR, brandG, brandB);
     doc.text(cond.title, marginL, y);
     y += 3.5;
     doc.setFont("helvetica", "normal");
@@ -389,7 +397,12 @@ function generateConditionsPage(doc: jsPDF, company: any, devis: any, pageW: num
 
   // Signature area
   y += 8;
-  if (y > 245) { doc.addPage(); y = 20; }
+  if (y > 245) {
+    drawFooter(doc, company, pageW, marginL, marginR);
+    doc.addPage();
+    drawLogo(doc, logoResult, company, marginL);
+    y = 35;
+  }
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(0, 0, 0);
@@ -401,4 +414,6 @@ function generateConditionsPage(doc: jsPDF, company: any, devis: any, pageW: num
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.3);
   doc.roundedRect(marginL + contentW - 55, y, 55, 20, 1, 1);
+
+  drawFooter(doc, company, pageW, marginL, marginR);
 }
