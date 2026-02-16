@@ -219,6 +219,7 @@ const FactureDetail = () => {
           <h2 className="font-semibold flex items-center gap-2">
             <CreditCard className="h-4 w-4" /> Règlements ({reglements?.length ?? 0})
           </h2>
+          <CreateReglementDialog preselectedFactureId={facture.id} preselectedCompanyId={facture.company_id} />
         </div>
         {regLoading ? (
           <div className="p-5 space-y-3">

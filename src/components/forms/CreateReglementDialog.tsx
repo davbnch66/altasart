@@ -95,6 +95,8 @@ export const CreateReglementDialog = ({ preselectedFactureId, preselectedCompany
       toast.success("Règlement enregistré");
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       queryClient.invalidateQueries({ queryKey: ["reglements"] });
+      queryClient.invalidateQueries({ queryKey: ["facture-reglements"] });
+      queryClient.invalidateQueries({ queryKey: ["facture-detail"] });
       reset();
       setOpen(false);
     },
