@@ -309,7 +309,6 @@ export async function generateVisitePdf(visiteId: string) {
 
       // Try to load and add photos
       for (let i = 0; i < piecePhotos.length; i++) {
-        y = checkPage(doc, y, 50, logo, company, pageW, marginL, marginR);
         const ph = piecePhotos[i];
         try {
           const { data: urlData } = supabase.storage.from("visite-photos").getPublicUrl(ph.storage_path);
@@ -332,28 +331,32 @@ export async function generateVisitePdf(visiteId: string) {
                 img.src = dataUrl;
               });
 
-              const col = i % 2;
-              const imgX = marginL + col * (contentW / 2 + 2);
-              const imgW = contentW / 2 - 4;
-              // Compute height from real aspect ratio
               const aspectRatio = imgEl.naturalWidth / imgEl.naturalHeight;
+              const imgW = contentW;
               let imgH = imgW / aspectRatio;
               // Cap max height to avoid overflowing the page
-              if (imgH > 80) imgH = 80;
+              if (imgH > 180) { imgH = 180; }
 
-              y = checkPage(doc, y, imgH + 8, logo, company, pageW, marginL, marginR);
-              doc.addImage(dataUrl, "JPEG", imgX, y, imgW, imgH);
+              y = checkPage(doc, y, imgH + 10, logo, company, pageW, marginL, marginR);
+              // Center the image horizontally if aspect ratio makes it narrower
+              let finalW = imgW;
+              let finalH = imgH;
+              if (aspectRatio > 2.5) {
+                // Very wide panoramic: use full width
+                finalW = imgW;
+                finalH = imgW / aspectRatio;
+              }
+              const imgX = marginL + (contentW - finalW) / 2;
+              doc.addImage(dataUrl, "JPEG", imgX, y, finalW, finalH);
 
               if (ph.caption) {
                 doc.setFontSize(7);
                 doc.setFont("helvetica", "italic");
                 doc.setTextColor(100, 100, 100);
-                doc.text(ph.caption, imgX, y + imgH + 3);
+                doc.text(ph.caption, marginL, y + finalH + 3);
               }
 
-              if (col === 1 || i === piecePhotos.length - 1) {
-                y += imgH + 6;
-              }
+              y += finalH + (ph.caption ? 8 : 4);
             }
           }
         } catch {
