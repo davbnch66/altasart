@@ -8,11 +8,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Pencil, MapPin, Calendar, Clock, User, ClipboardCheck, FileText, FolderOpen, BookOpen, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Pencil, MapPin, Calendar, Clock, User, ClipboardCheck, FileText, FolderOpen, BookOpen, Save, Loader2, LayoutGrid, Package, Link2, Users, Truck, ShieldAlert, ClipboardList } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { VisitePiecesTab } from "@/components/visite/VisitePiecesTab";
+import { VisiteMaterielTab } from "@/components/visite/VisiteMaterielTab";
+import { VisiteAffectationTab } from "@/components/visite/VisiteAffectationTab";
+import { VisiteRHTab } from "@/components/visite/VisiteRHTab";
+import { VisiteVehiculesTab } from "@/components/visite/VisiteVehiculesTab";
+import { VisiteContraintesTab } from "@/components/visite/VisiteContraintesTab";
+import { VisiteMethodologieTab } from "@/components/visite/VisiteMethodologieTab";
 
 const statusLabels: Record<string, string> = {
   planifiee: "Planifiée",
@@ -184,15 +191,22 @@ const VisiteDetail = () => {
 
       {/* Tabs */}
       <Tabs defaultValue="rdv" className="space-y-4">
-        <TabsList className="grid grid-cols-5 w-full">
-          <TabsTrigger value="rdv" className="text-xs sm:text-sm">0 - Rendez-vous</TabsTrigger>
-          <TabsTrigger value="visite" className="text-xs sm:text-sm">1 - Visite</TabsTrigger>
-          <TabsTrigger value="dossier" className="text-xs sm:text-sm">2 - Dossier</TabsTrigger>
-          <TabsTrigger value="devis" className="text-xs sm:text-sm">3 - Éléments devis</TabsTrigger>
-          <TabsTrigger value="instructions" className="text-xs sm:text-sm">4 - Instructions</TabsTrigger>
+        <TabsList className="flex flex-wrap h-auto gap-1 w-full">
+          <TabsTrigger value="rdv" className="text-xs">RDV</TabsTrigger>
+          <TabsTrigger value="visite" className="text-xs">Visite</TabsTrigger>
+          <TabsTrigger value="pieces" className="text-xs"><LayoutGrid className="h-3 w-3 mr-1" />Pièces</TabsTrigger>
+          <TabsTrigger value="materiel" className="text-xs"><Package className="h-3 w-3 mr-1" />Matériel</TabsTrigger>
+          <TabsTrigger value="affectation" className="text-xs"><Link2 className="h-3 w-3 mr-1" />Affectation</TabsTrigger>
+          <TabsTrigger value="rh" className="text-xs"><Users className="h-3 w-3 mr-1" />RH</TabsTrigger>
+          <TabsTrigger value="vehicules" className="text-xs"><Truck className="h-3 w-3 mr-1" />Véhicules</TabsTrigger>
+          <TabsTrigger value="contraintes" className="text-xs"><ShieldAlert className="h-3 w-3 mr-1" />Accès</TabsTrigger>
+          <TabsTrigger value="methodologie" className="text-xs"><ClipboardList className="h-3 w-3 mr-1" />Méthodo</TabsTrigger>
+          <TabsTrigger value="dossier" className="text-xs">Dossier</TabsTrigger>
+          <TabsTrigger value="devis" className="text-xs">Devis</TabsTrigger>
+          <TabsTrigger value="instructions" className="text-xs">Instructions</TabsTrigger>
         </TabsList>
 
-        {/* Tab 0: Rendez-vous */}
+        {/* Tab: Rendez-vous */}
         <TabsContent value="rdv" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="rounded-xl border bg-card p-5 space-y-4">
@@ -244,7 +258,6 @@ const VisiteDetail = () => {
             </div>
           </div>
 
-          {/* Address & Comment */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="rounded-xl border bg-card p-5 space-y-3">
               <h3 className="font-semibold text-primary flex items-center gap-2"><MapPin className="h-4 w-4" /> Adresse du rendez-vous</h3>
@@ -266,7 +279,7 @@ const VisiteDetail = () => {
           </div>
         </TabsContent>
 
-        {/* Tab 1: Visite */}
+        {/* Tab: Visite */}
         <TabsContent value="visite" className="space-y-4">
           <div className="rounded-xl border bg-card p-5 space-y-3">
             <h3 className="font-semibold text-primary">Période</h3>
@@ -274,20 +287,8 @@ const VisiteDetail = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Origin */}
-            <AddressBlock
-              title="Adresse origine"
-              prefix="origin"
-              data={editData}
-              onChange={updateField}
-            />
-            {/* Destination */}
-            <AddressBlock
-              title="Adresse destination"
-              prefix="dest"
-              data={editData}
-              onChange={updateField}
-            />
+            <AddressBlock title="Adresse origine" prefix="origin" data={editData} onChange={updateField} />
+            <AddressBlock title="Adresse destination" prefix="dest" data={editData} onChange={updateField} />
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -306,7 +307,42 @@ const VisiteDetail = () => {
           </div>
         </TabsContent>
 
-        {/* Tab 2: Dossier */}
+        {/* Tab: Pièces / Zones */}
+        <TabsContent value="pieces">
+          <VisitePiecesTab visiteId={visite.id} companyId={visite.company_id} />
+        </TabsContent>
+
+        {/* Tab: Matériel */}
+        <TabsContent value="materiel">
+          <VisiteMaterielTab visiteId={visite.id} companyId={visite.company_id} />
+        </TabsContent>
+
+        {/* Tab: Affectation */}
+        <TabsContent value="affectation">
+          <VisiteAffectationTab visiteId={visite.id} companyId={visite.company_id} />
+        </TabsContent>
+
+        {/* Tab: Ressources Humaines */}
+        <TabsContent value="rh">
+          <VisiteRHTab visiteId={visite.id} companyId={visite.company_id} />
+        </TabsContent>
+
+        {/* Tab: Véhicules et Engins */}
+        <TabsContent value="vehicules">
+          <VisiteVehiculesTab visiteId={visite.id} companyId={visite.company_id} />
+        </TabsContent>
+
+        {/* Tab: Contraintes */}
+        <TabsContent value="contraintes">
+          <VisiteContraintesTab visiteId={visite.id} companyId={visite.company_id} />
+        </TabsContent>
+
+        {/* Tab: Méthodologie */}
+        <TabsContent value="methodologie">
+          <VisiteMethodologieTab visiteId={visite.id} companyId={visite.company_id} />
+        </TabsContent>
+
+        {/* Tab: Dossier */}
         <TabsContent value="dossier" className="space-y-4">
           <div className="rounded-xl border bg-card p-5 space-y-4">
             <h3 className="font-semibold text-primary">Codification complémentaire</h3>
@@ -341,50 +377,32 @@ const VisiteDetail = () => {
           {dossier ? (
             <div className="rounded-xl border bg-card p-5">
               <h3 className="font-semibold mb-2">Dossier lié</h3>
-              <p
-                className="text-primary cursor-pointer hover:underline flex items-center gap-2"
-                onClick={() => navigate(`/dossiers/${dossier.id}`)}
-              >
+              <p className="text-primary cursor-pointer hover:underline flex items-center gap-2" onClick={() => navigate(`/dossiers/${dossier.id}`)}>
                 <FolderOpen className="h-4 w-4" /> {dossier.code || dossier.title}
               </p>
             </div>
           ) : (
-            <Button
-              variant="outline"
-              onClick={() => convertToDossier.mutate()}
-              disabled={convertToDossier.isPending}
-              className="flex items-center gap-2"
-            >
+            <Button variant="outline" onClick={() => convertToDossier.mutate()} disabled={convertToDossier.isPending} className="flex items-center gap-2">
               <FolderOpen className="h-4 w-4" />
               {convertToDossier.isPending ? "Conversion..." : "Convertir la visite en dossier"}
             </Button>
           )}
         </TabsContent>
 
-        {/* Tab 3: Éléments du devis */}
+        {/* Tab: Éléments du devis */}
         <TabsContent value="devis" className="space-y-4">
           <div className="rounded-xl border bg-card p-5 space-y-3">
             <h3 className="font-semibold text-primary flex items-center gap-2"><FileText className="h-4 w-4" /> Mémo devis</h3>
-            <Textarea
-              value={editData.notes || ""}
-              onChange={(e) => updateField("notes", e.target.value)}
-              rows={12}
-              placeholder="Description détaillée pour le devis..."
-            />
+            <Textarea value={editData.notes || ""} onChange={(e) => updateField("notes", e.target.value)} rows={12} placeholder="Description détaillée pour le devis..." />
             <p className="text-xs text-muted-foreground">Le texte saisi dans le champ Mémo devis sera disponible au moment de la création du devis.</p>
           </div>
         </TabsContent>
 
-        {/* Tab 4: Instructions */}
+        {/* Tab: Instructions */}
         <TabsContent value="instructions" className="space-y-4">
           <div className="rounded-xl border bg-card p-5 space-y-3">
             <h3 className="font-semibold text-primary flex items-center gap-2"><BookOpen className="h-4 w-4" /> Instructions</h3>
-            <Textarea
-              value={editData.instructions || ""}
-              onChange={(e) => updateField("instructions", e.target.value)}
-              rows={15}
-              placeholder="Instructions détaillées pour l'opération..."
-            />
+            <Textarea value={editData.instructions || ""} onChange={(e) => updateField("instructions", e.target.value)} rows={15} placeholder="Instructions détaillées pour l'opération..." />
           </div>
         </TabsContent>
       </Tabs>

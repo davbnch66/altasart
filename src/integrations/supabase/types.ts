@@ -751,6 +751,449 @@ export type Database = {
         }
         Relationships: []
       }
+      visite_contraintes: {
+        Row: {
+          authorizations: string | null
+          company_id: string
+          created_at: string
+          door_width: string | null
+          freight_elevator: boolean | null
+          id: string
+          notes: string | null
+          obstacles: string | null
+          ramp: boolean | null
+          stairs: string | null
+          updated_at: string
+          visite_id: string
+        }
+        Insert: {
+          authorizations?: string | null
+          company_id: string
+          created_at?: string
+          door_width?: string | null
+          freight_elevator?: boolean | null
+          id?: string
+          notes?: string | null
+          obstacles?: string | null
+          ramp?: boolean | null
+          stairs?: string | null
+          updated_at?: string
+          visite_id: string
+        }
+        Update: {
+          authorizations?: string | null
+          company_id?: string
+          created_at?: string
+          door_width?: string | null
+          freight_elevator?: boolean | null
+          id?: string
+          notes?: string | null
+          obstacles?: string | null
+          ramp?: boolean | null
+          stairs?: string | null
+          updated_at?: string
+          visite_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visite_contraintes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visite_contraintes_visite_id_fkey"
+            columns: ["visite_id"]
+            isOneToOne: false
+            referencedRelation: "visites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visite_materiel: {
+        Row: {
+          company_id: string
+          created_at: string
+          designation: string
+          dimensions: string | null
+          id: string
+          notes: string | null
+          quantity: number
+          sort_order: number
+          unit: string | null
+          updated_at: string
+          visite_id: string
+          weight: number | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          designation: string
+          dimensions?: string | null
+          id?: string
+          notes?: string | null
+          quantity?: number
+          sort_order?: number
+          unit?: string | null
+          updated_at?: string
+          visite_id: string
+          weight?: number | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          designation?: string
+          dimensions?: string | null
+          id?: string
+          notes?: string | null
+          quantity?: number
+          sort_order?: number
+          unit?: string | null
+          updated_at?: string
+          visite_id?: string
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visite_materiel_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visite_materiel_visite_id_fkey"
+            columns: ["visite_id"]
+            isOneToOne: false
+            referencedRelation: "visites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visite_materiel_affectations: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          materiel_id: string
+          notes: string | null
+          piece_id: string
+          quantity: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          materiel_id: string
+          notes?: string | null
+          piece_id: string
+          quantity?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          materiel_id?: string
+          notes?: string | null
+          piece_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visite_materiel_affectations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visite_materiel_affectations_materiel_id_fkey"
+            columns: ["materiel_id"]
+            isOneToOne: false
+            referencedRelation: "visite_materiel"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visite_materiel_affectations_piece_id_fkey"
+            columns: ["piece_id"]
+            isOneToOne: false
+            referencedRelation: "visite_pieces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visite_methodologie: {
+        Row: {
+          checklist: Json | null
+          company_id: string
+          content: string | null
+          created_at: string
+          id: string
+          sort_order: number
+          title: string
+          updated_at: string
+          visite_id: string
+        }
+        Insert: {
+          checklist?: Json | null
+          company_id: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          visite_id: string
+        }
+        Update: {
+          checklist?: Json | null
+          company_id?: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          visite_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visite_methodologie_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visite_methodologie_visite_id_fkey"
+            columns: ["visite_id"]
+            isOneToOne: false
+            referencedRelation: "visites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visite_photos: {
+        Row: {
+          caption: string | null
+          company_id: string
+          created_at: string
+          file_name: string | null
+          id: string
+          piece_id: string | null
+          storage_path: string
+          visite_id: string
+        }
+        Insert: {
+          caption?: string | null
+          company_id: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          piece_id?: string | null
+          storage_path: string
+          visite_id: string
+        }
+        Update: {
+          caption?: string | null
+          company_id?: string
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          piece_id?: string | null
+          storage_path?: string
+          visite_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visite_photos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visite_photos_piece_id_fkey"
+            columns: ["piece_id"]
+            isOneToOne: false
+            referencedRelation: "visite_pieces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visite_photos_visite_id_fkey"
+            columns: ["visite_id"]
+            isOneToOne: false
+            referencedRelation: "visites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visite_pieces: {
+        Row: {
+          access_comments: string | null
+          company_id: string
+          created_at: string
+          dimensions: string | null
+          floor_level: string | null
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+          visite_id: string
+        }
+        Insert: {
+          access_comments?: string | null
+          company_id: string
+          created_at?: string
+          dimensions?: string | null
+          floor_level?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+          visite_id: string
+        }
+        Update: {
+          access_comments?: string | null
+          company_id?: string
+          created_at?: string
+          dimensions?: string | null
+          floor_level?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+          visite_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visite_pieces_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visite_pieces_visite_id_fkey"
+            columns: ["visite_id"]
+            isOneToOne: false
+            referencedRelation: "visites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visite_ressources_humaines: {
+        Row: {
+          company_id: string
+          created_at: string
+          duration_estimate: string | null
+          id: string
+          notes: string | null
+          quantity: number
+          role: string
+          sort_order: number
+          visite_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          duration_estimate?: string | null
+          id?: string
+          notes?: string | null
+          quantity?: number
+          role: string
+          sort_order?: number
+          visite_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          duration_estimate?: string | null
+          id?: string
+          notes?: string | null
+          quantity?: number
+          role?: string
+          sort_order?: number
+          visite_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visite_ressources_humaines_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visite_ressources_humaines_visite_id_fkey"
+            columns: ["visite_id"]
+            isOneToOne: false
+            referencedRelation: "visites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visite_vehicules: {
+        Row: {
+          capacity: number | null
+          company_id: string
+          created_at: string
+          height: number | null
+          id: string
+          label: string | null
+          notes: string | null
+          reach: number | null
+          road_constraints: string | null
+          sort_order: number
+          type: Database["public"]["Enums"]["vehicule_type"]
+          visite_id: string
+        }
+        Insert: {
+          capacity?: number | null
+          company_id: string
+          created_at?: string
+          height?: number | null
+          id?: string
+          label?: string | null
+          notes?: string | null
+          reach?: number | null
+          road_constraints?: string | null
+          sort_order?: number
+          type?: Database["public"]["Enums"]["vehicule_type"]
+          visite_id: string
+        }
+        Update: {
+          capacity?: number | null
+          company_id?: string
+          created_at?: string
+          height?: number | null
+          id?: string
+          label?: string | null
+          notes?: string | null
+          reach?: number | null
+          road_constraints?: string | null
+          sort_order?: number
+          type?: Database["public"]["Enums"]["vehicule_type"]
+          visite_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visite_vehicules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visite_vehicules_visite_id_fkey"
+            columns: ["visite_id"]
+            isOneToOne: false
+            referencedRelation: "visites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visites: {
         Row: {
           address: string | null
@@ -1048,6 +1491,16 @@ export type Database = {
       message_channel: "email" | "whatsapp" | "phone" | "internal"
       resource_status: "disponible" | "occupe" | "maintenance" | "absent"
       resource_type: "employe" | "grue" | "vehicule" | "equipement" | "equipe"
+      vehicule_type:
+        | "utilitaire"
+        | "camion"
+        | "semi"
+        | "grue_mobile"
+        | "bras_de_grue"
+        | "nacelle"
+        | "chariot"
+        | "palan"
+        | "autre"
       visite_status: "planifiee" | "realisee" | "annulee"
     }
     CompositeTypes: {
@@ -1201,6 +1654,17 @@ export const Constants = {
       message_channel: ["email", "whatsapp", "phone", "internal"],
       resource_status: ["disponible", "occupe", "maintenance", "absent"],
       resource_type: ["employe", "grue", "vehicule", "equipement", "equipe"],
+      vehicule_type: [
+        "utilitaire",
+        "camion",
+        "semi",
+        "grue_mobile",
+        "bras_de_grue",
+        "nacelle",
+        "chariot",
+        "palan",
+        "autre",
+      ],
       visite_status: ["planifiee", "realisee", "annulee"],
     },
   },
