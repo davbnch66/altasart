@@ -1,12 +1,17 @@
-import { WifiOff, RefreshCw, CloudOff, CheckCircle2 } from "lucide-react";
+import { WifiOff, RefreshCw, CloudOff, Camera } from "lucide-react";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { useOfflinePhotoSync } from "@/hooks/useOfflinePhotoSync";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 
 export const OfflineBanner = () => {
   const { isOnline, pendingCount, syncing, syncAll } = useOfflineSync();
+  const { pendingPhotos, syncing: syncingPhotos } = useOfflinePhotoSync();
 
-  if (isOnline && pendingCount === 0) return null;
+  const totalPending = pendingCount + pendingPhotos;
+  if (isOnline && totalPending === 0) return null;
+
+  const isSyncing = syncing || syncingPhotos;
 
   return (
     <AnimatePresence>
@@ -22,7 +27,7 @@ export const OfflineBanner = () => {
       >
         <div className="flex items-center gap-2">
           {isOnline ? (
-            syncing ? (
+            isSyncing ? (
               <>
                 <RefreshCw className="h-4 w-4 animate-spin" />
                 <span>Synchronisation en cours...</span>
@@ -30,7 +35,16 @@ export const OfflineBanner = () => {
             ) : (
               <>
                 <CloudOff className="h-4 w-4" />
-                <span>{pendingCount} modification(s) en attente</span>
+                <span>
+                  {pendingCount > 0 && `${pendingCount} modification(s)`}
+                  {pendingCount > 0 && pendingPhotos > 0 && " + "}
+                  {pendingPhotos > 0 && (
+                    <span className="inline-flex items-center gap-0.5">
+                      <Camera className="h-3 w-3" /> {pendingPhotos} photo(s)
+                    </span>
+                  )}
+                  {" "}en attente
+                </span>
               </>
             )
           ) : (
@@ -38,12 +52,17 @@ export const OfflineBanner = () => {
               <WifiOff className="h-4 w-4" />
               <span>
                 Mode hors-ligne
-                {pendingCount > 0 && ` — ${pendingCount} modification(s) en attente`}
+                {totalPending > 0 && ` — ${totalPending} élément(s) en attente`}
+                {pendingPhotos > 0 && (
+                  <span className="inline-flex items-center gap-0.5 ml-1">
+                    (<Camera className="h-3 w-3" /> {pendingPhotos} photo(s))
+                  </span>
+                )}
               </span>
             </>
           )}
         </div>
-        {isOnline && pendingCount > 0 && !syncing && (
+        {isOnline && totalPending > 0 && !isSyncing && (
           <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={syncAll}>
             <RefreshCw className="h-3 w-3 mr-1" />
             Synchroniser
