@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus } from "lucide-react";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 const schema = z.object({
   title: z.string().min(1, "Le titre est requis"),
@@ -171,7 +172,12 @@ export const CreateVisiteDialog = ({ trigger }: CreateVisiteDialogProps = {}) =>
             </div>
             <div className="col-span-2">
               <Label htmlFor="visite-address">Adresse</Label>
-              <Input id="visite-address" {...register("address")} placeholder="Adresse du rendez-vous" />
+              <AddressAutocomplete
+                id="visite-address"
+                value={watch("address") || ""}
+                onChange={(v) => setValue("address", v)}
+                placeholder="Adresse du rendez-vous"
+              />
             </div>
             <div className="col-span-2">
               <Label htmlFor="visite-notes">Notes</Label>

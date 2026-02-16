@@ -28,6 +28,7 @@ import { VisiteSmartAlerts } from "@/components/visite/VisiteSmartAlerts";
 import { generateVisitePdf } from "@/lib/generateVisitePdf";
 import { ApplyTemplateDialog } from "@/components/visite/ApplyTemplateDialog";
 import { GenerateDevisDialog } from "@/components/visite/GenerateDevisDialog";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { VisiteDevisHistory } from "@/components/visite/VisiteDevisHistory";
 import { PdfPreviewDialog } from "@/components/visite/PdfPreviewDialog";
 
@@ -368,7 +369,15 @@ const VisiteDetail = () => {
             <div className="space-y-3">
               <div className="rounded-xl border bg-card p-5 space-y-3">
                 <h3 className="font-semibold text-primary">Adresse du rendez-vous</h3>
-                <Input value={editData.address || ""} onChange={(e) => updateField("address", e.target.value)} placeholder="Adresse" />
+                <AddressAutocomplete
+                  value={editData.address || ""}
+                  onChange={(v) => updateField("address", v)}
+                  onSelect={(s) => {
+                    if (s.postcode) updateField("origin_postal_code", s.postcode);
+                    if (s.city) updateField("origin_city", s.city);
+                  }}
+                  placeholder="Adresse"
+                />
                 <div className="grid grid-cols-3 gap-3">
                   <Input value={editData.origin_postal_code || ""} onChange={(e) => updateField("origin_postal_code", e.target.value)} placeholder="Code postal" />
                   <Input value={editData.origin_city || ""} onChange={(e) => updateField("origin_city", e.target.value)} placeholder="Ville" className="col-span-2" />
@@ -616,7 +625,15 @@ const AddressBlock = ({ title, prefix, data, onChange }: AddressBlockProps) => (
     <h3 className="font-semibold text-primary flex items-center gap-2"><MapPin className="h-4 w-4" /> {title}</h3>
     <Input value={data[`${prefix}_reference`] || ""} onChange={(e) => onChange(`${prefix}_reference`, e.target.value)} placeholder="Référence" />
     <Input value={data[`${prefix}_name`] || ""} onChange={(e) => onChange(`${prefix}_name`, e.target.value)} placeholder="Nom / Société" />
-    <Input value={data[`${prefix}_address_line1`] || ""} onChange={(e) => onChange(`${prefix}_address_line1`, e.target.value)} placeholder="Adresse ligne 1" />
+    <AddressAutocomplete
+      value={data[`${prefix}_address_line1`] || ""}
+      onChange={(v) => onChange(`${prefix}_address_line1`, v)}
+      onSelect={(s) => {
+        if (s.postcode) onChange(`${prefix}_postal_code`, s.postcode);
+        if (s.city) onChange(`${prefix}_city`, s.city);
+      }}
+      placeholder="Adresse ligne 1"
+    />
     <Input value={data[`${prefix}_address_line2`] || ""} onChange={(e) => onChange(`${prefix}_address_line2`, e.target.value)} placeholder="Adresse ligne 2" />
     <div className="grid grid-cols-3 gap-3">
       <Input value={data[`${prefix}_postal_code`] || ""} onChange={(e) => onChange(`${prefix}_postal_code`, e.target.value)} placeholder="CP" />

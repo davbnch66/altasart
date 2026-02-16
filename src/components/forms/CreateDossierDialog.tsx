@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 const schema = z.object({
   title: z.string().trim().min(1, "L'intitulé est requis").max(300),
@@ -141,7 +142,12 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
             </div>
             <div className="col-span-2">
               <Label htmlFor="address">Adresse du chantier</Label>
-              <Input id="address" {...register("address")} placeholder="Adresse" />
+              <AddressAutocomplete
+                id="address"
+                value={watch("address") || ""}
+                onChange={(v) => setValue("address", v)}
+                placeholder="Adresse du chantier"
+              />
             </div>
             <div className="col-span-2">
               <Label htmlFor="description">Description</Label>
