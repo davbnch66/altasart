@@ -56,7 +56,7 @@ const Auth = () => {
           <div className="mx-auto h-14 w-14 rounded-xl bg-primary flex items-center justify-center mb-4">
             <Building2 className="h-7 w-7 text-primary-foreground" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Safari GT</h1>
+          <h1 className="text-2xl font-bold tracking-tight">altasart.app</h1>
           <p className="text-muted-foreground mt-1">
             {isLogin ? "Connectez-vous à votre espace" : "Créez votre compte"}
           </p>
