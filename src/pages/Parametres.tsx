@@ -7,7 +7,7 @@ const sections = [
   { icon: Users, label: "Utilisateurs", desc: "Rôles et permissions" },
   { icon: Shield, label: "Sécurité", desc: "Authentification et RGPD" },
   { icon: Bell, label: "Notifications", desc: "Alertes et relances automatiques" },
-  { icon: Database, label: "Import / Export", desc: "Migration depuis Safari GT" },
+  { icon: Database, label: "Import / Export", desc: "Migration de données" },
   { icon: Palette, label: "Personnalisation", desc: "Logo, couleurs et modèles" },
 ];
 
