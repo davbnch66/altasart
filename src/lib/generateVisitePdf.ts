@@ -314,7 +314,8 @@ export async function generateVisitePdf(visiteId: string) {
         try {
           const { data: urlData } = supabase.storage.from("visite-photos").getPublicUrl(ph.storage_path);
           if (urlData?.publicUrl) {
-            const imgResp = await fetch(urlData.publicUrl);
+            const fetchUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+            const imgResp = await fetch(fetchUrl);
             if (imgResp.ok) {
               const blob = await imgResp.blob();
               const dataUrl = await new Promise<string>((resolve) => {
