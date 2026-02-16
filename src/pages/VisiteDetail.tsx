@@ -190,7 +190,7 @@ const VisiteDetail = () => {
         </Button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-lg md:text-2xl font-bold tracking-tight truncate">
+            <h1 className="text-lg md:text-2xl font-bold tracking-tight break-words">
               Visite {visite.code ? `#${visite.code}` : visite.title}
             </h1>
             <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${statusStyle[visite.status]}`}>
@@ -199,7 +199,7 @@ const VisiteDetail = () => {
             {visite.on_hold && <span className="text-xs bg-warning/10 text-warning rounded-full px-2 py-0.5">En attente</span>}
           </div>
           {client && (
-            <p className="text-muted-foreground text-sm mt-0.5 truncate cursor-pointer hover:text-primary transition-colors" onClick={() => navigate(`/clients/${client.id}`)}>
+            <p className="text-muted-foreground text-sm mt-0.5 break-words cursor-pointer hover:text-primary transition-colors" onClick={() => navigate(`/clients/${client.id}`)}>
               {client.name} {client.code ? `(${client.code})` : ""}
             </p>
           )}
