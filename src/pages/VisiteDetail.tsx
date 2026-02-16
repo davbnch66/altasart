@@ -23,6 +23,7 @@ import { VisiteContraintesTab } from "@/components/visite/VisiteContraintesTab";
 import { VisiteMethodologieTab } from "@/components/visite/VisiteMethodologieTab";
 import { VisiteSmartAlerts } from "@/components/visite/VisiteSmartAlerts";
 import { generateVisitePdf } from "@/lib/generateVisitePdf";
+import { ApplyTemplateDialog } from "@/components/visite/ApplyTemplateDialog";
 
 const statusLabels: Record<string, string> = {
   planifiee: "Planifiée",
@@ -198,6 +199,7 @@ const VisiteDetail = () => {
             {exporting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Download className="h-4 w-4 mr-1" />}
             Rapport PDF
           </Button>
+          <ApplyTemplateDialog visiteId={visite.id} companyId={visite.company_id} />
           <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending}>
             {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
             Enregistrer
