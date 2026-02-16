@@ -1,13 +1,13 @@
 import { motion } from "framer-motion";
-import { Search, Filter, FileText, Pencil, Trash2, Download } from "lucide-react";
+import { Search, FileText, Pencil, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { useState, useMemo } from "react";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
 import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
 import { EditDevisDialog } from "@/components/forms/EditDevisDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
@@ -30,6 +30,12 @@ const statusStyles: Record<string, string> = {
   expire: "bg-warning/10 text-warning",
 };
 
+const companyColors: Record<string, string> = {
+  "company-art": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  "company-altigrues": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  "company-asdgm": "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+};
+
 const formatAmount = (amount: number) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
 
@@ -42,11 +48,18 @@ const formatDate = (dateStr: string | null) => {
   }
 };
 
+type SortField = "code" | "client" | "company" | "date" | "amount" | "status";
+type SortDir = "asc" | "desc";
+
 const Devis = () => {
   const { current } = useCompany();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [companyFilter, setCompanyFilter] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [editingDevis, setEditingDevis] = useState<any>(null);
   const [deletingDevis, setDeletingDevis] = useState<any>(null);
 
@@ -62,6 +75,7 @@ const Devis = () => {
     },
     onError: () => toast.error("Erreur lors de la suppression"),
   });
+
   const { data: devis = [], isLoading } = useQuery({
     queryKey: ["devis", current],
     queryFn: async () => {
@@ -80,43 +94,118 @@ const Devis = () => {
     },
   });
 
-  const filtered = search
-    ? devis.filter(
+  // Unique companies for filter
+  const availableCompanies = useMemo(() => {
+    const map = new Map<string, { short_name: string; color: string }>();
+    for (const d of devis) {
+      const comp = d.companies as any;
+      if (comp?.short_name && !map.has(comp.short_name)) {
+        map.set(comp.short_name, { short_name: comp.short_name, color: comp.color || "" });
+      }
+    }
+    return Array.from(map.values());
+  }, [devis]);
+
+  // Filter + search
+  const filtered = useMemo(() => {
+    let result = devis;
+
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
         (d) =>
-          d.objet.toLowerCase().includes(search.toLowerCase()) ||
-          d.code?.toLowerCase().includes(search.toLowerCase()) ||
-          (d.clients as any)?.name?.toLowerCase().includes(search.toLowerCase())
-      )
-    : devis;
+          d.objet.toLowerCase().includes(q) ||
+          d.code?.toLowerCase().includes(q) ||
+          (d.clients as any)?.name?.toLowerCase().includes(q) ||
+          (d.companies as any)?.short_name?.toLowerCase().includes(q)
+      );
+    }
+
+    if (statusFilter) {
+      result = result.filter((d) => d.status === statusFilter);
+    }
+
+    if (companyFilter) {
+      result = result.filter((d) => (d.companies as any)?.short_name === companyFilter);
+    }
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case "code":
+          cmp = (a.code || "").localeCompare(b.code || "");
+          break;
+        case "client":
+          cmp = ((a.clients as any)?.name || "").localeCompare((b.clients as any)?.name || "");
+          break;
+        case "company":
+          cmp = ((a.companies as any)?.short_name || "").localeCompare((b.companies as any)?.short_name || "");
+          break;
+        case "date":
+          cmp = (a.created_at || "").localeCompare(b.created_at || "");
+          break;
+        case "amount":
+          cmp = (a.amount || 0) - (b.amount || 0);
+          break;
+        case "status":
+          cmp = (a.status || "").localeCompare(b.status || "");
+          break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+    return result;
+  }, [devis, search, statusFilter, companyFilter, sortField, sortDir]);
 
   const stats = useMemo(() => {
     const grouped: Record<string, { count: number; amount: number }> = {};
     for (const s of ["brouillon", "envoye", "accepte", "refuse", "expire"]) {
-      const items = filtered.filter((d) => d.status === s);
+      const items = devis.filter((d) => d.status === s);
       grouped[s] = { count: items.length, amount: items.reduce((sum, d) => sum + (d.amount || 0), 0) };
     }
     return [
-      { label: "Brouillons", ...grouped.brouillon },
-      { label: "Envoyés", ...grouped.envoye },
-      { label: "Acceptés", ...grouped.accepte },
-      { label: "Refusés", ...grouped.refuse },
+      { label: "Brouillons", key: "brouillon", ...grouped.brouillon },
+      { label: "Envoyés", key: "envoye", ...grouped.envoye },
+      { label: "Acceptés", key: "accepte", ...grouped.accepte },
+      { label: "Refusés", key: "refuse", ...grouped.refuse },
     ];
-  }, [filtered]);
+  }, [devis]);
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir(field === "date" || field === "amount" ? "desc" : "asc");
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
+
+  const hasActiveFilters = statusFilter || companyFilter;
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Devis / Cotations</h1>
-          <p className="text-muted-foreground mt-1">{filtered.length} devis</p>
+          <p className="text-muted-foreground mt-1">{filtered.length} devis{filtered.length !== devis.length ? ` sur ${devis.length}` : ""}</p>
         </div>
         <CreateDevisDialog />
       </motion.div>
 
-      {/* Stats */}
+      {/* Stats - clickable for filtering */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map((s) => (
-          <div key={s.label} className="rounded-xl border bg-card p-4">
+          <div
+            key={s.label}
+            onClick={() => setStatusFilter(statusFilter === s.key ? null : s.key)}
+            className={`rounded-xl border bg-card p-4 cursor-pointer transition-all hover:shadow-sm ${statusFilter === s.key ? "ring-2 ring-primary" : ""}`}
+          >
             <p className="text-xs text-muted-foreground">{s.label}</p>
             <p className="text-lg font-bold mt-1">{s.count}</p>
             <p className="text-xs text-muted-foreground">{formatAmount(s.amount)}</p>
@@ -124,34 +213,88 @@ const Devis = () => {
         ))}
       </motion.div>
 
-      <div className="flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher un devis..."
-            className="w-full rounded-lg border bg-card pl-10 pr-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+      {/* Search + Company filter chips */}
+      <div className="space-y-3">
+        <div className="flex gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher par code, client, objet ou société..."
+              className="w-full rounded-lg border bg-card pl-10 pr-4 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
         </div>
-        <button className="flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm text-muted-foreground hover:bg-muted transition-colors">
-          <Filter className="h-4 w-4" />
-          Filtres
-        </button>
+
+        {/* Company filter chips */}
+        {current === "global" && availableCompanies.length > 1 && (
+          <div className="flex flex-wrap gap-2">
+            <span className="text-xs text-muted-foreground self-center mr-1">Société :</span>
+            {availableCompanies.map((c) => (
+              <button
+                key={c.short_name}
+                onClick={() => setCompanyFilter(companyFilter === c.short_name ? null : c.short_name)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                  companyFilter === c.short_name
+                    ? companyColors[c.color] || "bg-primary/10 text-primary"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                } ${companyFilter === c.short_name ? "ring-2 ring-primary/30" : ""}`}
+              >
+                {c.short_name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Active filters display */}
+        {hasActiveFilters && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Filtres actifs :</span>
+            {statusFilter && (
+              <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => setStatusFilter(null)}>
+                {statusLabels[statusFilter]} <X className="h-3 w-3" />
+              </Badge>
+            )}
+            {companyFilter && (
+              <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={() => setCompanyFilter(null)}>
+                {companyFilter} <X className="h-3 w-3" />
+              </Badge>
+            )}
+            <button onClick={() => { setStatusFilter(null); setCompanyFilter(null); }} className="text-xs text-muted-foreground hover:text-foreground underline">
+              Tout effacer
+            </button>
+          </div>
+        )}
       </div>
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="rounded-xl border bg-card overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/30">
-              <th className="text-left font-medium text-muted-foreground px-5 py-3">N°</th>
-              <th className="text-left font-medium text-muted-foreground px-5 py-3">Client</th>
+              <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("code")}>
+                <span className="flex items-center">N° <SortIcon field="code" /></span>
+              </th>
+              {current === "global" && (
+                <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("company")}>
+                  <span className="flex items-center">Société <SortIcon field="company" /></span>
+                </th>
+              )}
+              <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("client")}>
+                <span className="flex items-center">Client <SortIcon field="client" /></span>
+              </th>
               <th className="text-left font-medium text-muted-foreground px-5 py-3 hidden lg:table-cell">Objet</th>
-              <th className="text-left font-medium text-muted-foreground px-5 py-3 hidden md:table-cell">Date</th>
+              <th className="text-left font-medium text-muted-foreground px-5 py-3 hidden md:table-cell cursor-pointer select-none" onClick={() => toggleSort("date")}>
+                <span className="flex items-center">Date <SortIcon field="date" /></span>
+              </th>
               <th className="text-left font-medium text-muted-foreground px-5 py-3 hidden md:table-cell">Validité</th>
-              <th className="text-right font-medium text-muted-foreground px-5 py-3">Montant</th>
-              <th className="text-left font-medium text-muted-foreground px-5 py-3">Statut</th>
+              <th className="text-right font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("amount")}>
+                <span className="flex items-center justify-end">Montant <SortIcon field="amount" /></span>
+              </th>
+              <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("status")}>
+                <span className="flex items-center">Statut <SortIcon field="status" /></span>
+              </th>
               <th className="px-5 py-3"></th>
             </tr>
           </thead>
@@ -159,53 +302,63 @@ const Devis = () => {
             {isLoading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <tr key={i}>
-                  <td className="px-5 py-3" colSpan={8}><Skeleton className="h-5 w-full" /></td>
+                  <td className="px-5 py-3" colSpan={current === "global" ? 9 : 8}><Skeleton className="h-5 w-full" /></td>
                 </tr>
               ))
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-5 py-12 text-center text-muted-foreground">
+                <td colSpan={current === "global" ? 9 : 8} className="px-5 py-12 text-center text-muted-foreground">
                   Aucun devis trouvé
                 </td>
               </tr>
             ) : (
-              filtered.map((d) => (
-                <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/devis/${d.id}`)}>
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
+              filtered.map((d) => {
+                const comp = d.companies as any;
+                return (
+                  <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/devis/${d.id}`)}>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <span className="font-mono text-xs">{d.code || d.id.slice(0, 8)}</span>
                       </div>
-                      <span className="font-mono text-xs">{d.code || d.id.slice(0, 8)}</span>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3">
-                    <span className="font-medium">{(d.clients as any)?.name || "—"}</span>
-                  </td>
-                  <td className="px-5 py-3 text-muted-foreground hidden lg:table-cell">{d.objet}</td>
-                  <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{formatDate(d.created_at)}</td>
-                  <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{formatDate(d.valid_until)}</td>
-                  <td className="px-5 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
-                  <td className="px-5 py-3">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[d.status] || ""}`}>
-                      {statusLabels[d.status] || d.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3">
-                    <div className="flex gap-1">
-                      <button onClick={(e) => { e.stopPropagation(); generateDevisPdf(d.id).catch(() => toast.error("Erreur lors de la génération du PDF")); }} className="p-1 rounded hover:bg-primary/10" title="Télécharger PDF">
-                        <Download className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
-                      </button>
-                      <button onClick={() => setEditingDevis(d)} className="p-1 rounded hover:bg-muted" title="Modifier">
-                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                      </button>
-                      <button onClick={() => setDeletingDevis(d)} className="p-1 rounded hover:bg-muted" title="Supprimer">
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    {current === "global" && (
+                      <td className="px-5 py-3">
+                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${companyColors[comp?.color] || "bg-muted text-muted-foreground"}`}>
+                          {comp?.short_name || "—"}
+                        </span>
+                      </td>
+                    )}
+                    <td className="px-5 py-3">
+                      <span className="font-medium">{(d.clients as any)?.name || "—"}</span>
+                    </td>
+                    <td className="px-5 py-3 text-muted-foreground hidden lg:table-cell max-w-[200px] truncate">{d.objet}</td>
+                    <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{formatDate(d.created_at)}</td>
+                    <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{formatDate(d.valid_until)}</td>
+                    <td className="px-5 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
+                    <td className="px-5 py-3">
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[d.status] || ""}`}>
+                        {statusLabels[d.status] || d.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => generateDevisPdf(d.id).catch(() => toast.error("Erreur PDF"))} className="p-1 rounded hover:bg-primary/10" title="Télécharger PDF">
+                          <Download className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                        </button>
+                        <button onClick={() => setEditingDevis(d)} className="p-1 rounded hover:bg-muted" title="Modifier">
+                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                        <button onClick={() => setDeletingDevis(d)} className="p-1 rounded hover:bg-muted" title="Supprimer">
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
