@@ -95,7 +95,13 @@ export const InboxEmailDetail = ({ email, actions, onBack, onActionExecuted }: P
       <InboxAiSummary analysis={email.ai_analysis} />
 
       {/* Actions */}
-      <InboxActionBar actions={actions} onActionExecuted={onActionExecuted} />
+      <InboxActionBar
+        actions={actions}
+        onActionExecuted={onActionExecuted}
+        clientEmail={email.from_email}
+        clientName={email.from_name || email.clients?.name}
+        emailSubject={email.subject || undefined}
+      />
 
       {/* Body */}
       <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
