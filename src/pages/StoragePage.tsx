@@ -106,6 +106,7 @@ const StoragePage = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      console.log("[Delete] Deleting unit by id:", id);
       const { error } = await supabase.from("storage_units").delete().eq("id", id);
       if (error) throw error;
     },
@@ -116,10 +117,15 @@ const StoragePage = () => {
       setDetailUnit(null);
       setSelectedUnitId(null);
     },
+    onError: (error: any) => {
+      console.error("[Delete] Error:", error);
+      toast.error(`Erreur: ${error?.message || "suppression impossible"}`);
+    },
   });
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (namePattern: string) => {
+      console.log("[BulkDeleteAisle] Pattern:", namePattern, "Companies:", companyIds);
       const { error } = await supabase
         .from("storage_units")
         .delete()
@@ -134,7 +140,11 @@ const StoragePage = () => {
       setSelectedUnitId(null);
       setBulkDeleteInfo(null);
     },
-    onError: () => { toast.error("Erreur lors de la suppression"); setBulkDeleteInfo(null); },
+    onError: (error: any) => {
+      console.error("[BulkDeleteAisle] Error:", error);
+      toast.error(`Erreur: ${error?.message || "suppression impossible"}`);
+      setBulkDeleteInfo(null);
+    },
   });
 
   const bulkAddMutation = useMutation({
