@@ -57,6 +57,20 @@ export const VisiteMaterielTab = ({ visiteId, companyId }: Props) => {
   const [importing, setImporting] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
+  // Catalogue matériel pour auto-complétion
+  const { data: catalog = [] } = useQuery({
+    queryKey: ["materiel-catalog", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("materiel_catalog")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("designation");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: materiel = [], isLoading } = useQuery({
     queryKey: ["visite-materiel", visiteId],
     queryFn: async () => {
@@ -159,7 +173,19 @@ export const VisiteMaterielTab = ({ visiteId, companyId }: Props) => {
       setNewItem((p) => ({ ...p, designation: "" }));
     } else {
       setCustomDesignation(false);
-      setNewItem((p) => ({ ...p, designation: value }));
+      // Auto-complétion depuis le catalogue
+      const catalogItem = catalog.find((c: any) => c.designation === value);
+      if (catalogItem) {
+        setNewItem((p) => ({
+          ...p,
+          designation: value,
+          weight: catalogItem.default_weight ? String(catalogItem.default_weight) : p.weight,
+          dimensions: catalogItem.default_dimensions || p.dimensions,
+          unit: p.unit,
+        }));
+      } else {
+        setNewItem((p) => ({ ...p, designation: value }));
+      }
     }
   };
 
@@ -211,9 +237,20 @@ export const VisiteMaterielTab = ({ visiteId, companyId }: Props) => {
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <option value="">— Choisir —</option>
-                {DESIGNATIONS_COURANTES.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
+                {catalog.length > 0 && (
+                  <optgroup label="📦 Catalogue entreprise">
+                    {catalog.map((c: any) => (
+                      <option key={c.id} value={c.designation}>
+                        {c.designation}{c.default_weight ? ` (${c.default_weight}kg)` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                <optgroup label="📋 Désignations courantes">
+                  {DESIGNATIONS_COURANTES.filter(d => !catalog.some((c: any) => c.designation === d)).map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </optgroup>
                 <option value="__custom__">✏️ Autre (saisie libre)</option>
               </select>
             )}

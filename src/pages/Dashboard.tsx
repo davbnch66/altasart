@@ -62,6 +62,10 @@ function useStats(companyIds: string[]) {
         { data: facturesThisMonth },
         { data: facturesPrevMonth },
         { count: clientsPrevMonth },
+        { count: totalDevis },
+        { count: devisAcceptes },
+        { data: allDossiers },
+        { data: allCosts },
       ] = await Promise.all([
         supabase
           .from("dossiers")
@@ -95,6 +99,28 @@ function useStats(companyIds: string[]) {
           .select("*", { count: "exact", head: true })
           .in("company_id", companyIds)
           .lte("created_at", prevMonthEnd),
+        // KPIs avancés: total devis
+        supabase
+          .from("devis")
+          .select("*", { count: "exact", head: true })
+          .in("company_id", companyIds),
+        // KPIs avancés: devis acceptés
+        supabase
+          .from("devis")
+          .select("*", { count: "exact", head: true })
+          .in("company_id", companyIds)
+          .eq("status", "accepte"),
+        // KPIs avancés: dossiers avec montant pour marge
+        supabase
+          .from("dossiers")
+          .select("id, amount")
+          .in("company_id", companyIds)
+          .not("stage", "eq", "prospect"),
+        // KPIs avancés: coûts dossiers
+        supabase
+          .from("dossier_costs")
+          .select("dossier_id, amount")
+          .in("company_id", companyIds),
       ]);
 
       const caThisMonth = (facturesThisMonth ?? []).reduce((s, f) => s + Number(f.amount), 0);
@@ -103,6 +129,17 @@ function useStats(companyIds: string[]) {
 
       const clientsNew = (totalClients ?? 0) - (clientsPrevMonth ?? 0);
 
+      // Taux de conversion devis
+      const conversionRate = (totalDevis ?? 0) > 0
+        ? (((devisAcceptes ?? 0) / (totalDevis ?? 1)) * 100).toFixed(1)
+        : "0";
+
+      // Marge globale
+      const totalRevenue = (allDossiers ?? []).reduce((s, d) => s + Number(d.amount || 0), 0);
+      const totalCosts = (allCosts ?? []).reduce((s, c) => s + Number(c.amount || 0), 0);
+      const globalMargin = totalRevenue > 0 ? (((totalRevenue - totalCosts) / totalRevenue) * 100).toFixed(1) : null;
+      const globalMarginAmount = totalRevenue - totalCosts;
+
       return {
         dossiersActifs: dossiersActifs ?? 0,
         totalClients: totalClients ?? 0,
@@ -110,6 +147,11 @@ function useStats(companyIds: string[]) {
         caThisMonth,
         caChange,
         clientsNew,
+        conversionRate,
+        totalDevis: totalDevis ?? 0,
+        devisAcceptes: devisAcceptes ?? 0,
+        globalMargin,
+        globalMarginAmount,
       };
     },
     enabled: companyIds.length > 0,
@@ -262,18 +304,34 @@ const Dashboard = () => {
       link: "/clients",
     },
     {
-      label: "Missions",
-      value: stats?.eventsThisWeek ?? 0,
-      icon: CalendarDays,
-      trend: "Cette semaine",
-      link: "/planning",
-    },
-    {
       label: "CA du mois",
       value: new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(stats?.caThisMonth ?? 0),
       icon: DollarSign,
       trend: stats?.caChange ? `${Number(stats.caChange) >= 0 ? "+" : ""}${stats.caChange}%` : "—",
       link: "/finance",
+    },
+    {
+      label: "Taux conversion",
+      value: `${stats?.conversionRate ?? 0}%`,
+      icon: TrendingUp,
+      trend: `${stats?.devisAcceptes ?? 0}/${stats?.totalDevis ?? 0} devis acceptés`,
+      link: "/devis",
+    },
+    {
+      label: "Marge globale",
+      value: stats?.globalMargin ? `${stats.globalMargin}%` : "—",
+      icon: AlertTriangle,
+      trend: stats?.globalMarginAmount !== undefined
+        ? new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(stats.globalMarginAmount)
+        : "—",
+      link: "/dossiers",
+    },
+    {
+      label: "Missions",
+      value: stats?.eventsThisWeek ?? 0,
+      icon: CalendarDays,
+      trend: "Cette semaine",
+      link: "/planning",
     },
   ];
 
@@ -312,7 +370,7 @@ const Dashboard = () => {
       </motion.div>
 
       {/* Stats */}
-      <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"}`}>
+      <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4"}`}>
         {statCards.map((stat, i) => (
           <motion.div
             key={stat.label}
