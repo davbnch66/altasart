@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
@@ -47,8 +47,10 @@ const statusLabelsVisite: Record<string, string> = { planifiee: "Planifiée", re
 const DossierDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [editing, setEditing] = useState(false);
   const isMobile = useIsMobile();
+  const fromClient = (location.state as any)?.fromClient === true;
 
   const { data: dossier, isLoading } = useQuery({
     queryKey: ["dossier-detail", id],
@@ -133,7 +135,7 @@ const DossierDetail = () => {
     <div className={`max-w-5xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => client?.id ? navigate(`/clients/${client.id}`) : navigate(-1)} className={isMobile ? "h-8 w-8" : ""}>
+        <Button variant="ghost" size="icon" onClick={() => fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/dossiers")} className={isMobile ? "h-8 w-8" : ""}>
           <ArrowLeft className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
         </Button>
         <div className="flex-1 min-w-0">
