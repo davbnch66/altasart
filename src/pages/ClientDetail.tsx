@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ClientExchangesTab } from "@/components/client/ClientExchangesTab";
 import { ClientNotesTab } from "@/components/client/ClientNotesTab";
+import { DevisStatusSelect } from "@/components/DevisStatusSelect";
 
 type TabKey = "infos" | "dossiers" | "echanges" | "notes" | "factures" | "devis" | "reglements" | "visites";
 
@@ -539,7 +540,7 @@ const ClientDetail = () => {
                 <div key={d.id} className="rounded-xl border bg-card p-3 cursor-pointer" onClick={() => navigate(`/devis/${d.id}`, { state: { fromClient: true } })}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-mono text-xs font-medium">{d.code || "—"}</span>
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${devisStatusStyles[d.status] || ""}`}>{devisLabels[d.status] || d.status}</span>
+                    <DevisStatusSelect devisId={d.id} currentStatus={d.status} size="xs" />
                   </div>
                   <p className="text-sm font-medium break-words">{d.objet}</p>
                   {(d as any).dossiers && <p className="text-[11px] text-muted-foreground">Dossier : {(d as any).dossiers.code || (d as any).dossiers.title}</p>}
@@ -581,7 +582,7 @@ const ClientDetail = () => {
                          <td className="px-4 py-3 text-muted-foreground">{formatDate(d.created_at)}</td>
                          <td className="px-4 py-3 font-medium">{d.objet}</td>
                          <td className="px-4 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
-                         <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${devisStatusStyles[d.status] || ""}`}>{devisLabels[d.status] || d.status}</span></td>
+                         <td className="px-4 py-3"><DevisStatusSelect devisId={d.id} currentStatus={d.status} /></td>
                          <td className="px-4 py-3">
                            <div className="flex gap-1">
                              <button onClick={(e) => { e.stopPropagation(); setEditingDevis(d); }} className="p-1 rounded hover:bg-muted" title="Modifier"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></button>

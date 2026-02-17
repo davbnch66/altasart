@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { useState } from "react";
 import { EditDevisDialog } from "@/components/forms/EditDevisDialog";
 import { generateDevisPdf } from "@/lib/generateDevisPdf";
+import { DevisStatusSelect } from "@/components/DevisStatusSelect";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
@@ -229,9 +230,9 @@ const DevisDetail = () => {
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4 gap-4"}`}>
         <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
           <p className="text-[11px] text-muted-foreground">Statut</p>
-          <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium mt-1 ${statusStyles[devis.status] || ""}`}>
-            {statusLabels[devis.status] || devis.status}
-          </span>
+          <div className="mt-1">
+            <DevisStatusSelect devisId={devis.id} currentStatus={devis.status} />
+          </div>
         </div>
         <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
           <p className="text-[11px] text-muted-foreground">Montant global</p>
