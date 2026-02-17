@@ -71,8 +71,25 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
         tags: data.tags || [],
         company_id: data.company_id,
       };
-      const { error } = await supabase.from("clients").insert(insertData);
+      const { data: newClient, error } = await supabase.from("clients").insert(insertData).select("id").single();
       if (error) throw error;
+
+      // Auto-create a client_contact from the contact info
+      if (data.contact_name && newClient) {
+        const nameParts = data.contact_name.trim().split(/\s+/);
+        const lastName = nameParts.pop() || data.contact_name;
+        const firstName = nameParts.join(" ") || null;
+        await supabase.from("client_contacts").insert({
+          client_id: newClient.id,
+          company_id: data.company_id,
+          first_name: firstName,
+          last_name: lastName,
+          email: data.email || null,
+          phone_office: data.phone || null,
+          mobile: data.mobile || null,
+          is_default: true,
+        });
+      }
     },
     onSuccess: () => {
       toast.success("Client créé avec succès");
