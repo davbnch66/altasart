@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
-import { Warehouse, Plus, Search, Pencil, Trash2, User, Calendar, LayoutGrid, Box } from "lucide-react";
+import { Warehouse, Plus, Search, Pencil, Trash2, User, Calendar, LayoutGrid, Box, Grid2x2 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,9 @@ import { format } from "date-fns";
 
 const Storage3DViewer = lazy(() =>
   import("@/components/storage/Storage3DViewer").then((m) => ({ default: m.Storage3DViewer }))
+);
+const Storage2DViewer = lazy(() =>
+  import("@/components/storage/Storage2DViewer").then((m) => ({ default: m.Storage2DViewer }))
 );
 
 const statusLabels: Record<string, string> = { libre: "Libre", occupe: "Occupé", reserve: "Réservé" };
@@ -42,7 +45,7 @@ const StoragePage = () => {
   const [editingUnit, setEditingUnit] = useState<any>(null);
   const [deletingUnit, setDeletingUnit] = useState<any>(null);
   const [form, setForm] = useState(emptyForm);
-  const [viewMode, setViewMode] = useState<"list" | "3d">("3d");
+  const [viewMode, setViewMode] = useState<"list" | "3d" | "2d">("3d");
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [detailUnit, setDetailUnit] = useState<any>(null);
 
@@ -167,7 +170,16 @@ const StoragePage = () => {
                 onClick={() => setViewMode("3d")}
               >
                 <Box className="h-3.5 w-3.5" />
-                Plan 3D
+                3D
+              </Button>
+              <Button
+                variant={viewMode === "2d" ? "default" : "ghost"}
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setViewMode("2d")}
+              >
+                <Grid2x2 className="h-3.5 w-3.5" />
+                2D
               </Button>
               <Button
                 variant={viewMode === "list" ? "default" : "ghost"}
@@ -247,25 +259,29 @@ const StoragePage = () => {
       {viewMode === "3d" && !isMobile && (
         <div className="flex gap-4">
           <div className="flex-1">
-            <Suspense
-              fallback={
-                <Skeleton className="w-full h-[600px] rounded-xl" />
-              }
-            >
-              <Storage3DViewer
-                units={units}
-                selectedId={selectedUnitId}
-                onSelectUnit={handleSelectUnit3D}
-              />
+            <Suspense fallback={<Skeleton className="w-full h-[600px] rounded-xl" />}>
+              <Storage3DViewer units={units} selectedId={selectedUnitId} onSelectUnit={handleSelectUnit3D} />
             </Suspense>
           </div>
           {detailUnit && (
             <div className="w-80 shrink-0">
-              <StorageDetailPanel
-                unit={detailUnit}
-                onClose={() => { setDetailUnit(null); setSelectedUnitId(null); }}
-                onEdit={handleEdit}
-              />
+              <StorageDetailPanel unit={detailUnit} onClose={() => { setDetailUnit(null); setSelectedUnitId(null); }} onEdit={handleEdit} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 2D View */}
+      {viewMode === "2d" && !isMobile && (
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <Suspense fallback={<Skeleton className="w-full h-[400px] rounded-xl" />}>
+              <Storage2DViewer units={units} selectedId={selectedUnitId} onSelectUnit={handleSelectUnit3D} />
+            </Suspense>
+          </div>
+          {detailUnit && (
+            <div className="w-80 shrink-0">
+              <StorageDetailPanel unit={detailUnit} onClose={() => { setDetailUnit(null); setSelectedUnitId(null); }} onEdit={handleEdit} />
             </div>
           )}
         </div>
