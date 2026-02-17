@@ -154,7 +154,7 @@ export const Storage2DViewer = ({ units, selectedId, onSelectUnit }: Storage2DVi
                       onClick={() => handleClick(cell)}
                       title={`${cell.name} — ${status}${cell.unit?.clients ? ` — ${(cell.unit.clients as any).name}` : ""}`}
                     >
-                      <span className="opacity-70">{cell.name.split("-")[0]}</span>
+                      <span className="opacity-70">{cell.name}</span>
                       {cell.unit?.clients && (
                         <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary border border-card" />
                       )}
