@@ -96,11 +96,43 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
         status: data.status as any,
       }).eq("id", client.id);
       if (error) throw error;
+
+      // Sync contact info to client_contacts (upsert default contact)
+      if (data.contact_name) {
+        const nameParts = data.contact_name.trim().split(/\s+/);
+        const lastName = nameParts.pop() || data.contact_name;
+        const firstName = nameParts.join(" ") || null;
+
+        const { data: existing } = await supabase
+          .from("client_contacts")
+          .select("id")
+          .eq("client_id", client.id)
+          .eq("is_default", true)
+          .maybeSingle();
+
+        const contactPayload = {
+          client_id: client.id,
+          company_id: data.company_id,
+          first_name: firstName,
+          last_name: lastName,
+          email: data.email || null,
+          phone_office: data.phone || null,
+          mobile: data.mobile || null,
+          is_default: true,
+        };
+
+        if (existing) {
+          await supabase.from("client_contacts").update(contactPayload).eq("id", existing.id);
+        } else {
+          await supabase.from("client_contacts").insert(contactPayload);
+        }
+      }
     },
     onSuccess: () => {
       toast.success("Client modifié avec succès");
       queryClient.invalidateQueries({ queryKey: ["client", client.id] });
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["client-contacts", client.id] });
       onOpenChange(false);
     },
     onError: () => toast.error("Erreur lors de la modification"),
