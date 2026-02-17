@@ -375,7 +375,7 @@ const StoragePage = () => {
       {/* 3D View */}
       {viewMode === "3d" && !isMobile && (
         <div className="flex gap-4">
-          <div className="flex-1">
+          <div className="flex-1 min-w-0 overflow-hidden">
             <Suspense fallback={<Skeleton className="w-full h-[600px] rounded-xl" />}>
               <Storage3DViewer units={units} selectedId={selectedUnitId} onSelectUnit={handleSelectUnit3D} />
             </Suspense>
@@ -398,7 +398,7 @@ const StoragePage = () => {
       {/* 2D View */}
       {viewMode === "2d" && !isMobile && (
         <div className="flex gap-4">
-          <div className="flex-1">
+          <div className="flex-1 min-w-0 overflow-hidden">
             <Suspense fallback={<Skeleton className="w-full h-[400px] rounded-xl" />}>
               <Storage2DViewer units={units} selectedId={selectedUnitId} onSelectUnit={handleSelectUnit3D} />
             </Suspense>

@@ -147,14 +147,17 @@ export const StorageDetailPanel = ({ unit, onClose, onEdit, onDelete, onDeleteRo
           </p>
         )}
 
+        {/* Aisle/row delete buttons - always shown when applicable */}
         {aisleLetter && onDeleteAisle && (
-          <Button size="sm" variant="ghost" className="w-full text-destructive hover:text-destructive text-xs" onClick={() => onDeleteAisle(aisleLetter)}>
+          <Button size="sm" variant="outline" className="w-full text-destructive hover:text-destructive text-xs" onClick={() => onDeleteAisle(aisleLetter)}>
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
             Supprimer toute l'allée {aisleLetter}
           </Button>
         )}
 
         {aisleLetter && rowNumber && onDeleteRow && (
-          <Button size="sm" variant="ghost" className="w-full text-destructive hover:text-destructive text-xs" onClick={() => onDeleteRow(`${aisleLetter}${rowNumber}`)}>
+          <Button size="sm" variant="outline" className="w-full text-destructive hover:text-destructive text-xs" onClick={() => onDeleteRow(`${aisleLetter}${rowNumber}`)}>
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
             Supprimer la rangée {aisleLetter}{rowNumber} (tous niveaux)
           </Button>
         )}
