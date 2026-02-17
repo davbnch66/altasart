@@ -97,12 +97,8 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
       }).eq("id", client.id);
       if (error) throw error;
 
-      // Sync contact info to client_contacts (upsert default contact)
+      // Create a default contact only if none exists yet
       if (data.contact_name) {
-        const nameParts = data.contact_name.trim().split(/\s+/);
-        const lastName = nameParts.pop() || data.contact_name;
-        const firstName = nameParts.join(" ") || null;
-
         const { data: existing } = await supabase
           .from("client_contacts")
           .select("id")
@@ -110,21 +106,21 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
           .eq("is_default", true)
           .maybeSingle();
 
-        const contactPayload = {
-          client_id: client.id,
-          company_id: data.company_id,
-          first_name: firstName,
-          last_name: lastName,
-          email: data.email || null,
-          phone_office: data.phone || null,
-          mobile: data.mobile || null,
-          is_default: true,
-        };
+        if (!existing) {
+          const nameParts = data.contact_name.trim().split(/\s+/);
+          const lastName = nameParts.pop() || data.contact_name;
+          const firstName = nameParts.join(" ") || null;
 
-        if (existing) {
-          await supabase.from("client_contacts").update(contactPayload).eq("id", existing.id);
-        } else {
-          await supabase.from("client_contacts").insert(contactPayload);
+          await supabase.from("client_contacts").insert({
+            client_id: client.id,
+            company_id: data.company_id,
+            first_name: firstName,
+            last_name: lastName,
+            email: data.email || null,
+            phone_office: data.phone || null,
+            mobile: data.mobile || null,
+            is_default: true,
+          });
         }
       }
     },
