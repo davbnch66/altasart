@@ -168,10 +168,10 @@ const StoragePage = () => {
               </div>
               <div><Label className="text-xs">Emplacement</Label><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Entrepôt Sud, Allée 3" className="h-9" /></div>
               <div><Label className="text-xs">Client</Label>
-                <Select value={form.client_id} onValueChange={(v) => setForm({ ...form, client_id: v })}>
+                <Select value={form.client_id || "none"} onValueChange={(v) => setForm({ ...form, client_id: v === "none" ? "" : v })}>
                   <SelectTrigger className="h-9"><SelectValue placeholder="Aucun" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Aucun</SelectItem>
+                    <SelectItem value="none">Aucun</SelectItem>
                     {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
