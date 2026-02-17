@@ -1,6 +1,6 @@
-import { Suspense, useMemo, useState, useCallback } from "react";
+import { Suspense, useMemo, useCallback } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, PerspectiveCamera, Environment, Grid, Text } from "@react-three/drei";
+import { OrbitControls } from "@react-three/drei";
 import { StorageBox3D } from "./StorageBox3D";
 
 const ROWS = 5;
@@ -8,7 +8,7 @@ const AISLES = 20;
 const LEVELS = 3;
 const BOX_SIZE = 2;
 const GAP = 0.15;
-const AISLE_GAP = 1.2; // extra gap between aisles for walking
+const AISLE_GAP = 1.2;
 
 interface StorageUnit {
   id: string;
@@ -31,7 +31,6 @@ interface Storage3DViewerProps {
   onSelectUnit: (unit: StorageUnit | null) => void;
 }
 
-// Generate a grid position mapping: name -> { row, aisle, level }
 const generateGridMap = () => {
   const map: Record<string, { row: number; aisle: number; level: number }> = {};
   for (let level = 0; level < LEVELS; level++) {
@@ -47,98 +46,46 @@ const generateGridMap = () => {
 
 const gridMap = generateGridMap();
 
-// Build a lookup from unit name -> unit data
 const buildUnitLookup = (units: StorageUnit[]) => {
   const lookup: Record<string, StorageUnit> = {};
-  units.forEach((u) => {
-    lookup[u.name] = u;
-  });
+  units.forEach((u) => { lookup[u.name] = u; });
   return lookup;
 };
 
-const FloorGrid = () => (
-  <Grid
-    args={[200, 200]}
-    position={[0, -0.01, 0]}
-    cellSize={2}
-    cellThickness={0.5}
-    cellColor="#94a3b8"
-    sectionSize={10}
-    sectionThickness={1}
-    sectionColor="#64748b"
-    fadeDistance={120}
-    fadeStrength={1}
-    followCamera={false}
-  />
+const Floor = () => (
+  <mesh rotation={[-Math.PI / 2, 0, 0]} position={[30, -0.01, 5]} receiveShadow>
+    <planeGeometry args={[80, 20]} />
+    <meshLambertMaterial color="#e2e8f0" />
+  </mesh>
 );
-
-const AisleLabels = () => {
-  const labels = [];
-  for (let aisle = 0; aisle < AISLES; aisle++) {
-    const x = aisle * (BOX_SIZE + AISLE_GAP);
-    labels.push(
-      <Text
-        key={`aisle-${aisle}`}
-        position={[x, 0.05, -(BOX_SIZE + GAP) * 0.5 - 1]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        fontSize={0.6}
-        color="#475569"
-        anchorX="center"
-        anchorY="middle"
-      >
-        Allée {String.fromCharCode(65 + aisle)}
-      </Text>
-    );
-  }
-  return <>{labels}</>;
-};
 
 const Scene = ({ units, selectedId, onSelectUnit }: Storage3DViewerProps) => {
   const unitLookup = useMemo(() => buildUnitLookup(units), [units]);
 
   const boxes = useMemo(() => {
-    const result: {
-      key: string;
-      name: string;
-      position: [number, number, number];
-      unit: StorageUnit | null;
-    }[] = [];
-
+    const result: { key: string; name: string; position: [number, number, number]; unit: StorageUnit | null }[] = [];
     Object.entries(gridMap).forEach(([name, { row, aisle, level }]) => {
       const x = aisle * (BOX_SIZE + AISLE_GAP);
       const y = level * (BOX_SIZE + GAP) + BOX_SIZE / 2;
       const z = row * (BOX_SIZE + GAP);
-
-      result.push({
-        key: name,
-        name,
-        position: [x, y, z],
-        unit: unitLookup[name] || null,
-      });
+      result.push({ key: name, name, position: [x, y, z], unit: unitLookup[name] || null });
     });
-
     return result;
   }, [unitLookup]);
 
   const handleClick = useCallback(
     (unit: StorageUnit | null, name: string) => {
-      if (unit) {
-        onSelectUnit(unit);
-      } else {
-        // Empty box - create a virtual unit to show position info
-        onSelectUnit({
-          id: "",
-          name,
-          status: "libre",
-        });
-      }
+      onSelectUnit(unit || { id: "", name, status: "libre" });
     },
     [onSelectUnit]
   );
 
   return (
     <>
-      <PerspectiveCamera makeDefault position={[25, 20, 35]} fov={50} />
+      <ambientLight intensity={0.6} />
+      <directionalLight position={[30, 40, 20]} intensity={0.7} />
+      <directionalLight position={[-20, 30, -10]} intensity={0.3} />
+
       <OrbitControls
         enablePan
         enableZoom
@@ -146,27 +93,15 @@ const Scene = ({ units, selectedId, onSelectUnit }: Storage3DViewerProps) => {
         maxPolarAngle={Math.PI / 2.1}
         minDistance={5}
         maxDistance={100}
-        target={[19, 3, 4]}
       />
 
-      {/* Lighting */}
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[30, 40, 20]} intensity={0.8} castShadow />
-      <directionalLight position={[-20, 30, -10]} intensity={0.3} />
+      <Floor />
 
-      <Environment preset="warehouse" background={false} />
-
-      <FloorGrid />
-      <AisleLabels />
-
-      {/* Boxes */}
       {boxes.map((box) => (
         <StorageBox3D
           key={box.key}
           position={box.position}
-          label={box.name}
           status={box.unit?.status || "libre"}
-          clientName={(box.unit?.clients as any)?.name}
           isSelected={selectedId === (box.unit?.id || box.name)}
           onClick={() => handleClick(box.unit, box.name)}
         />
@@ -185,7 +120,10 @@ export const Storage3DViewer = ({ units, selectedId, onSelectUnit }: Storage3DVi
           </div>
         }
       >
-        <Canvas shadows>
+        <Canvas
+          camera={{ position: [25, 20, 35], fov: 50 }}
+          style={{ width: "100%", height: "100%" }}
+        >
           <Scene units={units} selectedId={selectedId} onSelectUnit={onSelectUnit} />
         </Canvas>
       </Suspense>
@@ -210,9 +148,8 @@ export const Storage3DViewer = ({ units, selectedId, onSelectUnit }: Storage3DVi
         </div>
       </div>
 
-      {/* Controls hint */}
       <div className="absolute top-3 right-3 bg-background/90 backdrop-blur-sm rounded-lg px-3 py-1.5 text-[10px] text-muted-foreground border">
-        🖱️ Clic gauche: tourner · Molette: zoom · Clic droit: déplacer
+        🖱️ Tourner · Molette: zoom · Clic droit: déplacer
       </div>
     </div>
   );
