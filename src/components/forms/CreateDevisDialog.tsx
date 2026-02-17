@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
+import { ContactSelect } from "@/components/client/ContactSelect";
 
 const schema = z.object({
   objet: z.string().trim().min(1, "L'objet est requis").max(500),
@@ -42,6 +43,7 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
   const queryClient = useQueryClient();
   const [creatingDossier, setCreatingDossier] = useState(false);
   const [newDossierTitle, setNewDossierTitle] = useState("");
+  const [selectedContactId, setSelectedContactId] = useState("");
 
   const defaultCompanyId = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || "");
   const [selectedCompanyId, setSelectedCompanyId] = useState(defaultCompanyId);
@@ -138,7 +140,7 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); setSelectedClientId(preselectedClientId || ""); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), amount: 0, dossier_id: preselectedDossierId || ("" as any) }); setCreatingDossier(false); } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); setSelectedClientId(preselectedClientId || ""); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), amount: 0, dossier_id: preselectedDossierId || ("" as any) }); setCreatingDossier(false); setSelectedContactId(""); } }}>
       <DialogTrigger asChild>
         {trigger || (
           <Button className="flex items-center gap-2">
@@ -214,6 +216,16 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
               {errors.dossier_id && <p className="text-xs text-destructive mt-1">{errors.dossier_id.message}</p>}
               {!selectedClientId && <p className="text-xs text-muted-foreground mt-1">Sélectionnez d'abord un client</p>}
             </div>
+            {selectedClientId && (
+              <div className="col-span-2">
+                <ContactSelect
+                  clientId={selectedClientId}
+                  value={selectedContactId}
+                  onChange={setSelectedContactId}
+                  label="Contact destinataire"
+                />
+              </div>
+            )}
             <div className="col-span-2">
               <Label htmlFor="objet">Objet *</Label>
               <Input id="objet" {...register("objet")} placeholder="Objet du devis" />

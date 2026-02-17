@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { ContactSelect } from "@/components/client/ContactSelect";
 
 const schema = z.object({
   title: z.string().trim().min(1, "L'intitulé est requis").max(300),
@@ -42,6 +43,7 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
 
   const defaultCompanyId = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || "");
   const [selectedCompanyId, setSelectedCompanyId] = useState(defaultCompanyId);
+  const [selectedContactId, setSelectedContactId] = useState("");
 
   const { data: clients = [] } = useQuery({
     queryKey: ["clients-for-select", selectedCompanyId],
@@ -89,7 +91,7 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), amount: 0 }); } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), amount: 0 }); setSelectedContactId(""); } }}>
       <DialogTrigger asChild>
         {trigger || (
           <Button className="flex items-center gap-2">
@@ -127,6 +129,16 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
               </Select>
               {errors.client_id && <p className="text-xs text-destructive mt-1">{errors.client_id.message}</p>}
             </div>
+            {watch("client_id") && (
+              <div className="col-span-2">
+                <ContactSelect
+                  clientId={watch("client_id")}
+                  value={selectedContactId}
+                  onChange={setSelectedContactId}
+                  label="Contact référent"
+                />
+              </div>
+            )}
             <div className="col-span-2">
               <Label htmlFor="title">Intitulé *</Label>
               <Input id="title" {...register("title")} placeholder="Titre du dossier" />

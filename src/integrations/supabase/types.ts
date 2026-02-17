@@ -84,6 +84,81 @@ export type Database = {
           },
         ]
       }
+      client_contacts: {
+        Row: {
+          civility: string | null
+          client_id: string
+          code: string | null
+          company_id: string
+          created_at: string
+          email: string | null
+          first_name: string | null
+          function_title: string | null
+          id: string
+          is_default: boolean
+          last_name: string
+          mobile: string | null
+          notes: string | null
+          phone_direct: string | null
+          phone_office: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          civility?: string | null
+          client_id: string
+          code?: string | null
+          company_id: string
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          function_title?: string | null
+          id?: string
+          is_default?: boolean
+          last_name: string
+          mobile?: string | null
+          notes?: string | null
+          phone_direct?: string | null
+          phone_office?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          civility?: string | null
+          client_id?: string
+          code?: string | null
+          company_id?: string
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          function_title?: string | null
+          id?: string
+          is_default?: boolean
+          last_name?: string
+          mobile?: string | null
+          notes?: string | null
+          phone_direct?: string | null
+          phone_office?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_contacts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_notes: {
         Row: {
           author_id: string
@@ -152,6 +227,7 @@ export type Database = {
           advisor: string | null
           billing_address: string | null
           city: string | null
+          client_type: string
           code: string | null
           company_id: string
           contact_name: string | null
@@ -165,6 +241,7 @@ export type Database = {
           phone: string | null
           postal_code: string | null
           status: Database["public"]["Enums"]["client_status"]
+          tags: string[] | null
           updated_at: string
         }
         Insert: {
@@ -172,6 +249,7 @@ export type Database = {
           advisor?: string | null
           billing_address?: string | null
           city?: string | null
+          client_type?: string
           code?: string | null
           company_id: string
           contact_name?: string | null
@@ -185,6 +263,7 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           status?: Database["public"]["Enums"]["client_status"]
+          tags?: string[] | null
           updated_at?: string
         }
         Update: {
@@ -192,6 +271,7 @@ export type Database = {
           advisor?: string | null
           billing_address?: string | null
           city?: string | null
+          client_type?: string
           code?: string | null
           company_id?: string
           contact_name?: string | null
@@ -205,6 +285,7 @@ export type Database = {
           phone?: string | null
           postal_code?: string | null
           status?: Database["public"]["Enums"]["client_status"]
+          tags?: string[] | null
           updated_at?: string
         }
         Relationships: [
