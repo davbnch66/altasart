@@ -111,7 +111,7 @@ export const StorageBulkManager = ({
 
   const executeDelete = () => {
     onBulkDelete(deletePatterns);
-    setConfirmDelete(false);
+    // Dialog will close via isDeleting becoming false after mutation completes
   };
 
   const reset = () => {
