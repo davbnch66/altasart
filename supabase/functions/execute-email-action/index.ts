@@ -151,6 +151,15 @@ serve(async (req) => {
           if (!clientId) {
             throw new Error("Aucun client associé à cet email. Créez d'abord le client.");
           }
+
+          // Sanitize scheduled_date: extract first valid date from potential range like "2026-03-15/2026-03-30"
+          let scheduledDate: string | null = payload.scheduled_date || payload.date_souhaitee || null;
+          if (scheduledDate && typeof scheduledDate === "string") {
+            // Handle date ranges (e.g. "2026-03-15/2026-03-30") — take the first date
+            const dateMatch = scheduledDate.match(/(\d{4}-\d{2}-\d{2})/);
+            scheduledDate = dateMatch ? dateMatch[1] : null;
+          }
+
           const { data, error } = await supabase.from("visites").insert({
             title: payload.title || "Visite technique",
             address: payload.address || null,
@@ -172,7 +181,7 @@ serve(async (req) => {
             dossier_id: email?.dossier_id || null,
             created_by: userId,
             status: "planifiee",
-            scheduled_date: payload.date_souhaitee || null,
+            scheduled_date: scheduledDate,
           }).select("id").single();
           if (error) throw error;
           createdId = data.id;
