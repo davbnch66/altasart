@@ -68,6 +68,8 @@ export const ClientContactsTab = ({ clientId, companyId }: Props) => {
 
   const saveMutation = useMutation({
     mutationFn: async (data: typeof form & { id?: string }) => {
+      // Auto-set as default if it's the first contact
+      const isFirstContact = !data.id && contacts.length === 0;
       const payload = {
         client_id: clientId,
         company_id: companyId,
@@ -80,7 +82,7 @@ export const ClientContactsTab = ({ clientId, companyId }: Props) => {
         phone_office: data.phone_office || null,
         email: data.email || null,
         function_title: data.function_title || null,
-        is_default: data.is_default,
+        is_default: isFirstContact ? true : data.is_default,
         notes: data.notes || null,
       };
       if (data.id) {
