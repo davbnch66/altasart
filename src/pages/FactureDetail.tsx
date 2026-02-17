@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,8 +30,10 @@ const statusClass: Record<string, string> = {
 const FactureDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const fromClient = (location.state as any)?.fromClient === true;
   const [editOpen, setEditOpen] = useState(false);
   const [editReglement, setEditReglement] = useState<any>(null);
   const [deleteReglement, setDeleteReglement] = useState<any>(null);
@@ -97,7 +99,7 @@ const FactureDetail = () => {
     <div className={`max-w-5xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Header */}
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/finance")} className={isMobile ? "h-8 w-8" : ""}>
+        <Button variant="ghost" size="icon" onClick={() => fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/finance")} className={isMobile ? "h-8 w-8" : ""}>
           <ArrowLeft className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
         </Button>
         <div className="flex-1 min-w-0">

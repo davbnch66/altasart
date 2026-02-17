@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DevisLinesManager } from "@/components/DevisLinesManager";
 import { supabase } from "@/integrations/supabase/client";
@@ -111,16 +111,18 @@ const InlineEdit = ({ value, onSave, type = "text", label, multiline = false }: 
 const DevisDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const isMobile = useIsMobile();
+  const fromClient = (location.state as any)?.fromClient === true;
 
   const { data: devis, isLoading } = useQuery({
     queryKey: ["devis-detail", id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("devis")
-        .select("*, clients(name, email, phone, address, city, postal_code), companies(short_name, name, color)")
+        .select("*, clients(id, name, email, phone, address, city, postal_code), companies(short_name, name, color)")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -180,7 +182,7 @@ const DevisDetail = () => {
   return (
     <div className={`max-w-5xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/devis")} className={isMobile ? "h-8 w-8" : ""}>
+        <Button variant="ghost" size="icon" onClick={() => fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/devis")} className={isMobile ? "h-8 w-8" : ""}>
           <ArrowLeft className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
         </Button>
         <div className="flex-1 min-w-0">

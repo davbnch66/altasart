@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
@@ -73,7 +73,9 @@ const Section = ({ title, icon: Icon, defaultOpen = false, badge, children }: {
 const VisiteDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
+  const fromClient = (location.state as any)?.fromClient === true;
   const isOnline = useOnlineStatus();
   const [editData, setEditData] = useState<any>(null);
   const [saving, setSaving] = useState(false);
@@ -187,7 +189,7 @@ const VisiteDetail = () => {
       <div className="space-y-2">
         {/* Title row */}
         <div className="flex items-start gap-2">
-          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => navigate("/visites")}>
+          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/visites")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
