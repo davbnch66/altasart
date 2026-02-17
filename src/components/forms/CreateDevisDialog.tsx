@@ -24,7 +24,7 @@ const schema = z.object({
   valid_until: z.string().optional(),
   client_id: z.string().uuid("Sélectionnez un client"),
   company_id: z.string().uuid("Sélectionnez une société"),
-  dossier_id: z.string().optional(),
+  dossier_id: z.string().uuid("Sélectionnez un dossier"),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -40,6 +40,8 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
   const [open, setOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
+  const [creatingDossier, setCreatingDossier] = useState(false);
+  const [newDossierTitle, setNewDossierTitle] = useState("");
 
   const defaultCompanyId = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || "");
   const [selectedCompanyId, setSelectedCompanyId] = useState(defaultCompanyId);
@@ -56,7 +58,7 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
     enabled: open,
   });
 
-  const { data: dossiers = [] } = useQuery({
+  const { data: dossiers = [], refetch: refetchDossiers } = useQuery({
     queryKey: ["dossiers-for-select", selectedClientId],
     queryFn: async () => {
       if (!selectedClientId) return [];
@@ -71,6 +73,31 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
     defaultValues: { company_id: defaultCompanyId, amount: 0, dossier_id: preselectedDossierId || "" },
   });
 
+  const createDossierMutation = useMutation({
+    mutationFn: async () => {
+      if (!newDossierTitle.trim() || !selectedClientId || !selectedCompanyId) return;
+      const { data, error } = await supabase.from("dossiers").insert({
+        title: newDossierTitle.trim(),
+        client_id: selectedClientId,
+        company_id: selectedCompanyId,
+      }).select("id").single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data) {
+        toast.success("Dossier créé");
+        setValue("dossier_id", data.id);
+        refetchDossiers();
+        queryClient.invalidateQueries({ queryKey: ["dossiers"] });
+        queryClient.invalidateQueries({ queryKey: ["client-dossiers"] });
+      }
+      setCreatingDossier(false);
+      setNewDossierTitle("");
+    },
+    onError: () => toast.error("Erreur lors de la création du dossier"),
+  });
+
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
       const { error } = await supabase.from("devis").insert({
@@ -81,7 +108,7 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
         valid_until: data.valid_until || null,
         client_id: data.client_id,
         company_id: data.company_id,
-        dossier_id: data.dossier_id && data.dossier_id !== "none" ? data.dossier_id : null,
+        dossier_id: data.dossier_id,
       });
       if (error) throw error;
     },
@@ -101,16 +128,17 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
     setSelectedCompanyId(v);
     setValue("client_id", "" as any);
     setSelectedClientId("");
+    setValue("dossier_id", "" as any);
   };
 
   const handleClientChange = (v: string) => {
     setValue("client_id", v);
     setSelectedClientId(v);
-    setValue("dossier_id", "");
+    setValue("dossier_id", "" as any);
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); setSelectedClientId(preselectedClientId || ""); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), amount: 0 }); } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); setSelectedClientId(preselectedClientId || ""); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), amount: 0, dossier_id: preselectedDossierId || ("" as any) }); setCreatingDossier(false); } }}>
       <DialogTrigger asChild>
         {trigger || (
           <Button className="flex items-center gap-2">
@@ -148,20 +176,44 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
               </Select>
               {errors.client_id && <p className="text-xs text-destructive mt-1">{errors.client_id.message}</p>}
             </div>
-            {dossiers.length > 0 && (
-              <div className="col-span-2">
-                <Label>Dossier associé</Label>
-                <Select value={watch("dossier_id") || "none"} onValueChange={(v) => setValue("dossier_id", v)}>
-                  <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Aucun</SelectItem>
-                    {dossiers.map((d) => (
-                      <SelectItem key={d.id} value={d.id}>{d.code || d.title}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="col-span-2">
+              <Label>Dossier *</Label>
+              {creatingDossier ? (
+                <div className="flex gap-2">
+                  <Input
+                    value={newDossierTitle}
+                    onChange={(e) => setNewDossierTitle(e.target.value)}
+                    placeholder="Titre du nouveau dossier"
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); createDossierMutation.mutate(); } if (e.key === "Escape") setCreatingDossier(false); }}
+                  />
+                  <Button type="button" size="sm" onClick={() => createDossierMutation.mutate()} disabled={!newDossierTitle.trim() || createDossierMutation.isPending}>
+                    {createDossierMutation.isPending ? "..." : "Créer"}
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setCreatingDossier(false)}>✕</Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Select value={watch("dossier_id") || ""} onValueChange={(v) => setValue("dossier_id", v)}>
+                      <SelectTrigger><SelectValue placeholder="Sélectionner un dossier" /></SelectTrigger>
+                      <SelectContent>
+                        {dossiers.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>{d.code || d.title}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {selectedClientId && (
+                    <Button type="button" size="icon" variant="outline" onClick={() => setCreatingDossier(true)} title="Créer un dossier">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
+              {errors.dossier_id && <p className="text-xs text-destructive mt-1">{errors.dossier_id.message}</p>}
+              {!selectedClientId && <p className="text-xs text-muted-foreground mt-1">Sélectionnez d'abord un client</p>}
+            </div>
             <div className="col-span-2">
               <Label htmlFor="objet">Objet *</Label>
               <Input id="objet" {...register("objet")} placeholder="Objet du devis" />

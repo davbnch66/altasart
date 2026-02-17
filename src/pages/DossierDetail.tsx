@@ -22,6 +22,7 @@ import { DossierSituationTab } from "@/components/dossier/DossierSituationTab";
 import { DossierReglementsTab } from "@/components/dossier/DossierReglementsTab";
 import { DossierAvariesTab } from "@/components/dossier/DossierAvariesTab";
 import { DetailBreadcrumb, BreadcrumbItem } from "@/components/DetailBreadcrumb";
+import { DevisStatusSelect } from "@/components/DevisStatusSelect";
 
 const stageLabels: Record<string, string> = {
   prospect: "Prospect", devis: "Devis envoyé", accepte: "Accepté", planifie: "Planifié",
@@ -276,7 +277,7 @@ const DossierDetail = () => {
                     <p className={`font-medium break-words ${isMobile ? "text-xs" : "text-sm"}`}>{d.code} — {d.objet}</p>
                     <p className="text-[11px] text-muted-foreground">{formatDate(d.created_at)}</p>
                   </div>
-                  <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsDevis[d.status] || d.status}</span>
+                  <DevisStatusSelect devisId={d.id} currentStatus={d.status} size="xs" />
                   {isMobile ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" /> : <span className="text-sm font-semibold shrink-0">{formatAmount(d.amount)}</span>}
                 </div>
               ))}
