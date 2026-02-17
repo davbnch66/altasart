@@ -31,8 +31,13 @@ const statusStyles: Record<string, string> = {
 
 const fmt = (n: number | null) => n ? new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n) : "—";
 
+const AISLES_LETTERS = Array.from({ length: 20 }, (_, i) => String.fromCharCode(65 + i));
+const ROWS_NUMBERS = ["1", "2", "3", "4", "5"];
+const LEVELS = ["1", "2", "3"];
+
 const emptyForm = {
-  name: "", size_m2: "", volume_m3: "", location: "", status: "libre",
+  aisle: "", row: "", level: "",
+  size_m2: "", volume_m3: "", location: "", status: "libre",
   client_id: "", start_date: "", end_date: "", monthly_rate: "", notes: "",
 };
 
@@ -44,6 +49,7 @@ const StoragePage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUnit, setEditingUnit] = useState<any>(null);
   const [deletingUnit, setDeletingUnit] = useState<any>(null);
+  const [bulkDeleteInfo, setBulkDeleteInfo] = useState<{ label: string; pattern: string } | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [viewMode, setViewMode] = useState<"list" | "3d" | "2d">("3d");
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
@@ -119,13 +125,14 @@ const StoragePage = () => {
         .like("name", namePattern);
       if (error) throw error;
     },
-    onSuccess: (_, pattern) => {
-      toast.success(`Boxes correspondant à "${pattern}" supprimés`);
+    onSuccess: () => {
+      toast.success("Boxes supprimés");
       queryClient.invalidateQueries({ queryKey: ["storage-units"] });
       setDetailUnit(null);
       setSelectedUnitId(null);
+      setBulkDeleteInfo(null);
     },
-    onError: () => toast.error("Erreur lors de la suppression"),
+    onError: () => { toast.error("Erreur lors de la suppression"); setBulkDeleteInfo(null); },
   });
 
   const handleDeleteUnit = (unit: any) => {
@@ -133,21 +140,19 @@ const StoragePage = () => {
   };
 
   const handleDeleteAisle = (aisle: string) => {
-    if (confirm(`Supprimer tous les boxes de l'allée ${aisle} ? Cette action est irréversible.`)) {
-      bulkDeleteMutation.mutate(`${aisle}%-N%`);
-    }
+    setBulkDeleteInfo({ label: `toute l'allée ${aisle}`, pattern: `${aisle}%-N%` });
   };
 
   const handleDeleteRow = (rowPrefix: string) => {
-    if (confirm(`Supprimer tous les boxes de la rangée ${rowPrefix} (tous niveaux) ? Cette action est irréversible.`)) {
-      bulkDeleteMutation.mutate(`${rowPrefix}-N%`);
-    }
+    setBulkDeleteInfo({ label: `la rangée ${rowPrefix} (tous niveaux)`, pattern: `${rowPrefix}-N%` });
   };
 
   const handleEdit = (u: any) => {
     setEditingUnit(u);
+    const nameParts = u.name.match(/^([A-Z])(\d+)-N(\d+)$/);
     setForm({
-      name: u.name, size_m2: u.size_m2?.toString() || "", volume_m3: u.volume_m3?.toString() || "",
+      aisle: nameParts?.[1] || "", row: nameParts?.[2] || "", level: nameParts?.[3] || "",
+      size_m2: u.size_m2?.toString() || "", volume_m3: u.volume_m3?.toString() || "",
       location: u.location || "", status: u.status, client_id: u.client_id || "",
       start_date: u.start_date || "", end_date: u.end_date || "",
       monthly_rate: u.monthly_rate?.toString() || "", notes: u.notes || "",
@@ -156,9 +161,10 @@ const StoragePage = () => {
   };
 
   const handleSave = () => {
-    if (!form.name.trim()) return toast.error("Nom requis");
+    if (!form.aisle || !form.row || !form.level) return toast.error("Emplacement requis (allée, rangée, niveau)");
+    const boxName = `${form.aisle}${form.row}-N${form.level}`;
     const payload: any = {
-      name: form.name.trim(), status: form.status,
+      name: boxName, status: form.status,
       size_m2: form.size_m2 ? parseFloat(form.size_m2) : null,
       volume_m3: form.volume_m3 ? parseFloat(form.volume_m3) : null,
       location: form.location || null, client_id: form.client_id || null,
@@ -238,8 +244,26 @@ const StoragePage = () => {
             <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editingUnit ? "Modifier le box" : "Nouveau box"}</DialogTitle></DialogHeader>
               <div className="grid gap-3 py-2">
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label className="text-xs">Nom / Réf *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="A1-N1" className="h-9" /></div>
+                {/* Location picker */}
+                <div className="grid grid-cols-4 gap-3">
+                  <div><Label className="text-xs">Allée *</Label>
+                    <Select value={form.aisle} onValueChange={(v) => setForm({ ...form, aisle: v })}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>{AISLES_LETTERS.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div><Label className="text-xs">Rangée *</Label>
+                    <Select value={form.row} onValueChange={(v) => setForm({ ...form, row: v })}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>{ROWS_NUMBERS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div><Label className="text-xs">Niveau *</Label>
+                    <Select value={form.level} onValueChange={(v) => setForm({ ...form, level: v })}>
+                      <SelectTrigger className="h-9"><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>{LEVELS.map((n) => <SelectItem key={n} value={n}>N{n}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
                   <div><Label className="text-xs">Statut</Label>
                     <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
                       <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
@@ -247,6 +271,9 @@ const StoragePage = () => {
                     </Select>
                   </div>
                 </div>
+                {form.aisle && form.row && form.level && (
+                  <p className="text-xs text-muted-foreground">Box : <strong>{form.aisle}{form.row}-N{form.level}</strong></p>
+                )}
                 <div className="grid grid-cols-3 gap-3">
                   <div><Label className="text-xs">Surface (m²)</Label><Input type="number" value={form.size_m2} onChange={(e) => setForm({ ...form, size_m2: e.target.value })} className="h-9" /></div>
                   <div><Label className="text-xs">Volume (m³)</Label><Input type="number" value={form.volume_m3} onChange={(e) => setForm({ ...form, volume_m3: e.target.value })} className="h-9" /></div>
@@ -402,6 +429,15 @@ const StoragePage = () => {
         title="Supprimer ce box ?"
         description={`"${deletingUnit?.name}" sera définitivement supprimé.`}
         isPending={deleteMutation.isPending}
+      />
+
+      <DeleteConfirmDialog
+        open={!!bulkDeleteInfo}
+        onOpenChange={(v) => !v && setBulkDeleteInfo(null)}
+        onConfirm={() => bulkDeleteInfo && bulkDeleteMutation.mutate(bulkDeleteInfo.pattern)}
+        title="Supprimer en masse ?"
+        description={`Tous les boxes de ${bulkDeleteInfo?.label} seront définitivement supprimés.`}
+        isPending={bulkDeleteMutation.isPending}
       />
     </div>
   );
