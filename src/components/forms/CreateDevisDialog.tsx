@@ -32,10 +32,11 @@ type FormData = z.infer<typeof schema>;
 interface CreateDevisDialogProps {
   preselectedClientId?: string;
   preselectedCompanyId?: string;
+  preselectedDossierId?: string;
   trigger?: React.ReactNode;
 }
 
-export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, trigger }: CreateDevisDialogProps) => {
+export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, preselectedDossierId, trigger }: CreateDevisDialogProps) => {
   const [open, setOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
@@ -67,7 +68,7 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, t
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { company_id: defaultCompanyId, amount: 0 },
+    defaultValues: { company_id: defaultCompanyId, amount: 0, dossier_id: preselectedDossierId || "" },
   });
 
   const mutation = useMutation({
@@ -88,6 +89,7 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, t
       toast.success("Devis créé avec succès");
       queryClient.invalidateQueries({ queryKey: ["devis"] });
       queryClient.invalidateQueries({ queryKey: ["client-devis"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-devis"] });
       reset();
       setOpen(false);
     },

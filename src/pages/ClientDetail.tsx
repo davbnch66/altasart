@@ -417,7 +417,7 @@ const ClientDetail = () => {
               {factures.length === 0 ? (
                 <p className="text-center py-8 text-muted-foreground text-sm">Aucune facture</p>
               ) : factures.map((f) => (
-                <div key={f.id} className="rounded-xl border bg-card p-3">
+                <div key={f.id} className="rounded-xl border bg-card p-3 cursor-pointer" onClick={() => navigate(`/finance/${f.id}`)}>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="font-mono text-xs font-medium">{f.code || "—"}</span>
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${invoiceStatus[f.status] || ""}`}>{invoiceLabels[f.status] || f.status}</span>
@@ -452,7 +452,7 @@ const ClientDetail = () => {
                   </tr></thead>
                   <tbody className="divide-y">
                     {factures.map((f) => (
-                      <tr key={f.id} className="hover:bg-muted/30 transition-colors cursor-pointer">
+                      <tr key={f.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/finance/${f.id}`)}>
                         <td className="px-4 py-3 font-mono text-xs">{f.code || "—"}</td>
                         <td className="px-4 py-3 text-muted-foreground">{formatDate(f.created_at)}</td>
                         <td className="px-4 py-3 text-right font-semibold">{formatAmount(f.amount)}</td>
@@ -479,7 +479,7 @@ const ClientDetail = () => {
               {devis.length === 0 ? (
                 <p className="text-center py-8 text-muted-foreground text-sm">Aucun devis</p>
               ) : devis.map((d) => (
-                <div key={d.id} className="rounded-xl border bg-card p-3">
+                <div key={d.id} className="rounded-xl border bg-card p-3 cursor-pointer" onClick={() => navigate(`/devis/${d.id}`)}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-mono text-xs font-medium">{d.code || "—"}</span>
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${devisStatusStyles[d.status] || ""}`}>{devisLabels[d.status] || d.status}</span>
@@ -490,8 +490,8 @@ const ClientDetail = () => {
                     <span className="font-semibold text-foreground">{formatAmount(d.amount)}</span>
                   </div>
                   <div className="flex gap-1 mt-2 justify-end">
-                    <button onClick={() => setEditingDevis(d)} className="p-1.5 rounded hover:bg-muted"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                    <button onClick={() => setDeletingDevis(d)} className="p-1.5 rounded hover:bg-muted"><Trash2 className="h-3.5 w-3.5 text-destructive" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); setEditingDevis(d); }} className="p-1.5 rounded hover:bg-muted"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); setDeletingDevis(d); }} className="p-1.5 rounded hover:bg-muted"><Trash2 className="h-3.5 w-3.5 text-destructive" /></button>
                   </div>
                 </div>
               ))}
@@ -516,23 +516,23 @@ const ClientDetail = () => {
                   </tr></thead>
                   <tbody className="divide-y">
                     {devis.map((d) => (
-                      <tr key={d.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-mono text-xs">{d.code || "—"}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{formatDate(d.created_at)}</td>
-                        <td className="px-4 py-3 font-medium">{d.objet}</td>
-                        <td className="px-4 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
-                        <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${devisStatusStyles[d.status] || ""}`}>{devisLabels[d.status] || d.status}</span></td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1">
-                            <button onClick={() => setEditingDevis(d)} className="p-1 rounded hover:bg-muted" title="Modifier">
-                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                            </button>
-                            <button onClick={() => setDeletingDevis(d)} className="p-1 rounded hover:bg-muted" title="Supprimer">
-                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                      <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/devis/${d.id}`)}>
+                         <td className="px-4 py-3 font-mono text-xs">{d.code || "—"}</td>
+                         <td className="px-4 py-3 text-muted-foreground">{formatDate(d.created_at)}</td>
+                         <td className="px-4 py-3 font-medium">{d.objet}</td>
+                         <td className="px-4 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
+                         <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${devisStatusStyles[d.status] || ""}`}>{devisLabels[d.status] || d.status}</span></td>
+                         <td className="px-4 py-3">
+                           <div className="flex gap-1">
+                             <button onClick={(e) => { e.stopPropagation(); setEditingDevis(d); }} className="p-1 rounded hover:bg-muted" title="Modifier">
+                               <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                             </button>
+                             <button onClick={(e) => { e.stopPropagation(); setDeletingDevis(d); }} className="p-1 rounded hover:bg-muted" title="Supprimer">
+                               <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                             </button>
+                           </div>
+                         </td>
+                       </tr>
                     ))}
                   </tbody>
                 </table>
@@ -637,23 +637,23 @@ const ClientDetail = () => {
                   </tr></thead>
                   <tbody className="divide-y">
                     {dossiers.map((d) => (
-                      <tr key={d.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-mono text-xs">{d.code || "—"}</td>
-                        <td className="px-4 py-3 font-medium">{d.title}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{formatDate(d.start_date || d.created_at)}</td>
-                        <td className="px-4 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
-                        <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${dossierStageStyles[d.stage] || ""}`}>{dossierStageLabels[d.stage] || d.stage}</span></td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1">
-                            <button onClick={() => setEditingDossier(d)} className="p-1 rounded hover:bg-muted" title="Modifier">
-                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                            </button>
-                            <button onClick={() => setDeletingDossier(d)} className="p-1 rounded hover:bg-muted" title="Supprimer">
-                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                      <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/dossiers/${d.id}`)}>
+                         <td className="px-4 py-3 font-mono text-xs">{d.code || "—"}</td>
+                         <td className="px-4 py-3 font-medium">{d.title}</td>
+                         <td className="px-4 py-3 text-muted-foreground">{formatDate(d.start_date || d.created_at)}</td>
+                         <td className="px-4 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
+                         <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${dossierStageStyles[d.stage] || ""}`}>{dossierStageLabels[d.stage] || d.stage}</span></td>
+                         <td className="px-4 py-3">
+                           <div className="flex gap-1">
+                             <button onClick={(e) => { e.stopPropagation(); setEditingDossier(d); }} className="p-1 rounded hover:bg-muted" title="Modifier">
+                               <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                             </button>
+                             <button onClick={(e) => { e.stopPropagation(); setDeletingDossier(d); }} className="p-1 rounded hover:bg-muted" title="Supprimer">
+                               <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                             </button>
+                           </div>
+                         </td>
+                       </tr>
                     ))}
                   </tbody>
                 </table>

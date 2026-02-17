@@ -12,6 +12,8 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useState } from "react";
 import { EditDossierDialog } from "@/components/forms/EditDossierDialog";
+import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
+import { CreateVisiteDialog } from "@/components/forms/CreateVisiteDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DossierOperationsTab } from "@/components/dossier/DossierOperationsTab";
 import { DossierSituationTab } from "@/components/dossier/DossierSituationTab";
@@ -220,7 +222,11 @@ const DossierDetail = () => {
           )}
 
           <TabsContent value="devis">
-            <div className="rounded-xl border bg-card divide-y">
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <CreateDevisDialog preselectedClientId={client?.id} preselectedCompanyId={dossier.company_id} preselectedDossierId={id} />
+              </div>
+              <div className="rounded-xl border bg-card divide-y">
               {devis.length === 0 ? (
                 <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucun devis lié</div>
               ) : devis.map((d) => (
@@ -234,6 +240,7 @@ const DossierDetail = () => {
                   {isMobile ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" /> : <span className="text-sm font-semibold shrink-0">{formatAmount(d.amount)}</span>}
                 </div>
               ))}
+              </div>
             </div>
           </TabsContent>
 
@@ -264,7 +271,11 @@ const DossierDetail = () => {
           </TabsContent>
 
           <TabsContent value="visites">
-            <div className="rounded-xl border bg-card divide-y">
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <CreateVisiteDialog preselectedClientId={client?.id} preselectedCompanyId={dossier.company_id} preselectedDossierId={id} />
+              </div>
+              <div className="rounded-xl border bg-card divide-y">
               {visites.length === 0 ? (
                 <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucune visite liée</div>
               ) : visites.map((v) => (
@@ -278,6 +289,7 @@ const DossierDetail = () => {
                   {isMobile && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
                 </div>
               ))}
+              </div>
             </div>
           </TabsContent>
         </Tabs>

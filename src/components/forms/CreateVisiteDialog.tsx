@@ -34,14 +34,17 @@ type FormData = z.infer<typeof schema>;
 
 interface CreateVisiteDialogProps {
   trigger?: React.ReactNode;
+  preselectedClientId?: string;
+  preselectedCompanyId?: string;
+  preselectedDossierId?: string;
 }
 
-export const CreateVisiteDialog = ({ trigger }: CreateVisiteDialogProps = {}) => {
+export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCompanyId, preselectedDossierId }: CreateVisiteDialogProps = {}) => {
   const [open, setOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
 
-  const defaultCompanyId = current !== "global" ? current : dbCompanies[0]?.id || "";
+  const defaultCompanyId = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || "");
   const [selectedCompanyId, setSelectedCompanyId] = useState(defaultCompanyId);
 
   const { data: clients = [] } = useQuery({
@@ -59,7 +62,7 @@ export const CreateVisiteDialog = ({ trigger }: CreateVisiteDialogProps = {}) =>
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { company_id: defaultCompanyId },
+    defaultValues: { company_id: defaultCompanyId, client_id: preselectedClientId || ("" as any) },
   });
 
   const mutation = useMutation({
@@ -76,6 +79,7 @@ export const CreateVisiteDialog = ({ trigger }: CreateVisiteDialogProps = {}) =>
         visit_type: data.visit_type || null,
         advisor: data.advisor || null,
         notes: data.notes || null,
+        dossier_id: preselectedDossierId || null,
         status: "planifiee",
       });
       if (error) throw error;
@@ -83,6 +87,7 @@ export const CreateVisiteDialog = ({ trigger }: CreateVisiteDialogProps = {}) =>
     onSuccess: () => {
       toast.success("Visite créée");
       queryClient.invalidateQueries({ queryKey: ["visites"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-visites"] });
       reset();
       setOpen(false);
     },
