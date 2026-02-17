@@ -2,8 +2,6 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronUp, ChevronDown } from "lucide-react";
 
-const ROWS = 5;
-const AISLES = 20;
 const LEVELS = 3;
 
 const statusColors: Record<string, string> = {
@@ -42,6 +40,23 @@ interface Storage2DViewerProps {
 export const Storage2DViewer = ({ units, selectedId, onSelectUnit }: Storage2DViewerProps) => {
   const [currentLevel, setCurrentLevel] = useState(1);
 
+  // Derive aisles and rows dynamically from existing units
+  const { aisles, rows } = useMemo(() => {
+    const aisleSet = new Set<string>();
+    const rowSet = new Set<string>();
+    units.forEach((u) => {
+      const match = u.name.match(/^([A-Z])(\d+)-N(\d+)$/);
+      if (match) {
+        aisleSet.add(match[1]);
+        rowSet.add(match[2]);
+      }
+    });
+    return {
+      aisles: [...aisleSet].sort(),
+      rows: [...rowSet].sort((a, b) => Number(a) - Number(b)),
+    };
+  }, [units]);
+
   const unitLookup = useMemo(() => {
     const lookup: Record<string, StorageUnit> = {};
     units.forEach((u) => { lookup[u.name] = u; });
@@ -49,26 +64,35 @@ export const Storage2DViewer = ({ units, selectedId, onSelectUnit }: Storage2DVi
   }, [units]);
 
   const grid = useMemo(() => {
-    const cells: { name: string; row: number; aisle: number; unit: StorageUnit | null }[] = [];
-    for (let aisle = 0; aisle < AISLES; aisle++) {
-      for (let row = 0; row < ROWS; row++) {
-        const name = `${String.fromCharCode(65 + aisle)}${row + 1}-N${currentLevel}`;
-        cells.push({ name, row, aisle, unit: unitLookup[name] || null });
+    const cells: { name: string; row: string; aisle: string; unit: StorageUnit | null }[] = [];
+    for (const aisle of aisles) {
+      for (const row of rows) {
+        const name = `${aisle}${row}-N${currentLevel}`;
+        const unit = unitLookup[name] || null;
+        // Only show if this unit exists in DB
+        if (unit) {
+          cells.push({ name, row, aisle, unit });
+        }
       }
     }
     return cells;
-  }, [unitLookup, currentLevel]);
+  }, [unitLookup, currentLevel, aisles, rows]);
 
   const levelStats = useMemo(() => {
-    const levelUnits = grid.filter((c) => c.unit);
-    const occupe = levelUnits.filter((c) => c.unit?.status === "occupe").length;
-    const reserve = levelUnits.filter((c) => c.unit?.status === "reserve").length;
-    return { total: ROWS * AISLES, configured: levelUnits.length, occupe, reserve };
-  }, [grid]);
+    const levelUnits = units.filter((u) => u.name.endsWith(`-N${currentLevel}`));
+    const occupe = levelUnits.filter((u) => u.status === "occupe").length;
+    const reserve = levelUnits.filter((u) => u.status === "reserve").length;
+    const libre = levelUnits.filter((u) => u.status === "libre").length;
+    return { total: levelUnits.length, occupe, reserve, libre };
+  }, [units, currentLevel]);
 
-  const handleClick = (cell: { name: string; unit: StorageUnit | null }) => {
-    onSelectUnit(cell.unit || { id: "", name: cell.name, status: "libre" });
-  };
+  if (units.length === 0) {
+    return (
+      <div className="rounded-xl border bg-card p-8 text-center text-muted-foreground">
+        <p className="text-sm">Aucun box configuré. Utilisez "Gérer en masse" ou "Ajouter un box" pour créer des emplacements.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-xl border bg-card overflow-hidden relative">
@@ -113,49 +137,50 @@ export const Storage2DViewer = ({ units, selectedId, onSelectUnit }: Storage2DVi
         <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
           <span>{levelStats.occupe} occupé{levelStats.occupe > 1 ? "s" : ""}</span>
           <span>{levelStats.reserve} réservé{levelStats.reserve > 1 ? "s" : ""}</span>
-          <span>{levelStats.total - levelStats.occupe - levelStats.reserve} libre{(levelStats.total - levelStats.occupe - levelStats.reserve) > 1 ? "s" : ""}</span>
+          <span>{levelStats.libre} libre{levelStats.libre > 1 ? "s" : ""}</span>
         </div>
       </div>
 
       {/* Grid */}
       <div className="p-4 overflow-x-auto">
         <div className="min-w-[800px]">
-          {/* Aisle labels */}
+          {/* Row labels */}
           <div className="flex gap-1 mb-1 pl-10">
-            {Array.from({ length: ROWS }, (_, i) => (
-              <div key={i} className="flex-1 text-center text-[10px] text-muted-foreground font-medium">
-                Rang {i + 1}
+            {rows.map((r) => (
+              <div key={r} className="flex-1 text-center text-[10px] text-muted-foreground font-medium">
+                Rang {r}
               </div>
             ))}
           </div>
 
-          {/* Rows */}
+          {/* Aisles */}
           <div className="flex flex-col gap-1">
-            {Array.from({ length: AISLES }, (_, aisleIdx) => (
-              <div key={aisleIdx} className="flex items-center gap-1">
-                {/* Aisle label */}
+            {aisles.map((aisle) => (
+              <div key={aisle} className="flex items-center gap-1">
                 <div className="w-9 text-right text-[10px] text-muted-foreground font-mono shrink-0">
-                  {String.fromCharCode(65 + aisleIdx)}
+                  {aisle}
                 </div>
-
-                {/* Boxes in this aisle */}
-                {Array.from({ length: ROWS }, (_, rowIdx) => {
-                  const cell = grid.find((c) => c.aisle === aisleIdx && c.row === rowIdx);
-                  if (!cell) return null;
-                  const status = cell.unit?.status || "libre";
-                  const isSelected = selectedId === (cell.unit?.id || cell.name);
+                {rows.map((row) => {
+                  const name = `${aisle}${row}-N${currentLevel}`;
+                  const unit = unitLookup[name];
+                  if (!unit) {
+                    // Empty slot — position exists for other levels but not this one
+                    return <div key={name} className="flex-1 h-8" />;
+                  }
+                  const status = unit.status || "libre";
+                  const isSelected = selectedId === unit.id;
 
                   return (
                     <button
-                      key={cell.name}
+                      key={name}
                       className={`flex-1 h-8 rounded border text-[9px] font-mono transition-all relative
                         ${isSelected ? "ring-2 ring-orange-500 bg-orange-500/20 border-orange-500" : statusColors[status] || "bg-muted border-border"}
                       `}
-                      onClick={() => handleClick(cell)}
-                      title={`${cell.name} — ${status}${cell.unit?.clients ? ` — ${(cell.unit.clients as any).name}` : ""}`}
+                      onClick={() => onSelectUnit(unit)}
+                      title={`${name} — ${status}${unit.clients ? ` — ${(unit.clients as any).name}` : ""}`}
                     >
-                      <span className="opacity-70">{cell.name}</span>
-                      {cell.unit?.clients && (
+                      <span className="opacity-70">{name}</span>
+                      {unit.clients && (
                         <div className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-primary border border-card" />
                       )}
                     </button>
