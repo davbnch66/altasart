@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, FolderOpen, Pencil, FileText, DollarSign, Eye, User, Building2, ChevronRight, Cog, BarChart3,
-  CreditCard, AlertTriangle, Receipt,
+  CreditCard, AlertTriangle, Receipt, PiggyBank,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,6 +23,7 @@ import { DossierReglementsTab } from "@/components/dossier/DossierReglementsTab"
 import { DossierAvariesTab } from "@/components/dossier/DossierAvariesTab";
 import { DetailBreadcrumb, BreadcrumbItem } from "@/components/DetailBreadcrumb";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
+import { DossierCostsTab } from "@/components/dossier/DossierCostsTab";
 
 const stageLabels: Record<string, string> = {
   prospect: "Prospect", devis: "Devis envoyé", accepte: "Accepté", planifie: "Planifié",
@@ -129,6 +130,7 @@ const DossierDetail = () => {
     { key: "operations", label: "Opérations", count: null, icon: Cog },
     { key: "factures", label: "Factures", count: factures.length, icon: Receipt },
     { key: "reglements", label: "Règlements", count: null, icon: CreditCard },
+    { key: "costs", label: "Rentabilité", count: null, icon: PiggyBank },
     { key: "avaries", label: "Avaries", count: null, icon: AlertTriangle },
     { key: "situation", label: "Situation", count: null, icon: BarChart3 },
   ];
@@ -314,6 +316,10 @@ const DossierDetail = () => {
 
           <TabsContent value="reglements">
             <DossierReglementsTab dossierId={id!} />
+          </TabsContent>
+
+          <TabsContent value="costs">
+            <DossierCostsTab dossierId={id!} companyId={dossier.company_id} dossierAmount={dossier.amount || 0} />
           </TabsContent>
 
           <TabsContent value="avaries">

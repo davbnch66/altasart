@@ -517,6 +517,98 @@ export type Database = {
           },
         ]
       }
+      devis_templates: {
+        Row: {
+          category: string
+          company_id: string
+          created_at: string
+          id: string
+          lines: Json
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          company_id: string
+          created_at?: string
+          id?: string
+          lines?: Json
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          lines?: Json
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "devis_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dossier_costs: {
+        Row: {
+          amount: number
+          category: string
+          company_id: string
+          created_at: string
+          date: string | null
+          description: string
+          dossier_id: string
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          company_id: string
+          created_at?: string
+          date?: string | null
+          description: string
+          dossier_id: string
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          company_id?: string
+          created_at?: string
+          date?: string | null
+          description?: string
+          dossier_id?: string
+          id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossier_costs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dossier_costs_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dossiers: {
         Row: {
           address: string | null
@@ -724,6 +816,77 @@ export type Database = {
           },
         ]
       }
+      fleet_vehicles: {
+        Row: {
+          brand: string | null
+          capacity_tons: number | null
+          company_id: string
+          created_at: string
+          daily_rate: number | null
+          height_meters: number | null
+          id: string
+          insurance_expiry: string | null
+          model: string | null
+          name: string
+          next_maintenance: string | null
+          notes: string | null
+          reach_meters: number | null
+          registration: string | null
+          status: string
+          technical_control_expiry: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          capacity_tons?: number | null
+          company_id: string
+          created_at?: string
+          daily_rate?: number | null
+          height_meters?: number | null
+          id?: string
+          insurance_expiry?: string | null
+          model?: string | null
+          name: string
+          next_maintenance?: string | null
+          notes?: string | null
+          reach_meters?: number | null
+          registration?: string | null
+          status?: string
+          technical_control_expiry?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          capacity_tons?: number | null
+          company_id?: string
+          created_at?: string
+          daily_rate?: number | null
+          height_meters?: number | null
+          id?: string
+          insurance_expiry?: string | null
+          model?: string | null
+          name?: string
+          next_maintenance?: string | null
+          notes?: string | null
+          reach_meters?: number | null
+          registration?: string | null
+          status?: string
+          technical_control_expiry?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fleet_vehicles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inbound_emails: {
         Row: {
           ai_analysis: Json | null
@@ -816,6 +979,56 @@ export type Database = {
             columns: ["visite_id"]
             isOneToOne: false
             referencedRelation: "visites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      materiel_catalog: {
+        Row: {
+          category: string
+          company_id: string
+          created_at: string
+          default_dimensions: string | null
+          default_volume: number | null
+          default_weight: number | null
+          designation: string
+          fragility: string | null
+          handling_notes: string | null
+          id: string
+          unit_price: number | null
+        }
+        Insert: {
+          category?: string
+          company_id: string
+          created_at?: string
+          default_dimensions?: string | null
+          default_volume?: number | null
+          default_weight?: number | null
+          designation: string
+          fragility?: string | null
+          handling_notes?: string | null
+          id?: string
+          unit_price?: number | null
+        }
+        Update: {
+          category?: string
+          company_id?: string
+          created_at?: string
+          default_dimensions?: string | null
+          default_volume?: number | null
+          default_weight?: number | null
+          designation?: string
+          fragility?: string | null
+          handling_notes?: string | null
+          id?: string
+          unit_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "materiel_catalog_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -1276,6 +1489,82 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      storage_units: {
+        Row: {
+          client_id: string | null
+          company_id: string
+          created_at: string
+          dossier_id: string | null
+          end_date: string | null
+          id: string
+          location: string | null
+          monthly_rate: number | null
+          name: string
+          notes: string | null
+          size_m2: number | null
+          start_date: string | null
+          status: string
+          updated_at: string
+          volume_m3: number | null
+        }
+        Insert: {
+          client_id?: string | null
+          company_id: string
+          created_at?: string
+          dossier_id?: string | null
+          end_date?: string | null
+          id?: string
+          location?: string | null
+          monthly_rate?: number | null
+          name: string
+          notes?: string | null
+          size_m2?: number | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+          volume_m3?: number | null
+        }
+        Update: {
+          client_id?: string | null
+          company_id?: string
+          created_at?: string
+          dossier_id?: string | null
+          end_date?: string | null
+          id?: string
+          location?: string | null
+          monthly_rate?: number | null
+          name?: string
+          notes?: string | null
+          size_m2?: number | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+          volume_m3?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storage_units_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storage_units_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storage_units_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       visite_contraintes: {
         Row: {
