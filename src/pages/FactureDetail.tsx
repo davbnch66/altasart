@@ -15,6 +15,7 @@ import { generateFacturePdf } from "@/lib/generateFacturePdf";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(n);
@@ -34,6 +35,7 @@ const FactureDetail = () => {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const fromClient = (location.state as any)?.fromClient === true;
+  const fromDossier = (location.state as any)?.fromDossier as string | undefined;
   const [editOpen, setEditOpen] = useState(false);
   const [editReglement, setEditReglement] = useState<any>(null);
   const [deleteReglement, setDeleteReglement] = useState<any>(null);
@@ -97,9 +99,16 @@ const FactureDetail = () => {
 
   return (
     <div className={`max-w-5xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+      {/* Breadcrumb */}
+      <DetailBreadcrumb items={[
+        ...(fromClient && client?.id ? [{ label: client.name, path: `/clients/${client.id}` }] : []),
+        ...(fromDossier && dossier ? [{ label: dossier.code || dossier.title, path: `/dossiers/${fromDossier}`, state: { fromClient } }] : !fromClient ? [{ label: "Factures", path: "/finance" }] : []),
+        { label: `Facture ${facture.code || ""}` },
+      ]} />
+
       {/* Header */}
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/finance")} className={isMobile ? "h-8 w-8" : ""}>
+        <Button variant="ghost" size="icon" onClick={() => fromDossier ? navigate(`/dossiers/${fromDossier}`, { state: { fromClient } }) : fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/finance")} className={isMobile ? "h-8 w-8" : ""}>
           <ArrowLeft className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
         </Button>
         <div className="flex-1 min-w-0">

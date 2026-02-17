@@ -21,6 +21,7 @@ import { DossierOperationsTab } from "@/components/dossier/DossierOperationsTab"
 import { DossierSituationTab } from "@/components/dossier/DossierSituationTab";
 import { DossierReglementsTab } from "@/components/dossier/DossierReglementsTab";
 import { DossierAvariesTab } from "@/components/dossier/DossierAvariesTab";
+import { DetailBreadcrumb, BreadcrumbItem } from "@/components/DetailBreadcrumb";
 
 const stageLabels: Record<string, string> = {
   prospect: "Prospect", devis: "Devis envoyé", accepte: "Accepté", planifie: "Planifié",
@@ -133,6 +134,12 @@ const DossierDetail = () => {
 
   return (
     <div className={`max-w-5xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+      {/* Breadcrumb */}
+      <DetailBreadcrumb items={[
+        ...(fromClient && client?.id ? [{ label: client.name, path: `/clients/${client.id}` }] : [{ label: "Dossiers", path: "/dossiers" }]),
+        { label: dossier.code || "Dossier" },
+      ]} />
+
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2">
         <Button variant="ghost" size="icon" onClick={() => fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/dossiers")} className={isMobile ? "h-8 w-8" : ""}>
@@ -240,7 +247,7 @@ const DossierDetail = () => {
               {visites.length === 0 ? (
                 <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucune visite liée</div>
               ) : visites.map((v) => (
-                <div key={v.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/visites/${v.id}`)}>
+                <div key={v.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/visites/${v.id}`, { state: { fromDossier: id, fromClient: (location.state as any)?.fromClient } })}>
                   <Eye className="h-4 w-4 text-warning shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className={`font-medium break-words ${isMobile ? "text-xs" : "text-sm"}`}>{v.title}</p>
@@ -263,7 +270,7 @@ const DossierDetail = () => {
               {devis.length === 0 ? (
                 <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucun devis lié</div>
               ) : devis.map((d) => (
-                <div key={d.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/devis/${d.id}`)}>
+                <div key={d.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/devis/${d.id}`, { state: { fromDossier: id, fromClient: (location.state as any)?.fromClient } })}>
                   <FileText className="h-4 w-4 text-info shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className={`font-medium break-words ${isMobile ? "text-xs" : "text-sm"}`}>{d.code} — {d.objet}</p>
@@ -290,7 +297,7 @@ const DossierDetail = () => {
                 {factures.length === 0 ? (
                   <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucune facture liée</div>
                 ) : factures.map((f) => (
-                  <div key={f.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/finance/${f.id}`)}>
+                  <div key={f.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/finance/${f.id}`, { state: { fromDossier: id, fromClient: (location.state as any)?.fromClient } })}>
                     <DollarSign className="h-4 w-4 text-success shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className={`font-medium break-words ${isMobile ? "text-xs" : "text-sm"}`}>{f.code || "Facture"}</p>
