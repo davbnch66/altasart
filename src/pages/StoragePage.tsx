@@ -16,7 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { StorageDetailPanel } from "@/components/storage/StorageDetailPanel";
 import { StorageBulkManager } from "@/components/storage/StorageBulkManager";
-import { format } from "date-fns";
+import { StorageTransferDialog } from "@/components/storage/StorageTransferDialog";
+import { format, differenceInDays } from "date-fns";
 
 const Storage3DViewer = lazy(() =>
   import("@/components/storage/Storage3DViewer").then((m) => ({ default: m.Storage3DViewer }))
@@ -25,9 +26,9 @@ const Storage2DViewer = lazy(() =>
   import("@/components/storage/Storage2DViewer").then((m) => ({ default: m.Storage2DViewer }))
 );
 
-const statusLabels: Record<string, string> = { libre: "Libre", occupe: "Occupé", reserve: "Réservé" };
+const statusLabels: Record<string, string> = { libre: "Libre", occupe: "Occupé", reserve: "Réservé", impaye: "Impayé" };
 const statusStyles: Record<string, string> = {
-  libre: "bg-success/10 text-success", occupe: "bg-info/10 text-info", reserve: "bg-warning/10 text-warning",
+  libre: "bg-success/10 text-success", occupe: "bg-info/10 text-info", reserve: "bg-warning/10 text-warning", impaye: "bg-destructive/10 text-destructive",
 };
 
 const fmt = (n: number | null) => n ? new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n) : "—";
@@ -56,6 +57,7 @@ const StoragePage = () => {
   const [viewMode, setViewMode] = useState<"list" | "3d" | "2d">("3d");
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [detailUnit, setDetailUnit] = useState<any>(null);
+  const [transferUnit, setTransferUnit] = useState<any>(null);
 
   const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
   const firstCompanyId = current === "global" ? dbCompanies[0]?.id : current;
@@ -257,12 +259,44 @@ const StoragePage = () => {
     return u.name.toLowerCase().includes(q) || u.location?.toLowerCase().includes(q) || (u.clients as any)?.name?.toLowerCase().includes(q);
   });
 
+  const transferMutation = useMutation({
+    mutationFn: async ({ sourceId, targetId }: { sourceId: string; targetId: string }) => {
+      const source = units.find((u: any) => u.id === sourceId);
+      if (!source) throw new Error("Box source introuvable");
+      // Copy client data to target
+      const { error: e1 } = await supabase.from("storage_units").update({
+        client_id: source.client_id, start_date: source.start_date, end_date: source.end_date,
+        monthly_rate: source.monthly_rate, status: source.status, notes: source.notes,
+      }).eq("id", targetId);
+      if (e1) throw e1;
+      // Clear source
+      const { error: e2 } = await supabase.from("storage_units").update({
+        client_id: null, start_date: null, end_date: null, monthly_rate: null, status: "libre", notes: null,
+      }).eq("id", sourceId);
+      if (e2) throw e2;
+    },
+    onSuccess: () => {
+      toast.success("Transfert effectué");
+      queryClient.invalidateQueries({ queryKey: ["storage-units"] });
+      setTransferUnit(null);
+      setDetailUnit(null);
+      setSelectedUnitId(null);
+    },
+    onError: () => toast.error("Erreur lors du transfert"),
+  });
+
   const stats = {
     total: units.length,
     libre: units.filter((u: any) => u.status === "libre").length,
     occupe: units.filter((u: any) => u.status === "occupe").length,
     reserve: units.filter((u: any) => u.status === "reserve").length,
-    revenuMensuel: units.filter((u: any) => u.status === "occupe" && u.monthly_rate).reduce((s: number, u: any) => s + Number(u.monthly_rate), 0),
+    impaye: units.filter((u: any) => u.status === "impaye").length,
+    expirant: units.filter((u: any) => {
+      if (!u.end_date) return false;
+      const days = differenceInDays(new Date(u.end_date), new Date());
+      return days >= 0 && days <= 30;
+    }).length,
+    revenuMensuel: units.filter((u: any) => (u.status === "occupe" || u.status === "impaye") && u.monthly_rate).reduce((s: number, u: any) => s + Number(u.monthly_rate), 0),
   };
 
   return (
@@ -378,21 +412,51 @@ const StoragePage = () => {
       </motion.div>
 
       {/* Stats */}
-      <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-5"}`}>
+      <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-6"}`}>
         {[
-          { label: "Total boxes", value: "300", sub: `${units.length} configuré${units.length > 1 ? "s" : ""}` },
-          { label: "Libres", value: 300 - stats.occupe - stats.reserve, sub: `${((300 - stats.occupe - stats.reserve) / 3).toFixed(0)}% dispo` },
-          { label: "Occupés", value: stats.occupe, sub: `${((stats.occupe / 300) * 100).toFixed(1)}% occupation` },
+          { label: "Total boxes", value: stats.total },
+          { label: "Libres", value: stats.libre, sub: stats.total > 0 ? `${((stats.libre / stats.total) * 100).toFixed(0)}% dispo` : undefined },
+          { label: "Occupés", value: stats.occupe, sub: stats.total > 0 ? `${((stats.occupe / stats.total) * 100).toFixed(0)}% occupation` : undefined },
           { label: "Réservés", value: stats.reserve },
-          { label: "Revenu mensuel", value: fmt(stats.revenuMensuel) },
+          { label: "Impayés", value: stats.impaye, sub: stats.impaye > 0 ? "⚠️ Action requise" : undefined, alert: stats.impaye > 0 },
+          { label: "Revenu mensuel", value: fmt(stats.revenuMensuel), sub: stats.expirant > 0 ? `${stats.expirant} contrat${stats.expirant > 1 ? "s" : ""} expire${stats.expirant > 1 ? "nt" : ""} bientôt` : undefined },
         ].map((s) => (
-          <div key={s.label} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
+          <div key={s.label} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"} ${(s as any).alert ? "border-destructive/50 bg-destructive/5" : ""}`}>
             <p className="text-[11px] text-muted-foreground">{s.label}</p>
-            <p className={`font-bold mt-0.5 ${isMobile ? "text-sm" : "text-lg"}`}>{s.value}</p>
-            {s.sub && <p className="text-[10px] text-muted-foreground">{s.sub}</p>}
+            <p className={`font-bold mt-0.5 ${isMobile ? "text-sm" : "text-lg"} ${(s as any).alert ? "text-destructive" : ""}`}>{s.value}</p>
+            {s.sub && <p className={`text-[10px] ${(s as any).alert ? "text-destructive/80" : "text-muted-foreground"}`}>{s.sub}</p>}
           </div>
         ))}
       </div>
+
+      {/* Search bar for 2D/3D views */}
+      {(viewMode === "2d" || viewMode === "3d") && !isMobile && (
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher un box ou un client..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              // Auto-select matching unit
+              if (e.target.value.length >= 2) {
+                const q = e.target.value.toLowerCase();
+                const match = units.find((u: any) =>
+                  u.name.toLowerCase().includes(q) || (u.clients as any)?.name?.toLowerCase().includes(q)
+                );
+                if (match) {
+                  setSelectedUnitId(match.id);
+                  setDetailUnit(match);
+                }
+              } else {
+                setSelectedUnitId(null);
+                setDetailUnit(null);
+              }
+            }}
+            className="pl-9 h-9"
+          />
+        </div>
+      )}
 
       {/* 3D View */}
       {viewMode === "3d" && !isMobile && (
@@ -411,6 +475,7 @@ const StoragePage = () => {
                 onDelete={handleDeleteUnit}
                 onDeleteAisle={handleDeleteAisle}
                 onDeleteRow={handleDeleteRow}
+                onTransfer={(u) => setTransferUnit(u)}
               />
             </div>
           )}
@@ -434,6 +499,7 @@ const StoragePage = () => {
                 onDelete={handleDeleteUnit}
                 onDeleteAisle={handleDeleteAisle}
                 onDeleteRow={handleDeleteRow}
+                onTransfer={(u) => setTransferUnit(u)}
               />
             </div>
           )}
@@ -525,6 +591,17 @@ const StoragePage = () => {
         isAdding={bulkAddMutation.isPending}
         isDeleting={bulkMultiDeleteMutation.isPending}
       />
+
+      {transferUnit && (
+        <StorageTransferDialog
+          open={!!transferUnit}
+          onOpenChange={(v) => !v && setTransferUnit(null)}
+          sourceUnit={transferUnit}
+          availableUnits={units}
+          onTransfer={(sourceId, targetId) => transferMutation.mutate({ sourceId, targetId })}
+          isPending={transferMutation.isPending}
+        />
+      )}
     </div>
   );
 };

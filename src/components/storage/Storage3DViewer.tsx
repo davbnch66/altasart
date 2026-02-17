@@ -168,6 +168,7 @@ export const Storage3DViewer = ({ units, selectedId, onSelectUnit }: Storage3DVi
         <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[#4ade80] opacity-40" /><span>Libre</span></div>
         <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[#60a5fa]" /><span>Occupé</span></div>
         <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[#facc15]" /><span>Réservé</span></div>
+        <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[#ef4444]" /><span>Impayé</span></div>
         <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-sm bg-[#f97316]" /><span>Sélectionné</span></div>
       </div>
 
