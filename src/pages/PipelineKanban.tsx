@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FolderOpen, Euro, User, GripVertical, ChevronLeft, ChevronRight, LayoutGrid, List } from "lucide-react";
+import { FolderOpen, Euro, User, GripVertical, ChevronLeft, ChevronRight, LayoutGrid, List, ArrowRight } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const stages = [
   { key: "prospect", label: "Prospect", color: "border-muted-foreground/30 bg-muted/30" },
@@ -32,6 +33,7 @@ const PipelineKanban = () => {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [movingCardId, setMovingCardId] = useState<string | null>(null);
 
   const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
 
@@ -57,6 +59,7 @@ const PipelineKanban = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pipeline-dossiers"] });
       toast.success("Dossier déplacé");
+      setMovingCardId(null);
     },
   });
 
@@ -65,6 +68,11 @@ const PipelineKanban = () => {
       moveMutation.mutate({ id: draggedId, stage });
       setDraggedId(null);
     }
+  };
+
+  const handleMoveToStage = (dossierId: string, newStage: string) => {
+    moveMutation.mutate({ id: dossierId, stage: newStage });
+    setMovingCardId(null);
   };
 
   // Group by stage
@@ -133,14 +141,15 @@ const PipelineKanban = () => {
               {grouped[col.key].map((d: any) => (
                 <div
                   key={d.id}
-                  draggable
+                  draggable={!isMobile}
                   onDragStart={() => setDraggedId(d.id)}
-                  onClick={() => navigate(`/dossiers/${d.id}`)}
                   className="rounded-lg border bg-card p-3 cursor-pointer hover:shadow-md transition-shadow group"
                 >
                   <div className="flex items-start gap-2">
-                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-muted-foreground mt-0.5 shrink-0 cursor-grab" />
-                    <div className="flex-1 min-w-0">
+                    {!isMobile && (
+                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-muted-foreground mt-0.5 shrink-0 cursor-grab" />
+                    )}
+                    <div className="flex-1 min-w-0" onClick={() => navigate(`/dossiers/${d.id}`, { state: { fromPipeline: true } })}>
                       <p className="text-xs font-medium truncate">{d.title}</p>
                       <div className="flex items-center gap-1.5 mt-1">
                         <User className="h-3 w-3 text-muted-foreground" />
@@ -154,6 +163,38 @@ const PipelineKanban = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Mobile: move stage selector */}
+                  {isMobile && (
+                    <div className="mt-2 pt-2 border-t">
+                      {movingCardId === d.id ? (
+                        <div className="flex flex-wrap gap-1">
+                          {stages.filter(s => s.key !== d.stage).map((s) => (
+                            <button
+                              key={s.key}
+                              className="text-[9px] rounded-full px-2 py-0.5 border bg-background hover:bg-primary hover:text-primary-foreground transition-colors"
+                              onClick={(e) => { e.stopPropagation(); handleMoveToStage(d.id, s.key); }}
+                            >
+                              {s.label}
+                            </button>
+                          ))}
+                          <button
+                            className="text-[9px] rounded-full px-2 py-0.5 border bg-muted text-muted-foreground"
+                            onClick={(e) => { e.stopPropagation(); setMovingCardId(null); }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={(e) => { e.stopPropagation(); setMovingCardId(d.id); }}
+                        >
+                          <ArrowRight className="h-3 w-3" /> Déplacer
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
