@@ -14,6 +14,138 @@ export type Database = {
   }
   public: {
     Tables: {
+      avaries: {
+        Row: {
+          amount: number | null
+          client_id: string
+          company_id: string
+          created_at: string
+          description: string | null
+          dossier_id: string
+          id: string
+          photos: string[] | null
+          resolution: string | null
+          responsibility: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number | null
+          client_id: string
+          company_id: string
+          created_at?: string
+          description?: string | null
+          dossier_id: string
+          id?: string
+          photos?: string[] | null
+          resolution?: string | null
+          responsibility?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number | null
+          client_id?: string
+          company_id?: string
+          created_at?: string
+          description?: string | null
+          dossier_id?: string
+          id?: string
+          photos?: string[] | null
+          resolution?: string | null
+          responsibility?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "avaries_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avaries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "avaries_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_notes: {
+        Row: {
+          author_id: string
+          client_id: string
+          company_id: string
+          content: string
+          created_at: string
+          dossier_id: string | null
+          id: string
+          note_type: string
+        }
+        Insert: {
+          author_id: string
+          client_id: string
+          company_id: string
+          content: string
+          created_at?: string
+          dossier_id?: string | null
+          id?: string
+          note_type?: string
+        }
+        Update: {
+          author_id?: string
+          client_id?: string
+          company_id?: string
+          content?: string
+          created_at?: string
+          dossier_id?: string | null
+          id?: string
+          note_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_notes_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_notes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_notes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_notes_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null

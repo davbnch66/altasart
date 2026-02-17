@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, FolderOpen, Pencil, FileText, DollarSign, Eye, User, Building2, ChevronRight, Cog, BarChart3,
+  CreditCard, AlertTriangle, Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,9 +15,12 @@ import { useState } from "react";
 import { EditDossierDialog } from "@/components/forms/EditDossierDialog";
 import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
 import { CreateVisiteDialog } from "@/components/forms/CreateVisiteDialog";
+import { CreateFactureDialog } from "@/components/forms/CreateFactureDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DossierOperationsTab } from "@/components/dossier/DossierOperationsTab";
 import { DossierSituationTab } from "@/components/dossier/DossierSituationTab";
+import { DossierReglementsTab } from "@/components/dossier/DossierReglementsTab";
+import { DossierAvariesTab } from "@/components/dossier/DossierAvariesTab";
 
 const stageLabels: Record<string, string> = {
   prospect: "Prospect", devis: "Devis envoyé", accepte: "Accepté", planifie: "Planifié",
@@ -115,19 +119,29 @@ const DossierDetail = () => {
   const stageKeys = Object.keys(stageLabels);
   const currentStageIdx = stageKeys.indexOf(dossier.stage);
 
+  const tabItems = [
+    { key: "visites", label: "Visites", count: visites.length, icon: Eye },
+    { key: "devis", label: "Devis", count: devis.length, icon: FileText },
+    { key: "operations", label: "Opérations", count: null, icon: Cog },
+    { key: "factures", label: "Factures", count: factures.length, icon: Receipt },
+    { key: "reglements", label: "Règlements", count: null, icon: CreditCard },
+    { key: "avaries", label: "Avaries", count: null, icon: AlertTriangle },
+    { key: "situation", label: "Situation", count: null, icon: BarChart3 },
+  ];
+
   return (
     <div className={`max-w-5xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/dossiers")} className={isMobile ? "h-8 w-8" : ""}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className={isMobile ? "h-8 w-8" : ""}>
           <ArrowLeft className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
         </Button>
         <div className="flex-1 min-w-0">
           <h1 className={`font-bold tracking-tight flex items-center gap-2 ${isMobile ? "text-base" : "text-2xl gap-3"}`}>
             {!isMobile && <FolderOpen className="h-6 w-6 text-muted-foreground" />}
-            <span className="truncate">{dossier.code || "Dossier"}</span>
+            <span className="break-words">{dossier.code || "Dossier"}</span>
           </h1>
-          <p className={`text-muted-foreground mt-0.5 truncate ${isMobile ? "text-xs" : ""}`}>{dossier.title}</p>
+          <p className={`text-muted-foreground mt-0.5 break-words ${isMobile ? "text-xs" : ""}`}>{dossier.title}</p>
         </div>
         <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => setEditing(true)}>
           <Pencil className="h-4 w-4" />
@@ -187,23 +201,17 @@ const DossierDetail = () => {
             <div><p className="text-muted-foreground">Société</p><p className="font-medium">{company?.name || "—"}</p></div>
             <div><p className="text-muted-foreground">Début</p><p className="font-medium">{formatDate(dossier.start_date)}</p></div>
             <div><p className="text-muted-foreground">Fin</p><p className="font-medium">{formatDate(dossier.end_date)}</p></div>
-            {dossier.address && <div><p className="text-muted-foreground">Adresse</p><p className="font-medium truncate">{dossier.address}</p></div>}
+            {dossier.address && <div><p className="text-muted-foreground">Adresse</p><p className="font-medium break-words">{dossier.address}</p></div>}
           </div>
         </div>
       </div>
 
       {/* Tabs */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-        <Tabs defaultValue="devis">
+        <Tabs defaultValue="visites">
           {isMobile ? (
             <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-3 px-3 pb-1">
-              {[
-                { key: "devis", label: "Devis", count: devis.length },
-                { key: "operations", label: "Opérations", count: null },
-                { key: "factures", label: "Factures", count: factures.length },
-                { key: "situation", label: "Situation", count: null },
-                { key: "visites", label: "Visites", count: visites.length },
-              ].map((tab) => (
+              {tabItems.map((tab) => (
                 <TabsList key={tab.key} className="bg-transparent p-0">
                   <TabsTrigger value={tab.key} className="rounded-full px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                     {tab.label}{tab.count !== null ? ` (${tab.count})` : ""}
@@ -213,13 +221,36 @@ const DossierDetail = () => {
             </div>
           ) : (
             <TabsList>
-              <TabsTrigger value="devis" className="gap-1.5"><FileText className="h-3.5 w-3.5" /> Devis ({devis.length})</TabsTrigger>
-              <TabsTrigger value="operations" className="gap-1.5"><Cog className="h-3.5 w-3.5" /> Opérations</TabsTrigger>
-              <TabsTrigger value="factures" className="gap-1.5"><DollarSign className="h-3.5 w-3.5" /> Factures ({factures.length})</TabsTrigger>
-              <TabsTrigger value="situation" className="gap-1.5"><BarChart3 className="h-3.5 w-3.5" /> Situation</TabsTrigger>
-              <TabsTrigger value="visites" className="gap-1.5"><Eye className="h-3.5 w-3.5" /> Visites ({visites.length})</TabsTrigger>
+              {tabItems.map((tab) => (
+                <TabsTrigger key={tab.key} value={tab.key} className="gap-1.5">
+                  <tab.icon className="h-3.5 w-3.5" /> {tab.label}{tab.count !== null ? ` (${tab.count})` : ""}
+                </TabsTrigger>
+              ))}
             </TabsList>
           )}
+
+          <TabsContent value="visites">
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <CreateVisiteDialog preselectedClientId={client?.id} preselectedCompanyId={dossier.company_id} preselectedDossierId={id} />
+              </div>
+              <div className="rounded-xl border bg-card divide-y">
+              {visites.length === 0 ? (
+                <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucune visite liée</div>
+              ) : visites.map((v) => (
+                <div key={v.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/visites/${v.id}`)}>
+                  <Eye className="h-4 w-4 text-warning shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-medium break-words ${isMobile ? "text-xs" : "text-sm"}`}>{v.title}</p>
+                    <p className="text-[11px] text-muted-foreground">{v.scheduled_date ? formatDate(v.scheduled_date) : "Non planifiée"}</p>
+                  </div>
+                  <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsVisite[v.status] || v.status}</span>
+                  {isMobile && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+                </div>
+              ))}
+              </div>
+            </div>
+          </TabsContent>
 
           <TabsContent value="devis">
             <div className="space-y-3">
@@ -233,7 +264,7 @@ const DossierDetail = () => {
                 <div key={d.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/devis/${d.id}`)}>
                   <FileText className="h-4 w-4 text-info shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className={`font-medium truncate ${isMobile ? "text-xs" : "text-sm"}`}>{d.code} — {d.objet}</p>
+                    <p className={`font-medium break-words ${isMobile ? "text-xs" : "text-sm"}`}>{d.code} — {d.objet}</p>
                     <p className="text-[11px] text-muted-foreground">{formatDate(d.created_at)}</p>
                   </div>
                   <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsDevis[d.status] || d.status}</span>
@@ -249,48 +280,38 @@ const DossierDetail = () => {
           </TabsContent>
 
           <TabsContent value="factures">
-            <div className="rounded-xl border bg-card divide-y">
-              {factures.length === 0 ? (
-                <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucune facture liée</div>
-              ) : factures.map((f) => (
-                <div key={f.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/finance/${f.id}`)}>
-                  <DollarSign className="h-4 w-4 text-success shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-medium truncate ${isMobile ? "text-xs" : "text-sm"}`}>{f.code || "Facture"}</p>
-                    <p className="text-[11px] text-muted-foreground">Éch.: {formatDate(f.due_date)}</p>
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <CreateFactureDialog preselectedClientId={client?.id} preselectedCompanyId={dossier.company_id} preselectedDossierId={id} />
+              </div>
+              <div className="rounded-xl border bg-card divide-y">
+                {factures.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucune facture liée</div>
+                ) : factures.map((f) => (
+                  <div key={f.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/finance/${f.id}`)}>
+                    <DollarSign className="h-4 w-4 text-success shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-medium break-words ${isMobile ? "text-xs" : "text-sm"}`}>{f.code || "Facture"}</p>
+                      <p className="text-[11px] text-muted-foreground">Éch.: {formatDate(f.due_date)}</p>
+                    </div>
+                    <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsFacture[f.status] || f.status}</span>
+                    {isMobile ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" /> : <span className="text-sm font-semibold shrink-0">{formatAmount(f.amount)}</span>}
                   </div>
-                  <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsFacture[f.status] || f.status}</span>
-                  {isMobile ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" /> : <span className="text-sm font-semibold shrink-0">{formatAmount(f.amount)}</span>}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="reglements">
+            <DossierReglementsTab dossierId={id!} />
+          </TabsContent>
+
+          <TabsContent value="avaries">
+            <DossierAvariesTab dossierId={id!} companyId={dossier.company_id} clientId={client?.id || ""} />
           </TabsContent>
 
           <TabsContent value="situation">
             <DossierSituationTab dossierId={id!} dossierAmount={dossier.amount || 0} dossierCost={(dossier as any).cost || 0} />
-          </TabsContent>
-
-          <TabsContent value="visites">
-            <div className="space-y-3">
-              <div className="flex justify-end">
-                <CreateVisiteDialog preselectedClientId={client?.id} preselectedCompanyId={dossier.company_id} preselectedDossierId={id} />
-              </div>
-              <div className="rounded-xl border bg-card divide-y">
-              {visites.length === 0 ? (
-                <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucune visite liée</div>
-              ) : visites.map((v) => (
-                <div key={v.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/visites/${v.id}`)}>
-                  <Eye className="h-4 w-4 text-warning shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-medium truncate ${isMobile ? "text-xs" : "text-sm"}`}>{v.title}</p>
-                    <p className="text-[11px] text-muted-foreground">{v.scheduled_date ? formatDate(v.scheduled_date) : "Non planifiée"}</p>
-                  </div>
-                  <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsVisite[v.status] || v.status}</span>
-                  {isMobile && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
-                </div>
-              ))}
-              </div>
-            </div>
           </TabsContent>
         </Tabs>
       </motion.div>

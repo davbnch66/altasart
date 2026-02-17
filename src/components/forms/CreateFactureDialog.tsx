@@ -32,9 +32,11 @@ type FormData = z.infer<typeof schema>;
 interface CreateFactureDialogProps {
   preselectedClientId?: string;
   preselectedCompanyId?: string;
+  preselectedDossierId?: string;
+  trigger?: React.ReactNode;
 }
 
-export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId }: CreateFactureDialogProps) => {
+export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId, preselectedDossierId, trigger }: CreateFactureDialogProps) => {
   const [open, setOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
@@ -126,11 +128,13 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId 
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); setSelectedClientId(preselectedClientId || ""); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), amount: 0 }); } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); setSelectedClientId(preselectedClientId || ""); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), amount: 0, dossier_id: preselectedDossierId || "" }); } }}>
       <DialogTrigger asChild>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Nouvelle facture
-        </Button>
+        {trigger || (
+          <Button className="flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Nouvelle facture
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
