@@ -11,6 +11,7 @@ const statusColors: Record<string, string> = {
   libre: "#4ade80",
   occupe: "#60a5fa",
   reserve: "#facc15",
+  impaye: "#ef4444",
 };
 
 interface StorageBox3DProps {
