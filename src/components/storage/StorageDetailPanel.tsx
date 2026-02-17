@@ -1,4 +1,4 @@
-import { X, User, Calendar, Package, MapPin, Euro, FileText } from "lucide-react";
+import { X, User, Calendar, Package, MapPin, Euro, FileText, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -37,10 +37,18 @@ interface StorageDetailPanelProps {
   unit: StorageUnit;
   onClose: () => void;
   onEdit: (unit: StorageUnit) => void;
+  onDelete?: (unit: StorageUnit) => void;
+  onDeleteRow?: (row: string) => void;
+  onDeleteAisle?: (aisle: string) => void;
 }
 
-export const StorageDetailPanel = ({ unit, onClose, onEdit }: StorageDetailPanelProps) => {
+export const StorageDetailPanel = ({ unit, onClose, onEdit, onDelete, onDeleteRow, onDeleteAisle }: StorageDetailPanelProps) => {
   const clientName = (unit.clients as any)?.name;
+
+  // Parse name pattern like "A1-N1" to extract aisle and row
+  const nameParts = unit.name.match(/^([A-Z])(\d+)-N(\d+)$/);
+  const aisleLetter = nameParts?.[1];
+  const rowNumber = nameParts?.[2];
 
   return (
     <div className="rounded-xl border bg-card p-4 space-y-4 animate-in slide-in-from-right-5 duration-200">
@@ -93,12 +101,8 @@ export const StorageDetailPanel = ({ unit, onClose, onEdit }: StorageDetailPanel
           <div className="flex items-center gap-2 text-xs">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <div className="flex flex-col">
-              {unit.start_date && (
-                <span>Début: {format(new Date(unit.start_date), "dd/MM/yyyy")}</span>
-              )}
-              {unit.end_date && (
-                <span>Fin: {format(new Date(unit.end_date), "dd/MM/yyyy")}</span>
-              )}
+              {unit.start_date && <span>Début: {format(new Date(unit.start_date), "dd/MM/yyyy")}</span>}
+              {unit.end_date && <span>Fin: {format(new Date(unit.end_date), "dd/MM/yyyy")}</span>}
             </div>
           </div>
         )}
@@ -112,17 +116,39 @@ export const StorageDetailPanel = ({ unit, onClose, onEdit }: StorageDetailPanel
       </div>
 
       {/* Actions */}
-      {unit.id && (
-        <Button size="sm" className="w-full" onClick={() => onEdit(unit)}>
-          Modifier ce box
-        </Button>
-      )}
+      <div className="space-y-2">
+        {unit.id && (
+          <Button size="sm" className="w-full" onClick={() => onEdit(unit)}>
+            Modifier ce box
+          </Button>
+        )}
 
-      {!unit.id && (
-        <p className="text-xs text-muted-foreground text-center py-2">
-          Ce box n'est pas encore configuré. Ajoutez-le avec le nom <strong>{unit.name}</strong>.
-        </p>
-      )}
+        {!unit.id && (
+          <p className="text-xs text-muted-foreground text-center py-2">
+            Ce box n'est pas encore configuré. Ajoutez-le avec le nom <strong>{unit.name}</strong>.
+          </p>
+        )}
+
+        {/* Delete actions */}
+        {unit.id && onDelete && (
+          <Button size="sm" variant="outline" className="w-full text-destructive hover:text-destructive" onClick={() => onDelete(unit)}>
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            Supprimer ce box
+          </Button>
+        )}
+
+        {aisleLetter && onDeleteAisle && (
+          <Button size="sm" variant="ghost" className="w-full text-destructive hover:text-destructive text-xs" onClick={() => onDeleteAisle(aisleLetter)}>
+            Supprimer toute l'allée {aisleLetter}
+          </Button>
+        )}
+
+        {aisleLetter && rowNumber && onDeleteRow && (
+          <Button size="sm" variant="ghost" className="w-full text-destructive hover:text-destructive text-xs" onClick={() => onDeleteRow(`${aisleLetter}${rowNumber}`)}>
+            Supprimer la rangée {aisleLetter}{rowNumber} (tous niveaux)
+          </Button>
+        )}
+      </div>
     </div>
   );
 };

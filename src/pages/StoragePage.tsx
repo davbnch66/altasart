@@ -105,8 +105,44 @@ const StoragePage = () => {
       toast.success("Box supprimé");
       queryClient.invalidateQueries({ queryKey: ["storage-units"] });
       setDeletingUnit(null);
+      setDetailUnit(null);
+      setSelectedUnitId(null);
     },
   });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (namePattern: string) => {
+      const { error } = await supabase
+        .from("storage_units")
+        .delete()
+        .in("company_id", companyIds)
+        .like("name", namePattern);
+      if (error) throw error;
+    },
+    onSuccess: (_, pattern) => {
+      toast.success(`Boxes correspondant à "${pattern}" supprimés`);
+      queryClient.invalidateQueries({ queryKey: ["storage-units"] });
+      setDetailUnit(null);
+      setSelectedUnitId(null);
+    },
+    onError: () => toast.error("Erreur lors de la suppression"),
+  });
+
+  const handleDeleteUnit = (unit: any) => {
+    setDeletingUnit(unit);
+  };
+
+  const handleDeleteAisle = (aisle: string) => {
+    if (confirm(`Supprimer tous les boxes de l'allée ${aisle} ? Cette action est irréversible.`)) {
+      bulkDeleteMutation.mutate(`${aisle}%-N%`);
+    }
+  };
+
+  const handleDeleteRow = (rowPrefix: string) => {
+    if (confirm(`Supprimer tous les boxes de la rangée ${rowPrefix} (tous niveaux) ? Cette action est irréversible.`)) {
+      bulkDeleteMutation.mutate(`${rowPrefix}-N%`);
+    }
+  };
 
   const handleEdit = (u: any) => {
     setEditingUnit(u);
@@ -265,7 +301,14 @@ const StoragePage = () => {
           </div>
           {detailUnit && (
             <div className="w-80 shrink-0">
-              <StorageDetailPanel unit={detailUnit} onClose={() => { setDetailUnit(null); setSelectedUnitId(null); }} onEdit={handleEdit} />
+              <StorageDetailPanel
+                unit={detailUnit}
+                onClose={() => { setDetailUnit(null); setSelectedUnitId(null); }}
+                onEdit={handleEdit}
+                onDelete={handleDeleteUnit}
+                onDeleteAisle={handleDeleteAisle}
+                onDeleteRow={handleDeleteRow}
+              />
             </div>
           )}
         </div>
@@ -281,7 +324,14 @@ const StoragePage = () => {
           </div>
           {detailUnit && (
             <div className="w-80 shrink-0">
-              <StorageDetailPanel unit={detailUnit} onClose={() => { setDetailUnit(null); setSelectedUnitId(null); }} onEdit={handleEdit} />
+              <StorageDetailPanel
+                unit={detailUnit}
+                onClose={() => { setDetailUnit(null); setSelectedUnitId(null); }}
+                onEdit={handleEdit}
+                onDelete={handleDeleteUnit}
+                onDeleteAisle={handleDeleteAisle}
+                onDeleteRow={handleDeleteRow}
+              />
             </div>
           )}
         </div>

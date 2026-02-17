@@ -1,7 +1,8 @@
-import { Suspense, useMemo, useCallback } from "react";
+import { Suspense, useMemo, useCallback, useRef, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { StorageBox3D } from "./StorageBox3D";
+import * as THREE from "three";
 
 const ROWS = 5;
 const AISLES = 20;
@@ -59,19 +60,42 @@ const Floor = () => (
   </mesh>
 );
 
-const Scene = ({ units, selectedId, onSelectUnit }: Storage3DViewerProps) => {
+const Scene = ({ units, selectedId, onSelectUnit, controlsRef }: Storage3DViewerProps & { controlsRef: React.RefObject<any> }) => {
   const unitLookup = useMemo(() => buildUnitLookup(units), [units]);
 
   const boxes = useMemo(() => {
     const result: { key: string; name: string; position: [number, number, number]; unit: StorageUnit | null }[] = [];
+    // Grid-based boxes
     Object.entries(gridMap).forEach(([name, { row, aisle, level }]) => {
       const x = aisle * (BOX_SIZE + AISLE_GAP);
       const y = level * (BOX_SIZE + GAP) + BOX_SIZE / 2;
       const z = row * (BOX_SIZE + GAP);
       result.push({ key: name, name, position: [x, y, z], unit: unitLookup[name] || null });
     });
+    // Non-grid units (added via forms with custom names)
+    units.forEach((u) => {
+      if (!gridMap[u.name]) {
+        // Place them in an "extra" row beyond the grid
+        const idx = result.filter((r) => !gridMap[r.name]).length;
+        const x = (idx % 10) * (BOX_SIZE + AISLE_GAP);
+        const y = BOX_SIZE / 2;
+        const z = ROWS * (BOX_SIZE + GAP) + 3 + Math.floor(idx / 10) * (BOX_SIZE + GAP);
+        result.push({ key: u.id, name: u.name, position: [x, y, z], unit: u });
+      }
+    });
     return result;
-  }, [unitLookup]);
+  }, [unitLookup, units]);
+
+  // Focus camera on selected box
+  useEffect(() => {
+    if (!selectedId || !controlsRef.current) return;
+    const selected = boxes.find((b) => (b.unit?.id || b.name) === selectedId);
+    if (selected) {
+      const target = new THREE.Vector3(...selected.position);
+      controlsRef.current.target.lerp(target, 0.5);
+      controlsRef.current.update();
+    }
+  }, [selectedId, boxes, controlsRef]);
 
   const handleClick = useCallback(
     (unit: StorageUnit | null, name: string) => {
@@ -87,6 +111,7 @@ const Scene = ({ units, selectedId, onSelectUnit }: Storage3DViewerProps) => {
       <directionalLight position={[-20, 30, -10]} intensity={0.3} />
 
       <OrbitControls
+        ref={controlsRef}
         enablePan
         enableZoom
         enableRotate
@@ -103,6 +128,8 @@ const Scene = ({ units, selectedId, onSelectUnit }: Storage3DViewerProps) => {
           position={box.position}
           status={box.unit?.status || "libre"}
           isSelected={selectedId === (box.unit?.id || box.name)}
+          label={box.name}
+          clientName={(box.unit?.clients as any)?.name}
           onClick={() => handleClick(box.unit, box.name)}
         />
       ))}
@@ -111,6 +138,8 @@ const Scene = ({ units, selectedId, onSelectUnit }: Storage3DViewerProps) => {
 };
 
 export const Storage3DViewer = ({ units, selectedId, onSelectUnit }: Storage3DViewerProps) => {
+  const controlsRef = useRef<any>(null);
+
   return (
     <div className="w-full h-[600px] rounded-xl border bg-card overflow-hidden relative">
       <Suspense
@@ -124,7 +153,7 @@ export const Storage3DViewer = ({ units, selectedId, onSelectUnit }: Storage3DVi
           camera={{ position: [25, 20, 35], fov: 50 }}
           style={{ width: "100%", height: "100%" }}
         >
-          <Scene units={units} selectedId={selectedId} onSelectUnit={onSelectUnit} />
+          <Scene units={units} selectedId={selectedId} onSelectUnit={onSelectUnit} controlsRef={controlsRef} />
         </Canvas>
       </Suspense>
 
