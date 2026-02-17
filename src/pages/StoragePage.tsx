@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
-import { Warehouse, Plus, Search, Pencil, Trash2, User, Calendar, LayoutGrid, Box, Grid2x2 } from "lucide-react";
+import { Warehouse, Plus, Search, Pencil, Trash2, User, Calendar, LayoutGrid, Box, Grid2x2, Settings2 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { StorageDetailPanel } from "@/components/storage/StorageDetailPanel";
+import { StorageBulkManager } from "@/components/storage/StorageBulkManager";
 import { format } from "date-fns";
 
 const Storage3DViewer = lazy(() =>
@@ -50,6 +51,7 @@ const StoragePage = () => {
   const [editingUnit, setEditingUnit] = useState<any>(null);
   const [deletingUnit, setDeletingUnit] = useState<any>(null);
   const [bulkDeleteInfo, setBulkDeleteInfo] = useState<{ label: string; pattern: string } | null>(null);
+  const [bulkManagerOpen, setBulkManagerOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [viewMode, setViewMode] = useState<"list" | "3d" | "2d">("3d");
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
@@ -133,6 +135,50 @@ const StoragePage = () => {
       setBulkDeleteInfo(null);
     },
     onError: () => { toast.error("Erreur lors de la suppression"); setBulkDeleteInfo(null); },
+  });
+
+  const bulkAddMutation = useMutation({
+    mutationFn: async (names: string[]) => {
+      const rows = names.map((name) => ({
+        name,
+        company_id: firstCompanyId,
+        status: "libre",
+        volume_m3: 8,
+      }));
+      // Insert in batches of 100
+      for (let i = 0; i < rows.length; i += 100) {
+        const batch = rows.slice(i, i + 100);
+        const { error } = await supabase.from("storage_units").insert(batch);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Boxes créés avec succès");
+      queryClient.invalidateQueries({ queryKey: ["storage-units"] });
+      setBulkManagerOpen(false);
+    },
+    onError: () => toast.error("Erreur lors de la création"),
+  });
+
+  const bulkMultiDeleteMutation = useMutation({
+    mutationFn: async (patterns: string[]) => {
+      for (const pattern of patterns) {
+        const { error } = await supabase
+          .from("storage_units")
+          .delete()
+          .in("company_id", companyIds)
+          .like("name", pattern);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Boxes supprimés avec succès");
+      queryClient.invalidateQueries({ queryKey: ["storage-units"] });
+      setDetailUnit(null);
+      setSelectedUnitId(null);
+      setBulkManagerOpen(false);
+    },
+    onError: () => toast.error("Erreur lors de la suppression"),
   });
 
   const handleDeleteUnit = (unit: any) => {
@@ -234,6 +280,11 @@ const StoragePage = () => {
               </Button>
             </div>
           )}
+
+          <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setBulkManagerOpen(true)}>
+            <Settings2 className="h-3.5 w-3.5" />
+            {!isMobile && "Gérer en masse"}
+          </Button>
 
           <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) { setEditingUnit(null); setForm(emptyForm); } }}>
             <DialogTrigger asChild>
@@ -438,6 +489,16 @@ const StoragePage = () => {
         title="Supprimer en masse ?"
         description={`Tous les boxes de ${bulkDeleteInfo?.label} seront définitivement supprimés.`}
         isPending={bulkDeleteMutation.isPending}
+      />
+
+      <StorageBulkManager
+        open={bulkManagerOpen}
+        onOpenChange={setBulkManagerOpen}
+        units={units}
+        onBulkAdd={(names) => bulkAddMutation.mutate(names)}
+        onBulkDelete={(patterns) => bulkMultiDeleteMutation.mutate(patterns)}
+        isAdding={bulkAddMutation.isPending}
+        isDeleting={bulkMultiDeleteMutation.isPending}
       />
     </div>
   );
