@@ -101,7 +101,7 @@ const ClientDetail = () => {
   const { data: devis = [] } = useQuery({
     queryKey: ["client-devis", id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("devis").select("*").eq("client_id", id!).order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("devis").select("*, dossiers(id, code, title)").eq("client_id", id!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -542,6 +542,7 @@ const ClientDetail = () => {
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${devisStatusStyles[d.status] || ""}`}>{devisLabels[d.status] || d.status}</span>
                   </div>
                   <p className="text-sm font-medium break-words">{d.objet}</p>
+                  {(d as any).dossiers && <p className="text-[11px] text-muted-foreground">Dossier : {(d as any).dossiers.code || (d as any).dossiers.title}</p>}
                   <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
                     <span>{formatDate(d.created_at)}</span>
                     <span className="font-semibold text-foreground">{formatAmount(d.amount)}</span>
@@ -564,17 +565,19 @@ const ClientDetail = () => {
               ) : (
                 <table className="w-full text-sm">
                   <thead><tr className="border-b bg-muted/30">
-                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">N°</th>
-                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Date</th>
-                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Objet</th>
-                    <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Montant</th>
-                    <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Statut</th>
-                    <th className="px-4 py-2.5"></th>
+                     <th className="text-left font-medium text-muted-foreground px-4 py-2.5">N°</th>
+                     <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Dossier</th>
+                     <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Date</th>
+                     <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Objet</th>
+                     <th className="text-right font-medium text-muted-foreground px-4 py-2.5">Montant</th>
+                     <th className="text-left font-medium text-muted-foreground px-4 py-2.5">Statut</th>
+                     <th className="px-4 py-2.5"></th>
                   </tr></thead>
                   <tbody className="divide-y">
                     {devis.map((d) => (
                       <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/devis/${d.id}`, { state: { fromClient: true } })}>
                          <td className="px-4 py-3 font-mono text-xs">{d.code || "—"}</td>
+                         <td className="px-4 py-3 text-xs text-muted-foreground">{(d as any).dossiers ? ((d as any).dossiers.code || (d as any).dossiers.title) : "—"}</td>
                          <td className="px-4 py-3 text-muted-foreground">{formatDate(d.created_at)}</td>
                          <td className="px-4 py-3 font-medium">{d.objet}</td>
                          <td className="px-4 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
