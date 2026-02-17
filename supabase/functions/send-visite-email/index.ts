@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +12,25 @@ serve(async (req) => {
   }
 
   try {
+    // Auth check
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Non autorisé" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: { user }, error: authErr } = await supabaseAuth.auth.getUser();
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: "Non autorisé" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
 
     if (!resendApiKey) {
@@ -20,34 +40,54 @@ serve(async (req) => {
       );
     }
 
-    const { to, subject, body, pdfBase64, fileName } = await req.json();
+    const body = await req.json();
+    const to = body.to;
+    const subject = body.subject;
+    const emailBody = body.body;
+    const pdfBase64 = body.pdfBase64;
+    const fileName = body.fileName;
 
-    if (!to || !subject) {
+    // Input validation
+    if (!to || typeof to !== "string" || !to.includes("@") || to.length > 320) {
       return new Response(
-        JSON.stringify({ error: "Destinataire et sujet requis" }),
+        JSON.stringify({ error: "Adresse email destinataire invalide" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (!subject || typeof subject !== "string" || subject.length > 500) {
+      return new Response(
+        JSON.stringify({ error: "Sujet requis (max 500 caractères)" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (pdfBase64 && typeof pdfBase64 === "string" && pdfBase64.length > 7_000_000) {
+      return new Response(
+        JSON.stringify({ error: "Pièce jointe trop volumineuse (max ~5MB)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const htmlBody = body
-      ? `<div style="font-family:sans-serif;white-space:pre-wrap">${body.replace(/\n/g, "<br>")}</div>`
+    const htmlBody = emailBody
+      ? `<div style="font-family:sans-serif;white-space:pre-wrap">${String(emailBody).replace(/\n/g, "<br>")}</div>`
       : "<p></p>";
 
-    // En mode test Resend (sans domaine vérifié), on ne peut envoyer qu'à son propre email
-    const testEmail = "david.soler.verlaine@gmail.com";
-    const recipientEmail = to === testEmail ? to : testEmail;
+    // Use test mode via env var, not hardcoded email
+    const isTestMode = Deno.env.get("RESEND_TEST_MODE") === "true";
+    const testEmail = Deno.env.get("RESEND_TEST_EMAIL");
+    const recipientEmail = isTestMode && testEmail ? testEmail : to;
+    const emailSubject = isTestMode && testEmail && to !== testEmail ? `[TEST - Pour: ${to}] ${subject}` : subject;
 
     const emailPayload: Record<string, unknown> = {
       from: "Altas Art <onboarding@resend.dev>",
       to: [recipientEmail],
-      subject: to !== testEmail ? `[Pour: ${to}] ${subject}` : subject,
+      subject: emailSubject,
       html: htmlBody,
     };
 
     if (pdfBase64) {
       emailPayload.attachments = [
         {
-          filename: fileName || "rapport.pdf",
+          filename: String(fileName || "rapport.pdf").slice(0, 100),
           content: pdfBase64,
         },
       ];
@@ -66,7 +106,7 @@ serve(async (req) => {
 
     if (!resendResponse.ok) {
       console.error("Resend API error:", resendData);
-      throw new Error(resendData.message || `Resend error: ${resendResponse.status}`);
+      throw new Error("Erreur lors de l'envoi de l'email");
     }
 
     return new Response(
@@ -76,7 +116,7 @@ serve(async (req) => {
   } catch (error: any) {
     console.error("Email send error:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Erreur lors de l'envoi" }),
+      JSON.stringify({ error: "Erreur lors de l'envoi de l'email. Veuillez réessayer." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

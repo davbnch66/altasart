@@ -10,9 +10,10 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // This is a webhook endpoint - authenticate via shared secret or accept from known sources
+    // For now, validate inputs strictly since this is a webhook
     const body = await req.json();
 
-    // Support both Resend webhook format and manual test format
     const fromEmail = body.from_email || body.from?.address || body.from;
     const fromName = body.from_name || body.from?.name || fromEmail;
     const toEmail = body.to_email || (Array.isArray(body.to) ? body.to[0] : body.to);
@@ -22,30 +23,55 @@ serve(async (req) => {
     const attachments = body.attachments || [];
     const companyId = body.company_id;
 
-    if (!companyId) {
+    // Input validation
+    if (!companyId || typeof companyId !== "string") {
       return new Response(JSON.stringify({ error: "company_id is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(companyId)) {
+      return new Response(JSON.stringify({ error: "company_id invalide" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // Limit text sizes
+    const safeSubject = String(subject).slice(0, 1000);
+    const safeBodyText = String(bodyText).slice(0, 100000);
+    const safeBodyHtml = String(bodyHtml).slice(0, 200000);
+    const safeFromEmail = fromEmail ? String(fromEmail).slice(0, 320) : null;
+    const safeFromName = fromName ? String(fromName).slice(0, 200) : null;
+    const safeToEmail = toEmail ? String(toEmail).slice(0, 320) : null;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    // Verify company exists
+    const { data: company, error: companyErr } = await supabase
+      .from("companies")
+      .select("id")
+      .eq("id", companyId)
+      .maybeSingle();
+    if (companyErr || !company) {
+      return new Response(JSON.stringify({ error: "Société introuvable" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // 1. Store the inbound email
     const { data: emailRow, error: insertErr } = await supabase
       .from("inbound_emails")
       .insert({
         company_id: companyId,
-        from_email: fromEmail,
-        from_name: fromName,
-        to_email: toEmail,
-        subject,
-        body_text: bodyText,
-        body_html: bodyHtml,
-        attachments,
+        from_email: safeFromEmail,
+        from_name: safeFromName,
+        to_email: safeToEmail,
+        subject: safeSubject,
+        body_text: safeBodyText,
+        body_html: safeBodyHtml,
+        attachments: Array.isArray(attachments) ? attachments.slice(0, 20) : [],
         status: "processing",
       })
       .select("id")
@@ -58,10 +84,10 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const contentForAnalysis = `De: ${fromName} <${fromEmail}>
-Objet: ${subject}
+    const contentForAnalysis = `De: ${safeFromName} <${safeFromEmail}>
+Objet: ${safeSubject}
 
-${bodyText}`;
+${safeBodyText.slice(0, 10000)}`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -91,29 +117,28 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
               parameters: {
                 type: "object",
                 properties: {
-                  societe: { type: "string", description: "Nom de la société de l'expéditeur" },
-                  contact: { type: "string", description: "Nom du contact" },
-                  email: { type: "string", description: "Email de contact" },
-                  telephone: { type: "string", description: "Numéro de téléphone si mentionné" },
-                  mobile: { type: "string", description: "Numéro de mobile si mentionné" },
-                  adresse_chantier: { type: "string", description: "Adresse complète du chantier (numéro + rue)" },
-                  code_postal: { type: "string", description: "Code postal du chantier" },
-                  ville: { type: "string", description: "Ville du chantier" },
-                  adresse_origine: { type: "string", description: "Adresse d'origine/chargement si différente du chantier" },
-                  ville_origine: { type: "string", description: "Ville d'origine" },
-                  cp_origine: { type: "string", description: "Code postal d'origine" },
-                  adresse_destination: { type: "string", description: "Adresse de destination/livraison" },
-                  ville_destination: { type: "string", description: "Ville de destination" },
-                  cp_destination: { type: "string", description: "Code postal de destination" },
-                  nature: { type: "string", description: "Nature de la prestation (déménagement, levage, manutention, etc.)" },
-                  volume: { type: "number", description: "Volume en m³ si mentionné" },
-                  etage: { type: "string", description: "Étage si mentionné" },
-                  ascenseur: { type: "boolean", description: "Présence d'un ascenseur si mentionné" },
-                  instructions: { type: "string", description: "Instructions spéciales ou contraintes d'accès mentionnées" },
+                  societe: { type: "string" },
+                  contact: { type: "string" },
+                  email: { type: "string" },
+                  telephone: { type: "string" },
+                  mobile: { type: "string" },
+                  adresse_chantier: { type: "string" },
+                  code_postal: { type: "string" },
+                  ville: { type: "string" },
+                  adresse_origine: { type: "string" },
+                  ville_origine: { type: "string" },
+                  cp_origine: { type: "string" },
+                  adresse_destination: { type: "string" },
+                  ville_destination: { type: "string" },
+                  cp_destination: { type: "string" },
+                  nature: { type: "string" },
+                  volume: { type: "number" },
+                  etage: { type: "string" },
+                  ascenseur: { type: "boolean" },
+                  instructions: { type: "string" },
                   type_demande: {
                     type: "array",
                     items: { type: "string", enum: ["devis", "visite", "information", "relance", "confirmation", "autre"] },
-                    description: "Types de demandes détectées",
                   },
                   materiel: {
                     type: "array",
@@ -128,12 +153,11 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
                       required: ["designation"],
                       additionalProperties: false,
                     },
-                    description: "Liste de matériel détecté",
                   },
-                  date_souhaitee: { type: "string", description: "Date souhaitée pour intervention (format ISO si possible)" },
-                  periode: { type: "string", description: "Période souhaitée si pas de date précise (ex: 'fin mars', 'semaine 12')" },
-                  urgence: { type: "boolean", description: "L'email exprime-t-il une urgence ?" },
-                  resume: { type: "string", description: "Résumé en 1-2 phrases de la demande" },
+                  date_souhaitee: { type: "string" },
+                  periode: { type: "string" },
+                  urgence: { type: "boolean" },
+                  resume: { type: "string" },
                 },
                 required: ["type_demande", "resume"],
                 additionalProperties: false,
@@ -153,29 +177,27 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
         analysis = JSON.parse(toolCall.function.arguments);
       }
     } else {
-      console.error("AI analysis failed:", aiResponse.status, await aiResponse.text());
+      console.error("AI analysis failed:", aiResponse.status);
     }
 
-    // 3. Try to match existing client by email (check clients table AND client_contacts)
+    // 3. Try to match existing client
     let clientId: string | null = null;
-    if (fromEmail) {
-      // First check clients table
+    if (safeFromEmail) {
       const { data: existingClient } = await supabase
         .from("clients")
         .select("id")
         .eq("company_id", companyId)
-        .eq("email", fromEmail)
+        .eq("email", safeFromEmail)
         .maybeSingle();
 
       if (existingClient) {
         clientId = existingClient.id;
       } else {
-        // Then check client_contacts table
         const { data: existingContact } = await supabase
           .from("client_contacts")
           .select("client_id")
           .eq("company_id", companyId)
-          .eq("email", fromEmail)
+          .eq("email", safeFromEmail)
           .limit(1)
           .maybeSingle();
 
@@ -185,7 +207,7 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
       }
     }
 
-    // 4. Update inbound_email with analysis and client
+    // 4. Update inbound_email
     await supabase
       .from("inbound_emails")
       .update({
@@ -199,16 +221,15 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
     // 5. Generate suggested actions
     const actions: any[] = [];
 
-    // If no client found, suggest creating one
     if (!clientId) {
       actions.push({
         inbound_email_id: emailId,
         company_id: companyId,
         action_type: "create_client",
         payload: {
-          name: analysis.societe || fromName || fromEmail,
-          contact_name: analysis.contact || fromName,
-          email: fromEmail,
+          name: analysis.societe || safeFromName || safeFromEmail,
+          contact_name: analysis.contact || safeFromName,
+          email: safeFromEmail,
           phone: analysis.telephone || null,
           mobile: analysis.mobile || null,
           address: analysis.adresse_chantier || null,
@@ -218,7 +239,6 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
       });
     }
 
-    // Suggest dossier creation for devis/visite requests
     const types = analysis.type_demande || [];
     if (types.includes("devis") || types.includes("visite")) {
       actions.push({
@@ -226,7 +246,7 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
         company_id: companyId,
         action_type: "create_dossier",
         payload: {
-          title: subject,
+          title: safeSubject,
           description: analysis.resume || "",
           address: analysis.adresse_chantier || null,
         },
@@ -239,7 +259,7 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
         company_id: companyId,
         action_type: "create_devis",
         payload: {
-          objet: subject,
+          objet: safeSubject,
           notes: analysis.resume || "",
         },
       });
@@ -251,7 +271,7 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
         company_id: companyId,
         action_type: "plan_visite",
         payload: {
-          title: `Visite — ${analysis.societe || fromName || ""}`,
+          title: `Visite — ${analysis.societe || safeFromName || ""}`,
           address: analysis.adresse_chantier || null,
           code_postal: analysis.code_postal || null,
           ville: analysis.ville || null,
@@ -274,17 +294,15 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
       });
     }
 
-    // If materiel detected
     if (analysis.materiel && analysis.materiel.length > 0) {
       actions.push({
         inbound_email_id: emailId,
         company_id: companyId,
         action_type: "extract_materiel",
-        payload: { materials: analysis.materiel },
+        payload: { materials: analysis.materiel.slice(0, 200) },
       });
     }
 
-    // If client exists, suggest linking to existing dossier
     if (clientId) {
       actions.push({
         inbound_email_id: emailId,
@@ -298,20 +316,20 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
       await supabase.from("email_actions").insert(actions);
     }
 
-    // 6. Insert into messages table for history
+    // 6. Insert into messages table
     await supabase.from("messages").insert({
       company_id: companyId,
       client_id: clientId,
       channel: "email",
       direction: "inbound",
-      sender: fromName || fromEmail,
-      subject,
-      body: bodyText,
+      sender: safeFromName || safeFromEmail,
+      subject: safeSubject,
+      body: safeBodyText.slice(0, 10000),
       inbound_email_id: emailId,
       is_read: false,
     });
 
-    // 7. Create notifications for company members
+    // 7. Create notifications
     const { data: members } = await supabase
       .from("company_memberships")
       .select("profile_id")
@@ -328,8 +346,8 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
         company_id: companyId,
         user_id: m.profile_id,
         type: notifType,
-        title: `Nouvel email: ${subject}`,
-        body: analysis.resume || `De ${fromName || fromEmail}`,
+        title: `Nouvel email: ${safeSubject.slice(0, 100)}`,
+        body: String(analysis.resume || `De ${safeFromName || safeFromEmail}`).slice(0, 500),
         link: `/inbox?email=${emailId}`,
       }));
 
@@ -347,8 +365,7 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
     });
   } catch (e) {
     console.error("process-inbound-email error:", e);
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    return new Response(JSON.stringify({ error: msg }), {
+    return new Response(JSON.stringify({ error: "Erreur lors du traitement de l'email." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
