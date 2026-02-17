@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -144,6 +144,7 @@ export const StorageBulkManager = ({
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Gestion en masse</DialogTitle>
+            <DialogDescription>Ajoutez ou supprimez des boxes par allée et rangée.</DialogDescription>
           </DialogHeader>
 
           <Tabs value={tab} onValueChange={setTab}>
