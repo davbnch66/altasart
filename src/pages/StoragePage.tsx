@@ -209,6 +209,9 @@ const StoragePage = () => {
   const handleSave = () => {
     if (!form.aisle || !form.row || !form.level) return toast.error("Emplacement requis (allée, rangée, niveau)");
     const boxName = `${form.aisle}${form.row}-N${form.level}`;
+    // Check for duplicate (skip if editing the same box)
+    const duplicate = units.find((u: any) => u.name === boxName && u.id !== editingUnit?.id);
+    if (duplicate) return toast.error(`L'emplacement ${boxName} est déjà occupé par un box existant`);
     const payload: any = {
       name: boxName, status: form.status,
       size_m2: form.size_m2 ? parseFloat(form.size_m2) : null,
