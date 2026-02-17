@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,7 +55,7 @@ const StoragePage = () => {
   const [bulkDeleteInfo, setBulkDeleteInfo] = useState<{ label: string; pattern: string } | null>(null);
   const [bulkManagerOpen, setBulkManagerOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [viewMode, setViewMode] = useState<"list" | "3d" | "2d">("3d");
+  const [viewMode, setViewMode] = useState<"list" | "3d" | "2d">(isMobile ? "2d" : "3d");
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [detailUnit, setDetailUnit] = useState<any>(null);
   const [transferUnit, setTransferUnit] = useState<any>(null);
@@ -308,8 +309,8 @@ const StoragePage = () => {
         </div>
         <div className="flex items-center gap-2">
           {/* View toggle */}
-          {!isMobile && (
-            <div className="flex rounded-lg border bg-muted p-0.5">
+          <div className="flex rounded-lg border bg-muted p-0.5">
+            {!isMobile && (
               <Button
                 variant={viewMode === "3d" ? "default" : "ghost"}
                 size="sm"
@@ -319,26 +320,26 @@ const StoragePage = () => {
                 <Box className="h-3.5 w-3.5" />
                 3D
               </Button>
-              <Button
-                variant={viewMode === "2d" ? "default" : "ghost"}
-                size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() => setViewMode("2d")}
-              >
-                <Grid2x2 className="h-3.5 w-3.5" />
-                2D
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "default" : "ghost"}
-                size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={() => setViewMode("list")}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                Liste
-              </Button>
-            </div>
-          )}
+            )}
+            <Button
+              variant={viewMode === "2d" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setViewMode("2d")}
+            >
+              <Grid2x2 className="h-3.5 w-3.5" />
+              2D
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "default" : "ghost"}
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setViewMode("list")}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Liste
+            </Button>
+          </div>
 
           <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => setBulkManagerOpen(true)}>
             <Settings2 className="h-3.5 w-3.5" />
@@ -430,7 +431,7 @@ const StoragePage = () => {
       </div>
 
       {/* Search bar for 2D/3D views */}
-      {(viewMode === "2d" || viewMode === "3d") && !isMobile && (
+      {(viewMode === "2d" || viewMode === "3d") && (
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -438,7 +439,6 @@ const StoragePage = () => {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              // Auto-select matching unit
               if (e.target.value.length >= 2) {
                 const q = e.target.value.toLowerCase();
                 const match = units.find((u: any) =>
@@ -482,7 +482,7 @@ const StoragePage = () => {
         </div>
       )}
 
-      {/* 2D View */}
+      {/* 2D View - desktop */}
       {viewMode === "2d" && !isMobile && (
         <div className="flex gap-4">
           <div className="flex-1 min-w-0 overflow-hidden">
@@ -506,8 +506,39 @@ const StoragePage = () => {
         </div>
       )}
 
+      {/* 2D View - mobile */}
+      {viewMode === "2d" && isMobile && (
+        <>
+          <div className="overflow-hidden">
+            <Suspense fallback={<Skeleton className="w-full h-[300px] rounded-xl" />}>
+              <Storage2DViewer units={units} selectedId={selectedUnitId} onSelectUnit={handleSelectUnit3D} />
+            </Suspense>
+          </div>
+          <Drawer open={!!detailUnit} onOpenChange={(v) => { if (!v) { setDetailUnit(null); setSelectedUnitId(null); } }}>
+            <DrawerContent className="max-h-[75vh]">
+              <DrawerHeader>
+                <DrawerTitle>{detailUnit?.name}</DrawerTitle>
+              </DrawerHeader>
+              <div className="px-4 pb-6 overflow-y-auto">
+                {detailUnit && (
+                  <StorageDetailPanel
+                    unit={detailUnit}
+                    onClose={() => { setDetailUnit(null); setSelectedUnitId(null); }}
+                    onEdit={handleEdit}
+                    onDelete={handleDeleteUnit}
+                    onDeleteAisle={handleDeleteAisle}
+                    onDeleteRow={handleDeleteRow}
+                    onTransfer={(u) => setTransferUnit(u)}
+                  />
+                )}
+              </div>
+            </DrawerContent>
+          </Drawer>
+        </>
+      )}
+
       {/* List View */}
-      {(viewMode === "list" || isMobile) && (
+      {viewMode === "list" && (
         <>
           {/* Search */}
           <div className="relative">
