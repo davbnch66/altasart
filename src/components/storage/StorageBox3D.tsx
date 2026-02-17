@@ -57,19 +57,27 @@ export const StorageBox3D = ({
 
       {/* Tooltip on hover */}
       {hovered && !isSelected && (
-        <Html position={[0, BOX_H / 2 + 0.3, 0]} center style={{ pointerEvents: "none" }}>
-          <div className="bg-background/95 backdrop-blur-sm border rounded-md px-2 py-1 text-[10px] shadow-md whitespace-nowrap">
-            <span className="font-semibold">{label}</span>
-            {clientName && <span className="text-muted-foreground ml-1">· {clientName}</span>}
+        <Html position={[0, BOX_H / 2 + 0.3, 0]} center style={{ pointerEvents: "none" }} zIndexRange={[100, 0]}>
+          <div style={{
+            background: "rgba(0,0,0,0.85)", color: "#fff", borderRadius: 6,
+            padding: "4px 8px", fontSize: 11, whiteSpace: "nowrap", fontFamily: "sans-serif",
+          }}>
+            <strong>{label}</strong>
+            {clientName && <span style={{ opacity: 0.7, marginLeft: 4 }}>· {clientName}</span>}
           </div>
         </Html>
       )}
 
       {/* Label on selected */}
       {isSelected && (
-        <Html position={[0, BOX_H / 2 + 0.3, 0]} center style={{ pointerEvents: "none" }}>
-          <div className="bg-orange-500 text-white rounded-md px-2 py-1 text-[10px] shadow-lg whitespace-nowrap font-semibold">
+        <Html position={[0, BOX_H / 2 + 0.3, 0]} center style={{ pointerEvents: "none" }} zIndexRange={[100, 0]}>
+          <div style={{
+            background: "#f97316", color: "#fff", borderRadius: 6,
+            padding: "4px 10px", fontSize: 11, whiteSpace: "nowrap", fontWeight: 600, fontFamily: "sans-serif",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+          }}>
             {label}
+            {clientName && <span style={{ opacity: 0.8, marginLeft: 4, fontWeight: 400 }}>· {clientName}</span>}
           </div>
         </Html>
       )}
