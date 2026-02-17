@@ -84,7 +84,6 @@ export const GenerateDevisDialog = ({ visiteId, companyId, dossierId, trigger }:
         description: l.description,
         quantity: l.quantity,
         unit_price: l.unit_price,
-        total: l.quantity * l.unit_price,
         sort_order: i,
       }));
       const { error: linesErr } = await supabase.from("devis_lines").insert(lines);
