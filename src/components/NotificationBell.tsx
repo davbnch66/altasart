@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell, Check, ExternalLink } from "lucide-react";
+import { Bell, Check, ExternalLink, Trash2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -13,6 +13,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
 
 const typeIcons: Record<string, string> = {
   new_lead: "🆕",
@@ -90,6 +91,33 @@ export const NotificationBell = () => {
     queryClient.invalidateQueries({ queryKey: ["notifications", user?.id] });
   };
 
+  const deleteNotification = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const { error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("id", id);
+    if (error) {
+      toast.error("Impossible de supprimer");
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["notifications", user?.id] });
+  };
+
+  const clearAll = async () => {
+    if (!user) return;
+    const { error } = await supabase
+      .from("notifications")
+      .delete()
+      .eq("user_id", user.id);
+    if (error) {
+      toast.error("Impossible de tout supprimer");
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["notifications", user?.id] });
+    toast.success("Notifications effacées");
+  };
+
   const handleClick = (notif: any) => {
     if (!notif.read) markAsRead(notif.id);
     if (notif.link) {
@@ -120,14 +148,24 @@ export const NotificationBell = () => {
       >
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h4 className="text-sm font-semibold">Notifications</h4>
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllRead}
-              className="text-xs text-primary hover:underline flex items-center gap-1"
-            >
-              <Check className="h-3 w-3" /> Tout lire
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllRead}
+                className="text-xs text-primary hover:underline flex items-center gap-1"
+              >
+                <Check className="h-3 w-3" /> Tout lire
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button
+                onClick={clearAll}
+                className="text-xs text-destructive hover:underline flex items-center gap-1"
+              >
+                <Trash2 className="h-3 w-3" /> Effacer
+              </button>
+            )}
+          </div>
         </div>
         <ScrollArea className="max-h-80">
           {notifications.length === 0 ? (
@@ -140,7 +178,7 @@ export const NotificationBell = () => {
                 <button
                   key={notif.id}
                   onClick={() => handleClick(notif)}
-                  className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex gap-3 ${
+                  className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex gap-3 group ${
                     !notif.read ? "bg-primary/[0.03]" : ""
                   }`}
                 >
@@ -168,9 +206,13 @@ export const NotificationBell = () => {
                       })}
                     </p>
                   </div>
-                  {notif.link && (
-                    <ExternalLink className="h-3 w-3 text-muted-foreground/40 mt-1 shrink-0" />
-                  )}
+                  <button
+                    onClick={(e) => deleteNotification(notif.id, e)}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-destructive/10 transition-all shrink-0 mt-0.5"
+                    title="Supprimer"
+                  >
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </button>
                 </button>
               ))}
             </div>

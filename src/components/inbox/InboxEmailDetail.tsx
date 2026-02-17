@@ -1,4 +1,5 @@
 import { ArrowLeft, Mail, Clock, User } from "lucide-react";
+import DOMPurify from "dompurify";
 import { Badge } from "@/components/ui/badge";
 import { InboxAiSummary } from "./InboxAiSummary";
 import { InboxActionBar } from "./InboxActionBar";
@@ -109,7 +110,7 @@ export const InboxEmailDetail = ({ email, actions, onBack, onActionExecuted }: P
         {email.body_html ? (
           <div
             className="prose prose-sm max-w-none text-foreground"
-            dangerouslySetInnerHTML={{ __html: email.body_html }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(email.body_html, { ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'span', 'div', 'table', 'thead', 'tbody', 'tr', 'td', 'th', 'img', 'hr'], ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'style', 'target', 'rel'], ALLOW_DATA_ATTR: false }) }}
           />
         ) : (
           <pre className="text-sm whitespace-pre-wrap text-foreground font-sans">

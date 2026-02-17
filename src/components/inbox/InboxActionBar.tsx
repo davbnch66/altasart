@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { UserPlus, FolderPlus, FileText, CalendarPlus, Package, Link } from "lucide-react";
+import { UserPlus, FolderPlus, FileText, CalendarPlus, Package, Link, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -34,37 +34,48 @@ export const InboxActionBar = ({ actions, onActionExecuted, clientEmail, clientN
   const queryClient = useQueryClient();
   const suggestedActions = actions.filter((a) => a.status === "suggested");
   const [scheduleAction, setScheduleAction] = useState<EmailAction | null>(null);
+  const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
 
   if (suggestedActions.length === 0) return null;
 
   const handleAccept = async (actionId: string, actionType: string) => {
-    const config = actionConfig[actionType];
-    const { data, error } = await supabase.functions.invoke("execute-email-action", {
-      body: { action_id: actionId, status: "accepted" },
-    });
-    if (error || data?.error) {
-      toast.error(data?.error || "Erreur lors de l'exécution");
-      return;
+    setLoadingActionId(actionId);
+    try {
+      const config = actionConfig[actionType];
+      const { data, error } = await supabase.functions.invoke("execute-email-action", {
+        body: { action_id: actionId, status: "accepted" },
+      });
+      if (error || data?.error) {
+        toast.error(data?.error || "Erreur lors de l'exécution");
+        return;
+      }
+      toast.success(config?.successMsg || "Action validée");
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["dossiers"] });
+      queryClient.invalidateQueries({ queryKey: ["devis"] });
+      queryClient.invalidateQueries({ queryKey: ["visites"] });
+      onActionExecuted();
+    } finally {
+      setLoadingActionId(null);
     }
-    toast.success(config?.successMsg || "Action validée");
-    queryClient.invalidateQueries({ queryKey: ["clients"] });
-    queryClient.invalidateQueries({ queryKey: ["dossiers"] });
-    queryClient.invalidateQueries({ queryKey: ["devis"] });
-    queryClient.invalidateQueries({ queryKey: ["visites"] });
-    onActionExecuted();
   };
 
   const handleReject = async (actionId: string) => {
-    const { error } = await supabase
-      .from("email_actions")
-      .update({ status: "rejected" })
-      .eq("id", actionId);
-    if (error) {
-      toast.error("Erreur");
-      return;
+    setLoadingActionId(actionId);
+    try {
+      const { error } = await supabase
+        .from("email_actions")
+        .update({ status: "rejected" })
+        .eq("id", actionId);
+      if (error) {
+        toast.error("Erreur");
+        return;
+      }
+      toast.success("Action ignorée");
+      onActionExecuted();
+    } finally {
+      setLoadingActionId(null);
     }
-    toast.success("Action ignorée");
-    onActionExecuted();
   };
 
   const handleAction = (action: EmailAction) => {
@@ -99,11 +110,11 @@ export const InboxActionBar = ({ actions, onActionExecuted, clientEmail, clientN
                   )}
                 </div>
                 <div className="flex gap-1.5 shrink-0">
-                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleReject(action.id)}>
-                    Ignorer
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleReject(action.id)} disabled={!!loadingActionId}>
+                    {loadingActionId === action.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Ignorer"}
                   </Button>
-                  <Button size="sm" className="h-7 text-xs" onClick={() => handleAction(action)}>
-                    {action.action_type === "plan_visite" ? "Planifier" : "Valider"}
+                  <Button size="sm" className="h-7 text-xs" onClick={() => handleAction(action)} disabled={!!loadingActionId}>
+                    {loadingActionId === action.id ? <Loader2 className="h-3 w-3 animate-spin" /> : action.action_type === "plan_visite" ? "Planifier" : "Valider"}
                   </Button>
                 </div>
               </div>

@@ -362,7 +362,7 @@ const Dashboard = () => {
                 devis: `/devis/${item.id}`,
                 dossier: `/dossiers/${item.id}`,
                 facture: `/finance/${item.id}`,
-                visite: "/visites",
+                visite: `/visites/${item.id}`,
               };
               return (
                 <div
