@@ -195,33 +195,39 @@ serve(async (req) => {
 
         case "extract_materiel": {
           // Need a visite_id from the email to attach materiel
-          const visiteId = email?.visite_id || (email?.dossier_id ? null : null);
+          let targetVisiteId = email?.visite_id || null;
           
-          // Try to find a visite linked to this email
-          let targetVisiteId = visiteId;
           if (!targetVisiteId) {
             // Check if another action in this email created a visite
-            const { data: visiteAction } = await supabase
-              .from("email_actions")
-              .select("id")
-              .eq("inbound_email_id", action.inbound_email_id)
-              .eq("action_type", "plan_visite")
-              .eq("status", "accepted")
+            const { data: freshEmail } = await supabase
+              .from("inbound_emails")
+              .select("visite_id")
+              .eq("id", action.inbound_email_id)
               .single();
-
-            if (visiteAction) {
-              // Re-fetch the email to get the linked visite
-              const { data: freshEmail } = await supabase
-                .from("inbound_emails")
-                .select("visite_id")
-                .eq("id", action.inbound_email_id)
-                .single();
-              targetVisiteId = freshEmail?.visite_id;
-            }
+            targetVisiteId = freshEmail?.visite_id || null;
           }
 
+          // Auto-create a visite if none exists
           if (!targetVisiteId) {
-            throw new Error("Aucune visite associée. Planifiez d'abord une visite.");
+            if (!clientId) {
+              throw new Error("Aucun client associé. Créez d'abord le client.");
+            }
+            const { data: newVisite, error: vErr } = await supabase.from("visites").insert({
+              title: payload.title || "Visite technique",
+              address: payload.address || null,
+              client_id: clientId,
+              company_id: companyId,
+              dossier_id: email?.dossier_id || null,
+              created_by: userId,
+              status: "planifiee",
+            }).select("id").single();
+            if (vErr) throw vErr;
+            targetVisiteId = newVisite.id;
+
+            // Link visite to inbound email
+            await supabase.from("inbound_emails")
+              .update({ visite_id: targetVisiteId })
+              .eq("id", action.inbound_email_id);
           }
 
           const materials = payload.materials || [];
