@@ -139,6 +139,8 @@ const StoragePage = () => {
 
   const bulkAddMutation = useMutation({
     mutationFn: async (names: string[]) => {
+      if (!firstCompanyId) throw new Error("Aucune société sélectionnée");
+      console.log(`[BulkAdd] Adding ${names.length} boxes to company ${firstCompanyId}`);
       const rows = names.map((name) => ({
         name,
         company_id: firstCompanyId,
@@ -148,6 +150,7 @@ const StoragePage = () => {
       // Insert in batches of 100
       for (let i = 0; i < rows.length; i += 100) {
         const batch = rows.slice(i, i + 100);
+        console.log(`[BulkAdd] Inserting batch ${i / 100 + 1}, size: ${batch.length}`);
         const { error } = await supabase.from("storage_units").insert(batch);
         if (error) throw error;
       }
@@ -157,17 +160,23 @@ const StoragePage = () => {
       queryClient.invalidateQueries({ queryKey: ["storage-units"] });
       setBulkManagerOpen(false);
     },
-    onError: () => toast.error("Erreur lors de la création"),
+    onError: (error: any) => {
+      console.error("Bulk add error:", error);
+      toast.error(`Erreur lors de la création: ${error?.message || "inconnue"}`);
+    },
   });
 
   const bulkMultiDeleteMutation = useMutation({
     mutationFn: async (patterns: string[]) => {
+      if (patterns.length === 0) throw new Error("Aucun pattern de suppression");
+      console.log(`[BulkDelete] Deleting patterns:`, patterns, `companies:`, companyIds);
       for (const pattern of patterns) {
-        const { error } = await supabase
+        const { error, count } = await supabase
           .from("storage_units")
           .delete()
           .in("company_id", companyIds)
           .like("name", pattern);
+        console.log(`[BulkDelete] Pattern "${pattern}" deleted, count:`, count, 'error:', error);
         if (error) throw error;
       }
     },
@@ -178,7 +187,10 @@ const StoragePage = () => {
       setSelectedUnitId(null);
       setBulkManagerOpen(false);
     },
-    onError: () => toast.error("Erreur lors de la suppression"),
+    onError: (error: any) => {
+      console.error("Bulk delete error:", error);
+      toast.error(`Erreur lors de la suppression: ${error?.message || "inconnue"}`);
+    },
   });
 
   const handleDeleteUnit = (unit: any) => {
