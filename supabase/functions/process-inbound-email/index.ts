@@ -156,9 +156,10 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
       console.error("AI analysis failed:", aiResponse.status, await aiResponse.text());
     }
 
-    // 3. Try to match existing client by email
+    // 3. Try to match existing client by email (check clients table AND client_contacts)
     let clientId: string | null = null;
     if (fromEmail) {
+      // First check clients table
       const { data: existingClient } = await supabase
         .from("clients")
         .select("id")
@@ -168,6 +169,19 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
 
       if (existingClient) {
         clientId = existingClient.id;
+      } else {
+        // Then check client_contacts table
+        const { data: existingContact } = await supabase
+          .from("client_contacts")
+          .select("client_id")
+          .eq("company_id", companyId)
+          .eq("email", fromEmail)
+          .limit(1)
+          .maybeSingle();
+
+        if (existingContact) {
+          clientId = existingContact.client_id;
+        }
       }
     }
 
