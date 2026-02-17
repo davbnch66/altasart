@@ -1,5 +1,6 @@
-import { useRef, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { ThreeEvent } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import * as THREE from "three";
 
 const BOX_W = 1.84;
@@ -16,6 +17,8 @@ interface StorageBox3DProps {
   position: [number, number, number];
   status: string;
   isSelected: boolean;
+  label: string;
+  clientName?: string;
   onClick: () => void;
 }
 
@@ -23,6 +26,8 @@ export const StorageBox3D = ({
   position,
   status,
   isSelected,
+  label,
+  clientName,
   onClick,
 }: StorageBox3DProps) => {
   const [hovered, setHovered] = useState(false);
@@ -49,6 +54,25 @@ export const StorageBox3D = ({
       <lineSegments geometry={edgesGeo}>
         <lineBasicMaterial color={isSelected ? "#f97316" : "#475569"} />
       </lineSegments>
+
+      {/* Tooltip on hover */}
+      {hovered && !isSelected && (
+        <Html position={[0, BOX_H / 2 + 0.3, 0]} center style={{ pointerEvents: "none" }}>
+          <div className="bg-background/95 backdrop-blur-sm border rounded-md px-2 py-1 text-[10px] shadow-md whitespace-nowrap">
+            <span className="font-semibold">{label}</span>
+            {clientName && <span className="text-muted-foreground ml-1">· {clientName}</span>}
+          </div>
+        </Html>
+      )}
+
+      {/* Label on selected */}
+      {isSelected && (
+        <Html position={[0, BOX_H / 2 + 0.3, 0]} center style={{ pointerEvents: "none" }}>
+          <div className="bg-orange-500 text-white rounded-md px-2 py-1 text-[10px] shadow-lg whitespace-nowrap font-semibold">
+            {label}
+          </div>
+        </Html>
+      )}
     </group>
   );
 };
