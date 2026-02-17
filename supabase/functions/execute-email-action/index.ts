@@ -27,7 +27,7 @@ serve(async (req) => {
     }
     const userId = user.id;
 
-    const { action_id, status: newStatus } = await req.json();
+    const { action_id, status: newStatus, override_payload } = await req.json();
     if (!action_id || !newStatus) {
       return new Response(JSON.stringify({ error: "action_id and status required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -56,7 +56,7 @@ serve(async (req) => {
 
     // Only execute creation logic when accepting
     if (newStatus === "accepted") {
-      const payload = action.payload || {};
+      const payload = override_payload ? { ...(action.payload || {}), ...override_payload } : (action.payload || {});
       const companyId = action.company_id;
       const email = action.inbound_emails;
       const clientId = email?.client_id;

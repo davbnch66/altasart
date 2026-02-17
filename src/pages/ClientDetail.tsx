@@ -22,6 +22,7 @@ import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ClientExchangesTab } from "@/components/client/ClientExchangesTab";
+import { ClientReplyForm } from "@/components/client/ClientReplyForm";
 import { ClientNotesTab } from "@/components/client/ClientNotesTab";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
 
@@ -467,7 +468,17 @@ const ClientDetail = () => {
           )
         )}
 
-        {activeTab === "echanges" && <ClientExchangesTab clientId={id!} />}
+        {activeTab === "echanges" && (
+          <div className="space-y-4">
+            <ClientReplyForm
+              clientId={id!}
+              clientName={client?.name || ""}
+              clientEmail={client?.email}
+              onSent={() => queryClient.invalidateQueries({ queryKey: ["client-messages", id] })}
+            />
+            <ClientExchangesTab clientId={id!} />
+          </div>
+        )}
 
         {activeTab === "notes" && (
           <ClientNotesTab
