@@ -473,7 +473,7 @@ const ClientDetail = () => {
               {factures.length === 0 ? (
                 <p className="text-center py-8 text-muted-foreground text-sm">Aucune facture</p>
               ) : factures.map((f) => (
-                <div key={f.id} className="rounded-xl border bg-card p-3 cursor-pointer" onClick={() => navigate(`/finance/${f.id}`)}>
+                <div key={f.id} className="rounded-xl border bg-card p-3 cursor-pointer" onClick={() => navigate(`/finance/${f.id}`, { state: { fromClient: true } })}>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="font-mono text-xs font-medium">{f.code || "—"}</span>
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${invoiceStatus[f.status] || ""}`}>{invoiceLabels[f.status] || f.status}</span>
@@ -509,7 +509,7 @@ const ClientDetail = () => {
                   </tr></thead>
                   <tbody className="divide-y">
                     {factures.map((f) => (
-                      <tr key={f.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/finance/${f.id}`)}>
+                      <tr key={f.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/finance/${f.id}`, { state: { fromClient: true } })}>
                         <td className="px-4 py-3 font-mono text-xs">{f.code || "—"}</td>
                         <td className="px-4 py-3 text-muted-foreground">{formatDate(f.created_at)}</td>
                         <td className="px-4 py-3 text-right font-semibold">{formatAmount(f.amount)}</td>
@@ -536,7 +536,7 @@ const ClientDetail = () => {
               {devis.length === 0 ? (
                 <p className="text-center py-8 text-muted-foreground text-sm">Aucun devis</p>
               ) : devis.map((d) => (
-                <div key={d.id} className="rounded-xl border bg-card p-3 cursor-pointer" onClick={() => navigate(`/devis/${d.id}`)}>
+                <div key={d.id} className="rounded-xl border bg-card p-3 cursor-pointer" onClick={() => navigate(`/devis/${d.id}`, { state: { fromClient: true } })}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-mono text-xs font-medium">{d.code || "—"}</span>
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${devisStatusStyles[d.status] || ""}`}>{devisLabels[d.status] || d.status}</span>
@@ -573,7 +573,7 @@ const ClientDetail = () => {
                   </tr></thead>
                   <tbody className="divide-y">
                     {devis.map((d) => (
-                      <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/devis/${d.id}`)}>
+                      <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/devis/${d.id}`, { state: { fromClient: true } })}>
                          <td className="px-4 py-3 font-mono text-xs">{d.code || "—"}</td>
                          <td className="px-4 py-3 text-muted-foreground">{formatDate(d.created_at)}</td>
                          <td className="px-4 py-3 font-medium">{d.objet}</td>
@@ -668,7 +668,7 @@ const ClientDetail = () => {
                 {visites.map((v) => (
                   <div key={v.id} className={`flex items-center gap-3 transition-colors cursor-pointer ${
                     isMobile ? "rounded-xl border bg-card p-3" : "px-4 py-3.5 hover:bg-muted/30"
-                  }`} onClick={() => navigate(`/visites/${v.id}`)}>
+                  }`} onClick={() => navigate(`/visites/${v.id}`, { state: { fromClient: true } })}>
                     <div className={`rounded-lg bg-muted flex items-center justify-center shrink-0 ${isMobile ? "h-8 w-8" : "h-10 w-10"}`}>
                       <ClipboardCheck className={isMobile ? "h-4 w-4 text-muted-foreground" : "h-5 w-5 text-muted-foreground"} />
                     </div>
