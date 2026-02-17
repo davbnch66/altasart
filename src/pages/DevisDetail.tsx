@@ -14,6 +14,7 @@ import { EditDevisDialog } from "@/components/forms/EditDevisDialog";
 import { generateDevisPdf } from "@/lib/generateDevisPdf";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
 
 const statusLabels: Record<string, string> = {
   brouillon: "Brouillon",
@@ -116,13 +117,14 @@ const DevisDetail = () => {
   const [editing, setEditing] = useState(false);
   const isMobile = useIsMobile();
   const fromClient = (location.state as any)?.fromClient === true;
+  const fromDossier = (location.state as any)?.fromDossier as string | undefined;
 
   const { data: devis, isLoading } = useQuery({
     queryKey: ["devis-detail", id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("devis")
-        .select("*, clients(id, name, email, phone, address, city, postal_code), companies(short_name, name, color)")
+        .select("*, clients(id, name, email, phone, address, city, postal_code), companies(short_name, name, color), dossiers(id, code, title)")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -178,11 +180,19 @@ const DevisDetail = () => {
 
   const client = devis.clients as any;
   const company = devis.companies as any;
+  const dossier = devis.dossiers as any;
 
   return (
     <div className={`max-w-5xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+      {/* Breadcrumb */}
+      <DetailBreadcrumb items={[
+        ...(fromClient && client?.id ? [{ label: client.name, path: `/clients/${client.id}` }] : []),
+        ...(fromDossier && dossier ? [{ label: dossier.code || dossier.title, path: `/dossiers/${fromDossier}`, state: { fromClient } }] : !fromClient ? [{ label: "Devis", path: "/devis" }] : []),
+        { label: devis.code || "Devis" },
+      ]} />
+
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/devis")} className={isMobile ? "h-8 w-8" : ""}>
+        <Button variant="ghost" size="icon" onClick={() => fromDossier ? navigate(`/dossiers/${fromDossier}`, { state: { fromClient } }) : fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/devis")} className={isMobile ? "h-8 w-8" : ""}>
           <ArrowLeft className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
         </Button>
         <div className="flex-1 min-w-0">

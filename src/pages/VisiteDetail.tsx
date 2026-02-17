@@ -30,6 +30,7 @@ import { ApplyTemplateDialog } from "@/components/visite/ApplyTemplateDialog";
 import { GenerateDevisDialog } from "@/components/visite/GenerateDevisDialog";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { VisiteDevisHistory } from "@/components/visite/VisiteDevisHistory";
+import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
 import { PdfPreviewDialog } from "@/components/visite/PdfPreviewDialog";
 
 const statusLabels: Record<string, string> = {
@@ -76,6 +77,7 @@ const VisiteDetail = () => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const fromClient = (location.state as any)?.fromClient === true;
+  const fromDossier = (location.state as any)?.fromDossier as string | undefined;
   const isOnline = useOnlineStatus();
   const [editData, setEditData] = useState<any>(null);
   const [saving, setSaving] = useState(false);
@@ -187,9 +189,16 @@ const VisiteDetail = () => {
     <div className={`p-4 md:p-6 lg:p-8 max-w-5xl mx-auto space-y-4 md:space-y-6 ${isMobile ? "pb-24" : ""}`}>
       {/* Header */}
       <div className="space-y-2">
+        {/* Breadcrumb */}
+        <DetailBreadcrumb items={[
+          ...(fromClient && client?.id ? [{ label: client.name, path: `/clients/${client.id}` }] : []),
+          ...(fromDossier && dossier ? [{ label: dossier.code || dossier.title, path: `/dossiers/${fromDossier}`, state: { fromClient } }] : !fromClient ? [{ label: "Visites", path: "/visites" }] : []),
+          { label: visite.code ? `#${visite.code}` : visite.title },
+        ]} />
+
         {/* Title row */}
         <div className="flex items-start gap-2">
-          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/visites")}>
+          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => fromDossier ? navigate(`/dossiers/${fromDossier}`, { state: { fromClient } }) : fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/visites")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
