@@ -15,6 +15,9 @@ import {
   Settings,
   Building2,
   ChevronDown,
+  Kanban,
+  Truck,
+  Warehouse,
   LogOut,
   Bell,
 } from "lucide-react";
@@ -32,12 +35,15 @@ import {
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/clients", icon: Users, label: "Clients" },
+  { to: "/pipeline", icon: Kanban, label: "Pipeline" },
   { to: "/planning", icon: CalendarDays, label: "Planning" },
   { to: "/dossiers", icon: FolderOpen, label: "Dossiers" },
   { to: "/devis", icon: FileText, label: "Devis" },
   { to: "/visites", icon: ClipboardCheck, label: "Visites" },
   { to: "/inbox", icon: Inbox, label: "Inbox" },
   { to: "/finance", icon: DollarSign, label: "Finance" },
+  { to: "/flotte", icon: Truck, label: "Flotte" },
+  { to: "/stockage", icon: Warehouse, label: "Stockage" },
   { to: "/ressources", icon: Wrench, label: "Ressources" },
   { to: "/parametres", icon: Settings, label: "Paramètres" },
 ];

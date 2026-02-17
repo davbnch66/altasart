@@ -21,6 +21,9 @@ import Finance from "@/pages/Finance";
 import FactureDetail from "@/pages/FactureDetail";
 import Ressources from "@/pages/Ressources";
 import Parametres from "@/pages/Parametres";
+import PipelineKanban from "@/pages/PipelineKanban";
+import FleetPage from "@/pages/FleetPage";
+import StoragePage from "@/pages/StoragePage";
 import Auth from "@/pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -57,6 +60,9 @@ const ProtectedRoutes = () => {
           <Route path="/finance" element={<Finance />} />
           <Route path="/finance/:id" element={<FactureDetail />} />
           <Route path="/ressources" element={<Ressources />} />
+          <Route path="/pipeline" element={<PipelineKanban />} />
+          <Route path="/flotte" element={<FleetPage />} />
+          <Route path="/stockage" element={<StoragePage />} />
           <Route path="/parametres" element={<Parametres />} />
         </Route>
         <Route path="*" element={<NotFound />} />
