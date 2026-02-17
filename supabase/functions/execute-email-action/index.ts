@@ -68,11 +68,31 @@ serve(async (req) => {
             contact_name: payload.contact_name || null,
             email: payload.email || null,
             phone: payload.phone || null,
+            mobile: payload.mobile || null,
             address: payload.address || null,
+            postal_code: payload.postal_code || null,
+            city: payload.city || null,
             company_id: companyId,
           }).select("id").single();
           if (error) throw error;
           createdId = data.id;
+
+          // Auto-create default contact
+          if (payload.contact_name) {
+            const nameParts = (payload.contact_name as string).trim().split(/\s+/);
+            const lastName = nameParts.pop() || payload.contact_name;
+            const firstName = nameParts.join(" ") || null;
+            await supabase.from("client_contacts").insert({
+              client_id: data.id,
+              company_id: companyId,
+              first_name: firstName,
+              last_name: lastName,
+              email: payload.email || null,
+              phone_office: payload.phone || null,
+              mobile: payload.mobile || null,
+              is_default: true,
+            });
+          }
 
           // Link client to the inbound email
           await supabase.from("inbound_emails")
@@ -134,6 +154,19 @@ serve(async (req) => {
           const { data, error } = await supabase.from("visites").insert({
             title: payload.title || "Visite technique",
             address: payload.address || null,
+            origin_address_line1: payload.origin_address || payload.address || null,
+            origin_postal_code: payload.origin_postal_code || payload.code_postal || null,
+            origin_city: payload.origin_city || payload.ville || null,
+            dest_address_line1: payload.dest_address || null,
+            dest_city: payload.dest_city || null,
+            dest_postal_code: payload.dest_postal_code || null,
+            zone: payload.zone || null,
+            period: payload.periode || null,
+            nature: payload.nature || null,
+            volume: payload.volume || null,
+            origin_floor: payload.etage || null,
+            origin_elevator: payload.ascenseur || null,
+            instructions: payload.instructions || null,
             client_id: clientId,
             company_id: companyId,
             dossier_id: email?.dossier_id || null,
