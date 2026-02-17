@@ -133,7 +133,7 @@ const DossierDetail = () => {
     <div className={`max-w-5xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className={isMobile ? "h-8 w-8" : ""}>
+        <Button variant="ghost" size="icon" onClick={() => client?.id ? navigate(`/clients/${client.id}`) : navigate(-1)} className={isMobile ? "h-8 w-8" : ""}>
           <ArrowLeft className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
         </Button>
         <div className="flex-1 min-w-0">
