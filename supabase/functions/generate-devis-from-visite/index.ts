@@ -10,8 +10,52 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { visite_id } = await req.json();
-    if (!visite_id) throw new Error("visite_id requis");
+    // Auth check
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Non autorisé" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: { user }, error: authErr } = await supabaseAuth.auth.getUser();
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: "Non autorisé" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const body = await req.json();
+    const visite_id = body.visite_id;
+
+    // Input validation
+    if (!visite_id || typeof visite_id !== "string") {
+      return new Response(JSON.stringify({ error: "visite_id requis" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(visite_id)) {
+      return new Response(JSON.stringify({ error: "visite_id invalide" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify user has access to this visite via RLS
+    const { data: visiteAccess, error: accessErr } = await supabaseAuth
+      .from("visites")
+      .select("id")
+      .eq("id", visite_id)
+      .maybeSingle();
+    if (accessErr || !visiteAccess) {
+      return new Response(JSON.stringify({ error: "Visite introuvable ou accès refusé" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
@@ -113,27 +157,21 @@ Tu DOIS répondre UNIQUEMENT via l'outil generate_devis_lines.`,
               parameters: {
                 type: "object",
                 properties: {
-                  objet: {
-                    type: "string",
-                    description: "Objet du devis (titre résumant l'opération)",
-                  },
+                  objet: { type: "string", description: "Objet du devis" },
                   lines: {
                     type: "array",
                     items: {
                       type: "object",
                       properties: {
-                        description: { type: "string", description: "Description de la ligne" },
-                        quantity: { type: "number", description: "Quantité" },
-                        unit_price: { type: "number", description: "Prix unitaire HT en euros" },
+                        description: { type: "string" },
+                        quantity: { type: "number" },
+                        unit_price: { type: "number" },
                       },
                       required: ["description", "quantity", "unit_price"],
                       additionalProperties: false,
                     },
                   },
-                  notes: {
-                    type: "string",
-                    description: "Notes complémentaires pour le devis",
-                  },
+                  notes: { type: "string", description: "Notes complémentaires" },
                 },
                 required: ["objet", "lines"],
                 additionalProperties: false,
@@ -182,7 +220,7 @@ Tu DOIS répondre UNIQUEMENT via l'outil generate_devis_lines.`,
     });
   } catch (e) {
     console.error("generate-devis error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erreur inconnue" }), {
+    return new Response(JSON.stringify({ error: "Erreur lors de la génération du devis." }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

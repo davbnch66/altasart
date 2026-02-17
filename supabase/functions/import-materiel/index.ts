@@ -10,9 +10,58 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { text, visite_id, company_id } = await req.json();
-    if (!text || !visite_id || !company_id) {
-      return new Response(JSON.stringify({ error: "Missing fields" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // Auth check
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Non autorisé" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: { user }, error: authErr } = await supabaseAuth.auth.getUser();
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: "Non autorisé" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const body = await req.json();
+    const text = body.text;
+    const visite_id = body.visite_id;
+    const company_id = body.company_id;
+
+    // Input validation
+    if (!text || typeof text !== "string" || !visite_id || !company_id) {
+      return new Response(JSON.stringify({ error: "Champs requis manquants" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(visite_id) || !uuidRegex.test(company_id)) {
+      return new Response(JSON.stringify({ error: "Identifiants invalides" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (text.length > 50000) {
+      return new Response(JSON.stringify({ error: "Texte trop long (max 50 000 caractères)" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify user has access to this visite via RLS
+    const { data: visiteAccess, error: accessErr } = await supabaseAuth
+      .from("visites")
+      .select("id")
+      .eq("id", visite_id)
+      .maybeSingle();
+    if (accessErr || !visiteAccess) {
+      return new Response(JSON.stringify({ error: "Visite introuvable ou accès refusé" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -36,7 +85,7 @@ Retourne UNIQUEMENT un JSON valide.`,
           },
           {
             role: "user",
-            content: `Extrais la liste de matériel du texte suivant :\n\n${text}`,
+            content: `Extrais la liste de matériel du texte suivant :\n\n${text.slice(0, 50000)}`,
           },
         ],
         tools: [
@@ -100,8 +149,7 @@ Retourne UNIQUEMENT un JSON valide.`,
       });
     }
 
-    // Insert into database
-    const authHeader = req.headers.get("Authorization")!;
+    // Insert using service role
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -110,9 +158,9 @@ Retourne UNIQUEMENT un JSON valide.`,
     const rows = materials.map((m: any, idx: number) => ({
       visite_id,
       company_id,
-      designation: m.designation || "Sans nom",
+      designation: String(m.designation || "Sans nom").slice(0, 500),
       quantity: m.quantity || 1,
-      dimensions: m.dimensions || null,
+      dimensions: m.dimensions ? String(m.dimensions).slice(0, 200) : null,
       weight: m.weight || null,
       sort_order: idx,
     }));
@@ -125,8 +173,7 @@ Retourne UNIQUEMENT un JSON valide.`,
     });
   } catch (e) {
     console.error("import-materiel error:", e);
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    return new Response(JSON.stringify({ error: msg }), {
+    return new Response(JSON.stringify({ error: "Erreur lors de l'import du matériel." }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

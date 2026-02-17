@@ -11,8 +11,53 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { visite_id } = await req.json();
-    if (!visite_id) throw new Error("visite_id requis");
+    // Auth check
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Non autorisé" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: { user }, error: authErr } = await supabaseAuth.auth.getUser();
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: "Non autorisé" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const body = await req.json();
+    const visite_id = body.visite_id;
+
+    // Input validation
+    if (!visite_id || typeof visite_id !== "string") {
+      return new Response(JSON.stringify({ error: "visite_id requis" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // UUID format check
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(visite_id)) {
+      return new Response(JSON.stringify({ error: "visite_id invalide" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Use user-scoped client to verify access
+    const { data: visiteAccess, error: accessErr } = await supabaseAuth
+      .from("visites")
+      .select("id")
+      .eq("id", visite_id)
+      .maybeSingle();
+    if (accessErr || !visiteAccess) {
+      return new Response(JSON.stringify({ error: "Visite introuvable ou accès refusé" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -124,7 +169,7 @@ Réponds en JSON strict :
                 properties: {
                   content: {
                     type: "string",
-                    description: "Texte complet de la méthodologie en markdown (résumé, analyse risques, méthode opératoire, moyens de levage, schémas, conformité, sécurité)"
+                    description: "Texte complet de la méthodologie en markdown"
                   },
                   checklist: {
                     type: "array",
@@ -144,18 +189,22 @@ Réponds en JSON strict :
 
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {
-        throw new Error("Limite de requêtes atteinte, réessayez dans quelques instants");
+        return new Response(JSON.stringify({ error: "Limite de requêtes atteinte, réessayez dans quelques instants" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
       if (aiResponse.status === 402) {
-        throw new Error("Crédits IA insuffisants");
+        return new Response(JSON.stringify({ error: "Crédits IA insuffisants" }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
       const errText = await aiResponse.text();
-      throw new Error(`AI API error: ${aiResponse.status} - ${errText}`);
+      console.error("AI API error:", aiResponse.status, errText);
+      throw new Error("Erreur du service IA");
     }
 
     const aiData = await aiResponse.json();
     
-    // Extract from tool call
     let parsed;
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
     if (toolCall?.function?.arguments) {
@@ -165,7 +214,6 @@ Réponds en JSON strict :
         parsed = { content: toolCall.function.arguments, checklist: [] };
       }
     } else {
-      // Fallback to raw content
       const rawContent = aiData.choices?.[0]?.message?.content || "";
       try {
         const jsonStr = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
@@ -179,8 +227,9 @@ Réponds en JSON strict :
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
+    console.error("generate-methodologie error:", error);
+    return new Response(JSON.stringify({ error: "Erreur lors de la génération de la méthodologie." }), {
+      status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

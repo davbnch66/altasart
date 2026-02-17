@@ -12,7 +12,7 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "Non autorisé" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const supabaseAuth = createClient(
@@ -23,14 +23,43 @@ serve(async (req) => {
 
     const { data: { user }, error: userErr } = await supabaseAuth.auth.getUser();
     if (userErr || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "Non autorisé" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const userId = user.id;
 
-    const { action_id, status: newStatus, override_payload } = await req.json();
+    const body = await req.json();
+    const action_id = body.action_id;
+    const newStatus = body.status;
+    const override_payload = body.override_payload;
+
+    // Input validation
     if (!action_id || !newStatus) {
-      return new Response(JSON.stringify({ error: "action_id and status required" }), {
+      return new Response(JSON.stringify({ error: "action_id et status requis" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(action_id)) {
+      return new Response(JSON.stringify({ error: "action_id invalide" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const validStatuses = ["accepted", "rejected", "suggested"];
+    if (!validStatuses.includes(newStatus)) {
+      return new Response(JSON.stringify({ error: "Status invalide" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify user has access to this action via RLS (user-scoped client)
+    const { data: actionAccess, error: accessErr } = await supabaseAuth
+      .from("email_actions")
+      .select("id")
+      .eq("id", action_id)
+      .maybeSingle();
+    if (accessErr || !actionAccess) {
+      return new Response(JSON.stringify({ error: "Action introuvable ou accès refusé" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -47,7 +76,7 @@ serve(async (req) => {
       .single();
 
     if (fetchErr || !action) {
-      return new Response(JSON.stringify({ error: "Action not found" }), {
+      return new Response(JSON.stringify({ error: "Action introuvable" }), {
         status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -64,37 +93,35 @@ serve(async (req) => {
       switch (action.action_type) {
         case "create_client": {
           const { data, error } = await supabase.from("clients").insert({
-            name: payload.name || "Client sans nom",
-            contact_name: payload.contact_name || null,
-            email: payload.email || null,
-            phone: payload.phone || null,
-            mobile: payload.mobile || null,
-            address: payload.address || null,
-            postal_code: payload.postal_code || null,
-            city: payload.city || null,
+            name: String(payload.name || "Client sans nom").slice(0, 500),
+            contact_name: payload.contact_name ? String(payload.contact_name).slice(0, 200) : null,
+            email: payload.email ? String(payload.email).slice(0, 320) : null,
+            phone: payload.phone ? String(payload.phone).slice(0, 30) : null,
+            mobile: payload.mobile ? String(payload.mobile).slice(0, 30) : null,
+            address: payload.address ? String(payload.address).slice(0, 500) : null,
+            postal_code: payload.postal_code ? String(payload.postal_code).slice(0, 10) : null,
+            city: payload.city ? String(payload.city).slice(0, 200) : null,
             company_id: companyId,
           }).select("id").single();
           if (error) throw error;
           createdId = data.id;
 
-          // Auto-create default contact
           if (payload.contact_name) {
-            const nameParts = (payload.contact_name as string).trim().split(/\s+/);
-            const lastName = nameParts.pop() || payload.contact_name;
+            const nameParts = String(payload.contact_name).trim().split(/\s+/);
+            const lastName = nameParts.pop() || String(payload.contact_name);
             const firstName = nameParts.join(" ") || null;
             await supabase.from("client_contacts").insert({
               client_id: data.id,
               company_id: companyId,
               first_name: firstName,
               last_name: lastName,
-              email: payload.email || null,
-              phone_office: payload.phone || null,
-              mobile: payload.mobile || null,
+              email: payload.email ? String(payload.email).slice(0, 320) : null,
+              phone_office: payload.phone ? String(payload.phone).slice(0, 30) : null,
+              mobile: payload.mobile ? String(payload.mobile).slice(0, 30) : null,
               is_default: true,
             });
           }
 
-          // Link client to the inbound email
           await supabase.from("inbound_emails")
             .update({ client_id: data.id })
             .eq("id", action.inbound_email_id);
@@ -102,13 +129,11 @@ serve(async (req) => {
         }
 
         case "create_dossier": {
-          if (!clientId) {
-            throw new Error("Aucun client associé à cet email. Créez d'abord le client.");
-          }
+          if (!clientId) throw new Error("Aucun client associé à cet email. Créez d'abord le client.");
           const { data, error } = await supabase.from("dossiers").insert({
-            title: payload.title || "Nouveau dossier",
-            description: payload.description || null,
-            address: payload.address || null,
+            title: String(payload.title || "Nouveau dossier").slice(0, 500),
+            description: payload.description ? String(payload.description).slice(0, 2000) : null,
+            address: payload.address ? String(payload.address).slice(0, 500) : null,
             client_id: clientId,
             company_id: companyId,
             stage: "prospect",
@@ -116,7 +141,6 @@ serve(async (req) => {
           if (error) throw error;
           createdId = data.id;
 
-          // Link dossier to inbound email
           await supabase.from("inbound_emails")
             .update({ dossier_id: data.id })
             .eq("id", action.inbound_email_id);
@@ -124,12 +148,10 @@ serve(async (req) => {
         }
 
         case "create_devis": {
-          if (!clientId) {
-            throw new Error("Aucun client associé à cet email. Créez d'abord le client.");
-          }
+          if (!clientId) throw new Error("Aucun client associé à cet email. Créez d'abord le client.");
           const { data, error } = await supabase.from("devis").insert({
-            objet: payload.objet || "Devis",
-            notes: payload.notes || null,
+            objet: String(payload.objet || "Devis").slice(0, 500),
+            notes: payload.notes ? String(payload.notes).slice(0, 2000) : null,
             client_id: clientId,
             company_id: companyId,
             dossier_id: email?.dossier_id || null,
@@ -140,7 +162,6 @@ serve(async (req) => {
           if (error) throw error;
           createdId = data.id;
 
-          // Link devis to inbound email
           await supabase.from("inbound_emails")
             .update({ devis_id: data.id })
             .eq("id", action.inbound_email_id);
@@ -148,21 +169,17 @@ serve(async (req) => {
         }
 
         case "plan_visite": {
-          if (!clientId) {
-            throw new Error("Aucun client associé à cet email. Créez d'abord le client.");
-          }
+          if (!clientId) throw new Error("Aucun client associé à cet email. Créez d'abord le client.");
 
-          // Sanitize scheduled_date: extract first valid date from potential range like "2026-03-15/2026-03-30"
           let scheduledDate: string | null = payload.scheduled_date || payload.date_souhaitee || null;
           if (scheduledDate && typeof scheduledDate === "string") {
-            // Handle date ranges (e.g. "2026-03-15/2026-03-30") — take the first date
             const dateMatch = scheduledDate.match(/(\d{4}-\d{2}-\d{2})/);
             scheduledDate = dateMatch ? dateMatch[1] : null;
           }
 
           const { data, error } = await supabase.from("visites").insert({
-            title: payload.title || "Visite technique",
-            address: payload.address || null,
+            title: String(payload.title || "Visite technique").slice(0, 500),
+            address: payload.address ? String(payload.address).slice(0, 500) : null,
             origin_address_line1: payload.origin_address || payload.address || null,
             origin_postal_code: payload.origin_postal_code || payload.code_postal || null,
             origin_city: payload.origin_city || payload.ville || null,
@@ -175,7 +192,7 @@ serve(async (req) => {
             volume: payload.volume || null,
             origin_floor: payload.etage || null,
             origin_elevator: payload.ascenseur || null,
-            instructions: payload.instructions || null,
+            instructions: payload.instructions ? String(payload.instructions).slice(0, 2000) : null,
             client_id: clientId,
             company_id: companyId,
             dossier_id: email?.dossier_id || null,
@@ -186,7 +203,6 @@ serve(async (req) => {
           if (error) throw error;
           createdId = data.id;
 
-          // Link visite to inbound email
           await supabase.from("inbound_emails")
             .update({ visite_id: data.id })
             .eq("id", action.inbound_email_id);
@@ -194,11 +210,9 @@ serve(async (req) => {
         }
 
         case "extract_materiel": {
-          // Need a visite_id from the email to attach materiel
           let targetVisiteId = email?.visite_id || null;
           
           if (!targetVisiteId) {
-            // Check if another action in this email created a visite
             const { data: freshEmail } = await supabase
               .from("inbound_emails")
               .select("visite_id")
@@ -207,14 +221,11 @@ serve(async (req) => {
             targetVisiteId = freshEmail?.visite_id || null;
           }
 
-          // Auto-create a visite if none exists
           if (!targetVisiteId) {
-            if (!clientId) {
-              throw new Error("Aucun client associé. Créez d'abord le client.");
-            }
+            if (!clientId) throw new Error("Aucun client associé. Créez d'abord le client.");
             const { data: newVisite, error: vErr } = await supabase.from("visites").insert({
-              title: payload.title || "Visite technique",
-              address: payload.address || null,
+              title: String(payload.title || "Visite technique").slice(0, 500),
+              address: payload.address ? String(payload.address).slice(0, 500) : null,
               client_id: clientId,
               company_id: companyId,
               dossier_id: email?.dossier_id || null,
@@ -224,7 +235,6 @@ serve(async (req) => {
             if (vErr) throw vErr;
             targetVisiteId = newVisite.id;
 
-            // Link visite to inbound email
             await supabase.from("inbound_emails")
               .update({ visite_id: targetVisiteId })
               .eq("id", action.inbound_email_id);
@@ -232,11 +242,11 @@ serve(async (req) => {
 
           const materials = payload.materials || [];
           if (materials.length > 0) {
-            const inserts = materials.map((m: any, i: number) => ({
-              designation: m.designation || "Matériel",
+            const inserts = materials.slice(0, 200).map((m: any, i: number) => ({
+              designation: String(m.designation || "Matériel").slice(0, 500),
               quantity: m.quantity || 1,
               weight: m.weight || null,
-              dimensions: m.dimensions || null,
+              dimensions: m.dimensions ? String(m.dimensions).slice(0, 200) : null,
               visite_id: targetVisiteId,
               company_id: companyId,
               sort_order: i,
@@ -248,7 +258,6 @@ serve(async (req) => {
         }
 
         case "link_dossier": {
-          // Just link the dossier to the email
           if (payload.dossier_id) {
             await supabase.from("inbound_emails")
               .update({ dossier_id: payload.dossier_id })
@@ -276,8 +285,14 @@ serve(async (req) => {
     });
   } catch (e) {
     console.error("execute-email-action error:", e);
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    return new Response(JSON.stringify({ error: msg }), {
+    // Return safe error messages for known business errors
+    const msg = e instanceof Error ? e.message : "";
+    const safeMessages = [
+      "Aucun client associé",
+      "Créez d'abord le client",
+    ];
+    const isSafe = safeMessages.some(s => msg.includes(s));
+    return new Response(JSON.stringify({ error: isSafe ? msg : "Erreur lors de l'exécution de l'action." }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

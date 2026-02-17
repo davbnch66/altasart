@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,14 +10,38 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // Auth check
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Non autorisé" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: { user }, error: authErr } = await supabaseAuth.auth.getUser();
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: "Non autorisé" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY non configuré");
 
-    const { context, tone, intent } = await req.json();
+    const body = await req.json();
+    const context = body.context;
+    const tone = body.tone;
+    const intent = body.intent;
 
-    // context: { clientName, visiteCode, visiteTitle, subject, existingBody }
-    // tone: "formel" | "cordial" | "relance"
-    // intent: "envoi_rapport" | "relance" | "confirmation" | "custom"
+    if (!context || typeof context !== "object") {
+      return new Response(JSON.stringify({ error: "Contexte requis" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const systemPrompt = `Tu es un assistant spécialisé dans la rédaction d'emails professionnels pour une entreprise de transport, levage et manutention lourde (ART Levage / Alti Grues / ASDGM).
 
@@ -32,10 +57,10 @@ Règles strictes :
     const userPrompt = `Rédige un email avec les paramètres suivants :
 - Ton : ${tone || "cordial"}
 - Intention : ${intent || "envoi_rapport"}
-- Client : ${context.clientName || "le client"}
-- Visite : ${context.visiteCode ? `N° ${context.visiteCode}` : ""} ${context.visiteTitle || ""}
-- Objet de l'email : ${context.subject || "Rapport de visite technique"}
-${context.existingBody ? `- Brouillon existant à améliorer : """${context.existingBody}"""` : ""}
+- Client : ${String(context.clientName || "le client").slice(0, 200)}
+- Visite : ${context.visiteCode ? `N° ${String(context.visiteCode).slice(0, 50)}` : ""} ${String(context.visiteTitle || "").slice(0, 200)}
+- Objet de l'email : ${String(context.subject || "Rapport de visite technique").slice(0, 300)}
+${context.existingBody ? `- Brouillon existant à améliorer : """${String(context.existingBody).slice(0, 2000)}"""` : ""}
 - Un rapport PDF est joint à l'email
 
 ${intent === "relance" ? "C'est une relance suite à un premier envoi resté sans réponse." : ""}
@@ -82,7 +107,7 @@ ${intent === "confirmation" ? "C'est une confirmation de rendez-vous ou d'interv
   } catch (e: any) {
     console.error("draft-email error:", e);
     return new Response(
-      JSON.stringify({ error: e.message || "Erreur lors de la génération" }),
+      JSON.stringify({ error: "Erreur lors de la génération du brouillon." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
