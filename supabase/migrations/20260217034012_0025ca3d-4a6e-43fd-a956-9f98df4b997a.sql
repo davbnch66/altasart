@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX storage_units_company_name_unique ON public.storage_units (company_id, name);
