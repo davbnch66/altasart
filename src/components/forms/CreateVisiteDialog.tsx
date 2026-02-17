@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -54,7 +54,7 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
     queryFn: async () => {
       const { data } = await supabase
         .from("clients")
-        .select("id, name, code")
+        .select("id, name, code, address, postal_code, city")
         .eq("company_id", selectedCompanyId)
         .order("name");
       return data || [];
@@ -66,6 +66,20 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
     resolver: zodResolver(schema),
     defaultValues: { company_id: defaultCompanyId, client_id: preselectedClientId || ("" as any) },
   });
+
+  // Pre-fill address from selected client
+  const watchClientId = watch("client_id");
+  const prevClientRef = useRef("");
+  useEffect(() => {
+    if (watchClientId && watchClientId !== prevClientRef.current) {
+      prevClientRef.current = watchClientId;
+      const selectedClient = clients.find(c => c.id === watchClientId);
+      if (selectedClient) {
+        if (selectedClient.address) setValue("address", selectedClient.address);
+        if (selectedClient.postal_code) setValue("zone", selectedClient.city || selectedClient.postal_code);
+      }
+    }
+  }, [watchClientId, clients, setValue]);
 
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
