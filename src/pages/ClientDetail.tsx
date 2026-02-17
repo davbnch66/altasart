@@ -69,7 +69,7 @@ const ClientDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
-  const [activeTab, setActiveTab] = useState<TabKey>("dossiers");
+  const [activeTab, setActiveTab] = useState<TabKey>("infos");
   const [editClientOpen, setEditClientOpen] = useState(false);
   const [deleteClientOpen, setDeleteClientOpen] = useState(false);
   const [editingDossier, setEditingDossier] = useState<any>(null);
