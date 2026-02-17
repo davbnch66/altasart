@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DevisLinesManager } from "@/components/DevisLinesManager";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, Pencil, FileText, Check, X } from "lucide-react";
+import { ArrowLeft, Download, Pencil, FileText, Check, X, FileStack } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { DevisStatusSelect } from "@/components/DevisStatusSelect";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
+import { DevisApplyTemplateDialog } from "@/components/devis/ApplyTemplateDialog";
 
 const statusLabels: Record<string, string> = {
   brouillon: "Brouillon",
@@ -274,6 +275,26 @@ const DevisDetail = () => {
       </div>
 
       {/* Lignes du devis */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Lignes & Templates</h3>
+        <DevisApplyTemplateDialog onApply={async (templateLines) => {
+          for (const line of templateLines) {
+            await supabase.from("devis_lines").insert({
+              devis_id: devis.id,
+              description: line.description,
+              quantity: line.quantity,
+              unit_price: line.unit_price,
+              sort_order: lines.length + templateLines.indexOf(line),
+            });
+          }
+          const totalTemplate = templateLines.reduce((s, l) => s + l.quantity * l.unit_price, 0);
+          const newTotal = lines.reduce((s, l) => s + (l.total ?? l.quantity * l.unit_price), 0) + totalTemplate;
+          await supabase.from("devis").update({ amount: newTotal }).eq("id", devis.id);
+          queryClient.invalidateQueries({ queryKey: ["devis-lines", id] });
+          queryClient.invalidateQueries({ queryKey: ["devis-detail", id] });
+          toast.success("Template appliqué");
+        }} />
+      </div>
       <DevisLinesManager devisId={devis.id} lines={lines} totalAmount={devis.amount} />
 
       {/* Notes — editable inline */}
