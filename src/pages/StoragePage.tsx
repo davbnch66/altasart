@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
-import { Warehouse, Plus, Search, Pencil, Trash2, User, Calendar } from "lucide-react";
+import { Warehouse, Plus, Search, Pencil, Trash2, User, Calendar, LayoutGrid, Box } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
+import { StorageDetailPanel } from "@/components/storage/StorageDetailPanel";
 import { format } from "date-fns";
+
+const Storage3DViewer = lazy(() =>
+  import("@/components/storage/Storage3DViewer").then((m) => ({ default: m.Storage3DViewer }))
+);
 
 const statusLabels: Record<string, string> = { libre: "Libre", occupe: "Occupé", reserve: "Réservé" };
 const statusStyles: Record<string, string> = {
@@ -37,6 +42,9 @@ const StoragePage = () => {
   const [editingUnit, setEditingUnit] = useState<any>(null);
   const [deletingUnit, setDeletingUnit] = useState<any>(null);
   const [form, setForm] = useState(emptyForm);
+  const [viewMode, setViewMode] = useState<"list" | "3d">("3d");
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [detailUnit, setDetailUnit] = useState<any>(null);
 
   const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
   const firstCompanyId = current === "global" ? dbCompanies[0]?.id : current;
@@ -122,6 +130,11 @@ const StoragePage = () => {
     saveMutation.mutate(payload);
   };
 
+  const handleSelectUnit3D = (unit: any) => {
+    setSelectedUnitId(unit?.id || unit?.name || null);
+    setDetailUnit(unit);
+  };
+
   const filtered = units.filter((u: any) => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -143,55 +156,82 @@ const StoragePage = () => {
           <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Garde-meuble</h1>
           {!isMobile && <p className="text-muted-foreground mt-1">Gestion des espaces de stockage</p>}
         </div>
-        <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) { setEditingUnit(null); setForm(emptyForm); } }}>
-          <DialogTrigger asChild>
-            <Button size={isMobile ? "icon" : "sm"} className={isMobile ? "fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg" : ""}>
-              <Plus className="h-4 w-4" />{!isMobile && <span className="ml-1">Ajouter un box</span>}
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>{editingUnit ? "Modifier le box" : "Nouveau box"}</DialogTitle></DialogHeader>
-            <div className="grid gap-3 py-2">
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label className="text-xs">Nom / Réf *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Box A12" className="h-9" /></div>
-                <div><Label className="text-xs">Statut</Label>
-                  <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
-                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                    <SelectContent>{Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          {!isMobile && (
+            <div className="flex rounded-lg border bg-muted p-0.5">
+              <Button
+                variant={viewMode === "3d" ? "default" : "ghost"}
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setViewMode("3d")}
+              >
+                <Box className="h-3.5 w-3.5" />
+                Plan 3D
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "default" : "ghost"}
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={() => setViewMode("list")}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Liste
+              </Button>
+            </div>
+          )}
+
+          <Dialog open={dialogOpen} onOpenChange={(v) => { setDialogOpen(v); if (!v) { setEditingUnit(null); setForm(emptyForm); } }}>
+            <DialogTrigger asChild>
+              <Button size={isMobile ? "icon" : "sm"} className={isMobile ? "fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg" : ""}>
+                <Plus className="h-4 w-4" />{!isMobile && <span className="ml-1">Ajouter un box</span>}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle>{editingUnit ? "Modifier le box" : "Nouveau box"}</DialogTitle></DialogHeader>
+              <div className="grid gap-3 py-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label className="text-xs">Nom / Réf *</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="A1-N1" className="h-9" /></div>
+                  <div><Label className="text-xs">Statut</Label>
+                    <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>{Object.entries(statusLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div><Label className="text-xs">Surface (m²)</Label><Input type="number" value={form.size_m2} onChange={(e) => setForm({ ...form, size_m2: e.target.value })} className="h-9" /></div>
+                  <div><Label className="text-xs">Volume (m³)</Label><Input type="number" value={form.volume_m3} onChange={(e) => setForm({ ...form, volume_m3: e.target.value })} className="h-9" /></div>
+                  <div><Label className="text-xs">Tarif/mois (€)</Label><Input type="number" value={form.monthly_rate} onChange={(e) => setForm({ ...form, monthly_rate: e.target.value })} className="h-9" /></div>
+                </div>
+                <div><Label className="text-xs">Emplacement</Label><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Entrepôt Sud, Allée 3" className="h-9" /></div>
+                <div><Label className="text-xs">Client</Label>
+                  <Select value={form.client_id || "none"} onValueChange={(v) => setForm({ ...form, client_id: v === "none" ? "" : v })}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Aucun" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Aucun</SelectItem>
+                      {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
                   </Select>
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><Label className="text-xs">Début</Label><Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className="h-9" /></div>
+                  <div><Label className="text-xs">Fin prévue</Label><Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} className="h-9" /></div>
+                </div>
+                <div><Label className="text-xs">Notes</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-[60px]" /></div>
+                <Button onClick={handleSave} disabled={saveMutation.isPending}>{saveMutation.isPending ? "Enregistrement..." : "Enregistrer"}</Button>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div><Label className="text-xs">Surface (m²)</Label><Input type="number" value={form.size_m2} onChange={(e) => setForm({ ...form, size_m2: e.target.value })} className="h-9" /></div>
-                <div><Label className="text-xs">Volume (m³)</Label><Input type="number" value={form.volume_m3} onChange={(e) => setForm({ ...form, volume_m3: e.target.value })} className="h-9" /></div>
-                <div><Label className="text-xs">Tarif/mois (€)</Label><Input type="number" value={form.monthly_rate} onChange={(e) => setForm({ ...form, monthly_rate: e.target.value })} className="h-9" /></div>
-              </div>
-              <div><Label className="text-xs">Emplacement</Label><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Entrepôt Sud, Allée 3" className="h-9" /></div>
-              <div><Label className="text-xs">Client</Label>
-                <Select value={form.client_id || "none"} onValueChange={(v) => setForm({ ...form, client_id: v === "none" ? "" : v })}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Aucun" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Aucun</SelectItem>
-                    {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><Label className="text-xs">Début</Label><Input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className="h-9" /></div>
-                <div><Label className="text-xs">Fin prévue</Label><Input type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} className="h-9" /></div>
-              </div>
-              <div><Label className="text-xs">Notes</Label><Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-[60px]" /></div>
-              <Button onClick={handleSave} disabled={saveMutation.isPending}>{saveMutation.isPending ? "Enregistrement..." : "Enregistrer"}</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </motion.div>
 
       {/* Stats */}
-      <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-4"}`}>
+      <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-5"}`}>
         {[
-          { label: "Total", value: stats.total, sub: `${stats.libre} libre${stats.libre > 1 ? "s" : ""}` },
-          { label: "Occupés", value: stats.occupe, sub: `${((stats.occupe / Math.max(stats.total, 1)) * 100).toFixed(0)}% occupation` },
+          { label: "Total boxes", value: "300", sub: `${units.length} configuré${units.length > 1 ? "s" : ""}` },
+          { label: "Libres", value: 300 - stats.occupe - stats.reserve, sub: `${((300 - stats.occupe - stats.reserve) / 3).toFixed(0)}% dispo` },
+          { label: "Occupés", value: stats.occupe, sub: `${((stats.occupe / 300) * 100).toFixed(1)}% occupation` },
           { label: "Réservés", value: stats.reserve },
           { label: "Revenu mensuel", value: fmt(stats.revenuMensuel) },
         ].map((s) => (
@@ -203,57 +243,90 @@ const StoragePage = () => {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Rechercher un box..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
-      </div>
-
-      {isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-32 rounded-xl" />)}</div>
-      ) : filtered.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">Aucun espace de stockage</div>
-      ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`grid gap-3 ${isMobile ? "" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
-          {filtered.map((u: any) => (
-            <div key={u.id} className="rounded-xl border bg-card p-4 space-y-2 hover:shadow-sm transition-shadow">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
-                    <Warehouse className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm">{u.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{u.location || "—"}{u.size_m2 ? ` • ${u.size_m2} m²` : ""}{u.volume_m3 ? ` • ${u.volume_m3} m³` : ""}</p>
-                  </div>
-                </div>
-                <span className={`text-[10px] rounded-full px-2 py-0.5 font-medium ${statusStyles[u.status] || ""}`}>
-                  {statusLabels[u.status] || u.status}
-                </span>
-              </div>
-
-              {(u.clients as any)?.name && (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <User className="h-3 w-3" />{(u.clients as any).name}
-                </div>
-              )}
-
-              <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                {u.monthly_rate && <span className="font-medium text-foreground">{fmt(u.monthly_rate)}/mois</span>}
-                {u.start_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Depuis {format(new Date(u.start_date), "dd/MM/yy")}</span>}
-              </div>
-
-              <div className="flex gap-1 pt-1 border-t">
-                <Button variant="ghost" size="sm" className="h-7 text-xs flex-1" onClick={() => handleEdit(u)}>
-                  <Pencil className="h-3 w-3 mr-1" />Modifier
-                </Button>
-                <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => setDeletingUnit(u)}>
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
+      {/* 3D View */}
+      {viewMode === "3d" && !isMobile && (
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <Suspense
+              fallback={
+                <Skeleton className="w-full h-[600px] rounded-xl" />
+              }
+            >
+              <Storage3DViewer
+                units={units}
+                selectedId={selectedUnitId}
+                onSelectUnit={handleSelectUnit3D}
+              />
+            </Suspense>
+          </div>
+          {detailUnit && (
+            <div className="w-80 shrink-0">
+              <StorageDetailPanel
+                unit={detailUnit}
+                onClose={() => { setDetailUnit(null); setSelectedUnitId(null); }}
+                onEdit={handleEdit}
+              />
             </div>
-          ))}
-        </motion.div>
+          )}
+        </div>
+      )}
+
+      {/* List View */}
+      {(viewMode === "list" || isMobile) && (
+        <>
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Rechercher un box..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-9" />
+          </div>
+
+          {isLoading ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-32 rounded-xl" />)}</div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground text-sm">Aucun espace de stockage</div>
+          ) : (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`grid gap-3 ${isMobile ? "" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
+              {filtered.map((u: any) => (
+                <div key={u.id} className="rounded-xl border bg-card p-4 space-y-2 hover:shadow-sm transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
+                        <Warehouse className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">{u.name}</p>
+                        <p className="text-[11px] text-muted-foreground">{u.location || "—"}{u.size_m2 ? ` • ${u.size_m2} m²` : ""}{u.volume_m3 ? ` • ${u.volume_m3} m³` : ""}</p>
+                      </div>
+                    </div>
+                    <span className={`text-[10px] rounded-full px-2 py-0.5 font-medium ${statusStyles[u.status] || ""}`}>
+                      {statusLabels[u.status] || u.status}
+                    </span>
+                  </div>
+
+                  {(u.clients as any)?.name && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <User className="h-3 w-3" />{(u.clients as any).name}
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    {u.monthly_rate && <span className="font-medium text-foreground">{fmt(u.monthly_rate)}/mois</span>}
+                    {u.start_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />Depuis {format(new Date(u.start_date), "dd/MM/yy")}</span>}
+                  </div>
+
+                  <div className="flex gap-1 pt-1 border-t">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs flex-1" onClick={() => handleEdit(u)}>
+                      <Pencil className="h-3 w-3 mr-1" />Modifier
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-destructive" onClick={() => setDeletingUnit(u)}>
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+          )}
+        </>
       )}
 
       <DeleteConfirmDialog
