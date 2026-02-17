@@ -15,9 +15,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
+const tagOptions = ["Déménagement", "Garde-meubles", "Stockage", "Manutention", "Distribution", "Archives"];
+
 const schema = z.object({
   name: z.string().trim().min(1, "Le nom est requis").max(200),
   code: z.string().trim().max(20).optional(),
+  client_type: z.string().default("societe"),
   contact_name: z.string().trim().max(200).optional(),
   email: z.string().trim().email("Email invalide").max(255).optional().or(z.literal("")),
   phone: z.string().trim().max(20).optional(),
@@ -28,6 +31,7 @@ const schema = z.object({
   billing_address: z.string().trim().max(500).optional(),
   payment_terms: z.string().trim().max(100).optional(),
   advisor: z.string().trim().max(200).optional(),
+  tags: z.array(z.string()).default([]),
   company_id: z.string().uuid("Sélectionnez une société"),
   status: z.string(),
 });
@@ -53,6 +57,7 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
       reset({
         name: client.name || "",
         code: client.code || "",
+        client_type: client.client_type || "societe",
         contact_name: client.contact_name || "",
         email: client.email || "",
         phone: client.phone || "",
@@ -63,6 +68,7 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
         billing_address: client.billing_address || "",
         payment_terms: client.payment_terms || "",
         advisor: client.advisor || "",
+        tags: client.tags || [],
         company_id: client.company_id,
         status: client.status,
       });
@@ -74,6 +80,7 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
       const { error } = await supabase.from("clients").update({
         name: data.name,
         code: data.code || null,
+        client_type: data.client_type,
         contact_name: data.contact_name || null,
         email: data.email || null,
         phone: data.phone || null,
@@ -84,6 +91,7 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
         billing_address: data.billing_address || null,
         payment_terms: data.payment_terms || null,
         advisor: data.advisor || null,
+        tags: data.tags || [],
         company_id: data.company_id,
         status: data.status as any,
       }).eq("id", client.id);
@@ -121,6 +129,17 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
             <div>
               <Label htmlFor="edit-code">Code</Label>
               <Input id="edit-code" {...register("code")} />
+            </div>
+            <div>
+              <Label>Type</Label>
+              <select
+                value={watch("client_type")}
+                onChange={(e) => setValue("client_type", e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <option value="societe">Société</option>
+                <option value="particulier">Particulier</option>
+              </select>
             </div>
             <div>
               <Label htmlFor="edit-contact">Contact</Label>
@@ -196,6 +215,29 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="col-span-2">
+              <Label>Tags métier</Label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {tagOptions.map((tag) => {
+                  const selected = (watch("tags") || []).includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => {
+                        const current = watch("tags") || [];
+                        setValue("tags", selected ? current.filter((t: string) => t !== tag) : [...current, tag]);
+                      }}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        selected ? "bg-primary text-primary-foreground border-primary" : "bg-muted text-muted-foreground border-transparent hover:border-border"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

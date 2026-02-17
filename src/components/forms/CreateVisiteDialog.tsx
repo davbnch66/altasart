@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { ContactSelect } from "@/components/client/ContactSelect";
 
 const schema = z.object({
   title: z.string().min(1, "Le titre est requis"),
@@ -43,6 +44,7 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
   const [open, setOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
+  const [selectedContactId, setSelectedContactId] = useState("");
 
   const defaultCompanyId = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || "");
   const [selectedCompanyId, setSelectedCompanyId] = useState(defaultCompanyId);
@@ -104,7 +106,7 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = current !== "global" ? current : dbCompanies[0]?.id || ""; setSelectedCompanyId(cid); reset({ company_id: cid, title: "" }); } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = current !== "global" ? current : dbCompanies[0]?.id || ""; setSelectedCompanyId(cid); reset({ company_id: cid, title: "" }); setSelectedContactId(""); } }}>
       <DialogTrigger asChild>
         {trigger || (
           <Button className="flex items-center gap-2">
@@ -146,6 +148,16 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
               </select>
               {errors.client_id && <p className="text-xs text-destructive mt-1">{errors.client_id.message}</p>}
             </div>
+            {watch("client_id") && (
+              <div className="col-span-2">
+                <ContactSelect
+                  clientId={watch("client_id")}
+                  value={selectedContactId}
+                  onChange={setSelectedContactId}
+                  label="Contact sur site"
+                />
+              </div>
+            )}
             <div className="col-span-2">
               <Label htmlFor="visite-title">Titre *</Label>
               <Input id="visite-title" {...register("title")} placeholder="Ex: Visite technique curage" />

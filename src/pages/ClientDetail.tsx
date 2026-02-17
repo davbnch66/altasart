@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { ClientContactsTab } from "@/components/client/ClientContactsTab";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Mail, Phone, MapPin, Building2, User, FileText, Receipt, CreditCard,
   FolderOpen, ClipboardCheck, Pencil, Trash2, ChevronRight, Euro, MessageSquare,
-  Plus, StickyNote, Calendar, Send,
+  Plus, StickyNote, Calendar, Send, Users, Tag,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,10 +25,11 @@ import { ClientExchangesTab } from "@/components/client/ClientExchangesTab";
 import { ClientNotesTab } from "@/components/client/ClientNotesTab";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
 
-type TabKey = "infos" | "dossiers" | "echanges" | "notes" | "factures" | "devis" | "reglements" | "visites";
+type TabKey = "infos" | "contacts" | "dossiers" | "echanges" | "notes" | "factures" | "devis" | "reglements" | "visites";
 
 const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: "infos", label: "Infos", icon: User },
+  { key: "contacts", label: "Contacts", icon: Users },
   { key: "dossiers", label: "Dossiers", icon: FolderOpen },
   { key: "echanges", label: "Échanges", icon: MessageSquare },
   { key: "notes", label: "Notes", icon: StickyNote },
@@ -364,11 +366,19 @@ const ClientDetail = () => {
             <div className={`rounded-xl border bg-card space-y-3 ${isMobile ? "p-3" : "p-5 space-y-4"}`}>
               <h3 className="font-semibold text-sm">Informations client</h3>
               <div className="space-y-2.5 text-sm">
-                <div className="flex items-start gap-2.5"><Building2 className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" /><div className="min-w-0"><p className="font-medium break-words">{client.name}</p><p className="text-xs text-muted-foreground">Code : {client.code || "—"}</p></div></div>
+                <div className="flex items-start gap-2.5"><Building2 className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" /><div className="min-w-0"><p className="font-medium break-words">{client.name}</p><p className="text-xs text-muted-foreground">Code : {client.code || "—"} · Type : {(client as any).client_type === "particulier" ? "Particulier" : "Société"}</p></div></div>
                 <div className="flex items-start gap-2.5"><MapPin className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" /><div className="min-w-0"><p className="break-words">{client.address || "—"}</p><p className="text-xs text-muted-foreground">{client.postal_code} {client.city}</p></div></div>
                 <div className="flex items-center gap-2.5"><Mail className="h-4 w-4 text-muted-foreground shrink-0" /><span className="break-words text-xs">{client.email || "—"}</span></div>
                 <div className="flex items-center gap-2.5"><Phone className="h-4 w-4 text-muted-foreground shrink-0" /><span className="text-xs">{client.phone || "—"}</span></div>
                 {client.mobile && <div className="flex items-center gap-2.5"><Phone className="h-4 w-4 text-muted-foreground shrink-0" /><span className="text-xs">{client.mobile} (mobile)</span></div>}
+                {(client as any).tags?.length > 0 && (
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <Tag className="h-4 w-4 text-muted-foreground shrink-0" />
+                    {(client as any).tags.map((t: string) => (
+                      <span key={t} className="inline-flex rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-medium">{t}</span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <div className={`rounded-xl border bg-card space-y-3 ${isMobile ? "p-3" : "p-5 space-y-4"}`}>
@@ -386,6 +396,10 @@ const ClientDetail = () => {
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === "contacts" && (
+          <ClientContactsTab clientId={id!} companyId={client.company_id} />
         )}
 
         {activeTab === "dossiers" && (
