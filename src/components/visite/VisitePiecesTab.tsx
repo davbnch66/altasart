@@ -199,9 +199,26 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
 
   const [cacheBuster, setCacheBuster] = useState(() => Date.now());
 
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+
+  // Fetch signed URLs for all photos
+  useEffect(() => {
+    if (photos.length === 0) return;
+    const fetchUrls = async () => {
+      const urls: Record<string, string> = {};
+      for (const photo of photos) {
+        const { data } = await supabase.storage.from("visite-photos").createSignedUrl(photo.storage_path, 3600);
+        if (data?.signedUrl) {
+          urls[photo.storage_path] = data.signedUrl;
+        }
+      }
+      setSignedUrls(urls);
+    };
+    fetchUrls();
+  }, [photos, cacheBuster]);
+
   const getPhotoUrl = (path: string) => {
-    const { data } = supabase.storage.from("visite-photos").getPublicUrl(path);
-    return `${data.publicUrl}?t=${cacheBuster}`;
+    return signedUrls[path] || "";
   };
 
   const piecePhotos = (pieceId: string) => photos.filter((p) => p.piece_id === pieceId);

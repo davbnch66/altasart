@@ -313,9 +313,9 @@ export async function generateVisitePdf(visiteId: string, options?: { photosPerR
       for (let i = 0; i < piecePhotos.length; i++) {
         const ph = piecePhotos[i];
         try {
-          const { data: urlData } = supabase.storage.from("visite-photos").getPublicUrl(ph.storage_path);
-          if (urlData?.publicUrl) {
-            const fetchUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+          const { data: urlData } = await supabase.storage.from("visite-photos").createSignedUrl(ph.storage_path, 3600);
+          if (urlData?.signedUrl) {
+            const fetchUrl = urlData.signedUrl;
             const imgResp = await fetch(fetchUrl);
             if (imgResp.ok) {
               const blob = await imgResp.blob();
