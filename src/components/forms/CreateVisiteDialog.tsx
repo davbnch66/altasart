@@ -106,7 +106,7 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = current !== "global" ? current : dbCompanies[0]?.id || ""; setSelectedCompanyId(cid); reset({ company_id: cid, title: "" }); setSelectedContactId(""); } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), title: "" }); setSelectedContactId(""); } }}>
       <DialogTrigger asChild>
         {trigger || (
           <Button className="flex items-center gap-2">
