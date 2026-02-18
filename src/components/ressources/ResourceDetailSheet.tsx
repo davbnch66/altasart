@@ -824,12 +824,49 @@ function DocumentsTab({ resourceId, companyId, documents, onRefresh, onDeleteDoc
 
 function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
   const [sigUrl, setSigUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const docType = DOC_TYPES[doc.document_type] ?? DOC_TYPES.autre;
   const expireDays = getDaysUntil(doc.expires_at);
+  const isPdf = doc.mime_type === "application/pdf" || doc.file_name?.endsWith(".pdf");
+
+  const getSignedUrl = async () => {
+    if (sigUrl) return sigUrl;
+    const { data } = await supabase.storage.from("resource-documents").createSignedUrl(doc.storage_path, 3600);
+    if (data?.signedUrl) {
+      const fullUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1${data.signedUrl}`;
+      setSigUrl(fullUrl);
+      return fullUrl;
+    }
+    return null;
+  };
 
   const viewDoc = async () => {
-    const { data } = await supabase.storage.from("resource-documents").createSignedUrl(doc.storage_path, 3600);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    setLoading(true);
+    try {
+      const url = await getSignedUrl();
+      if (url) setPreviewUrl(url);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadDoc = async () => {
+    setLoading(true);
+    try {
+      const url = await getSignedUrl();
+      if (url) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = doc.file_name || doc.name;
+        a.target = "_blank";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -858,13 +895,45 @@ function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
         )}
       </div>
       <div className="flex gap-1">
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={viewDoc}>
-          <Eye className="h-3.5 w-3.5" />
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={viewDoc} disabled={loading}>
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+        </Button>
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={downloadDoc} disabled={loading}>
+          <Download className="h-3.5 w-3.5" />
         </Button>
         <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={onDelete}>
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
+
+      {/* Preview modal */}
+      {previewUrl && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/80 flex flex-col"
+          onClick={(e) => { if (e.target === e.currentTarget) setPreviewUrl(null); }}
+        >
+          <div className="flex items-center justify-between px-4 py-2 bg-card border-b shrink-0">
+            <span className="text-sm font-medium truncate">{doc.name}</span>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={downloadDoc}>
+                <Download className="h-4 w-4 mr-1" /> Télécharger
+              </Button>
+              <Button size="icon" variant="ghost" onClick={() => setPreviewUrl(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="flex-1 min-h-0">
+            {isPdf ? (
+              <iframe src={previewUrl} className="w-full h-full border-0" title={doc.name} />
+            ) : (
+              <div className="flex items-center justify-center h-full p-4">
+                <img src={previewUrl} alt={doc.name} className="max-w-full max-h-full object-contain rounded shadow-xl" />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
