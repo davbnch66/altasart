@@ -47,7 +47,10 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
       return data.token;
     },
     onSuccess: (token) => {
-      const url = `${window.location.origin}/sign/${token}`;
+      const baseUrl = window.location.hostname.includes("lovableproject.com") || window.location.hostname.includes("lovable.app")
+        ? "https://altasart.lovable.app"
+        : window.location.origin;
+      const url = `${baseUrl}/sign/${token}`;
       setGeneratedLink(url);
     },
     onError: () => toast.error("Erreur lors de la génération du lien"),
@@ -59,7 +62,10 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
       if (!token) {
         token = await generateMutation.mutateAsync();
       }
-      const signatureUrl = `${window.location.origin}/sign/${token}`;
+      const baseUrl = window.location.hostname.includes("lovableproject.com") || window.location.hostname.includes("lovable.app")
+        ? "https://altasart.lovable.app"
+        : window.location.origin;
+      const signatureUrl = `${baseUrl}/sign/${token}`;
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Non connecté");
@@ -92,7 +98,10 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
     let link = generatedLink;
     if (!link) {
       const token = await generateMutation.mutateAsync();
-      link = `${window.location.origin}/sign/${token}`;
+      const baseUrl = window.location.hostname.includes("lovableproject.com") || window.location.hostname.includes("lovable.app")
+        ? "https://altasart.lovable.app"
+        : window.location.origin;
+      link = `${baseUrl}/sign/${token}`;
     }
     await navigator.clipboard.writeText(link!);
     setLinkCopied(true);
