@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.send-signature-email]
 verify_jwt = false
+
+[functions.generate-email-template]
+verify_jwt = false
