@@ -138,25 +138,35 @@ serve(async (req) => {
           vars.dossier_end_date = formatDate(dossier.end_date);
         }
 
-        // Get signature URL for devis_envoi types
-        if (emailType?.startsWith("devis_")) {
+        // Get signature URL for all devis email types
+        if (emailType?.startsWith("devis_") && companyId) {
+          // Try to find existing valid signature token
           const { data: existingSig } = await supabase
             .from("devis_signatures")
             .select("token")
             .eq("devis_id", devisId)
             .eq("status", "pending")
             .gte("expires_at", new Date().toISOString())
+            .order("created_at", { ascending: false })
+            .limit(1)
             .maybeSingle();
 
-          if (existingSig) {
+          if (existingSig?.token) {
             vars.signature_url = `https://altasart.lovable.app/sign/${existingSig.token}`;
-          } else if (companyId) {
-            const { data: newSig } = await supabase
+            console.log("Using existing signature token:", existingSig.token);
+          } else {
+            // Create a new signature token
+            const { data: newSig, error: sigError } = await supabase
               .from("devis_signatures")
               .insert({ devis_id: devisId, company_id: companyId })
               .select("token")
-              .maybeSingle();
-            if (newSig) vars.signature_url = `https://altasart.lovable.app/sign/${newSig.token}`;
+              .single();
+            if (sigError) {
+              console.error("Failed to create signature:", sigError);
+            } else if (newSig?.token) {
+              vars.signature_url = `https://altasart.lovable.app/sign/${newSig.token}`;
+              console.log("Created new signature token:", newSig.token);
+            }
           }
         }
 
@@ -233,6 +243,11 @@ serve(async (req) => {
       })
       .join("\n");
 
+    const isDevisType = emailType?.startsWith("devis_");
+    const signatureInstruction = isDevisType && vars.signature_url
+      ? `- OBLIGATOIRE : inclure le lien de signature {{signature_url}} dans le corps du message avec une phrase du type "Vous pouvez consulter et signer votre devis en cliquant ici : {{signature_url}}"`
+      : "";
+
     const systemPrompt = `Tu es un expert en communication commerciale pour une entreprise de déménagement et manutention spécialisée.
 Tu rédiges des emails professionnels en français, adaptés au secteur du déménagement d'entreprise et particulier.
 
@@ -240,7 +255,8 @@ Règles IMPÉRATIVES :
 - Utilise les variables entre doubles accolades EXACTEMENT comme indiquées (ex: {{contact_name}})
 - N'invente JAMAIS de nouvelles variables
 - Utilise TOUTES les variables pertinentes disponibles
-- Les vraies valeurs sont indiquées ci-dessous pour référence, mais utilise TOUJOURS les variables dans le texte généré`;
+- Les vraies valeurs sont indiquées ci-dessous pour référence, mais utilise TOUJOURS les variables dans le texte généré
+${signatureInstruction}`;
 
     const userPrompt = `Génère un email professionnel pour : ${typeLabel}
 Ton : ${toneLabel}
@@ -253,7 +269,9 @@ Retourne UNIQUEMENT un JSON avec "subject" et "body" (texte brut, pas HTML).
 Le body doit :
 - Commencer par "Bonjour {{contact_name}},"
 - Utiliser les variables {{...}} partout où c'est naturel
+${isDevisType ? "- Inclure OBLIGATOIREMENT {{signature_url}} pour que le client puisse signer le devis" : ""}
 - Terminer par "Cordialement,\\n{{sender_name}}\\n{{company_name}}"`;
+
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
