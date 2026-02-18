@@ -16,9 +16,11 @@ interface PdfPreviewDialogProps {
   clientName?: string;
   visiteCode?: string;
   visiteTitle?: string;
+  visiteId?: string;
+  companyId?: string;
 }
 
-export function PdfPreviewDialog({ open, onClose, blobUrl, dataUri, fileName, clientEmail, clientName, visiteCode, visiteTitle }: PdfPreviewDialogProps) {
+export function PdfPreviewDialog({ open, onClose, blobUrl, dataUri, fileName, clientEmail, clientName, visiteCode, visiteTitle, visiteId, companyId }: PdfPreviewDialogProps) {
   const isMobile = useIsMobile();
   const [emailOpen, setEmailOpen] = useState(false);
 
@@ -88,6 +90,8 @@ export function PdfPreviewDialog({ open, onClose, blobUrl, dataUri, fileName, cl
         clientName={clientName}
         visiteCode={visiteCode}
         visiteTitle={visiteTitle}
+        visiteId={visiteId}
+        companyId={companyId}
       />
     </>
   );

@@ -39,7 +39,7 @@ serve(async (req) => {
       });
     }
 
-    const { devisId, recipientEmail, recipientName, signatureUrl, devisCode, devisObjet, devisAmount, companyName, companyId, senderName } = await req.json();
+    const { devisId, recipientEmail, recipientName, signatureUrl, devisCode, devisObjet, devisAmount, companyName, companyId } = await req.json();
 
     if (!devisId || !recipientEmail || !signatureUrl) {
       return new Response(JSON.stringify({ error: "Paramètres manquants" }), {
@@ -50,15 +50,43 @@ serve(async (req) => {
     const formatAmount = (amount: number) =>
       new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
 
+    // Fetch sender name from profile (logged-in user)
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single();
+    const senderName = profile?.full_name || companyName || "";
+
+    // Fetch default contact for this devis's client
+    const { data: devisData } = await supabase
+      .from("devis")
+      .select("client_id")
+      .eq("id", devisId)
+      .single();
+
+    let contactName = recipientName || "";
+    if (devisData?.client_id) {
+      const { data: defaultContact } = await supabase
+        .from("client_contacts")
+        .select("first_name, last_name")
+        .eq("client_id", devisData.client_id)
+        .eq("is_default", true)
+        .single();
+      if (defaultContact) {
+        contactName = [defaultContact.first_name, defaultContact.last_name].filter(Boolean).join(" ");
+      }
+    }
+
     const vars: Record<string, string> = {
       client_name: recipientName || "",
-      contact_name: recipientName || "",
+      contact_name: contactName || recipientName || "",
       devis_code: devisCode || "",
       devis_objet: devisObjet || "",
       devis_amount: devisAmount ? formatAmount(devisAmount) : "",
       company_name: companyName || "Votre prestataire",
       signature_url: signatureUrl,
-      sender_name: senderName || companyName || "",
+      sender_name: senderName,
     };
 
     // Try to load custom template
@@ -106,9 +134,9 @@ serve(async (req) => {
       <h1 style="color:#ffffff;margin:0;font-size:22px;">${companyName || "Votre prestataire"}</h1>
     </div>
     <div style="padding:32px;">
-      <p style="color:#333;font-size:16px;margin-top:0;">Bonjour ${recipientName || ""},</p>
+      <p style="color:#333;font-size:16px;margin-top:0;">Bonjour ${contactName || recipientName || ""},</p>
       <p style="color:#555;font-size:15px;line-height:1.6;">
-        Vous avez reçu un devis de la part de <strong>${companyName}</strong>${senderName ? ` (${senderName})` : ""} en attente de votre acceptation.
+        Vous avez reçu un devis de la part de <strong>${companyName}</strong>${senderName && senderName !== companyName ? ` (${senderName})` : ""} en attente de votre acceptation.
       </p>
       <div style="background:#f8f8f8;border-radius:8px;padding:20px;margin:24px 0;border-left:4px solid #6366f1;">
         <p style="margin:0 0 8px;color:#888;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Détails du devis</p>
@@ -122,6 +150,7 @@ serve(async (req) => {
         </a>
       </div>
       <p style="color:#888;font-size:13px;text-align:center;">Ce lien est valable 30 jours.</p>
+      <p style="color:#374151;font-size:15px;margin:24px 0 0;">Cordialement,<br><strong>${senderName}</strong>${senderName !== companyName ? `<br>${companyName}` : ""}</p>
     </div>
     <div style="background:#f5f5f5;padding:16px;text-align:center;border-top:1px solid #eee;">
       <p style="color:#aaa;font-size:12px;margin:0;">${companyName} — altasart.fr</p>

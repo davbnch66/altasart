@@ -28,14 +28,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(
+    // Service role client for data access
+    const serviceSupabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await serviceSupabase.auth.getUser(token);
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Non autorisé" }), {
         status: 401,
@@ -51,12 +51,6 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Use service role for full data access
-    const serviceSupabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
 
     // Fetch devis with relations
     const { data: devis, error: devisError } = await serviceSupabase
@@ -74,6 +68,29 @@ Deno.serve(async (req) => {
 
     const company = devis.companies as any;
     const companyName = company?.name || company?.short_name || "Votre prestataire";
+
+    // Fetch sender name from logged-in user's profile
+    const { data: senderProfile } = await serviceSupabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single();
+    const senderName = senderProfile?.full_name || companyName;
+
+    // Fetch default contact for the client
+    let contactName = recipientName || (devis.clients as any)?.name || "";
+    if (devis.client_id) {
+      const { data: defaultContact } = await serviceSupabase
+        .from("client_contacts")
+        .select("first_name, last_name")
+        .eq("client_id", devis.client_id)
+        .eq("is_default", true)
+        .single();
+      if (defaultContact) {
+        const fullContactName = [defaultContact.first_name, defaultContact.last_name].filter(Boolean).join(" ");
+        if (fullContactName) contactName = fullContactName;
+      }
+    }
 
     // Check/create signature token
     let signatureToken: string | null = null;
@@ -102,24 +119,21 @@ Deno.serve(async (req) => {
     const formatAmount = (amount: number) =>
       new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
 
-    const relanceLabel = relanceNum === 1 ? "première" : relanceNum === 2 ? "deuxième" : "troisième";
     const templateType = `devis_relance_${relanceNum}`;
-    const subject = `Relance devis ${devis.code || ""} — ${companyName}`;
 
-    // Try to load custom template for this relance type
     const templateVars: Record<string, string> = {
-      client_name: recipientName || (devis.clients as any)?.name || "",
-      contact_name: recipientName || "",
+      client_name: (devis.clients as any)?.name || "",
+      contact_name: contactName,
       devis_code: devis.code || "",
       devis_objet: devis.objet || "",
       devis_amount: formatAmount(devis.amount || 0),
       company_name: companyName,
       signature_url: signatureUrl || "",
-      sender_name: companyName,
+      sender_name: senderName,
     };
 
     let customBodyHtml: string | null = null;
-    let customSubject: string | null = null;
+    let finalSubject: string | null = null;
 
     const { data: tpl } = await serviceSupabase
       .from("email_templates")
@@ -131,12 +145,15 @@ Deno.serve(async (req) => {
       .single();
 
     if (tpl) {
-      customSubject = applyTemplate(tpl.subject, templateVars);
+      finalSubject = applyTemplate(tpl.subject, templateVars);
       const resolvedBody = applyTemplate(tpl.body, templateVars);
       customBodyHtml = `<div style="font-family:Arial,sans-serif;white-space:pre-wrap;color:#333;font-size:15px;line-height:1.7;">${resolvedBody.replace(/\n/g, "<br>")}</div>`;
     }
 
-    const finalSubject = customSubject || subject;
+    const relanceLabel = relanceNum === 1 ? "première" : relanceNum === 2 ? "deuxième" : "troisième";
+    if (!finalSubject) {
+      finalSubject = `Relance devis ${devis.code || ""} — ${companyName}`;
+    }
 
     const htmlBody = `
 <!DOCTYPE html>
@@ -148,30 +165,22 @@ Deno.serve(async (req) => {
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f9fa; margin: 0; padding: 0;">
   <div style="max-width: 600px; margin: 0 auto; padding: 32px 16px;">
     <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-      
-      <!-- Header -->
       <div style="background: #1a1a2e; padding: 32px; text-align: center;">
         <h1 style="color: white; margin: 0; font-size: 20px; font-weight: 600;">${companyName}</h1>
         <p style="color: rgba(255,255,255,0.7); margin: 8px 0 0; font-size: 14px;">Relance devis</p>
       </div>
-
-      <!-- Content -->
       <div style="padding: 32px;">
         <p style="color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
-          Bonjour${recipientName ? ` ${recipientName}` : ""},
+          Bonjour ${contactName},
         </p>
-        
         <p style="color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
           Nous revenons vers vous concernant notre ${relanceLabel} relance pour le devis suivant :
         </p>
-
         ${customMessage ? `
         <div style="background: #f3f4f6; border-left: 4px solid #6366f1; border-radius: 4px; padding: 16px; margin: 0 0 24px;">
           <p style="color: #374151; margin: 0; font-size: 14px; line-height: 1.6;">${customMessage}</p>
         </div>
         ` : ""}
-
-        <!-- Devis card -->
         <div style="border: 1px solid #e5e7eb; border-radius: 10px; padding: 24px; margin: 0 0 24px;">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
             <div>
@@ -190,9 +199,7 @@ Deno.serve(async (req) => {
           </div>
           ` : ""}
         </div>
-
         ${signatureUrl ? `
-        <!-- CTA Signature -->
         <div style="text-align: center; margin: 0 0 32px;">
           <a href="${signatureUrl}" 
              style="display: inline-block; background: #6366f1; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 15px; font-weight: 600; letter-spacing: 0.01em;">
@@ -203,20 +210,12 @@ Deno.serve(async (req) => {
           </p>
         </div>
         ` : ""}
-
-        <p style="color: #6b7280; font-size: 14px; line-height: 1.6; margin: 0 0 16px;">
-          N'hésitez pas à nous contacter si vous avez des questions ou souhaitez apporter des modifications.
-        </p>
-
         <p style="color: #374151; font-size: 15px; margin: 0;">
           Cordialement,<br/>
-          <strong>${companyName}</strong>
+          <strong>${senderName}</strong>${senderName !== companyName ? `<br/>${companyName}` : ""}
         </p>
-
         ${company?.phone ? `<p style="color: #6b7280; font-size: 13px; margin: 8px 0 0;">${company.phone}</p>` : ""}
       </div>
-
-      <!-- Footer -->
       <div style="background: #f9fafb; border-top: 1px solid #e5e7eb; padding: 16px 32px; text-align: center;">
         <p style="color: #9ca3af; font-size: 12px; margin: 0;">
           Cet email vous est envoyé par ${companyName}
@@ -242,7 +241,20 @@ Deno.serve(async (req) => {
         from: `${companyName} <noreply@altasart.fr>`,
         to: [recipientEmail],
         subject: finalSubject,
-        html: customBodyHtml || htmlBody,
+        html: customBodyHtml
+          ? `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;">
+  <div style="max-width:600px;margin:32px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div style="background:#1a1a2e;padding:32px;text-align:center;">
+      <h1 style="color:#fff;margin:0;font-size:22px;">${companyName}</h1>
+    </div>
+    <div style="padding:32px;">${customBodyHtml}</div>
+    <div style="background:#f5f5f5;padding:16px;text-align:center;border-top:1px solid #eee;">
+      <p style="color:#aaa;font-size:12px;margin:0;">${companyName}</p>
+    </div>
+  </div>
+</body></html>`
+          : htmlBody,
       }),
     });
 
@@ -256,13 +268,12 @@ Deno.serve(async (req) => {
       devis_id: devisId,
       company_id: devis.company_id,
       recipient_email: recipientEmail,
-      recipient_name: recipientName || null,
+      recipient_name: contactName || null,
       relance_num: relanceNum || 1,
       subject: finalSubject,
       status: "sent",
     });
 
-    // Update devis sent_at if first send
     if (!devis.sent_at) {
       await serviceSupabase.from("devis").update({ sent_at: new Date().toISOString() }).eq("id", devisId);
     }

@@ -19,6 +19,8 @@ interface SendEmailDialogProps {
   clientName?: string;
   visiteCode?: string;
   visiteTitle?: string;
+  visiteId?: string;
+  companyId?: string;
 }
 
 type EmailTone = "formel" | "cordial" | "relance";
@@ -26,7 +28,7 @@ type EmailIntent = "envoi_rapport" | "relance" | "confirmation" | "custom";
 
 export function SendEmailDialog({
   open, onClose, defaultTo, defaultSubject, pdfBlobUrl, fileName,
-  clientName, visiteCode, visiteTitle,
+  clientName, visiteCode, visiteTitle, visiteId, companyId,
 }: SendEmailDialogProps) {
   const [to, setTo] = useState(defaultTo || "");
   const [subject, setSubject] = useState(defaultSubject || "");
@@ -100,7 +102,16 @@ export function SendEmailDialog({
       }
 
       const { data, error } = await supabase.functions.invoke("send-visite-email", {
-        body: { to, subject, body, pdfBase64, fileName },
+        body: {
+          to,
+          subject,
+          body,
+          pdfBase64,
+          fileName,
+          visiteId,
+          companyId,
+          clientName,
+        },
       });
 
       if (error) throw error;

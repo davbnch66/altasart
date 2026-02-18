@@ -647,6 +647,8 @@ const VisiteDetail = () => {
         clientName={client?.name || ""}
         visiteCode={visite.code || ""}
         visiteTitle={visite.title || ""}
+        visiteId={visite.id}
+        companyId={visite.company_id}
       />
     </div>
   );
