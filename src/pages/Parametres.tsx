@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Users, Shield, Bell, User, Save, Loader2, LogOut } from "lucide-react";
+import { Building2, Users, Mail, User, Save, Loader2, LogOut } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { EmailTemplatesTab } from "@/components/settings/EmailTemplatesTab";
 
 const roleLabels: Record<string, string> = {
   admin: "Admin",
@@ -131,6 +132,9 @@ const Parametres = () => {
           <TabsTrigger value="team" className="text-xs gap-1.5">
             <Users className="h-3.5 w-3.5" /> Équipe
           </TabsTrigger>
+          <TabsTrigger value="emails" className="text-xs gap-1.5">
+            <Mail className="h-3.5 w-3.5" /> Emails
+          </TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -249,6 +253,13 @@ const Parametres = () => {
                 <p className="text-sm text-muted-foreground text-center py-6">Aucun membre trouvé</p>
               )}
             </div>
+          </motion.div>
+        </TabsContent>
+
+        {/* Email Templates Tab */}
+        <TabsContent value="emails">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <EmailTemplatesTab />
           </motion.div>
         </TabsContent>
       </Tabs>

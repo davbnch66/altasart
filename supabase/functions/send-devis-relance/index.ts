@@ -7,6 +7,13 @@ const corsHeaders = {
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 
+function applyTemplate(template: string, vars: Record<string, string>): string {
+  return Object.entries(vars).reduce(
+    (str, [key, val]) => str.replaceAll(`{{${key}}}`, val ?? ""),
+    template
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -96,7 +103,40 @@ Deno.serve(async (req) => {
       new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
 
     const relanceLabel = relanceNum === 1 ? "première" : relanceNum === 2 ? "deuxième" : "troisième";
+    const templateType = `devis_relance_${relanceNum}`;
     const subject = `Relance devis ${devis.code || ""} — ${companyName}`;
+
+    // Try to load custom template for this relance type
+    const templateVars: Record<string, string> = {
+      client_name: recipientName || (devis.clients as any)?.name || "",
+      contact_name: recipientName || "",
+      devis_code: devis.code || "",
+      devis_objet: devis.objet || "",
+      devis_amount: formatAmount(devis.amount || 0),
+      company_name: companyName,
+      signature_url: signatureUrl || "",
+      sender_name: companyName,
+    };
+
+    let customBodyHtml: string | null = null;
+    let customSubject: string | null = null;
+
+    const { data: tpl } = await serviceSupabase
+      .from("email_templates")
+      .select("subject, body")
+      .eq("company_id", devis.company_id)
+      .eq("type", templateType)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (tpl) {
+      customSubject = applyTemplate(tpl.subject, templateVars);
+      const resolvedBody = applyTemplate(tpl.body, templateVars);
+      customBodyHtml = `<div style="font-family:Arial,sans-serif;white-space:pre-wrap;color:#333;font-size:15px;line-height:1.7;">${resolvedBody.replace(/\n/g, "<br>")}</div>`;
+    }
+
+    const finalSubject = customSubject || subject;
 
     const htmlBody = `
 <!DOCTYPE html>
@@ -201,8 +241,8 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: `${companyName} <noreply@altasart.fr>`,
         to: [recipientEmail],
-        subject,
-        html: htmlBody,
+        subject: finalSubject,
+        html: customBodyHtml || htmlBody,
       }),
     });
 
@@ -218,7 +258,7 @@ Deno.serve(async (req) => {
       recipient_email: recipientEmail,
       recipient_name: recipientName || null,
       relance_num: relanceNum || 1,
-      subject,
+      subject: finalSubject,
       status: "sent",
     });
 
