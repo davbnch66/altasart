@@ -58,6 +58,17 @@ const DOC_TYPES: Record<string, { label: string; color: string }> = {
   autre: { label: "Autre", color: "bg-muted text-muted-foreground" },
 };
 
+const EQUIP_DOC_TYPES: Record<string, { label: string; color: string }> = {
+  photo: { label: "Photo", color: "bg-blue-500/10 text-blue-600" },
+  carte_grise: { label: "Carte grise", color: "bg-green-500/10 text-green-600" },
+  vgp: { label: "VGP", color: "bg-purple-500/10 text-purple-600" },
+  assurance: { label: "Assurance", color: "bg-orange-500/10 text-orange-600" },
+  controle_technique: { label: "Contrôle tech.", color: "bg-yellow-500/10 text-yellow-700" },
+  abaque: { label: "Abaque", color: "bg-teal-500/10 text-teal-600" },
+  fiche_technique: { label: "Fiche technique", color: "bg-indigo-500/10 text-indigo-600" },
+  autre: { label: "Autre", color: "bg-muted text-muted-foreground" },
+};
+
 const INTERVENTION_TYPES: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   vgp: { label: "VGP", color: "bg-purple-500/10 text-purple-600 border-purple-200", icon: ShieldCheck },
   entretien: { label: "Entretien", color: "bg-blue-500/10 text-blue-600 border-blue-200", icon: Settings },
@@ -146,7 +157,7 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
 
   const { data: documents = [], refetch: refetchDocs } = useQuery({
     queryKey: ["resource-documents", resource?.id],
-    enabled: !!resource?.id && isPersonnel,
+    enabled: !!resource?.id,
     queryFn: async () => {
       const { data, error } = await supabase.from("resource_documents").select("*").eq("resource_id", resource.id).order("created_at", { ascending: false });
       if (error) throw error;
@@ -884,16 +895,6 @@ function DocumentsTab({ resourceId, companyId, documents, onRefresh, onDeleteDoc
 }
 
 // ===== Equipment Photos & Documents Tab =====
-const EQUIP_DOC_TYPES: Record<string, { label: string; color: string }> = {
-  photo: { label: "Photo", color: "bg-blue-500/10 text-blue-600" },
-  carte_grise: { label: "Carte grise", color: "bg-green-500/10 text-green-600" },
-  vgp: { label: "VGP", color: "bg-purple-500/10 text-purple-600" },
-  assurance: { label: "Assurance", color: "bg-orange-500/10 text-orange-600" },
-  controle_technique: { label: "Contrôle tech.", color: "bg-yellow-500/10 text-yellow-700" },
-  abaque: { label: "Abaque", color: "bg-teal-500/10 text-teal-600" },
-  fiche_technique: { label: "Fiche technique", color: "bg-indigo-500/10 text-indigo-600" },
-  autre: { label: "Autre", color: "bg-muted text-muted-foreground" },
-};
 
 function EquipmentPhotosDocsTab({ resourceId, companyId, documents, onRefresh, onDeleteDoc, onAiExtracted }: {
   resourceId: string;
