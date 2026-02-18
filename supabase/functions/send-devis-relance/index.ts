@@ -118,8 +118,23 @@ Deno.serve(async (req) => {
 
     const formatAmount = (amount: number) =>
       new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
+    const formatDate = (d: string | null | undefined) =>
+      d ? new Intl.DateTimeFormat("fr-FR").format(new Date(d)) : "";
 
-    const templateType = `devis_relance_${relanceNum}`;
+    // Fetch dossier if linked
+    let dossierCode = "";
+    let dossierTitle = "";
+    let dossierEndDate = "";
+    if (devis.dossier_id) {
+      const { data: dossier } = await serviceSupabase
+        .from("dossiers")
+        .select("code, title, end_date")
+        .eq("id", devis.dossier_id)
+        .maybeSingle();
+      dossierCode = dossier?.code || "";
+      dossierTitle = dossier?.title || "";
+      dossierEndDate = formatDate(dossier?.end_date);
+    }
 
     const templateVars: Record<string, string> = {
       client_name: (devis.clients as any)?.name || "",
@@ -127,11 +142,20 @@ Deno.serve(async (req) => {
       devis_code: devis.code || "",
       devis_objet: devis.objet || "",
       devis_amount: formatAmount(devis.amount || 0),
+      devis_valid_until: formatDate(devis.valid_until),
+      devis_sent_at: formatDate(devis.sent_at),
+      dossier_code: dossierCode,
+      dossier_title: dossierTitle,
+      dossier_end_date: dossierEndDate,
+      visite_title: "",
+      visite_date: "",
+      visite_address: "",
       company_name: companyName,
       signature_url: signatureUrl || "",
       sender_name: senderName,
     };
 
+    const templateType = `devis_relance_${relanceNum}`;
     let customBodyHtml: string | null = null;
     let finalSubject: string | null = null;
 

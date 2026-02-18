@@ -79,21 +79,33 @@ serve(async (req) => {
       .single();
     const senderName = senderProfile?.full_name || fallbackCompanyName;
 
+    const formatDate = (d: string | null | undefined) =>
+      d ? new Intl.DateTimeFormat("fr-FR").format(new Date(d)) : "";
+
     // Resolve contact name from client_contacts if visiteId provided
     let contactName = fallbackContactName || fallbackClientName;
     let clientName = fallbackClientName;
     let companyName = fallbackCompanyName;
+    let visiteTitle = "";
+    let visiteDate = "";
+    let visiteAddress = "";
+    let dossierCode = "";
+    let dossierTitle = "";
+    let dossierEndDate = "";
 
     if (visiteId) {
       const { data: visite } = await serviceSupabase
         .from("visites")
-        .select("client_id, company_id, title, clients(name), companies(name, short_name)")
+        .select("client_id, company_id, title, date, address, dossier_id, clients(name), companies(name, short_name)")
         .eq("id", visiteId)
-        .single();
+        .maybeSingle();
 
       if (visite) {
         clientName = (visite.clients as any)?.name || fallbackClientName;
         companyName = (visite.companies as any)?.name || (visite.companies as any)?.short_name || fallbackCompanyName;
+        visiteTitle = (visite as any).title || "";
+        visiteDate = formatDate((visite as any).date);
+        visiteAddress = (visite as any).address || "";
 
         if (visite.client_id) {
           const { data: defaultContact } = await serviceSupabase
@@ -101,13 +113,25 @@ serve(async (req) => {
             .select("first_name, last_name")
             .eq("client_id", visite.client_id)
             .eq("is_default", true)
-            .single();
+            .maybeSingle();
           if (defaultContact) {
             const fullContactName = [defaultContact.first_name, defaultContact.last_name].filter(Boolean).join(" ");
             if (fullContactName) contactName = fullContactName;
           } else {
             contactName = clientName;
           }
+        }
+
+        // Fetch linked dossier if any
+        if ((visite as any).dossier_id) {
+          const { data: dossier } = await serviceSupabase
+            .from("dossiers")
+            .select("code, title, end_date")
+            .eq("id", (visite as any).dossier_id)
+            .maybeSingle();
+          dossierCode = dossier?.code || "";
+          dossierTitle = dossier?.title || "";
+          dossierEndDate = formatDate(dossier?.end_date);
         }
       }
     }
@@ -118,6 +142,14 @@ serve(async (req) => {
       devis_code: "",
       devis_objet: "",
       devis_amount: "",
+      devis_valid_until: "",
+      devis_sent_at: "",
+      dossier_code: dossierCode,
+      dossier_title: dossierTitle,
+      dossier_end_date: dossierEndDate,
+      visite_title: visiteTitle,
+      visite_date: visiteDate,
+      visite_address: visiteAddress,
       company_name: companyName,
       signature_url: "",
       sender_name: senderName,

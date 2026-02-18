@@ -21,6 +21,15 @@ const TONE_LABELS: Record<string, string> = {
   direct: "direct et concis",
 };
 
+const VARIABLES_BY_TYPE: Record<string, string[]> = {
+  devis_envoi: ["{{contact_name}}", "{{client_name}}", "{{devis_code}}", "{{devis_objet}}", "{{devis_amount}}", "{{devis_valid_until}}", "{{signature_url}}", "{{sender_name}}", "{{company_name}}"],
+  devis_relance_1: ["{{contact_name}}", "{{client_name}}", "{{devis_code}}", "{{devis_objet}}", "{{devis_amount}}", "{{devis_valid_until}}", "{{devis_sent_at}}", "{{signature_url}}", "{{sender_name}}", "{{company_name}}"],
+  devis_relance_2: ["{{contact_name}}", "{{client_name}}", "{{devis_code}}", "{{devis_objet}}", "{{devis_amount}}", "{{devis_valid_until}}", "{{devis_sent_at}}", "{{signature_url}}", "{{sender_name}}", "{{company_name}}"],
+  devis_relance_3: ["{{contact_name}}", "{{client_name}}", "{{devis_code}}", "{{devis_objet}}", "{{devis_amount}}", "{{devis_valid_until}}", "{{devis_sent_at}}", "{{signature_url}}", "{{sender_name}}", "{{company_name}}"],
+  rapport_visite: ["{{contact_name}}", "{{client_name}}", "{{visite_title}}", "{{visite_date}}", "{{visite_address}}", "{{dossier_code}}", "{{dossier_title}}", "{{sender_name}}", "{{company_name}}"],
+  suivi_client: ["{{contact_name}}", "{{client_name}}", "{{dossier_title}}", "{{dossier_code}}", "{{dossier_end_date}}", "{{sender_name}}", "{{company_name}}"],
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -32,10 +41,16 @@ serve(async (req) => {
 
     const typeLabel = TYPE_LABELS[emailType] || emailType;
     const toneLabel = TONE_LABELS[tone] || tone;
+    const availableVars = VARIABLES_BY_TYPE[emailType] || [];
 
     const systemPrompt = `Tu es un expert en communication commerciale pour une entreprise de déménagement et manutention spécialisée.
 Tu rédiges des emails professionnels en français, adaptés au secteur du déménagement d'entreprise et particulier.
-Tu dois utiliser uniquement les variables suivantes entre doubles accolades : {{client_name}}, {{contact_name}}, {{devis_code}}, {{devis_objet}}, {{devis_amount}}, {{company_name}}, {{signature_url}}, {{sender_name}}.`;
+
+Règles impératives :
+- Utilise UNIQUEMENT les variables listées pour ce type d'email entre doubles accolades
+- Utilise TOUTES les variables pertinentes disponibles pour enrichir le message
+- Ne jamais inventer de variables non listées
+- Les variables seront remplacées automatiquement par les vraies valeurs (nom du client, montant réel, date réelle, etc.)`;
 
     const userPrompt = `Génère un modèle d'email pour le contexte suivant :
 - Type : ${typeLabel}
@@ -43,11 +58,12 @@ Tu dois utiliser uniquement les variables suivantes entre doubles accolades : {{
 - Société : ${companyName || "notre société"}
 ${context ? `- Contexte supplémentaire : ${context}` : ""}
 
+Variables disponibles pour ce type : ${availableVars.join(", ")}
+
 Retourne uniquement un objet JSON avec les champs "subject" et "body" (corps en texte brut, pas HTML).
-Le body doit utiliser des sauts de ligne naturels. Inclure les variables appropriées.
-Pour le type "devis_envoi" et les relances, inclure {{signature_url}}.
-Commencer le body par "Bonjour {{contact_name}},".
-Terminer par "Cordialement,\\n{{sender_name}}\\n{{company_name}}".`;
+Le body doit utiliser des sauts de ligne naturels et inclure toutes les variables disponibles de manière naturelle.
+Commence le body par "Bonjour {{contact_name}},".
+Termine par "Cordialement,\\n{{sender_name}}\\n{{company_name}}".`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
