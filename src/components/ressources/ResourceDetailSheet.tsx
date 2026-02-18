@@ -832,18 +832,16 @@ function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
   const expireDays = getDaysUntil(doc.expires_at);
   const isPdf = doc.mime_type === "application/pdf" || doc.file_name?.toLowerCase().endsWith(".pdf");
 
-  // Fetch file as blob to bypass content-disposition: attachment from Supabase
+  // Download file as blob using Supabase SDK (avoids CORS and content-disposition issues)
   const fetchBlob = async (): Promise<string | null> => {
     if (blobUrl) return blobUrl;
-    const { data: signedData } = await supabase.storage
+    const { data: blob, error } = await supabase.storage
       .from("resource-documents")
-      .createSignedUrl(doc.storage_path, 3600);
-    if (!signedData?.signedUrl) return null;
-
-    const fullUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1${signedData.signedUrl}`;
-    const resp = await fetch(fullUrl);
-    if (!resp.ok) return null;
-    const blob = await resp.blob();
+      .download(doc.storage_path);
+    if (error || !blob) {
+      console.error("Storage download error:", error);
+      return null;
+    }
     const url = URL.createObjectURL(blob);
     setBlobUrl(url);
     return url;
