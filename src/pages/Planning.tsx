@@ -305,7 +305,7 @@ const Planning = () => {
               <div key={day.toISOString()} className={`border-r last:border-r-0 p-1.5 space-y-1 min-h-[60px] ${isToday(day) ? "bg-primary/5" : ""}`}>
                 {dayVisites.map((v: any) => (
                   <div key={v.id} className="rounded-md px-2 py-1.5 bg-info/15 text-info text-[11px] cursor-pointer hover:bg-info/25 transition-colors"
-                    onClick={() => navigate(`/visites/${v.id}`)}>
+                    onClick={() => navigate(`/visites/${v.id}`, { state: { fromPlanning: true } })}>
                     <p className="font-semibold truncate">🏠 {(v.clients as any)?.name || "Visite"}</p>
                     <p className="opacity-80 text-[10px]">{v.scheduled_time || ""}</p>
                   </div>

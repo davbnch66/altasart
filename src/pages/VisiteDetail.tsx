@@ -78,6 +78,7 @@ const VisiteDetail = () => {
   const queryClient = useQueryClient();
   const fromClient = (location.state as any)?.fromClient === true;
   const fromDossier = (location.state as any)?.fromDossier as string | undefined;
+  const fromPlanning = (location.state as any)?.fromPlanning === true;
   const isOnline = useOnlineStatus();
   const [editData, setEditData] = useState<any>(null);
   const [saving, setSaving] = useState(false);
@@ -191,14 +192,15 @@ const VisiteDetail = () => {
       <div className="space-y-2">
         {/* Breadcrumb */}
         <DetailBreadcrumb items={[
-          ...(fromClient && client?.id ? [{ label: client.name, path: `/clients/${client.id}` }] : []),
-          ...(fromDossier && dossier ? [{ label: dossier.code || dossier.title, path: `/dossiers/${fromDossier}`, state: { fromClient } }] : !fromClient ? [{ label: "Visites", path: "/visites" }] : []),
+          ...(fromPlanning ? [{ label: "Planning", path: "/planning" }] : []),
+          ...(fromClient && client?.id && !fromPlanning ? [{ label: client.name, path: `/clients/${client.id}` }] : []),
+          ...(fromDossier && dossier && !fromPlanning ? [{ label: dossier.code || dossier.title, path: `/dossiers/${fromDossier}`, state: { fromClient } }] : !fromClient && !fromPlanning ? [{ label: "Visites", path: "/visites" }] : []),
           { label: visite.code ? `#${visite.code}` : visite.title },
         ]} />
 
         {/* Title row */}
         <div className="flex items-start gap-2">
-          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => fromDossier ? navigate(`/dossiers/${fromDossier}`, { state: { fromClient } }) : fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/visites")}>
+          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => fromPlanning ? navigate("/planning") : fromDossier ? navigate(`/dossiers/${fromDossier}`, { state: { fromClient } }) : fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/visites")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
