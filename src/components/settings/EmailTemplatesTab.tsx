@@ -42,16 +42,82 @@ const TEMPLATE_TYPES = [
   { value: "suivi_client", label: "Suivi / Avis client", description: "Email post-déménagement pour demander un avis" },
 ];
 
-const VARIABLES = [
-  { key: "{{client_name}}", label: "Nom du client" },
-  { key: "{{contact_name}}", label: "Nom du contact" },
-  { key: "{{devis_code}}", label: "N° du devis" },
-  { key: "{{devis_objet}}", label: "Objet du devis" },
-  { key: "{{devis_amount}}", label: "Montant du devis" },
-  { key: "{{company_name}}", label: "Nom de la société" },
-  { key: "{{signature_url}}", label: "Lien de signature" },
-  { key: "{{sender_name}}", label: "Nom de l'expéditeur" },
-];
+const VARIABLES_BY_TYPE: Record<string, { key: string; label: string }[]> = {
+  devis_envoi: [
+    { key: "{{contact_name}}", label: "Prénom/nom du contact client" },
+    { key: "{{client_name}}", label: "Raison sociale du client" },
+    { key: "{{devis_code}}", label: "N° du devis" },
+    { key: "{{devis_objet}}", label: "Objet du devis" },
+    { key: "{{devis_amount}}", label: "Montant TTC du devis" },
+    { key: "{{devis_valid_until}}", label: "Date de validité du devis" },
+    { key: "{{signature_url}}", label: "Lien de signature en ligne" },
+    { key: "{{sender_name}}", label: "Nom de l'utilisateur connecté" },
+    { key: "{{company_name}}", label: "Nom de la société" },
+  ],
+  devis_relance_1: [
+    { key: "{{contact_name}}", label: "Prénom/nom du contact client" },
+    { key: "{{client_name}}", label: "Raison sociale du client" },
+    { key: "{{devis_code}}", label: "N° du devis" },
+    { key: "{{devis_objet}}", label: "Objet du devis" },
+    { key: "{{devis_amount}}", label: "Montant TTC du devis" },
+    { key: "{{devis_valid_until}}", label: "Date de validité du devis" },
+    { key: "{{devis_sent_at}}", label: "Date d'envoi initial du devis" },
+    { key: "{{signature_url}}", label: "Lien de signature en ligne" },
+    { key: "{{sender_name}}", label: "Nom de l'utilisateur connecté" },
+    { key: "{{company_name}}", label: "Nom de la société" },
+  ],
+  devis_relance_2: [
+    { key: "{{contact_name}}", label: "Prénom/nom du contact client" },
+    { key: "{{client_name}}", label: "Raison sociale du client" },
+    { key: "{{devis_code}}", label: "N° du devis" },
+    { key: "{{devis_objet}}", label: "Objet du devis" },
+    { key: "{{devis_amount}}", label: "Montant TTC du devis" },
+    { key: "{{devis_valid_until}}", label: "Date de validité du devis" },
+    { key: "{{devis_sent_at}}", label: "Date d'envoi initial du devis" },
+    { key: "{{signature_url}}", label: "Lien de signature en ligne" },
+    { key: "{{sender_name}}", label: "Nom de l'utilisateur connecté" },
+    { key: "{{company_name}}", label: "Nom de la société" },
+  ],
+  devis_relance_3: [
+    { key: "{{contact_name}}", label: "Prénom/nom du contact client" },
+    { key: "{{client_name}}", label: "Raison sociale du client" },
+    { key: "{{devis_code}}", label: "N° du devis" },
+    { key: "{{devis_objet}}", label: "Objet du devis" },
+    { key: "{{devis_amount}}", label: "Montant TTC du devis" },
+    { key: "{{devis_valid_until}}", label: "Date de validité du devis" },
+    { key: "{{devis_sent_at}}", label: "Date d'envoi initial du devis" },
+    { key: "{{signature_url}}", label: "Lien de signature en ligne" },
+    { key: "{{sender_name}}", label: "Nom de l'utilisateur connecté" },
+    { key: "{{company_name}}", label: "Nom de la société" },
+  ],
+  rapport_visite: [
+    { key: "{{contact_name}}", label: "Prénom/nom du contact client" },
+    { key: "{{client_name}}", label: "Raison sociale du client" },
+    { key: "{{visite_title}}", label: "Titre de la visite" },
+    { key: "{{visite_date}}", label: "Date de la visite" },
+    { key: "{{visite_address}}", label: "Adresse de la visite" },
+    { key: "{{dossier_code}}", label: "N° du dossier lié" },
+    { key: "{{dossier_title}}", label: "Titre du dossier lié" },
+    { key: "{{sender_name}}", label: "Nom de l'utilisateur connecté" },
+    { key: "{{company_name}}", label: "Nom de la société" },
+  ],
+  suivi_client: [
+    { key: "{{contact_name}}", label: "Prénom/nom du contact client" },
+    { key: "{{client_name}}", label: "Raison sociale du client" },
+    { key: "{{dossier_code}}", label: "N° du dossier" },
+    { key: "{{dossier_title}}", label: "Titre du dossier / déménagement" },
+    { key: "{{dossier_end_date}}", label: "Date de fin du dossier" },
+    { key: "{{sender_name}}", label: "Nom de l'utilisateur connecté" },
+    { key: "{{company_name}}", label: "Nom de la société" },
+  ],
+};
+
+// All unique variables for the global info banner
+const ALL_VARIABLES = Array.from(
+  new Map(
+    Object.values(VARIABLES_BY_TYPE).flat().map((v) => [v.key, v])
+  ).values()
+);
 
 const TONES = [
   { value: "cordial", label: "Cordial" },
@@ -60,18 +126,21 @@ const TONES = [
 ];
 
 const DEFAULT_SUBJECTS: Record<string, string> = {
-  devis_envoi: "Votre devis {{devis_code}} — {{company_name}}",
+  devis_envoi: "Devis {{devis_code}} — {{devis_objet}} — {{company_name}}",
   devis_relance_1: "Relance devis {{devis_code}} — {{company_name}}",
-  devis_relance_2: "Relance devis {{devis_code}} — {{company_name}}",
-  devis_relance_3: "Relance devis {{devis_code}} — {{company_name}}",
-  rapport_visite: "Rapport de visite — {{company_name}}",
+  devis_relance_2: "2ème relance devis {{devis_code}} — {{company_name}}",
+  devis_relance_3: "Dernière relance devis {{devis_code}} — {{company_name}}",
+  rapport_visite: "Rapport de visite — {{visite_title}} — {{company_name}}",
   suivi_client: "Comment s'est passé votre déménagement ? — {{company_name}}",
 };
 
 const DEFAULT_BODIES: Record<string, string> = {
   devis_envoi: `Bonjour {{contact_name}},
 
-Veuillez trouver ci-joint notre devis {{devis_code}} d'un montant de {{devis_amount}}.
+Veuillez trouver ci-joint notre devis n°{{devis_code}} concernant : {{devis_objet}}.
+
+Montant total : {{devis_amount}}
+Valable jusqu'au : {{devis_valid_until}}
 
 Pour accepter ce devis en ligne, cliquez sur le lien suivant :
 {{signature_url}}
@@ -83,11 +152,11 @@ Cordialement,
 {{company_name}}`,
   devis_relance_1: `Bonjour {{contact_name}},
 
-Nous revenons vers vous concernant notre devis {{devis_code}} d'un montant de {{devis_amount}}, envoyé il y a quelques jours.
+Nous revenons vers vous concernant notre devis n°{{devis_code}} ({{devis_objet}}) d'un montant de {{devis_amount}}, envoyé le {{devis_sent_at}}.
 
 Avez-vous eu l'occasion de le consulter ? Nous sommes disponibles pour répondre à vos questions.
 
-Vous pouvez l'accepter directement en ligne :
+Vous pouvez l'accepter directement en ligne (valable jusqu'au {{devis_valid_until}}) :
 {{signature_url}}
 
 Cordialement,
@@ -95,11 +164,11 @@ Cordialement,
 {{company_name}}`,
   devis_relance_2: `Bonjour {{contact_name}},
 
-Nous vous contactons à nouveau concernant le devis {{devis_code}} ({{devis_amount}}) toujours en attente de votre validation.
+Nous vous contactons à nouveau concernant le devis n°{{devis_code}} — {{devis_objet}} ({{devis_amount}}) toujours en attente de votre validation.
 
 Si vous souhaitez des modifications ou avez des questions, nous sommes à votre disposition.
 
-Lien de signature :
+Lien de signature (expire le {{devis_valid_until}}) :
 {{signature_url}}
 
 Cordialement,
@@ -107,11 +176,11 @@ Cordialement,
 {{company_name}}`,
   devis_relance_3: `Bonjour {{contact_name}},
 
-Ceci est notre dernière relance concernant le devis {{devis_code}} ({{devis_amount}}).
+Ceci est notre dernière relance concernant le devis n°{{devis_code}} — {{devis_objet}} ({{devis_amount}}).
 
-Si votre projet a évolué ou si vous souhaitez discuter d'une autre solution, n'hésitez pas à nous contacter.
+Ce devis arrive à expiration le {{devis_valid_until}}. Si votre projet a évolué ou si vous souhaitez discuter d'une autre solution, n'hésitez pas à nous contacter.
 
-Lien de signature (valable 30 jours) :
+Lien de signature :
 {{signature_url}}
 
 Cordialement,
@@ -119,7 +188,8 @@ Cordialement,
 {{company_name}}`,
   rapport_visite: `Bonjour {{contact_name}},
 
-Veuillez trouver ci-joint le rapport de notre visite technique.
+Veuillez trouver ci-joint le rapport de notre visite technique du {{visite_date}} pour : {{visite_title}}.
+Adresse : {{visite_address}}
 
 Ce document récapitule l'ensemble des observations et préconisations relevées lors de notre passage.
 
@@ -130,11 +200,11 @@ Cordialement,
 {{company_name}}`,
   suivi_client: `Bonjour {{contact_name}},
 
-Nous espérons que votre déménagement s'est bien passé !
+Nous espérons que votre déménagement ({{dossier_title}}) s'est bien passé !
 
 Votre satisfaction est notre priorité. Si vous avez quelques minutes, nous serions ravis de connaître votre avis sur notre prestation.
 
-Un grand merci pour votre confiance.
+Un grand merci pour votre confiance et à bientôt.
 
 Cordialement,
 {{sender_name}}
@@ -312,9 +382,10 @@ export const EmailTemplatesTab = () => {
         <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
         <div className="text-xs text-muted-foreground">
           <strong className="text-foreground">Variables disponibles :</strong>{" "}
-          {VARIABLES.map((v) => (
-            <code key={v.key} className="mx-0.5 px-1 py-0.5 bg-muted rounded text-xs font-mono">
+          {ALL_VARIABLES.map((v) => (
+            <code key={v.key} className="mx-0.5 px-1 py-0.5 bg-muted rounded text-xs font-mono" title={v.label}>
               {v.key}
+
             </code>
           ))}
         </div>
@@ -486,7 +557,7 @@ export const EmailTemplatesTab = () => {
               </div>
               {showVars && (
                 <div className="flex flex-wrap gap-1.5 p-2 bg-muted/50 rounded-lg">
-                  {VARIABLES.map((v) => (
+                  {(VARIABLES_BY_TYPE[form.type] || ALL_VARIABLES).map((v) => (
                     <button
                       key={v.key}
                       type="button"

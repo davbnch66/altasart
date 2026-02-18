@@ -49,22 +49,25 @@ serve(async (req) => {
 
     const formatAmount = (amount: number) =>
       new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
+    const formatDate = (d: string | null | undefined) =>
+      d ? new Intl.DateTimeFormat("fr-FR").format(new Date(d)) : "";
 
     // Fetch sender name from profile (logged-in user)
     const { data: profile } = await supabase
       .from("profiles")
       .select("full_name")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
     const senderName = profile?.full_name || companyName || "";
 
-    // Fetch default contact for this devis's client
+    // Fetch devis with all relations
     const { data: devisData } = await supabase
       .from("devis")
-      .select("client_id")
+      .select("client_id, code, objet, amount, valid_until, sent_at, dossier_id, dossiers(code, title)")
       .eq("id", devisId)
-      .single();
+      .maybeSingle();
 
+    // Fetch default contact for this devis's client
     let contactName = recipientName || "";
     if (devisData?.client_id) {
       const { data: defaultContact } = await supabase
@@ -72,18 +75,28 @@ serve(async (req) => {
         .select("first_name, last_name")
         .eq("client_id", devisData.client_id)
         .eq("is_default", true)
-        .single();
+        .maybeSingle();
       if (defaultContact) {
         contactName = [defaultContact.first_name, defaultContact.last_name].filter(Boolean).join(" ");
       }
     }
 
+    const dossier = (devisData as any)?.dossiers as any;
+
     const vars: Record<string, string> = {
       client_name: recipientName || "",
       contact_name: contactName || recipientName || "",
-      devis_code: devisCode || "",
-      devis_objet: devisObjet || "",
-      devis_amount: devisAmount ? formatAmount(devisAmount) : "",
+      devis_code: devisCode || devisData?.code || "",
+      devis_objet: devisObjet || devisData?.objet || "",
+      devis_amount: devisAmount ? formatAmount(devisAmount) : (devisData?.amount ? formatAmount(devisData.amount) : ""),
+      devis_valid_until: formatDate(devisData?.valid_until),
+      devis_sent_at: formatDate(devisData?.sent_at),
+      dossier_code: dossier?.code || "",
+      dossier_title: dossier?.title || "",
+      dossier_end_date: "",
+      visite_title: "",
+      visite_date: "",
+      visite_address: "",
       company_name: companyName || "Votre prestataire",
       signature_url: signatureUrl,
       sender_name: senderName,
