@@ -39,7 +39,7 @@ serve(async (req) => {
       });
     }
 
-    const { devisId, recipientEmail, recipientName, signatureUrl, devisCode, devisObjet, devisAmount, companyName, companyId } = await req.json();
+    const { devisId, recipientEmail, recipientName, signatureUrl, devisCode, devisObjet, devisAmount, companyName, companyId, customSubject, customBody } = await req.json();
 
     if (!devisId || !recipientEmail || !signatureUrl) {
       return new Response(JSON.stringify({ error: "Paramètres manquants" }), {
@@ -102,12 +102,17 @@ serve(async (req) => {
       sender_name: senderName,
     };
 
-    // Try to load custom template
+    // Use pre-resolved content from frontend (already substituted), or fall back to DB template
     let emailSubject = `Devis ${devisCode || ""} à accepter — ${companyName}`;
     let emailBodyText = "";
     let useCustomTemplate = false;
 
-    if (companyId) {
+    if (customSubject && customBody) {
+      // Front already resolved the template — use as-is
+      emailSubject = customSubject;
+      emailBodyText = customBody;
+      useCustomTemplate = true;
+    } else if (companyId) {
       const { data: tpl } = await supabase
         .from("email_templates")
         .select("subject, body")

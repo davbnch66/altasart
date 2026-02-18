@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -6,7 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Send, Copy, CheckCircle, Link } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Send, Copy, CheckCircle, Link, Loader2, RefreshCw } from "lucide-react";
 
 interface SendSignatureDialogProps {
   devis: any;
@@ -20,10 +21,47 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
   const [recipientName, setRecipientName] = useState(devis.clients?.name || "");
   const [linkCopied, setLinkCopied] = useState(false);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setRecipientEmail(devis.clients?.email || "");
+      setRecipientName(devis.clients?.name || "");
+      setGeneratedLink(null);
+      setEmailSubject("");
+      setEmailBody("");
+      if (devis.company_id) {
+        loadTemplate();
+      }
+    }
+  }, [open]);
+
+  const loadTemplate = async () => {
+    setLoadingTemplate(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("resolve-email-template", {
+        body: {
+          templateType: "devis_envoi",
+          companyId: devis.company_id,
+          devisId: devis.id,
+        },
+      });
+      if (error) throw error;
+      if (data?.found) {
+        setEmailSubject(data.subject || "");
+        setEmailBody(data.body || "");
+      }
+    } catch (e: any) {
+      console.warn("Template not found:", e.message);
+    } finally {
+      setLoadingTemplate(false);
+    }
+  };
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      // Check for existing pending signature
       const { data: existing } = await supabase
         .from("devis_signatures")
         .select("token")
@@ -34,7 +72,6 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
 
       if (existing) return existing.token;
 
-      // Create new signature token
       const { data, error } = await supabase
         .from("devis_signatures")
         .insert({
@@ -81,6 +118,9 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
           devisAmount: devis.amount,
           companyName: devis.companies?.name || devis.companies?.short_name,
           companyId: devis.company_id,
+          // Pass resolved body/subject if template was loaded
+          customSubject: emailSubject || undefined,
+          customBody: emailBody || undefined,
         },
       });
 
@@ -112,7 +152,7 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Envoyer pour signature</DialogTitle>
         </DialogHeader>
@@ -146,6 +186,54 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
             </div>
           </div>
 
+          {/* Email preview / customization */}
+          <div className="space-y-2 border rounded-lg p-3 bg-muted/30">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground">Contenu de l'email</p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs gap-1 text-muted-foreground"
+                onClick={loadTemplate}
+                disabled={loadingTemplate}
+              >
+                {loadingTemplate ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
+                Recharger modèle
+              </Button>
+            </div>
+            <div>
+              <Label className="text-xs">Objet</Label>
+              <Input
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                placeholder={loadingTemplate ? "Chargement..." : "Devis {{devis_code}} — {{company_name}}"}
+                className="mt-1 text-sm"
+                disabled={loadingTemplate}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Corps du message</Label>
+              <Textarea
+                value={emailBody}
+                onChange={(e) => setEmailBody(e.target.value)}
+                placeholder={loadingTemplate ? "Chargement du modèle..." : "Bonjour,\n\nVeuillez trouver ci-joint notre devis...\n\nCordialement,"}
+                rows={7}
+                className={`mt-1 text-sm font-mono resize-y ${loadingTemplate ? "opacity-50" : ""}`}
+                disabled={loadingTemplate}
+              />
+            </div>
+            {!emailBody && !loadingTemplate && (
+              <p className="text-[10px] text-muted-foreground">
+                Aucun modèle configuré — un email par défaut sera utilisé
+              </p>
+            )}
+          </div>
+
           {generatedLink && (
             <div className="rounded-lg bg-muted p-3 break-all">
               <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
@@ -158,7 +246,7 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
           <div className="flex flex-col gap-2 pt-2">
             <Button
               onClick={() => sendEmailMutation.mutate()}
-              disabled={!recipientEmail.trim() || sendEmailMutation.isPending}
+              disabled={!recipientEmail.trim() || sendEmailMutation.isPending || loadingTemplate}
               className="w-full"
             >
               <Send className="h-4 w-4 mr-2" />
