@@ -161,6 +161,7 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
 
   const [pForm, setPForm] = useState<any>(null);
   const [pEditing, setPEditing] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>(isEquipment ? "technique" : "rh");
 
   const savePersonnel = useMutation({
     mutationFn: async (payload: any) => {
@@ -319,7 +320,7 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue={isEquipment ? "technique" : "rh"} className="flex-1">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
           <TabsList className="w-full rounded-none border-b h-auto p-0 bg-transparent justify-start gap-0 overflow-x-auto">
             {isEquipment && (
               <TabsTrigger value="technique" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm whitespace-nowrap">
@@ -511,11 +512,12 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                 onRefresh={refetchDocs}
                 onDeleteDoc={(id, path) => deleteDocument.mutate({ id, storagePath: path })}
                 onAiExtracted={(data) => {
-                  // Apply AI extracted data to personnel form
+                  // Apply AI extracted data to personnel form and switch to RH tab
                   const merged = { ...(personnel ?? {}), ...data };
                   setPForm(merged);
                   setPEditing(true);
-                  toast.success("Données IA extraites ! Vérifiez et enregistrez.", { duration: 5000 });
+                  setActiveTab("rh");
+                  toast.success("✅ Données extraites par l'IA ! Vérifiez et enregistrez.", { duration: 6000 });
                 }}
               />
             </TabsContent>
