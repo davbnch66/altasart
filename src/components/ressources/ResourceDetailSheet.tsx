@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { PdfCanvasViewer } from "@/components/visite/PdfCanvasViewer";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -825,16 +826,18 @@ function DocumentsTab({ resourceId, companyId, documents, onRefresh, onDeleteDoc
 }
 
 function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [blobCache, setBlobCache] = useState<Blob | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState<boolean>(false);
   const docType = DOC_TYPES[doc.document_type] ?? DOC_TYPES.autre;
   const expireDays = getDaysUntil(doc.expires_at);
   const isPdf = doc.mime_type === "application/pdf" || doc.file_name?.toLowerCase().endsWith(".pdf");
 
-  // Download file as blob using Supabase SDK (avoids CORS and content-disposition issues)
-  const fetchBlob = async (): Promise<string | null> => {
-    if (blobUrl) return blobUrl;
+  // Download blob from Supabase Storage SDK (no CORS/URL issues)
+  const fetchBlobCached = async (): Promise<Blob | null> => {
+    if (blobCache) return blobCache;
     const { data: blob, error } = await supabase.storage
       .from("resource-documents")
       .download(doc.storage_path);
@@ -842,17 +845,25 @@ function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
       console.error("Storage download error:", error);
       return null;
     }
-    const url = URL.createObjectURL(blob);
-    setBlobUrl(url);
-    return url;
+    setBlobCache(blob);
+    return blob;
   };
 
   const viewDoc = async () => {
     setLoading(true);
     try {
-      await fetchBlob();
+      const blob = await fetchBlobCached();
+      if (!blob) { toast.error("Impossible d'ouvrir le document"); return; }
+      if (isPdf) {
+        const ab = await blob.arrayBuffer();
+        setPdfData(ab);
+      } else {
+        const url = URL.createObjectURL(blob);
+        setImgUrl(url);
+      }
       setPreviewOpen(true);
     } catch (e) {
+      console.error(e);
       toast.error("Impossible d'ouvrir le document");
     } finally {
       setLoading(false);
@@ -862,20 +873,27 @@ function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
   const downloadDoc = async () => {
     setLoading(true);
     try {
-      const url = await fetchBlob();
-      if (url) {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = doc.file_name || doc.name;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
+      const blob = await fetchBlobCached();
+      if (!blob) { toast.error("Impossible de télécharger"); return; }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = doc.file_name || doc.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch (e) {
+      console.error(e);
       toast.error("Impossible de télécharger le document");
     } finally {
       setLoading(false);
     }
+  };
+
+  const closePreview = () => {
+    setPreviewOpen(false);
+    if (imgUrl) { URL.revokeObjectURL(imgUrl); setImgUrl(null); }
   };
 
   return (
@@ -916,28 +934,29 @@ function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
       </div>
 
       {/* Preview modal */}
-      {previewOpen && blobUrl && (
-        <div
-          className="fixed inset-0 z-[200] bg-black/80 flex flex-col"
-          onClick={(e) => { if (e.target === e.currentTarget) setPreviewOpen(false); }}
-        >
+      {previewOpen && (
+        <div className="fixed inset-0 z-[200] bg-black/80 flex flex-col">
           <div className="flex items-center justify-between px-4 py-2 bg-card border-b shrink-0">
             <span className="text-sm font-medium truncate">{doc.name}</span>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={downloadDoc}>
                 <Download className="h-4 w-4 mr-1" /> Télécharger
               </Button>
-              <Button size="icon" variant="ghost" onClick={() => setPreviewOpen(false)}>
+              <Button size="icon" variant="ghost" onClick={closePreview}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
           </div>
-          <div className="flex-1 min-h-0">
-            {isPdf ? (
-              <iframe src={blobUrl} className="w-full h-full border-0" title={doc.name} />
-            ) : (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {isPdf && pdfData ? (
+              <PdfCanvasViewer data={pdfData} />
+            ) : imgUrl ? (
               <div className="flex items-center justify-center h-full p-4">
-                <img src={blobUrl} alt={doc.name} className="max-w-full max-h-full object-contain rounded shadow-xl" />
+                <img src={imgUrl} alt={doc.name} className="max-w-full max-h-full object-contain rounded shadow-xl" />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             )}
           </div>
