@@ -19,6 +19,8 @@ import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
 import { DevisApplyTemplateDialog } from "@/components/devis/ApplyTemplateDialog";
 import { SendSignatureDialog } from "@/components/devis/SendSignatureDialog";
 import { DevisRelancesSection } from "@/components/devis/DevisRelancesSection";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 
 const statusLabels: Record<string, string> = {
   brouillon: "Brouillon",
@@ -262,7 +264,28 @@ const DevisDetail = () => {
         </div>
         <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
           <p className="text-[11px] text-muted-foreground">Validité</p>
-          <p className={`font-medium mt-0.5 ${isMobile ? "text-xs" : "text-sm"}`}>{formatDate(devis.valid_until)}</p>
+          <div className={`font-medium mt-0.5 ${isMobile ? "text-xs" : "text-sm"}`}>
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="text-left group flex items-center gap-1" title="Modifier la date de validité">
+                  <span className="group-hover:underline group-hover:decoration-dashed group-hover:underline-offset-2 group-hover:decoration-muted-foreground/50">
+                    {devis.valid_until ? formatDate(devis.valid_until) : <span className="text-muted-foreground italic text-xs">Non définie</span>}
+                  </span>
+                  <Pencil className="h-3 w-3 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={devis.valid_until ? new Date(devis.valid_until) : undefined}
+                  onSelect={(date) => {
+                    if (date) updateField.mutate({ valid_until: date.toISOString().split("T")[0] });
+                  }}
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </motion.div>
 
