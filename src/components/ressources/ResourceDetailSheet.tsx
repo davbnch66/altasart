@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -13,10 +13,10 @@ import { toast } from "sonner";
 import {
   User, Wrench, Truck, AlertTriangle, CheckCircle2, Clock, Plus, Trash2,
   Shield, Heart, GraduationCap, Settings, FileText, Calendar, Phone,
-  ShieldCheck, Activity, Zap, HardHat, Package
+  ShieldCheck, Activity, Zap, HardHat, Package, Mail, MapPin, Upload,
+  Camera, Sparkles, Eye, Download, IdCard, X, Loader2
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
-import { fr } from "date-fns/locale";
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
   employe: HardHat, grue: Wrench, vehicule: Truck, equipement: Package, equipe: User,
@@ -27,6 +27,15 @@ const STATUS_COLORS: Record<string, string> = {
   occupe: "bg-warning/10 text-warning border-warning/20",
   maintenance: "bg-destructive/10 text-destructive border-destructive/20",
   absent: "bg-muted text-muted-foreground",
+};
+
+const DOC_TYPES: Record<string, { label: string; color: string }> = {
+  identite: { label: "Pièce d'identité", color: "bg-blue-500/10 text-blue-600" },
+  contrat: { label: "Contrat", color: "bg-green-500/10 text-green-600" },
+  diplome: { label: "Diplôme", color: "bg-purple-500/10 text-purple-600" },
+  caces: { label: "CACES", color: "bg-orange-500/10 text-orange-600" },
+  medical: { label: "Médical", color: "bg-pink-500/10 text-pink-600" },
+  autre: { label: "Autre", color: "bg-muted text-muted-foreground" },
 };
 
 const INTERVENTION_TYPES: Record<string, { label: string; color: string; icon: React.ElementType }> = {
@@ -86,7 +95,7 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
   });
   const [showAddIntervention, setShowAddIntervention] = useState(false);
 
-  // Resource details
+  // ---- Queries ----
   const { data: equipment, refetch: refetchEquipment } = useQuery({
     queryKey: ["resource-equipment", resource?.id],
     enabled: !!resource?.id && isEquipment,
@@ -109,17 +118,23 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
     queryKey: ["resource-interventions", resource?.id],
     enabled: !!resource?.id,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("resource_interventions")
-        .select("*")
-        .eq("resource_id", resource.id)
-        .order("scheduled_date", { ascending: false });
+      const { data, error } = await supabase.from("resource_interventions").select("*").eq("resource_id", resource.id).order("scheduled_date", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
   });
 
-  // Update resource status
+  const { data: documents = [], refetch: refetchDocs } = useQuery({
+    queryKey: ["resource-documents", resource?.id],
+    enabled: !!resource?.id && isPersonnel,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("resource_documents").select("*").eq("resource_id", resource.id).order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // ---- Mutations ----
   const updateStatus = useMutation({
     mutationFn: async (status: string) => {
       const { error } = await supabase.from("resources").update({ status } as any).eq("id", resource.id);
@@ -128,7 +143,6 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["resources"] }); toast.success("Statut mis à jour"); },
   });
 
-  // Save equipment data
   const [eqForm, setEqForm] = useState<any>(null);
   const [eqEditing, setEqEditing] = useState(false);
 
@@ -145,7 +159,6 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
     onSuccess: () => { refetchEquipment(); setEqEditing(false); toast.success("Fiche technique mise à jour"); },
   });
 
-  // Save personnel data
   const [pForm, setPForm] = useState<any>(null);
   const [pEditing, setPEditing] = useState(false);
 
@@ -162,7 +175,6 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
     onSuccess: () => { refetchPersonnel(); setPEditing(false); toast.success("Fiche RH mise à jour"); },
   });
 
-  // Add intervention
   const addIntervention = useMutation({
     mutationFn: async () => {
       if (!newIntervention.title.trim()) throw new Error("Titre requis");
@@ -209,9 +221,18 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["resource-interventions", resource?.id] }); },
   });
 
+  const deleteDocument = useMutation({
+    mutationFn: async ({ id, storagePath }: { id: string; storagePath: string }) => {
+      await supabase.storage.from("resource-documents").remove([storagePath]);
+      const { error } = await supabase.from("resource_documents").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { refetchDocs(); toast.success("Document supprimé"); },
+  });
+
   if (!resource) return null;
 
-  // Alerts for equipment
+  // Alerts
   const alerts: string[] = [];
   if (equipment) {
     const vgpDays = getDaysUntil(equipment.vgp_expiry);
@@ -224,13 +245,14 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
     if (maintDays !== null && maintDays < 14) alerts.push(`Maintenance ${maintDays < 0 ? "en retard" : `dans ${maintDays}j`}`);
   }
   if (personnel) {
-    const medDays = getDaysUntil(personnel.next_medical_visit);
+    const medDays = getDaysUntil((personnel as any).next_medical_visit);
     if (medDays !== null && medDays < 30) alerts.push(`Visite médicale ${medDays < 0 ? "en retard" : `dans ${medDays}j`}`);
+    const idDays = getDaysUntil((personnel as any).id_expiry);
+    if (idDays !== null && idDays < 60) alerts.push(`Pièce d'identité ${idDays < 0 ? "expirée" : `expire dans ${idDays}j`}`);
   }
 
   const upcomingInterventions = interventions.filter((i: any) => i.status === "planifie" || i.status === "en_cours");
   const pastInterventions = interventions.filter((i: any) => i.status === "termine" || i.status === "annule");
-
   const totalCost = interventions.reduce((s: number, i: any) => s + (i.cost || 0), 0);
 
   return (
@@ -240,9 +262,14 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
         <div className="p-6 border-b bg-muted/30">
           <SheetHeader>
             <div className="flex items-start gap-4">
-              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Icon className="h-6 w-6 text-primary" />
-              </div>
+              {/* Avatar / Photo */}
+              {isPersonnel ? (
+                <PersonnelAvatar personnel={personnel} resourceId={resource.id} onRefresh={refetchPersonnel} />
+              ) : (
+                <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <Icon className="h-7 w-7 text-primary" />
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <SheetTitle className="text-xl">{resource.name}</SheetTitle>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -252,6 +279,19 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                     return c ? <span key={cid} className="text-xs bg-muted px-2 py-0.5 rounded">{c.shortName}</span> : null;
                   })}
                 </div>
+                {/* Quick contact info */}
+                {isPersonnel && (personnel as any)?.phone && (
+                  <div className="flex items-center gap-3 mt-1">
+                    <a href={`tel:${(personnel as any).phone}`} className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                      <Phone className="h-3 w-3" />{(personnel as any).phone}
+                    </a>
+                    {(personnel as any)?.email && (
+                      <a href={`mailto:${(personnel as any).email}`} className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+                        <Mail className="h-3 w-3" />{(personnel as any).email}
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
               <Select value={resource.status} onValueChange={(v) => updateStatus.mutate(v)}>
                 <SelectTrigger className={`w-auto h-8 text-xs border rounded-full px-3 ${STATUS_COLORS[resource.status] ?? ""}`}>
@@ -267,7 +307,6 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
             </div>
           </SheetHeader>
 
-          {/* Alerts */}
           {alerts.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {alerts.map((a, i) => (
@@ -281,30 +320,38 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
 
         {/* Tabs */}
         <Tabs defaultValue={isEquipment ? "technique" : "rh"} className="flex-1">
-          <TabsList className="w-full rounded-none border-b h-auto p-0 bg-transparent justify-start gap-0">
+          <TabsList className="w-full rounded-none border-b h-auto p-0 bg-transparent justify-start gap-0 overflow-x-auto">
             {isEquipment && (
-              <TabsTrigger value="technique" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm">
+              <TabsTrigger value="technique" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm whitespace-nowrap">
                 <Settings className="h-4 w-4 mr-2" />Technique
               </TabsTrigger>
             )}
             {isPersonnel && (
-              <TabsTrigger value="rh" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm">
-                <User className="h-4 w-4 mr-2" />Fiche RH
-              </TabsTrigger>
+              <>
+                <TabsTrigger value="rh" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm whitespace-nowrap">
+                  <User className="h-4 w-4 mr-2" />Fiche RH
+                </TabsTrigger>
+                <TabsTrigger value="documents" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm whitespace-nowrap">
+                  <FileText className="h-4 w-4 mr-2" />Documents
+                  {(documents as any[]).length > 0 && (
+                    <span className="ml-1.5 bg-muted text-muted-foreground text-[10px] rounded-full px-1.5 py-0.5">{(documents as any[]).length}</span>
+                  )}
+                </TabsTrigger>
+              </>
             )}
-            <TabsTrigger value="interventions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm">
+            <TabsTrigger value="interventions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm whitespace-nowrap">
               <Activity className="h-4 w-4 mr-2" />
-              {isPersonnel ? "Formations & Absences" : "VGP & Entretiens"}
+              {isPersonnel ? "Formations" : "VGP & Entretiens"}
               {upcomingInterventions.length > 0 && (
                 <span className="ml-1.5 bg-primary text-primary-foreground text-[10px] rounded-full px-1.5 py-0.5">{upcomingInterventions.length}</span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="historique" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm">
-              <FileText className="h-4 w-4 mr-2" />Historique
+            <TabsTrigger value="historique" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm whitespace-nowrap">
+              <Clock className="h-4 w-4 mr-2" />Historique
             </TabsTrigger>
           </TabsList>
 
-          {/* ===== TECHNIQUE (Engins/Véhicules) ===== */}
+          {/* ===== TECHNIQUE ===== */}
           {isEquipment && (
             <TabsContent value="technique" className="p-4 space-y-4">
               <div className="flex justify-between items-center">
@@ -313,12 +360,10 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                   Modifier
                 </Button>
               </div>
-
               {eqEditing ? (
                 <EquipmentForm form={eqForm ?? {}} onChange={setEqForm} onSave={() => saveEquipment.mutate(eqForm)} onCancel={() => setEqEditing(false)} isPending={saveEquipment.isPending} />
               ) : (
                 <div className="space-y-4">
-                  {/* Identification */}
                   <Section title="Identification" icon={<Truck className="h-4 w-4" />}>
                     <InfoGrid items={[
                       { label: "Immatriculation", value: equipment?.registration },
@@ -328,8 +373,6 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                       { label: "Année", value: equipment?.year_manufacture?.toString() },
                     ]} />
                   </Section>
-
-                  {/* Caractéristiques */}
                   <Section title="Caractéristiques" icon={<Zap className="h-4 w-4" />}>
                     <InfoGrid items={[
                       { label: "Capacité", value: equipment?.capacity_tons ? `${equipment.capacity_tons} T` : null },
@@ -340,8 +383,6 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                       { label: "Tarif/jour", value: equipment?.daily_rate ? `${equipment.daily_rate} €` : null },
                     ]} />
                   </Section>
-
-                  {/* Réglementaire */}
                   <Section title="Réglementaire & Échéances" icon={<ShieldCheck className="h-4 w-4" />}>
                     <div className="space-y-2">
                       <AlertBadge days={getDaysUntil(equipment?.vgp_expiry)} label="VGP" />
@@ -358,7 +399,6 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                       { label: "Prochain entretien", value: equipment?.next_maintenance_date ? format(new Date(equipment.next_maintenance_date), "dd/MM/yyyy") : null },
                     ]} />
                   </Section>
-
                   {!equipment && (
                     <div className="text-center py-6 text-muted-foreground text-sm">
                       <Settings className="h-8 w-8 mx-auto mb-2 opacity-30" />
@@ -371,7 +411,7 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
             </TabsContent>
           )}
 
-          {/* ===== RH (Personnel) ===== */}
+          {/* ===== FICHE RH ===== */}
           {isPersonnel && (
             <TabsContent value="rh" className="p-4 space-y-4">
               <div className="flex justify-between items-center">
@@ -380,18 +420,35 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                   Modifier
                 </Button>
               </div>
-
               {pEditing ? (
                 <PersonnelForm form={pForm ?? {}} onChange={setPForm} onSave={() => savePersonnel.mutate(pForm)} onCancel={() => setPEditing(false)} isPending={savePersonnel.isPending} />
               ) : (
                 <div className="space-y-4">
+                  <Section title="Contact & Coordonnées" icon={<Phone className="h-4 w-4" />}>
+                    <InfoGrid items={[
+                      { label: "Téléphone", value: (personnel as any)?.phone },
+                      { label: "Email", value: (personnel as any)?.email },
+                      { label: "Adresse", value: (personnel as any)?.address },
+                    ]} />
+                  </Section>
+
                   <Section title="Informations professionnelles" icon={<User className="h-4 w-4" />}>
                     <InfoGrid items={[
                       { label: "Poste", value: personnel?.job_title },
                       { label: "Matricule", value: personnel?.employee_id },
                       { label: "Contrat", value: personnel?.contract_type },
                       { label: "Entrée", value: personnel?.hire_date ? format(new Date(personnel.hire_date), "dd/MM/yyyy") : null },
-                      { label: "Téléphone", value: personnel?.phone },
+                    ]} />
+                  </Section>
+
+                  <Section title="Pièce d'identité" icon={<IdCard className="h-4 w-4" />}>
+                    <AlertBadge days={getDaysUntil((personnel as any)?.id_expiry)} label="Pièce d'identité" />
+                    <InfoGrid items={[
+                      { label: "Date de naissance", value: (personnel as any)?.birth_date ? format(new Date((personnel as any).birth_date), "dd/MM/yyyy") : null },
+                      { label: "Nationalité", value: (personnel as any)?.nationality },
+                      { label: "N° document", value: (personnel as any)?.id_number },
+                      { label: "Expiration", value: (personnel as any)?.id_expiry ? format(new Date((personnel as any).id_expiry), "dd/MM/yyyy") : null },
+                      { label: "N° sécurité sociale", value: (personnel as any)?.social_security },
                     ]} />
                   </Section>
 
@@ -444,17 +501,34 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
             </TabsContent>
           )}
 
-          {/* ===== INTERVENTIONS PLANIFIÉES ===== */}
+          {/* ===== DOCUMENTS ===== */}
+          {isPersonnel && (
+            <TabsContent value="documents" className="p-4 space-y-4">
+              <DocumentsTab
+                resourceId={resource.id}
+                companyId={resource.companyIds?.[0]}
+                documents={documents as any[]}
+                onRefresh={refetchDocs}
+                onDeleteDoc={(id, path) => deleteDocument.mutate({ id, storagePath: path })}
+                onAiExtracted={(data) => {
+                  // Apply AI extracted data to personnel form
+                  const merged = { ...(personnel ?? {}), ...data };
+                  setPForm(merged);
+                  setPEditing(true);
+                  toast.success("Données IA extraites ! Vérifiez et enregistrez.", { duration: 5000 });
+                }}
+              />
+            </TabsContent>
+          )}
+
+          {/* ===== INTERVENTIONS ===== */}
           <TabsContent value="interventions" className="p-4 space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="font-semibold text-sm">
-                {upcomingInterventions.length} intervention{upcomingInterventions.length !== 1 ? "s" : ""} à venir
-              </h3>
+              <h3 className="font-semibold text-sm">{upcomingInterventions.length} à venir</h3>
               <Button size="sm" onClick={() => setShowAddIntervention(!showAddIntervention)}>
                 <Plus className="h-3.5 w-3.5 mr-1" />Ajouter
               </Button>
             </div>
-
             {showAddIntervention && (
               <InterventionForm
                 form={newIntervention}
@@ -465,14 +539,12 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                 isPending={addIntervention.isPending}
               />
             )}
-
             {upcomingInterventions.length === 0 && !showAddIntervention && (
               <div className="text-center py-8 text-muted-foreground text-sm">
                 <CheckCircle2 className="h-8 w-8 mx-auto mb-2 opacity-20" />
                 Aucune intervention planifiée
               </div>
             )}
-
             <div className="space-y-2">
               {upcomingInterventions.map((item: any) => (
                 <InterventionCard key={item.id} item={item} onDelete={(id) => deleteIntervention.mutate(id)} onStatusChange={(id, s) => updateInterventionStatus.mutate({ id, status: s })} />
@@ -484,12 +556,11 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
           <TabsContent value="historique" className="p-4 space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="font-semibold text-sm">{pastInterventions.length} interventions passées</h3>
-              {totalCost > 0 && <span className="text-sm font-medium">Total coûts : {totalCost.toLocaleString()} €</span>}
+              {totalCost > 0 && <span className="text-sm font-medium">Total : {totalCost.toLocaleString()} €</span>}
             </div>
             {pastInterventions.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-sm">
-                <FileText className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                Aucun historique
+                <FileText className="h-8 w-8 mx-auto mb-2 opacity-20" />Aucun historique
               </div>
             ) : (
               <div className="space-y-2">
@@ -502,6 +573,299 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
         </Tabs>
       </SheetContent>
     </Sheet>
+  );
+}
+
+// ===== Personnel Avatar with photo upload =====
+function PersonnelAvatar({ personnel, resourceId, onRefresh }: { personnel: any; resourceId: string; onRefresh: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const uploadPhoto = async (file: File) => {
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `avatars/${resourceId}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("resource-documents").upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from("resource-documents").getPublicUrl(path);
+      // Store in personnel photo_url
+      if (personnel?.id) {
+        await supabase.from("resource_personnel").update({ photo_url: urlData.publicUrl } as any).eq("id", personnel.id);
+      } else {
+        await supabase.from("resource_personnel").insert({ resource_id: resourceId, photo_url: urlData.publicUrl } as any);
+      }
+      onRefresh();
+      toast.success("Photo mise à jour");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const photoUrl = (personnel as any)?.photo_url;
+
+  return (
+    <div className="relative group flex-shrink-0">
+      <div
+        className="h-14 w-14 rounded-xl bg-muted flex items-center justify-center overflow-hidden cursor-pointer border-2 border-transparent group-hover:border-primary transition-colors"
+        onClick={() => fileRef.current?.click()}
+      >
+        {photoUrl ? (
+          <img src={photoUrl} alt="Photo" className="h-full w-full object-cover" />
+        ) : (
+          <HardHat className="h-7 w-7 text-muted-foreground" />
+        )}
+        {uploading && (
+          <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center">
+            <Loader2 className="h-4 w-4 text-white animate-spin" />
+          </div>
+        )}
+      </div>
+      <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-primary rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" onClick={() => fileRef.current?.click()}>
+        <Camera className="h-3 w-3 text-primary-foreground" />
+      </div>
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { if (e.target.files?.[0]) uploadPhoto(e.target.files[0]); }} />
+    </div>
+  );
+}
+
+// ===== Documents Tab =====
+function DocumentsTab({ resourceId, companyId, documents, onRefresh, onDeleteDoc, onAiExtracted }: {
+  resourceId: string;
+  companyId: string;
+  documents: any[];
+  onRefresh: () => void;
+  onDeleteDoc: (id: string, path: string) => void;
+  onAiExtracted: (data: any) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [newDocType, setNewDocType] = useState("identite");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) setPendingFile(f);
+  };
+
+  const uploadDocument = async (withAI: boolean) => {
+    if (!pendingFile) return;
+    setUploading(true);
+    if (withAI) setAnalyzing(true);
+
+    try {
+      const ext = pendingFile.name.split(".").pop();
+      const path = `docs/${resourceId}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("resource-documents").upload(path, pendingFile);
+      if (upErr) throw upErr;
+
+      // Save document record
+      const { data: docData, error: docErr } = await supabase.from("resource_documents").insert({
+        resource_id: resourceId,
+        company_id: companyId,
+        document_type: newDocType,
+        name: `${DOC_TYPES[newDocType]?.label ?? "Document"} — ${pendingFile.name}`,
+        storage_path: path,
+        file_name: pendingFile.name,
+        mime_type: pendingFile.type,
+        ai_extracted: withAI,
+      } as any).select().single();
+
+      if (docErr) throw docErr;
+
+      // IA analysis if requested
+      if (withAI && (pendingFile.type.startsWith("image/") || pendingFile.type === "application/pdf")) {
+        try {
+          const reader = new FileReader();
+          const base64 = await new Promise<string>((resolve, reject) => {
+            reader.onload = (ev) => {
+              const result = ev.target?.result as string;
+              resolve(result.split(",")[1]);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(pendingFile);
+          });
+
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-hr-document`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({ imageBase64: base64, mimeType: pendingFile.type, documentType: newDocType }),
+          });
+
+          const json = await res.json();
+          if (res.ok && json.data) {
+            // Map AI fields to personnel fields
+            const aiData: any = {};
+            const d = json.data;
+            if (d.birth_date) aiData.birth_date = d.birth_date;
+            if (d.nationality) aiData.nationality = d.nationality;
+            if (d.id_number) aiData.id_number = d.id_number;
+            if (d.id_expiry) aiData.id_expiry = d.id_expiry;
+            if (d.address) aiData.address = d.address;
+            if (d.job_title) aiData.job_title = d.job_title;
+            if (d.hire_date) aiData.hire_date = d.hire_date;
+            if (d.contract_type) aiData.contract_type = d.contract_type;
+            if (d.employee_id) aiData.employee_id = d.employee_id;
+            if (d.caces?.length > 0) aiData.caces = d.caces;
+            if (d.medical_aptitude) aiData.medical_aptitude = d.medical_aptitude;
+            if (d.last_medical_visit) aiData.last_medical_visit = d.last_medical_visit;
+            if (d.next_medical_visit) aiData.next_medical_visit = d.next_medical_visit;
+
+            // Update document expiry if found
+            if (d.document_expires_at && docData?.id) {
+              await supabase.from("resource_documents").update({ expires_at: d.document_expires_at, name: d.document_name ?? docData.name } as any).eq("id", docData.id);
+            }
+
+            onAiExtracted(aiData);
+          } else if (!res.ok) {
+            toast.error(json.error ?? "Erreur lors de l'analyse IA");
+          }
+        } catch (aiErr: any) {
+          console.error("AI analysis error:", aiErr);
+          toast.warning("Document importé, mais l'analyse IA a échoué.");
+        }
+      }
+
+      onRefresh();
+      setPendingFile(null);
+      if (fileRef.current) fileRef.current.value = "";
+      toast.success(withAI ? "Document importé et analysé !" : "Document importé");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setUploading(false);
+      setAnalyzing(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Upload zone */}
+      <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Upload className="h-4 w-4 text-primary" />
+          Importer un document
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          <Select value={newDocType} onValueChange={setNewDocType}>
+            <SelectTrigger className="h-8 w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(DOC_TYPES).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
+            <Upload className="h-3.5 w-3.5 mr-1" />Choisir un fichier
+          </Button>
+          <input ref={fileRef} type="file" accept="image/*,application/pdf,.pdf,.doc,.docx" className="hidden" onChange={handleFileSelect} />
+        </div>
+
+        {pendingFile && (
+          <div className="rounded-md bg-background border p-3 space-y-3">
+            <div className="flex items-center gap-2 text-sm">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <span className="flex-1 truncate font-medium">{pendingFile.name}</span>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setPendingFile(null)}>
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="flex-1"
+                onClick={() => uploadDocument(true)}
+                disabled={uploading}
+              >
+                {analyzing ? (
+                  <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Analyse IA...</>
+                ) : (
+                  <><Sparkles className="h-3.5 w-3.5 mr-1.5" />Importer + Analyser avec l'IA</>
+                )}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => uploadDocument(false)} disabled={uploading}>
+                {uploading && !analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Importer"}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              L'IA analysera le document et pré-remplira automatiquement les champs de la fiche RH.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Documents list */}
+      {documents.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground text-sm">
+          <FileText className="h-8 w-8 mx-auto mb-2 opacity-20" />
+          <p>Aucun document importé</p>
+          <p className="text-xs mt-1">Importez pièces d'identité, contrats, diplômes, certificats médicaux...</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {documents.map((doc: any) => (
+            <DocumentCard key={doc.id} doc={doc} onDelete={() => onDeleteDoc(doc.id, doc.storage_path)} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
+  const [sigUrl, setSigUrl] = useState<string | null>(null);
+  const docType = DOC_TYPES[doc.document_type] ?? DOC_TYPES.autre;
+  const expireDays = getDaysUntil(doc.expires_at);
+
+  const viewDoc = async () => {
+    const { data } = await supabase.storage.from("resource-documents").createSignedUrl(doc.storage_path, 3600);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+  };
+
+  return (
+    <div className="rounded-lg border bg-card p-3 flex items-start gap-3">
+      <div className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${docType.color}`}>
+        {docType.label}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{doc.name}</p>
+        <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
+          {doc.file_name && <span className="truncate">{doc.file_name}</span>}
+          {doc.expires_at && (
+            <span className={expireDays !== null && expireDays < 30 ? "text-destructive font-medium" : ""}>
+              Exp. {format(new Date(doc.expires_at), "dd/MM/yyyy")}
+            </span>
+          )}
+          {doc.ai_extracted && (
+            <span className="flex items-center gap-0.5 text-primary"><Sparkles className="h-2.5 w-2.5" />IA</span>
+          )}
+        </div>
+        {expireDays !== null && expireDays < 30 && (
+          <div className={`text-[10px] mt-1 flex items-center gap-1 ${expireDays < 0 ? "text-destructive" : "text-warning"}`}>
+            <AlertTriangle className="h-2.5 w-2.5" />
+            {expireDays < 0 ? `Expiré il y a ${Math.abs(expireDays)} jours` : `Expire dans ${expireDays} jours`}
+          </div>
+        )}
+      </div>
+      <div className="flex gap-1">
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={viewDoc}>
+          <Eye className="h-3.5 w-3.5" />
+        </Button>
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={onDelete}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -612,14 +976,14 @@ function InterventionForm({ form, onChange, isPersonnel, onSave, onCancel, isPen
       </div>
       <div>
         <Label className="text-xs">Titre *</Label>
-        <Input className="h-8" value={form.title} onChange={(e) => onChange({ ...form, title: e.target.value })} placeholder="Ex: VGP annuelle, Vidange..." />
+        <Input className="h-8" value={form.title} onChange={(e) => onChange({ ...form, title: e.target.value })} placeholder="Ex: Formation grue, Visite médicale..." />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div><Label className="text-xs">Date prévue</Label><Input type="date" className="h-8" value={form.scheduled_date} onChange={(e) => onChange({ ...form, scheduled_date: e.target.value })} /></div>
         <div><Label className="text-xs">Prochaine échéance</Label><Input type="date" className="h-8" value={form.next_due_date} onChange={(e) => onChange({ ...form, next_due_date: e.target.value })} /></div>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <div><Label className="text-xs">Prestataire</Label><Input className="h-8" value={form.provider} onChange={(e) => onChange({ ...form, provider: e.target.value })} placeholder="Nom du prestataire" /></div>
+        <div><Label className="text-xs">Prestataire</Label><Input className="h-8" value={form.provider} onChange={(e) => onChange({ ...form, provider: e.target.value })} /></div>
         <div><Label className="text-xs">Coût (€)</Label><Input type="number" className="h-8" value={form.cost} onChange={(e) => onChange({ ...form, cost: e.target.value })} /></div>
       </div>
       <div><Label className="text-xs">Description</Label><Textarea className="min-h-[60px] text-sm" value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} /></div>
@@ -687,6 +1051,14 @@ function PersonnelForm({ form, onChange, onSave, onCancel, isPending }: any) {
 
   return (
     <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Contact & Coordonnées</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div><Label className="text-xs">Téléphone</Label><Input className="h-8" value={form.phone ?? ""} onChange={(e) => onChange({ ...form, phone: e.target.value })} placeholder="06 xx xx xx xx" /></div>
+        <div><Label className="text-xs">Email</Label><Input type="email" className="h-8" value={form.email ?? ""} onChange={(e) => onChange({ ...form, email: e.target.value })} placeholder="prenom.nom@..." /></div>
+        <div className="col-span-2"><Label className="text-xs">Adresse</Label><Input className="h-8" value={form.address ?? ""} onChange={(e) => onChange({ ...form, address: e.target.value })} placeholder="Rue, code postal, ville" /></div>
+      </div>
+
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-1">Informations professionnelles</p>
       <div className="grid grid-cols-2 gap-2">
         <div><Label className="text-xs">Poste / Fonction</Label><Input className="h-8" value={form.job_title ?? ""} onChange={(e) => onChange({ ...form, job_title: e.target.value })} /></div>
         <div><Label className="text-xs">Matricule</Label><Input className="h-8" value={form.employee_id ?? ""} onChange={(e) => onChange({ ...form, employee_id: e.target.value })} /></div>
@@ -703,7 +1075,15 @@ function PersonnelForm({ form, onChange, onSave, onCancel, isPending }: any) {
           </Select>
         </div>
         <div><Label className="text-xs">Date d'embauche</Label><Input type="date" className="h-8" value={form.hire_date ?? ""} onChange={(e) => onChange({ ...form, hire_date: e.target.value || null })} /></div>
-        <div><Label className="text-xs">Téléphone</Label><Input className="h-8" value={form.phone ?? ""} onChange={(e) => onChange({ ...form, phone: e.target.value })} /></div>
+      </div>
+
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-1">Pièce d'identité</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div><Label className="text-xs">Date de naissance</Label><Input type="date" className="h-8" value={form.birth_date ?? ""} onChange={(e) => onChange({ ...form, birth_date: e.target.value || null })} /></div>
+        <div><Label className="text-xs">Nationalité</Label><Input className="h-8" value={form.nationality ?? ""} onChange={(e) => onChange({ ...form, nationality: e.target.value })} /></div>
+        <div><Label className="text-xs">N° document</Label><Input className="h-8" value={form.id_number ?? ""} onChange={(e) => onChange({ ...form, id_number: e.target.value })} /></div>
+        <div><Label className="text-xs">Expiration document</Label><Input type="date" className="h-8" value={form.id_expiry ?? ""} onChange={(e) => onChange({ ...form, id_expiry: e.target.value || null })} /></div>
+        <div className="col-span-2"><Label className="text-xs">N° Sécurité sociale</Label><Input className="h-8" value={form.social_security ?? ""} onChange={(e) => onChange({ ...form, social_security: e.target.value })} /></div>
       </div>
 
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-1">CACES</p>

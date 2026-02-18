@@ -1603,6 +1603,69 @@ export type Database = {
           },
         ]
       }
+      resource_documents: {
+        Row: {
+          ai_extracted: boolean | null
+          company_id: string
+          created_at: string
+          document_type: string
+          expires_at: string | null
+          file_name: string | null
+          id: string
+          mime_type: string | null
+          name: string
+          notes: string | null
+          resource_id: string
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          ai_extracted?: boolean | null
+          company_id: string
+          created_at?: string
+          document_type?: string
+          expires_at?: string | null
+          file_name?: string | null
+          id?: string
+          mime_type?: string | null
+          name: string
+          notes?: string | null
+          resource_id: string
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          ai_extracted?: boolean | null
+          company_id?: string
+          created_at?: string
+          document_type?: string
+          expires_at?: string | null
+          file_name?: string | null
+          id?: string
+          mime_type?: string | null
+          name?: string
+          notes?: string | null
+          resource_id?: string
+          storage_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_documents_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resource_equipment: {
         Row: {
           brand: string | null
@@ -1765,62 +1828,86 @@ export type Database = {
       }
       resource_personnel: {
         Row: {
+          address: string | null
           aipr: boolean | null
+          birth_date: string | null
           caces: string[] | null
           contract_type: string | null
+          email: string | null
           emergency_contact: string | null
           emergency_phone: string | null
           employee_id: string | null
           habilitations_elec: string[] | null
           hire_date: string | null
           id: string
+          id_expiry: string | null
+          id_number: string | null
           job_title: string | null
           last_medical_visit: string | null
           medical_aptitude: string | null
+          nationality: string | null
           next_medical_visit: string | null
           notes: string | null
           phone: string | null
+          photo_url: string | null
           resource_id: string
+          social_security: string | null
           sst: boolean | null
           updated_at: string
         }
         Insert: {
+          address?: string | null
           aipr?: boolean | null
+          birth_date?: string | null
           caces?: string[] | null
           contract_type?: string | null
+          email?: string | null
           emergency_contact?: string | null
           emergency_phone?: string | null
           employee_id?: string | null
           habilitations_elec?: string[] | null
           hire_date?: string | null
           id?: string
+          id_expiry?: string | null
+          id_number?: string | null
           job_title?: string | null
           last_medical_visit?: string | null
           medical_aptitude?: string | null
+          nationality?: string | null
           next_medical_visit?: string | null
           notes?: string | null
           phone?: string | null
+          photo_url?: string | null
           resource_id: string
+          social_security?: string | null
           sst?: boolean | null
           updated_at?: string
         }
         Update: {
+          address?: string | null
           aipr?: boolean | null
+          birth_date?: string | null
           caces?: string[] | null
           contract_type?: string | null
+          email?: string | null
           emergency_contact?: string | null
           emergency_phone?: string | null
           employee_id?: string | null
           habilitations_elec?: string[] | null
           hire_date?: string | null
           id?: string
+          id_expiry?: string | null
+          id_number?: string | null
           job_title?: string | null
           last_medical_visit?: string | null
           medical_aptitude?: string | null
+          nationality?: string | null
           next_medical_visit?: string | null
           notes?: string | null
           phone?: string | null
+          photo_url?: string | null
           resource_id?: string
+          social_security?: string | null
           sst?: boolean | null
           updated_at?: string
         }

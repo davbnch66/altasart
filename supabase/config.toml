@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.resolve-email-template]
 verify_jwt = false
+
+[functions.analyze-hr-document]
+verify_jwt = false
