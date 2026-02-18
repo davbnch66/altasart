@@ -18,6 +18,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
 import { DevisApplyTemplateDialog } from "@/components/devis/ApplyTemplateDialog";
 import { SendSignatureDialog } from "@/components/devis/SendSignatureDialog";
+import { DevisRelancesSection } from "@/components/devis/DevisRelancesSection";
 
 const statusLabels: Record<string, string> = {
   brouillon: "Brouillon",
@@ -315,6 +316,9 @@ const DevisDetail = () => {
           />
         </div>
       </div>
+
+      {/* Relances */}
+      <DevisRelancesSection devis={devis} />
 
       {editing && (
         <EditDevisDialog devis={devis} open={editing} onOpenChange={(v) => !v && setEditing(false)} />
