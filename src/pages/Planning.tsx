@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, MapPin, Clock, Plus, Briefcase, Truck } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useState, useMemo, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -26,37 +26,54 @@ import {
   getDay,
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 type ViewMode = "day" | "week" | "month";
 type PlanningType = "exploitation" | "commercial";
 
-const companyColors: Record<string, string> = {
-  "company-art": "bg-company-art/80 text-company-art-foreground",
-  "company-altigrues": "bg-company-altigrues/80 text-company-altigrues-foreground",
-  "company-asdgm": "bg-company-asdgm/80 text-company-asdgm-foreground",
-  primary: "bg-primary/80 text-primary-foreground",
-};
+// Vibrant palette for event rows (exploitation)
+const ROW_COLORS = [
+  "bg-[hsl(142,76%,36%)]/20 border-[hsl(142,76%,36%)]/50 text-[hsl(142,76%,20%)]",
+  "bg-[hsl(217,91%,60%)]/20 border-[hsl(217,91%,60%)]/50 text-[hsl(217,91%,35%)]",
+  "bg-[hsl(280,67%,55%)]/20 border-[hsl(280,67%,55%)]/50 text-[hsl(280,67%,35%)]",
+  "bg-[hsl(32,95%,44%)]/20 border-[hsl(32,95%,44%)]/50 text-[hsl(32,95%,28%)]",
+  "bg-[hsl(354,70%,54%)]/20 border-[hsl(354,70%,54%)]/50 text-[hsl(354,70%,35%)]",
+  "bg-[hsl(188,78%,41%)]/20 border-[hsl(188,78%,41%)]/50 text-[hsl(188,78%,25%)]",
+  "bg-[hsl(48,95%,53%)]/20 border-[hsl(48,95%,53%)]/50 text-[hsl(48,95%,28%)]",
+];
 
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 7); // 7h-18h
+const EVENT_BG_COLORS = [
+  "bg-[hsl(142,76%,36%)] text-white",
+  "bg-[hsl(217,91%,60%)] text-white",
+  "bg-[hsl(280,67%,55%)] text-white",
+  "bg-[hsl(32,95%,44%)] text-white",
+  "bg-[hsl(354,70%,54%)] text-white",
+  "bg-[hsl(188,78%,41%)] text-white",
+  "bg-[hsl(48,95%,53%)] text-foreground",
+];
+
+const companyColors: Record<string, string> = {
+  "company-art": "bg-company-art text-company-art-foreground",
+  "company-altigrues": "bg-company-altigrues text-company-altigrues-foreground",
+  "company-asdgm": "bg-company-asdgm text-company-asdgm-foreground",
+  primary: "bg-primary text-primary-foreground",
+};
 
 const Planning = () => {
   const { current, setCurrent, companies, dbCompanies } = useCompany();
   const [view, setView] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState(new Date());
   const navigate = useNavigate();
-  const location = useLocation();
   const [planningType, setPlanningType] = useState<PlanningType>(() => {
     return (sessionStorage.getItem("planningTab") as PlanningType) || "exploitation";
   });
+  const [selectedCommercial, setSelectedCommercial] = useState<string>("global");
   const isMobile = useIsMobile();
 
-  // Persist active tab to sessionStorage
   useEffect(() => {
     sessionStorage.setItem("planningTab", planningType);
   }, [planningType]);
 
-  // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [defaultDate, setDefaultDate] = useState<Date | undefined>();
@@ -70,7 +87,6 @@ const Planning = () => {
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const displayDays = view === "day" ? [currentDate] : view === "week" ? weekDays.slice(0, isMobile ? 5 : 7) : [];
 
-  // Month view days
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
@@ -82,9 +98,7 @@ const Planning = () => {
   ];
   const remaining = 7 - (paddedMonthDays.length % 7);
   if (remaining < 7) {
-    for (let i = 1; i <= remaining; i++) {
-      paddedMonthDays.push(addDays(monthEnd, i));
-    }
+    for (let i = 1; i <= remaining; i++) paddedMonthDays.push(addDays(monthEnd, i));
   }
 
   const rangeStart = view === "month" ? paddedMonthDays[0] : view === "day" ? currentDate : weekStart;
@@ -146,12 +160,12 @@ const Planning = () => {
 
   // Fetch visites for commercial planning
   const { data: visites = [] } = useQuery({
-    queryKey: ["planning-visites", companyIds, rangeStart.toISOString()],
+    queryKey: ["planning-visites", companyIds, rangeStart.toISOString(), rangeEnd.toISOString()],
     queryFn: async () => {
       if (companyIds.length === 0) return [];
       const { data, error } = await supabase
         .from("visites")
-        .select("*, clients(name), companies(color)")
+        .select("*, clients(name, advisor), companies(color)")
         .in("company_id", companyIds)
         .gte("scheduled_date", format(rangeStart, "yyyy-MM-dd"))
         .lt("scheduled_date", format(addDays(rangeEnd, 1), "yyyy-MM-dd"))
@@ -164,12 +178,12 @@ const Planning = () => {
 
   // Fetch devis for commercial planning
   const { data: devisData = [] } = useQuery({
-    queryKey: ["planning-devis", companyIds, rangeStart.toISOString()],
+    queryKey: ["planning-devis", companyIds],
     queryFn: async () => {
       if (companyIds.length === 0) return [];
       const { data, error } = await supabase
         .from("devis")
-        .select("*, clients(name), companies(color)")
+        .select("*, clients(name, advisor), companies(color)")
         .in("company_id", companyIds)
         .in("status", ["brouillon", "envoye"])
         .order("created_at", { ascending: false })
@@ -180,29 +194,51 @@ const Planning = () => {
     enabled: companyIds.length > 0 && planningType === "commercial",
   });
 
-  // Build resource rows
+  // Extract unique commercials (advisors) from visites + devis
+  const commercials = useMemo(() => {
+    const advisors = new Set<string>();
+    visites.forEach((v: any) => { if (v.clients?.advisor) advisors.add(v.clients.advisor); });
+    devisData.forEach((d: any) => { if (d.clients?.advisor) advisors.add(d.clients.advisor); });
+    return Array.from(advisors).sort();
+  }, [visites, devisData]);
+
+  // Filtered data for commercial
+  const filteredVisites = useMemo(() => {
+    if (selectedCommercial === "global") return visites;
+    return visites.filter((v: any) => v.clients?.advisor === selectedCommercial);
+  }, [visites, selectedCommercial]);
+
+  const filteredDevis = useMemo(() => {
+    if (selectedCommercial === "global") return devisData;
+    return devisData.filter((d: any) => d.clients?.advisor === selectedCommercial);
+  }, [devisData, selectedCommercial]);
+
+  // Resource rows with color index
   const resourceRows = useMemo(() => {
-    const rows = resources.map((r: any) => ({
+    const rows = resources.map((r: any, i: number) => ({
       id: r.id,
       name: r.name,
       type: r.type,
+      colorIdx: i % ROW_COLORS.length,
     }));
-    return [{ id: "__unassigned__", name: "Non assigné", type: "autre" }, ...rows];
+    return rows;
   }, [resources]);
 
-  const getEventsForCell = (resourceId: string, day: Date) => {
+  const getEventsForResource = (resourceId: string, day: Date) => {
     return events.filter((e: any) => {
-      const eDay = startOfDay(new Date(e.start_time));
-      const matchDay = isSameDay(eDay, day);
-      const matchResource = resourceId === "__unassigned__"
-        ? !e.resource_id
-        : e.resource_id === resourceId;
-      return matchDay && matchResource;
+      const eStart = startOfDay(new Date(e.start_time));
+      const eEnd = startOfDay(new Date(e.end_time));
+      const matchDay = eStart <= day && eEnd >= day;
+      return matchDay && e.resource_id === resourceId;
     });
   };
 
-  const getEventsForDay = (day: Date) => {
-    return events.filter((e: any) => isSameDay(startOfDay(new Date(e.start_time)), day));
+  const getUnassignedEventsForDay = (day: Date) => {
+    return events.filter((e: any) => {
+      const eStart = startOfDay(new Date(e.start_time));
+      const eEnd = startOfDay(new Date(e.end_time));
+      return eStart <= day && eEnd >= day && !e.resource_id;
+    });
   };
 
   const getOpsForDay = (day: Date) => {
@@ -212,9 +248,17 @@ const Planning = () => {
   };
 
   const getVisitesForDay = (day: Date) => {
-    return visites.filter((v: any) =>
+    return filteredVisites.filter((v: any) =>
       v.scheduled_date && isSameDay(new Date(v.scheduled_date), day)
     );
+  };
+
+  const getEventsForDay = (day: Date) => {
+    return events.filter((e: any) => {
+      const eStart = startOfDay(new Date(e.start_time));
+      const eEnd = startOfDay(new Date(e.end_time));
+      return eStart <= day && eEnd >= day;
+    });
   };
 
   const nav = (dir: number) => {
@@ -235,47 +279,175 @@ const Planning = () => {
     setDefaultResourceId(resourceId);
     setDialogOpen(true);
   };
+  const openEdit = (evt: any) => { setEditingEvent(evt); setDialogOpen(true); };
 
-  const openEdit = (evt: any) => {
-    setEditingEvent(evt);
-    setDialogOpen(true);
-  };
+  // ==================== EXPLOITATION VIEW ====================
+  const renderExploitationView = () => {
+    if (view === "month") return renderMonthView(false);
+    const days = displayDays;
+    const colWidth = view === "day" ? "1fr" : `repeat(${days.length}, minmax(0, 1fr))`;
 
-  // Render event card for exploitation
-  const renderEventCard = (evt: any, compact = false) => {
-    const color = companyColors[(evt.companies as any)?.color] || "bg-primary/80 text-primary-foreground";
-    const client = (evt.dossiers as any)?.clients?.name;
-    const dossierCode = (evt.dossiers as any)?.code;
     return (
-      <div
-        key={evt.id}
-        className={`rounded-md px-2 py-1.5 cursor-pointer hover:opacity-90 transition-opacity ${color} ${compact ? "text-[9px]" : "text-[11px]"}`}
-        onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
-      >
-        <p className="font-semibold truncate">{evt.title}</p>
-        {!compact && client && <p className="opacity-80 truncate">{client}{dossierCode ? ` · ${dossierCode}` : ""}</p>}
-        <p className="opacity-70 truncate flex items-center gap-1">
-          <Clock className="h-2.5 w-2.5 shrink-0" />
-          {format(new Date(evt.start_time), "HH:mm")} - {format(new Date(evt.end_time), "HH:mm")}
-        </p>
-      </div>
-    );
-  };
+      <div className="flex-1 rounded-xl border bg-card overflow-auto">
+        <div className={isMobile ? "min-w-[700px]" : ""}>
+          {/* Day headers */}
+          <div className="grid border-b sticky top-0 bg-card z-10 shadow-sm" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
+            <div className="px-3 py-3 border-r bg-muted/50">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Ressource</span>
+            </div>
+            {days.map((day) => (
+              <div
+                key={day.toISOString()}
+                className={`px-2 py-3 text-center border-r last:border-r-0 ${isToday(day) ? "bg-primary/10 border-b-2 border-b-primary" : "bg-muted/30"}`}
+              >
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                  {format(day, "EEE", { locale: fr })}
+                </span>
+                <p className={`text-xl font-black mt-0.5 leading-none ${isToday(day) ? "text-primary" : "text-foreground"}`}>
+                  {format(day, "d")}
+                </p>
+                <span className="text-[10px] text-muted-foreground capitalize">{format(day, "MMM", { locale: fr })}</span>
+              </div>
+            ))}
+          </div>
 
-  // Render operation card
-  const renderOpCard = (op: any, compact = false) => {
-    const color = companyColors[(op.companies as any)?.color] || "bg-primary/80 text-primary-foreground";
-    return (
-      <div key={op.id} className={`rounded-md px-2 py-1.5 ${color} ${compact ? "text-[9px]" : "text-[11px]"}`}>
-        <p className="font-semibold truncate">
-          {(op.dossiers as any)?.clients?.name || "—"} · Op.{op.operation_number}
-        </p>
-        {!compact && (
-          <p className="opacity-80 truncate flex items-center gap-1">
-            <MapPin className="h-2.5 w-2.5 shrink-0" /> {op.loading_city || "—"} → {op.delivery_city || "—"}
-          </p>
-        )}
-        {!compact && op.lv_bt_number && <p className="opacity-70 truncate">LV/BT: {op.lv_bt_number}</p>}
+          {/* Operations row */}
+          {operations.length > 0 && (
+            <div className="grid border-b" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
+              <div className="px-3 py-2.5 border-r bg-warning/5 flex items-center gap-2">
+                <Truck className="h-3.5 w-3.5 text-warning shrink-0" />
+                <span className="text-xs font-bold text-warning">Opérations</span>
+              </div>
+              {days.map((day) => {
+                const dayOps = getOpsForDay(day);
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className={`border-r last:border-r-0 p-1.5 space-y-1 min-h-[48px] ${isToday(day) ? "bg-primary/5" : ""}`}
+                  >
+                    {dayOps.map((op: any) => {
+                      const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
+                      return (
+                        <div key={op.id} className={`rounded px-2 py-1 text-[10px] font-medium leading-tight ${color}`}>
+                          <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
+                          <p className="opacity-80 flex items-center gap-0.5 truncate">
+                            <MapPin className="h-2 w-2 shrink-0" />
+                            {op.loading_city || "—"} → {op.delivery_city || "—"}
+                          </p>
+                          {op.lv_bt_number && <p className="opacity-70 truncate">N° {op.lv_bt_number}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Resource rows */}
+          {resourceRows.map((resource: any, rowIdx: number) => {
+            const rowColor = ROW_COLORS[resource.colorIdx];
+            return (
+              <div
+                key={resource.id}
+                className={`grid border-b last:border-b-0 transition-colors hover:brightness-95`}
+                style={{ gridTemplateColumns: `160px ${colWidth}` }}
+              >
+                {/* Resource label */}
+                <div className={`px-3 py-2.5 border-r flex items-center gap-2.5 ${rowIdx % 2 === 0 ? "bg-muted/20" : "bg-muted/5"}`}>
+                  <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
+                    resource.type === "employe" || resource.type === "equipe"
+                      ? "bg-info/20 text-info"
+                      : resource.type === "vehicule" || resource.type === "grue"
+                      ? "bg-warning/20 text-warning"
+                      : "bg-muted text-muted-foreground"
+                  }`}>
+                    {rowIdx + 1}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold truncate text-foreground">{resource.name}</p>
+                    <p className="text-[9px] text-muted-foreground capitalize">{resource.type}</p>
+                  </div>
+                </div>
+
+                {/* Day cells */}
+                {days.map((day, dayIdx) => {
+                  const cellEvents = getEventsForResource(resource.id, day);
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      className={`border-r last:border-r-0 p-1 space-y-0.5 min-h-[64px] cursor-pointer transition-colors ${
+                        isToday(day) ? "bg-primary/5" : rowIdx % 2 === 0 ? "bg-muted/10" : ""
+                      } hover:bg-muted/30`}
+                      onClick={() => openCreate(day, resource.id)}
+                    >
+                      {cellEvents.map((evt: any) => {
+                        const evtColor = EVENT_BG_COLORS[resource.colorIdx];
+                        const client = (evt.dossiers as any)?.clients?.name;
+                        const dossierCode = (evt.dossiers as any)?.code;
+                        const startDay = startOfDay(new Date(evt.start_time));
+                        const isStart = isSameDay(startDay, day);
+                        return (
+                          <div
+                            key={evt.id}
+                            className={`rounded px-2 py-1 text-[10px] leading-tight cursor-pointer hover:opacity-90 transition-opacity ${evtColor} ${
+                              !isStart ? "opacity-70" : ""
+                            }`}
+                            onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
+                          >
+                            <p className="font-bold truncate">{evt.title}</p>
+                            {client && <p className="opacity-85 truncate">{client}{dossierCode ? ` · ${dossierCode}` : ""}</p>}
+                            {isStart && (
+                              <p className="opacity-75 truncate">
+                                {format(new Date(evt.start_time), "HH:mm")} – {format(new Date(evt.end_time), "HH:mm")}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+
+          {/* Unassigned row */}
+          {events.some((e: any) => !e.resource_id) && (
+            <div className="grid border-t" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
+              <div className="px-3 py-2.5 border-r bg-muted/30 flex items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground">Non assigné</span>
+              </div>
+              {days.map((day) => {
+                const cellEvents = getUnassignedEventsForDay(day);
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className={`border-r last:border-r-0 p-1 space-y-0.5 min-h-[48px] cursor-pointer hover:bg-muted/20 ${isToday(day) ? "bg-primary/5" : ""}`}
+                    onClick={() => openCreate(day)}
+                  >
+                    {cellEvents.map((evt: any) => (
+                      <div
+                        key={evt.id}
+                        className="rounded px-2 py-1 text-[10px] bg-muted text-muted-foreground leading-tight cursor-pointer hover:opacity-80"
+                        onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
+                      >
+                        <p className="font-bold truncate">{evt.title}</p>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {resourceRows.length === 0 && operations.length === 0 && (
+            <div className="px-4 py-16 text-center text-sm text-muted-foreground">
+              <Truck className="h-8 w-8 mx-auto mb-3 opacity-30" />
+              <p>Aucune ressource. Ajoutez des ressources dans la section Ressources.</p>
+            </div>
+          )}
+        </div>
       </div>
     );
   };
@@ -283,74 +455,117 @@ const Planning = () => {
   // ==================== COMMERCIAL VIEW ====================
   const renderCommercialView = () => {
     if (view === "month") return renderMonthView(true);
-
     const days = displayDays;
-    const colWidth = view === "day" ? "1fr" : `repeat(${days.length}, 1fr)`;
+    const colWidth = view === "day" ? "1fr" : `repeat(${days.length}, minmax(0, 1fr))`;
 
     return (
-      <div className="flex-1 rounded-xl border bg-card overflow-auto">
-        {/* Day headers */}
-        <div className="grid border-b sticky top-0 bg-card z-10" style={{ gridTemplateColumns: `100px ${colWidth}` }}>
-          <div className="px-3 py-3 border-r text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Heure</div>
-          {days.map((day) => (
-            <div key={day.toISOString()} className={`px-2 py-3 text-center border-r last:border-r-0 ${isToday(day) ? "bg-primary/5" : ""}`}>
-              <span className="text-xs font-medium text-muted-foreground uppercase">{format(day, "EEEE", { locale: fr })}</span>
-              <p className={`text-lg font-bold mt-0.5 ${isToday(day) ? "text-primary" : "text-foreground"}`}>{format(day, "d")}</p>
-              <span className="text-[10px] text-muted-foreground">{format(day, "MMM", { locale: fr })}</span>
-            </div>
-          ))}
-        </div>
-
-        {/* Visites / devis summary row */}
-        <div className="grid border-b bg-muted/30" style={{ gridTemplateColumns: `100px ${colWidth}` }}>
-          <div className="px-3 py-2 border-r flex items-center">
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase">Visites</span>
-          </div>
-          {days.map((day) => {
-            const dayVisites = getVisitesForDay(day);
-            const dayEvents = getEventsForDay(day);
-            return (
-              <div key={day.toISOString()} className={`border-r last:border-r-0 p-1.5 space-y-1 min-h-[60px] ${isToday(day) ? "bg-primary/5" : ""}`}>
-                {dayVisites.map((v: any) => (
-                  <div key={v.id} className="rounded-md px-2 py-1.5 bg-info/15 text-info text-[11px] cursor-pointer hover:bg-info/25 transition-colors"
-                    onClick={() => navigate(`/visites/${v.id}`, { state: { fromPlanning: true, planningTab: planningType } })}>
-                    <p className="font-semibold truncate">🏠 {(v.clients as any)?.name || "Visite"}</p>
-                    <p className="opacity-80 text-[10px]">{v.scheduled_time || ""}</p>
-                  </div>
-                ))}
-                {dayEvents.map((evt: any) => renderEventCard(evt, true))}
+      <div className="flex-1 flex flex-col gap-4 min-h-0">
+        {/* Visits calendar */}
+        <div className="rounded-xl border bg-card overflow-auto">
+          <div className={isMobile ? "min-w-[600px]" : ""}>
+            {/* Day headers */}
+            <div className="grid border-b sticky top-0 bg-card z-10 shadow-sm" style={{ gridTemplateColumns: `120px ${colWidth}` }}>
+              <div className="px-3 py-3 border-r bg-muted/50">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Visites</span>
               </div>
-            );
-          })}
+              {days.map((day) => (
+                <div
+                  key={day.toISOString()}
+                  className={`px-2 py-3 text-center border-r last:border-r-0 ${isToday(day) ? "bg-primary/10 border-b-2 border-b-primary" : "bg-muted/30"}`}
+                >
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    {format(day, "EEE", { locale: fr })}
+                  </span>
+                  <p className={`text-xl font-black mt-0.5 leading-none ${isToday(day) ? "text-primary" : "text-foreground"}`}>
+                    {format(day, "d")}
+                  </p>
+                  <span className="text-[10px] text-muted-foreground capitalize">{format(day, "MMM", { locale: fr })}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Visite cells */}
+            <div className="grid" style={{ gridTemplateColumns: `120px ${colWidth}` }}>
+              <div className="px-3 py-3 border-r bg-info/5 flex flex-col justify-center">
+                <span className="text-[10px] font-bold text-info uppercase tracking-wider">Calendrier</span>
+              </div>
+              {days.map((day) => {
+                const dayVisites = getVisitesForDay(day);
+                const dayEvents = getEventsForDay(day);
+                return (
+                  <div
+                    key={day.toISOString()}
+                    className={`border-r last:border-r-0 p-1.5 space-y-1 min-h-[80px] ${isToday(day) ? "bg-primary/5" : ""}`}
+                  >
+                    {dayVisites.map((v: any) => (
+                      <div
+                        key={v.id}
+                        className="rounded-md px-2 py-1.5 bg-info text-white text-[10px] cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
+                        onClick={() => navigate(`/visites/${v.id}`)}
+                      >
+                        <p className="font-bold truncate">🏠 {(v.clients as any)?.name || "Visite"}</p>
+                        {v.scheduled_time && <p className="opacity-80">{v.scheduled_time}</p>}
+                        {v.address && <p className="opacity-70 truncate flex items-center gap-0.5"><MapPin className="h-2 w-2 shrink-0" />{v.address}</p>}
+                      </div>
+                    ))}
+                    {dayEvents.map((evt: any) => {
+                      const color = companyColors[(evt.companies as any)?.color] || "bg-primary text-primary-foreground";
+                      return (
+                        <div
+                          key={evt.id}
+                          className={`rounded-md px-2 py-1.5 text-[10px] cursor-pointer hover:opacity-90 transition-opacity ${color}`}
+                          onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
+                        >
+                          <p className="font-bold truncate">{evt.title}</p>
+                        </div>
+                      );
+                    })}
+                    {dayVisites.length === 0 && dayEvents.length === 0 && (
+                      <p className="text-[10px] text-muted-foreground/40 text-center pt-2">—</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
-        {/* Devis pipeline summary */}
-        <div className="p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+        {/* Devis pipeline */}
+        <div className="rounded-xl border bg-card p-4 flex-1 overflow-auto">
+          <h3 className="text-sm font-bold text-foreground flex items-center gap-2 mb-3">
             <Briefcase className="h-4 w-4 text-primary" />
             Pipeline Devis en cours
+            <span className="ml-auto text-xs font-normal text-muted-foreground">{filteredDevis.length} devis</span>
           </h3>
-          {devisData.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Aucun devis en cours</p>
+          {filteredDevis.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">Aucun devis en cours</p>
           ) : (
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {devisData.slice(0, 9).map((d: any) => {
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredDevis.map((d: any) => {
                 const statusColors: Record<string, string> = {
-                  brouillon: "border-muted-foreground/30 bg-muted/30",
-                  envoye: "border-info/30 bg-info/5",
-                  relance: "border-warning/30 bg-warning/5",
+                  brouillon: "border-border bg-muted/30",
+                  envoye: "border-info/40 bg-info/5",
+                  relance: "border-warning/40 bg-warning/5",
                 };
                 return (
-                  <div key={d.id} className={`rounded-lg border p-3 cursor-pointer hover:shadow-sm transition-shadow ${statusColors[d.status] || ""}`}
-                    onClick={() => navigate(`/devis/${d.id}`, { state: { fromPlanning: true, planningTab: planningType } })}>
-                    <p className="text-xs font-semibold truncate">{d.code || d.objet}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{(d.clients as any)?.name}</p>
-                    <div className="flex items-center justify-between mt-1.5">
-                      <span className="text-xs font-bold text-foreground">{Number(d.amount).toLocaleString("fr-FR")} €</span>
-                      <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${
+                  <div
+                    key={d.id}
+                    className={`rounded-lg border p-3 cursor-pointer hover:shadow-md transition-all ${statusColors[d.status] || ""}`}
+                    onClick={() => navigate(`/devis/${d.id}`)}
+                  >
+                    <p className="text-xs font-bold truncate">{d.objet || d.code}</p>
+                    <p className="text-[10px] text-muted-foreground truncate mt-0.5">{(d.clients as any)?.name}</p>
+                    {(d.clients as any)?.advisor && (
+                      <p className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <User className="h-2.5 w-2.5" />{(d.clients as any).advisor}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-sm font-black text-foreground">{Number(d.amount).toLocaleString("fr-FR")} €</span>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
                         d.status === "brouillon" ? "bg-muted text-muted-foreground" :
-                        d.status === "envoye" ? "bg-info/10 text-info" :
-                        "bg-warning/10 text-warning"
+                        d.status === "envoye" ? "bg-info/15 text-info" :
+                        "bg-warning/15 text-warning"
                       }`}>{d.status}</span>
                     </div>
                   </div>
@@ -363,88 +578,12 @@ const Planning = () => {
     );
   };
 
-  // ==================== EXPLOITATION VIEW ====================
-  const renderExploitationView = () => {
-    if (view === "month") return renderMonthView(false);
-
-    const days = displayDays;
-    const colWidth = view === "day" ? "1fr" : `repeat(${days.length}, 1fr)`;
-
-    return (
-      <div className="flex-1 rounded-xl border bg-card overflow-auto">
-        <div className={isMobile ? "min-w-[600px]" : ""}>
-          {/* Day headers - improved visibility */}
-          <div className="grid border-b sticky top-0 bg-card z-10" style={{ gridTemplateColumns: `140px ${colWidth}` }}>
-            <div className="px-3 py-3 border-r text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Ressource</div>
-            {days.map((day) => (
-              <div key={day.toISOString()} className={`px-2 py-3 text-center border-r last:border-r-0 ${isToday(day) ? "bg-primary/8 border-b-2 border-b-primary" : ""}`}>
-                <span className="text-xs font-medium text-muted-foreground uppercase">{format(day, "EEEE", { locale: fr })}</span>
-                <p className={`text-lg font-bold mt-0.5 ${isToday(day) ? "text-primary" : "text-foreground"}`}>{format(day, "d")}</p>
-                <span className="text-[10px] text-muted-foreground">{format(day, "MMM", { locale: fr })}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Operations row */}
-          {operations.length > 0 && (
-            <div className="grid border-b bg-muted/20" style={{ gridTemplateColumns: `140px ${colWidth}` }}>
-              <div className="px-3 py-2 border-r flex items-center gap-2">
-                <Truck className="h-3.5 w-3.5 text-primary" />
-                <span className="text-xs font-semibold text-primary">Opérations</span>
-              </div>
-              {days.map((day) => {
-                const dayOps = getOpsForDay(day);
-                return (
-                  <div key={day.toISOString()} className={`border-r last:border-r-0 p-1.5 space-y-1 ${isToday(day) ? "bg-primary/5" : ""}`}>
-                    {dayOps.map((op: any) => renderOpCard(op))}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Resource rows */}
-          {resourceRows.map((resource: any) => (
-            <div key={resource.id} className="grid border-b last:border-b-0 hover:bg-muted/5 transition-colors" style={{ gridTemplateColumns: `140px ${colWidth}` }}>
-              <div className="px-3 py-2 border-r flex items-center gap-2">
-                <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-                  resource.type === "employe" || resource.type === "equipe" ? "bg-info"
-                  : resource.type === "vehicule" || resource.type === "grue" ? "bg-warning"
-                  : "bg-muted-foreground"
-                }`} />
-                <span className="text-xs font-medium truncate">{resource.name}</span>
-              </div>
-              {days.map((day) => {
-                const cellEvents = getEventsForCell(resource.id, day);
-                return (
-                  <div
-                    key={day.toISOString()}
-                    className={`border-r last:border-r-0 p-1.5 space-y-1 min-h-[56px] cursor-pointer hover:bg-muted/20 transition-colors ${isToday(day) ? "bg-primary/5" : ""}`}
-                    onClick={() => openCreate(day, resource.id === "__unassigned__" ? undefined : resource.id)}
-                  >
-                    {cellEvents.map((evt: any) => renderEventCard(evt))}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-
-          {resourceRows.length === 0 && (
-            <div className="px-4 py-12 text-center text-sm text-muted-foreground">
-              Aucune ressource. Ajoutez des ressources dans la section Ressources.
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // ==================== MONTH VIEW (shared) ====================
+  // ==================== MONTH VIEW ====================
   const renderMonthView = (isCommercial: boolean) => (
     <div className="flex-1 rounded-xl border bg-card overflow-auto">
-      <div className="grid grid-cols-7 border-b bg-card sticky top-0 z-10">
-        {["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"].map((d) => (
-          <div key={d} className="text-center text-[11px] text-muted-foreground font-semibold py-2.5 border-r last:border-r-0 uppercase tracking-wider">{d}</div>
+      <div className="grid grid-cols-7 border-b bg-muted/30 sticky top-0 z-10">
+        {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((d) => (
+          <div key={d} className="text-center text-[10px] text-muted-foreground font-bold py-2.5 border-r last:border-r-0 uppercase tracking-wider">{d}</div>
         ))}
       </div>
       <div className="grid grid-cols-7">
@@ -457,21 +596,19 @@ const Planning = () => {
           return (
             <div
               key={i}
-              className={`border-r border-b last:border-r-0 min-h-[90px] p-1.5 cursor-pointer hover:bg-muted/20 transition-colors ${
-                isToday(day) ? "bg-primary/5 ring-1 ring-inset ring-primary/20" : ""
+              className={`border-r border-b last:border-r-0 min-h-[100px] p-1.5 cursor-pointer hover:bg-muted/20 transition-colors ${
+                isToday(day) ? "bg-primary/5 ring-1 ring-inset ring-primary/30" : ""
               } ${!isCurrentMonth ? "opacity-30" : ""}`}
               onClick={() => { setView("day"); setCurrentDate(day); }}
             >
-              <p className={`text-xs font-bold mb-1 ${isToday(day) ? "text-primary" : "text-foreground"}`}>
-                {format(day, "d")}
-              </p>
+              <p className={`text-xs font-bold mb-1 ${isToday(day) ? "text-primary" : "text-foreground"}`}>{format(day, "d")}</p>
               {isCommercial && dayVisites.slice(0, 2).map((v: any) => (
-                <div key={v.id} className="rounded px-1 py-0.5 text-[9px] truncate mb-0.5 bg-info/15 text-info font-medium">
+                <div key={v.id} className="rounded px-1 py-0.5 text-[9px] truncate mb-0.5 bg-info text-white font-medium">
                   🏠 {(v.clients as any)?.name || "Visite"}
                 </div>
               ))}
               {dayEvents.slice(0, isCommercial ? 1 : 3).map((evt: any) => {
-                const color = companyColors[(evt.companies as any)?.color] || "bg-primary/80 text-primary-foreground";
+                const color = companyColors[(evt.companies as any)?.color] || "bg-primary text-primary-foreground";
                 return (
                   <div key={evt.id} className={`rounded px-1 py-0.5 text-[9px] truncate mb-0.5 font-medium ${color}`}
                     onClick={(e) => { e.stopPropagation(); openEdit(evt); }}>
@@ -480,7 +617,7 @@ const Planning = () => {
                 );
               })}
               {!isCommercial && dayOps.slice(0, 2).map((op: any) => {
-                const color = companyColors[(op.companies as any)?.color] || "bg-primary/80 text-primary-foreground";
+                const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
                 return (
                   <div key={op.id} className={`rounded px-1 py-0.5 text-[9px] truncate mb-0.5 font-medium ${color}`}>
                     Op.{op.operation_number} {(op.dossiers as any)?.clients?.name || ""}
@@ -505,10 +642,11 @@ const Planning = () => {
           <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Planning</h1>
           <p className={`text-muted-foreground capitalize ${isMobile ? "text-xs" : "text-sm"}`}>{headerLabel}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button size="sm" onClick={() => openCreate()} className="text-xs">
             <Plus className="h-3.5 w-3.5 mr-1" /> Événement
           </Button>
+          {/* Company filter */}
           <div className={`flex rounded-lg border bg-card p-0.5 gap-0.5 ${isMobile ? "overflow-x-auto scrollbar-none" : ""}`}>
             {companies.map((c) => (
               <button
@@ -525,9 +663,10 @@ const Planning = () => {
         </div>
       </motion.div>
 
-      {/* Planning type tabs + Nav + view toggle */}
+      {/* Controls row */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Exploitation / Commercial tabs */}
           <Tabs value={planningType} onValueChange={(v) => setPlanningType(v as PlanningType)}>
             <TabsList className="h-9">
               <TabsTrigger value="exploitation" className="text-xs gap-1.5">
@@ -539,11 +678,40 @@ const Planning = () => {
             </TabsList>
           </Tabs>
 
+          {/* Commercial filter (only in commercial mode) */}
+          {planningType === "commercial" && (
+            <div className="flex rounded-lg border bg-card p-0.5 gap-0.5 overflow-x-auto scrollbar-none max-w-[320px]">
+              <button
+                onClick={() => setSelectedCommercial("global")}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${
+                  selectedCommercial === "global" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <Globe className="h-3 w-3" /> Global
+              </button>
+              {commercials.map((advisor) => (
+                <button
+                  key={advisor}
+                  onClick={() => setSelectedCommercial(advisor)}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${
+                    selectedCommercial === advisor ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <User className="h-3 w-3" /> {advisor}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Navigation */}
           <div className="flex items-center gap-1">
             <button onClick={() => nav(-1)} className="p-1.5 rounded-lg border hover:bg-muted transition-colors">
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <button onClick={() => setCurrentDate(new Date())} className={`rounded-lg border font-medium hover:bg-muted transition-colors ${isMobile ? "px-2.5 py-1 text-xs" : "px-4 py-1.5 text-sm"}`}>
+            <button
+              onClick={() => setCurrentDate(new Date())}
+              className={`rounded-lg border font-medium hover:bg-muted transition-colors ${isMobile ? "px-2.5 py-1 text-xs" : "px-4 py-1.5 text-sm"}`}
+            >
               Aujourd'hui
             </button>
             <button onClick={() => nav(1)} className="p-1.5 rounded-lg border hover:bg-muted transition-colors">
@@ -552,6 +720,7 @@ const Planning = () => {
           </div>
         </div>
 
+        {/* View toggle */}
         <div className="flex rounded-lg border bg-card p-0.5 gap-0.5">
           {(["day", "week", "month"] as ViewMode[]).map((v) => (
             <button
@@ -568,11 +737,16 @@ const Planning = () => {
       </div>
 
       {/* Content */}
-      <motion.div key={`${planningType}-${view}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }} className="flex-1 flex flex-col">
+      <motion.div
+        key={`${planningType}-${view}`}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
+        className="flex-1 flex flex-col min-h-0"
+      >
         {planningType === "exploitation" ? renderExploitationView() : renderCommercialView()}
       </motion.div>
 
-      {/* CRUD Dialog */}
       <PlanningEventDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
