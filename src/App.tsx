@@ -25,6 +25,7 @@ import PipelineKanban from "@/pages/PipelineKanban";
 import FleetPage from "@/pages/FleetPage";
 import StoragePage from "@/pages/StoragePage";
 import Auth from "@/pages/Auth";
+import SignDevis from "@/pages/SignDevis";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -86,6 +87,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<AuthRoute />} />
+          <Route path="/sign/:token" element={<SignDevis />} />
           <Route path="/*" element={<ProtectedRoutes />} />
         </Routes>
       </BrowserRouter>

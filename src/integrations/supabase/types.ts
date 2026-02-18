@@ -517,6 +517,60 @@ export type Database = {
           },
         ]
       }
+      devis_signatures: {
+        Row: {
+          company_id: string
+          created_at: string
+          devis_id: string
+          expires_at: string
+          id: string
+          signed_at: string | null
+          signer_email: string | null
+          signer_name: string | null
+          status: string
+          token: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          devis_id: string
+          expires_at?: string
+          id?: string
+          signed_at?: string | null
+          signer_email?: string | null
+          signer_name?: string | null
+          status?: string
+          token?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          devis_id?: string
+          expires_at?: string
+          id?: string
+          signed_at?: string | null
+          signer_email?: string | null
+          signer_name?: string | null
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "devis_signatures_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "devis_signatures_devis_id_fkey"
+            columns: ["devis_id"]
+            isOneToOne: false
+            referencedRelation: "devis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       devis_templates: {
         Row: {
           category: string
