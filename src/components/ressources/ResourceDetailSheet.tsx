@@ -26,8 +26,27 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
 const STATUS_COLORS: Record<string, string> = {
   disponible: "bg-success/10 text-success border-success/20",
   occupe: "bg-warning/10 text-warning border-warning/20",
+  en_mission: "bg-info/10 text-info border-info/20",
   maintenance: "bg-destructive/10 text-destructive border-destructive/20",
+  hors_service: "bg-destructive/10 text-destructive border-destructive/20",
   absent: "bg-muted text-muted-foreground",
+  en_conge: "bg-muted text-muted-foreground",
+};
+
+// Statuts selon le type de ressource
+const STATUS_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  employe: [
+    { value: "disponible", label: "Disponible" },
+    { value: "occupe", label: "Occupé" },
+    { value: "absent", label: "Absent" },
+    { value: "en_conge", label: "En congé" },
+  ],
+  default: [
+    { value: "disponible", label: "Disponible" },
+    { value: "en_mission", label: "En mission" },
+    { value: "maintenance", label: "Maintenance" },
+    { value: "hors_service", label: "Hors service" },
+  ],
 };
 
 const DOC_TYPES: Record<string, { label: string; color: string }> = {
@@ -308,10 +327,9 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="disponible">Disponible</SelectItem>
-                  <SelectItem value="occupe">Occupé</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="absent">Absent</SelectItem>
+                  {(STATUS_OPTIONS[resource.type] ?? STATUS_OPTIONS.default).map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
