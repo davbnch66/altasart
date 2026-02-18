@@ -39,7 +39,7 @@ serve(async (req) => {
       });
     }
 
-    const { devisId, recipientEmail, recipientName, signatureUrl, devisCode, devisObjet, devisAmount, companyName, companyId, customSubject, customBody } = await req.json();
+    const { devisId, recipientEmail, recipientName, signatureUrl, devisCode, devisObjet, devisAmount, companyName, companyId, customSubject, customBody, pdfBase64 } = await req.json();
 
     if (!devisId || !recipientEmail || !signatureUrl) {
       return new Response(JSON.stringify({ error: "Paramètres manquants" }), {
@@ -102,15 +102,15 @@ serve(async (req) => {
       sender_name: senderName,
     };
 
-    // Use pre-resolved content from frontend (already substituted), or fall back to DB template
+    // Use pre-resolved content from frontend, or fall back to DB template
     let emailSubject = `Devis ${devisCode || ""} à accepter — ${companyName}`;
     let emailBodyText = "";
     let useCustomTemplate = false;
 
     if (customSubject && customBody) {
-      // Front already resolved the template — use as-is
-      emailSubject = customSubject;
-      emailBodyText = customBody;
+      // Apply variable substitution even on AI-generated content (vars may still be in text)
+      emailSubject = applyTemplate(customSubject, vars);
+      emailBodyText = applyTemplate(customBody, vars);
       useCustomTemplate = true;
     } else if (companyId) {
       const { data: tpl } = await supabase
@@ -176,18 +176,30 @@ serve(async (req) => {
   </div>
 </body></html>`;
 
+    const emailPayload: Record<string, unknown> = {
+      from: `${companyName || "Altasart"} <noreply@altasart.fr>`,
+      to: recipientEmail,
+      subject: emailSubject,
+      html: emailHtml,
+    };
+
+    // Attach PDF if provided
+    if (pdfBase64) {
+      emailPayload.attachments = [
+        {
+          filename: `Devis_${devisCode || devisId}.pdf`,
+          content: pdfBase64,
+        },
+      ];
+    }
+
     const emailResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${resendKey}`,
       },
-      body: JSON.stringify({
-        from: `${companyName || "Altasart"} <noreply@altasart.fr>`,
-        to: recipientEmail,
-        subject: emailSubject,
-        html: emailHtml,
-      }),
+      body: JSON.stringify(emailPayload),
     });
 
     if (!emailResponse.ok) {
