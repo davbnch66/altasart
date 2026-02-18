@@ -3,29 +3,24 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { motion } from "framer-motion";
-import { Users, Truck, HardHat, Wrench, Package, Plus, Search } from "lucide-react";
+import { Users, Truck, HardHat, Wrench, Package, Plus, Search, AlertTriangle, ChevronRight, Settings } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tables } from "@/integrations/supabase/types";
+import { ResourceDetailSheet } from "@/components/ressources/ResourceDetailSheet";
+import { differenceInDays } from "date-fns";
 
 type Resource = Tables<"resources">;
 
 const TYPE_LABELS: Record<string, string> = {
-  employe: "Employé",
-  grue: "Grue",
-  vehicule: "Véhicule",
-  equipement: "Équipement",
-  equipe: "Équipe",
+  employe: "Employé", grue: "Grue", vehicule: "Véhicule", equipement: "Équipement", equipe: "Équipe",
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  disponible: "Disponible",
-  occupe: "Occupé",
-  maintenance: "Maintenance",
-  absent: "Absent",
+  disponible: "Disponible", occupe: "Occupé", maintenance: "Maintenance", absent: "Absent",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -36,11 +31,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
-  employe: HardHat,
-  grue: Wrench,
-  vehicule: Truck,
-  equipement: Package,
-  equipe: Users,
+  employe: HardHat, grue: Wrench, vehicule: Truck, equipement: Package, equipe: Users,
 };
 
 export default function Ressources() {
@@ -49,12 +40,10 @@ export default function Ressources() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "employe" | "grue" | "vehicule" | "equipement" | "equipe">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "disponible">("all");
+  const [selectedResource, setSelectedResource] = useState<any>(null);
 
-  // Determine which company IDs to query (exclude the "global" virtual entry)
   const dbCompanies = companies.filter((c) => c.id !== "global");
-  const companyIds = current === "global"
-    ? dbCompanies.map((c) => c.id)
-    : [current];
+  const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
 
   const { data: resourceLinks = [], isLoading } = useQuery({
     queryKey: ["resources", companyIds],
@@ -70,7 +59,30 @@ export default function Ressources() {
     enabled: companyIds.length > 0,
   });
 
-  // Deduplicate resources (a resource can belong to multiple companies)
+  // Fetch equipment data to show alerts on cards
+  const { data: equipmentMap = {} } = useQuery({
+    queryKey: ["resource-equipment-all", companyIds],
+    queryFn: async () => {
+      if (companyIds.length === 0) return {};
+      const { data } = await supabase.from("resource_equipment").select("*");
+      if (!data) return {};
+      return Object.fromEntries(data.map((e) => [e.resource_id, e]));
+    },
+    enabled: companyIds.length > 0,
+  });
+
+  // Fetch personnel data to show medical alerts on cards
+  const { data: personnelMap = {} } = useQuery({
+    queryKey: ["resource-personnel-all", companyIds],
+    queryFn: async () => {
+      if (companyIds.length === 0) return {};
+      const { data } = await supabase.from("resource_personnel").select("*");
+      if (!data) return {};
+      return Object.fromEntries(data.map((p) => [p.resource_id, p]));
+    },
+    enabled: companyIds.length > 0,
+  });
+
   const resourceMap = new Map<string, Resource & { companyIds: string[] }>();
   for (const link of resourceLinks) {
     if (!link.resources) continue;
@@ -101,12 +113,34 @@ export default function Ressources() {
     equipe: allResources.filter((r) => r.type === "equipe").length,
   };
 
+  function getResourceAlerts(res: any): string[] {
+    const alerts: string[] = [];
+    const eq = (equipmentMap as any)[res.id];
+    if (eq) {
+      const check = (date: string | null, label: string) => {
+        if (!date) return;
+        const d = differenceInDays(new Date(date), new Date());
+        if (d < 30) alerts.push(`${label}${d < 0 ? " expirée" : ` dans ${d}j`}`);
+      };
+      check(eq.vgp_expiry, "VGP");
+      check(eq.technical_control_expiry, "CT");
+      check(eq.insurance_expiry, "Ass.");
+      check(eq.next_maintenance_date, "Entretien");
+    }
+    const p = (personnelMap as any)[res.id];
+    if (p) {
+      const d = p.next_medical_visit ? differenceInDays(new Date(p.next_medical_visit), new Date()) : null;
+      if (d !== null && d < 30) alerts.push(`Visite médicale${d < 0 ? " en retard" : ` dans ${d}j`}`);
+    }
+    return alerts;
+  }
+
   return (
     <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
           <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Ressources</h1>
-          {!isMobile && <p className="text-muted-foreground mt-1">Personnel et équipements partagés entre les sociétés</p>}
+          {!isMobile && <p className="text-muted-foreground mt-1">Personnel et équipements — cliquez pour gérer</p>}
         </div>
         <Button size={isMobile ? "sm" : "default"}>
           <Plus className="h-4 w-4 mr-1" />
@@ -126,28 +160,18 @@ export default function Ressources() {
           />
         </div>
         <div className="flex gap-2">
-          <Button
-            variant={statusFilter === "all" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter("all")}
-          >
+          <Button variant={statusFilter === "all" ? "default" : "outline"} size="sm" onClick={() => setStatusFilter("all")}>
             Tous
           </Button>
-          <Button
-            variant={statusFilter === "disponible" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter("disponible")}
-          >
-            Disponibles seulement
+          <Button variant={statusFilter === "disponible" ? "default" : "outline"} size="sm" onClick={() => setStatusFilter("disponible")}>
+            Disponibles
           </Button>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
         <TabsList className="flex flex-wrap h-auto gap-1">
-          <TabsTrigger value="all">
-            Tous <span className="ml-1 text-xs opacity-60">({counts.all})</span>
-          </TabsTrigger>
+          <TabsTrigger value="all">Tous <span className="ml-1 text-xs opacity-60">({counts.all})</span></TabsTrigger>
           <TabsTrigger value="employe">
             <HardHat className="h-3.5 w-3.5 mr-1" />
             {!isMobile && "Personnel"} <span className="ml-1 text-xs opacity-60">({counts.employe})</span>
@@ -182,9 +206,7 @@ export default function Ressources() {
               <Users className="h-12 w-12 mb-4 opacity-20" />
               <p className="font-medium">Aucune ressource trouvée</p>
               <p className="text-sm mt-1">
-                {allResources.length === 0
-                  ? "Ajoutez des ressources pour commencer"
-                  : "Modifiez vos filtres pour voir plus de résultats"}
+                {allResources.length === 0 ? "Ajoutez des ressources pour commencer" : "Modifiez vos filtres"}
               </p>
             </div>
           ) : (
@@ -195,27 +217,32 @@ export default function Ressources() {
             >
               {filtered.map((res) => {
                 const Icon = TYPE_ICONS[res.type] ?? Users;
+                const alerts = getResourceAlerts(res);
                 return (
                   <div
                     key={res.id}
-                    className={`rounded-xl border bg-card hover:shadow-sm transition-shadow cursor-pointer ${isMobile ? "p-3" : "p-5"}`}
+                    onClick={() => setSelectedResource(res)}
+                    className={`rounded-xl border bg-card hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group ${isMobile ? "p-3" : "p-5"}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3">
                         <div className={`rounded-lg bg-muted flex items-center justify-center flex-shrink-0 ${isMobile ? "h-8 w-8" : "h-10 w-10"}`}>
-                          <Icon className={`text-muted-foreground ${isMobile ? "h-4 w-4" : "h-5 w-5"}`} />
+                          <Icon className={`text-muted-foreground group-hover:text-primary transition-colors ${isMobile ? "h-4 w-4" : "h-5 w-5"}`} />
                         </div>
                         <div>
                           <p className={`font-semibold leading-tight ${isMobile ? "text-sm" : ""}`}>{res.name}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">{TYPE_LABELS[res.type] ?? res.type}</p>
                         </div>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] px-2 py-0.5 whitespace-nowrap ${STATUS_COLORS[res.status] ?? ""}`}
-                      >
-                        {STATUS_LABELS[res.status] ?? res.status}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        {alerts.length > 0 && (
+                          <AlertTriangle className="h-4 w-4 text-warning flex-shrink-0" />
+                        )}
+                        <Badge variant="outline" className={`text-[10px] px-2 py-0.5 whitespace-nowrap ${STATUS_COLORS[res.status] ?? ""}`}>
+                          {STATUS_LABELS[res.status] ?? res.status}
+                        </Badge>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
                     </div>
 
                     {/* Skills / permits */}
@@ -230,6 +257,17 @@ export default function Ressources() {
                       </div>
                     ) : null}
 
+                    {/* Alerts */}
+                    {alerts.length > 0 && (
+                      <div className="mt-2 space-y-0.5">
+                        {alerts.slice(0, 2).map((a, i) => (
+                          <div key={i} className="text-[10px] text-warning flex items-center gap-1">
+                            <AlertTriangle className="h-2.5 w-2.5" />{a}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     {/* Companies */}
                     {res.companyIds.length > 0 && (
                       <div className="mt-2 flex gap-1 flex-wrap">
@@ -240,6 +278,12 @@ export default function Ressources() {
                         ))}
                       </div>
                     )}
+
+                    <div className="mt-2 pt-2 border-t flex items-center justify-between">
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Settings className="h-2.5 w-2.5" />Cliquez pour gérer
+                      </span>
+                    </div>
                   </div>
                 );
               })}
@@ -247,6 +291,16 @@ export default function Ressources() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Detail Sheet */}
+      {selectedResource && (
+        <ResourceDetailSheet
+          resource={selectedResource}
+          open={!!selectedResource}
+          onClose={() => setSelectedResource(null)}
+          companies={companies}
+        />
+      )}
     </div>
   );
 }
