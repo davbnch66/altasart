@@ -201,7 +201,7 @@ const VisiteDetail = () => {
 
         {/* Title row */}
         <div className="flex items-start gap-2">
-          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => fromPlanning ? navigate("/planning", { state: { planningTab } }) : fromDossier ? navigate(`/dossiers/${fromDossier}`, { state: { fromClient } }) : fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/visites")}>
+          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">

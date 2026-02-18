@@ -336,7 +336,7 @@ const Planning = () => {
                 };
                 return (
                   <div key={d.id} className={`rounded-lg border p-3 cursor-pointer hover:shadow-sm transition-shadow ${statusColors[d.status] || ""}`}
-                    onClick={() => navigate(`/devis/${d.id}`)}>
+                    onClick={() => navigate(`/devis/${d.id}`, { state: { fromPlanning: true, planningTab: planningType } })}>
                     <p className="text-xs font-semibold truncate">{d.code || d.objet}</p>
                     <p className="text-[10px] text-muted-foreground truncate">{(d.clients as any)?.name}</p>
                     <div className="flex items-center justify-between mt-1.5">
