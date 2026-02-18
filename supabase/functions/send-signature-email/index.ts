@@ -6,6 +6,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function applyTemplate(template: string, vars: Record<string, string>): string {
+  return Object.entries(vars).reduce(
+    (str, [key, val]) => str.replaceAll(`{{${key}}}`, val ?? ""),
+    template
+  );
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -32,7 +39,7 @@ serve(async (req) => {
       });
     }
 
-    const { devisId, recipientEmail, recipientName, signatureUrl, devisCode, devisObjet, devisAmount, companyName, senderName } = await req.json();
+    const { devisId, recipientEmail, recipientName, signatureUrl, devisCode, devisObjet, devisAmount, companyName, companyId, senderName } = await req.json();
 
     if (!devisId || !recipientEmail || !signatureUrl) {
       return new Response(JSON.stringify({ error: "Paramètres manquants" }), {
@@ -43,14 +50,56 @@ serve(async (req) => {
     const formatAmount = (amount: number) =>
       new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
 
-    const emailHtml = `
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Devis à accepter</title>
-</head>
+    const vars: Record<string, string> = {
+      client_name: recipientName || "",
+      contact_name: recipientName || "",
+      devis_code: devisCode || "",
+      devis_objet: devisObjet || "",
+      devis_amount: devisAmount ? formatAmount(devisAmount) : "",
+      company_name: companyName || "Votre prestataire",
+      signature_url: signatureUrl,
+      sender_name: senderName || companyName || "",
+    };
+
+    // Try to load custom template
+    let emailSubject = `Devis ${devisCode || ""} à accepter — ${companyName}`;
+    let emailBodyText = "";
+    let useCustomTemplate = false;
+
+    if (companyId) {
+      const { data: tpl } = await supabase
+        .from("email_templates")
+        .select("subject, body")
+        .eq("company_id", companyId)
+        .eq("type", "devis_envoi")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (tpl) {
+        emailSubject = applyTemplate(tpl.subject, vars);
+        emailBodyText = applyTemplate(tpl.body, vars);
+        useCustomTemplate = true;
+      }
+    }
+
+    const emailHtml = useCustomTemplate
+      ? `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;">
+  <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+    <div style="background:#1a1a2e;padding:32px;text-align:center;">
+      <h1 style="color:#ffffff;margin:0;font-size:22px;">${companyName || "Votre prestataire"}</h1>
+    </div>
+    <div style="padding:32px;">
+      <div style="white-space:pre-wrap;color:#333;font-size:15px;line-height:1.7;">${emailBodyText.replace(/\n/g, "<br>")}</div>
+    </div>
+    <div style="background:#f5f5f5;padding:16px;text-align:center;border-top:1px solid #eee;">
+      <p style="color:#aaa;font-size:12px;margin:0;">${companyName} — altasart.fr</p>
+    </div>
+  </div>
+</body></html>`
+      : `<!DOCTYPE html><html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;">
   <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
     <div style="background:#1a1a2e;padding:32px;text-align:center;">
@@ -72,16 +121,13 @@ serve(async (req) => {
           ✓ Voir et accepter le devis
         </a>
       </div>
-      <p style="color:#888;font-size:13px;text-align:center;">
-        Ce lien est valable 30 jours. Si vous n'êtes pas concerné par cet email, ignorez-le.
-      </p>
+      <p style="color:#888;font-size:13px;text-align:center;">Ce lien est valable 30 jours.</p>
     </div>
     <div style="background:#f5f5f5;padding:16px;text-align:center;border-top:1px solid #eee;">
-      <p style="color:#aaa;font-size:12px;margin:0;">${companyName} — Powered by Altasart</p>
+      <p style="color:#aaa;font-size:12px;margin:0;">${companyName} — altasart.fr</p>
     </div>
   </div>
-</body>
-</html>`;
+</body></html>`;
 
     const emailResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -92,7 +138,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: `${companyName || "Altasart"} <noreply@altasart.fr>`,
         to: recipientEmail,
-        subject: `Devis ${devisCode || ""} à accepter — ${companyName}`,
+        subject: emailSubject,
         html: emailHtml,
       }),
     });

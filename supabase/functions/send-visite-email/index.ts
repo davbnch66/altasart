@@ -78,7 +78,7 @@ serve(async (req) => {
     const emailSubject = isTestMode && testEmail && to !== testEmail ? `[TEST - Pour: ${to}] ${subject}` : subject;
 
     const emailPayload: Record<string, unknown> = {
-      from: "Altas Art <onboarding@resend.dev>",
+      from: "Altas Art <noreply@altasart.fr>",
       to: [recipientEmail],
       subject: emailSubject,
       html: htmlBody,

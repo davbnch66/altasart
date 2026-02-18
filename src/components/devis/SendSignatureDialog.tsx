@@ -80,6 +80,7 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
           devisObjet: devis.objet,
           devisAmount: devis.amount,
           companyName: devis.companies?.name || devis.companies?.short_name,
+          companyId: devis.company_id,
         },
       });
 
