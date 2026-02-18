@@ -302,7 +302,7 @@ const DevisDetail = () => {
           toast.success("Template appliqué");
         }} />
       </div>
-      <DevisLinesManager devisId={devis.id} lines={lines} totalAmount={devis.amount} />
+      <DevisLinesManager devisId={devis.id} lines={lines} totalAmount={devis.amount} devisObjet={devis.objet} companyId={devis.company_id} />
 
       {/* Notes — editable inline */}
       <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
