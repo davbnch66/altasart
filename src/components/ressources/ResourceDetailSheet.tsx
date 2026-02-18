@@ -823,29 +823,37 @@ function DocumentsTab({ resourceId, companyId, documents, onRefresh, onDeleteDoc
 }
 
 function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
-  const [sigUrl, setSigUrl] = useState<string | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const docType = DOC_TYPES[doc.document_type] ?? DOC_TYPES.autre;
   const expireDays = getDaysUntil(doc.expires_at);
-  const isPdf = doc.mime_type === "application/pdf" || doc.file_name?.endsWith(".pdf");
+  const isPdf = doc.mime_type === "application/pdf" || doc.file_name?.toLowerCase().endsWith(".pdf");
 
-  const getSignedUrl = async () => {
-    if (sigUrl) return sigUrl;
-    const { data } = await supabase.storage.from("resource-documents").createSignedUrl(doc.storage_path, 3600);
-    if (data?.signedUrl) {
-      const fullUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1${data.signedUrl}`;
-      setSigUrl(fullUrl);
-      return fullUrl;
-    }
-    return null;
+  // Fetch file as blob to bypass content-disposition: attachment from Supabase
+  const fetchBlob = async (): Promise<string | null> => {
+    if (blobUrl) return blobUrl;
+    const { data: signedData } = await supabase.storage
+      .from("resource-documents")
+      .createSignedUrl(doc.storage_path, 3600);
+    if (!signedData?.signedUrl) return null;
+
+    const fullUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1${signedData.signedUrl}`;
+    const resp = await fetch(fullUrl);
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    setBlobUrl(url);
+    return url;
   };
 
   const viewDoc = async () => {
     setLoading(true);
     try {
-      const url = await getSignedUrl();
-      if (url) setPreviewUrl(url);
+      await fetchBlob();
+      setPreviewOpen(true);
+    } catch (e) {
+      toast.error("Impossible d'ouvrir le document");
     } finally {
       setLoading(false);
     }
@@ -854,16 +862,17 @@ function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
   const downloadDoc = async () => {
     setLoading(true);
     try {
-      const url = await getSignedUrl();
+      const url = await fetchBlob();
       if (url) {
         const a = document.createElement("a");
         a.href = url;
         a.download = doc.file_name || doc.name;
-        a.target = "_blank";
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
       }
+    } catch (e) {
+      toast.error("Impossible de télécharger le document");
     } finally {
       setLoading(false);
     }
@@ -907,10 +916,10 @@ function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
       </div>
 
       {/* Preview modal */}
-      {previewUrl && (
+      {previewOpen && blobUrl && (
         <div
           className="fixed inset-0 z-[200] bg-black/80 flex flex-col"
-          onClick={(e) => { if (e.target === e.currentTarget) setPreviewUrl(null); }}
+          onClick={(e) => { if (e.target === e.currentTarget) setPreviewOpen(false); }}
         >
           <div className="flex items-center justify-between px-4 py-2 bg-card border-b shrink-0">
             <span className="text-sm font-medium truncate">{doc.name}</span>
@@ -918,17 +927,17 @@ function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
               <Button size="sm" variant="outline" onClick={downloadDoc}>
                 <Download className="h-4 w-4 mr-1" /> Télécharger
               </Button>
-              <Button size="icon" variant="ghost" onClick={() => setPreviewUrl(null)}>
+              <Button size="icon" variant="ghost" onClick={() => setPreviewOpen(false)}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
           </div>
           <div className="flex-1 min-h-0">
             {isPdf ? (
-              <iframe src={previewUrl} className="w-full h-full border-0" title={doc.name} />
+              <iframe src={blobUrl} className="w-full h-full border-0" title={doc.name} />
             ) : (
               <div className="flex items-center justify-center h-full p-4">
-                <img src={previewUrl} alt={doc.name} className="max-w-full max-h-full object-contain rounded shadow-xl" />
+                <img src={blobUrl} alt={doc.name} className="max-w-full max-h-full object-contain rounded shadow-xl" />
               </div>
             )}
           </div>
