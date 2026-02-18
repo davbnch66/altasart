@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Truck, Wrench, Search, AlertTriangle, ShieldCheck, Calendar, Package } from "lucide-react";
+import { Truck, Wrench, Search, AlertTriangle, ShieldCheck, Calendar, Package, Camera } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -87,6 +87,20 @@ const FleetPage = () => {
     },
     enabled: companyIds.length > 0,
   });
+
+  // Fetch first photo per resource
+  const { data: photoMap = {} } = useQuery({
+    queryKey: ["fleet-photos-map", companyIds],
+    queryFn: async () => {
+      const { data } = await supabase.from("resource_documents").select("resource_id, storage_path").eq("document_type", "photo").order("created_at", { ascending: true });
+      if (!data) return {};
+      const map: Record<string, string> = {};
+      for (const d of data) { if (!map[d.resource_id]) map[d.resource_id] = d.storage_path; }
+      return map;
+    },
+    enabled: companyIds.length > 0,
+  });
+
 
   // Deduplicate resources
   const resourceMap = new Map<string, any>();
@@ -184,17 +198,24 @@ const FleetPage = () => {
             const Icon = typeIcons[r.type] ?? Truck;
             const eq = (equipmentMap as any)[r.id];
             const alerts = getAlerts(eq);
+            const photoPath = (photoMap as any)[r.id];
             return (
               <div
                 key={r.id}
                 onClick={() => setSelectedResource(r)}
-                className="rounded-xl border bg-card p-4 space-y-3 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group"
+                className="rounded-xl border bg-card overflow-hidden hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                      <Icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </div>
+                {/* Photo banner or placeholder */}
+                {photoPath ? (
+                  <FleetPhotoThumb storagePath={photoPath} name={r.name} />
+                ) : (
+                  <div className="h-28 bg-muted/50 flex items-center justify-center border-b">
+                    <Icon className="h-10 w-10 text-muted-foreground/30" />
+                  </div>
+                )}
+
+                <div className="p-4 space-y-3">
+                  <div className="flex items-start justify-between">
                     <div>
                       <p className="font-medium text-sm">{r.name}</p>
                       <p className="text-[11px] text-muted-foreground">
@@ -204,67 +225,53 @@ const FleetPage = () => {
                         {eq?.model ? ` ${eq.model}` : ""}
                       </p>
                     </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {alerts.length > 0 && <AlertTriangle className="h-3.5 w-3.5 text-warning flex-shrink-0" />}
+                      <Badge variant="outline" className={`text-[10px] px-2 py-0.5 whitespace-nowrap ${statusStyles[r.status] ?? ""}`}>
+                        {statusLabels[r.status] ?? r.status}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    {alerts.length > 0 && <AlertTriangle className="h-3.5 w-3.5 text-warning flex-shrink-0" />}
-                    <Badge variant="outline" className={`text-[10px] px-2 py-0.5 whitespace-nowrap ${statusStyles[r.status] ?? ""}`}>
-                      {statusLabels[r.status] ?? r.status}
-                    </Badge>
-                  </div>
+
+                  {/* Specs */}
+                  {eq && (eq.capacity_tons || eq.reach_meters || eq.height_meters || eq.daily_rate) && (
+                    <div className="flex gap-3 text-[11px] text-muted-foreground flex-wrap">
+                      {eq.capacity_tons && <span>{eq.capacity_tons}T</span>}
+                      {eq.reach_meters && <span>{eq.reach_meters}m portée</span>}
+                      {eq.height_meters && <span>{eq.height_meters}m</span>}
+                      {eq.daily_rate && <span className="font-medium text-foreground">{eq.daily_rate}€/j</span>}
+                    </div>
+                  )}
+
+                  {/* Alerts */}
+                  {alerts.length > 0 && (
+                    <div className="space-y-0.5">
+                      {alerts.slice(0, 2).map((a, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-[10px] text-warning">
+                          <AlertTriangle className="h-2.5 w-2.5" />{a}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Key dates */}
+                  {eq && (eq.insurance_expiry || eq.technical_control_expiry || eq.vgp_expiry) && (
+                    <div className="flex gap-3 text-[10px] text-muted-foreground flex-wrap">
+                      {eq.insurance_expiry && <span className="flex items-center gap-1"><ShieldCheck className="h-3 w-3" />Ass. {format(new Date(eq.insurance_expiry), "dd/MM/yy")}</span>}
+                      {eq.technical_control_expiry && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />CT {format(new Date(eq.technical_control_expiry), "dd/MM/yy")}</span>}
+                      {eq.vgp_expiry && <span className="flex items-center gap-1"><ShieldCheck className="h-3 w-3" />VGP {format(new Date(eq.vgp_expiry), "dd/MM/yy")}</span>}
+                    </div>
+                  )}
+
+                  {/* Companies */}
+                  {r.companyIds?.length > 0 && (
+                    <div className="flex gap-1 flex-wrap pt-1 border-t">
+                      {r.companyIds.map((cid: string) => (
+                        <span key={cid} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{getCompanyName(cid)}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-
-                {/* Specs */}
-                {eq && (eq.capacity_tons || eq.reach_meters || eq.height_meters || eq.daily_rate) && (
-                  <div className="flex gap-3 text-[11px] text-muted-foreground flex-wrap">
-                    {eq.capacity_tons && <span>{eq.capacity_tons}T</span>}
-                    {eq.reach_meters && <span>{eq.reach_meters}m portée</span>}
-                    {eq.height_meters && <span>{eq.height_meters}m</span>}
-                    {eq.daily_rate && <span className="font-medium text-foreground">{eq.daily_rate}€/j</span>}
-                  </div>
-                )}
-
-                {/* Alerts */}
-                {alerts.length > 0 && (
-                  <div className="space-y-0.5">
-                    {alerts.slice(0, 2).map((a, i) => (
-                      <div key={i} className="flex items-center gap-1.5 text-[10px] text-warning">
-                        <AlertTriangle className="h-2.5 w-2.5" />{a}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Key dates */}
-                {eq && (eq.insurance_expiry || eq.technical_control_expiry || eq.vgp_expiry) && (
-                  <div className="flex gap-3 text-[10px] text-muted-foreground flex-wrap">
-                    {eq.insurance_expiry && (
-                      <span className="flex items-center gap-1">
-                        <ShieldCheck className="h-3 w-3" />Ass. {format(new Date(eq.insurance_expiry), "dd/MM/yy")}
-                      </span>
-                    )}
-                    {eq.technical_control_expiry && (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />CT {format(new Date(eq.technical_control_expiry), "dd/MM/yy")}
-                      </span>
-                    )}
-                    {eq.vgp_expiry && (
-                      <span className="flex items-center gap-1">
-                        <ShieldCheck className="h-3 w-3" />VGP {format(new Date(eq.vgp_expiry), "dd/MM/yy")}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Companies */}
-                {r.companyIds?.length > 0 && (
-                  <div className="flex gap-1 flex-wrap pt-1 border-t">
-                    {r.companyIds.map((cid: string) => (
-                      <span key={cid} className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                        {getCompanyName(cid)}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
             );
           })}
@@ -283,4 +290,28 @@ const FleetPage = () => {
   );
 };
 
+// Photo thumbnail fetched via Supabase Storage (signed blob)
+function FleetPhotoThumb({ storagePath, name }: { storagePath: string; name: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let objectUrl: string;
+    supabase.storage.from("resource-documents").download(storagePath).then(({ data }) => {
+      if (data) { objectUrl = URL.createObjectURL(data); setUrl(objectUrl); }
+    });
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [storagePath]);
+
+  return (
+    <div className="h-36 w-full overflow-hidden border-b bg-muted/50 flex items-center justify-center">
+      {url ? (
+        <img src={url} alt={name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+      ) : (
+        <Camera className="h-8 w-8 text-muted-foreground/30" />
+      )}
+    </div>
+  );
+}
+
 export default FleetPage;
+
