@@ -1603,6 +1603,237 @@ export type Database = {
           },
         ]
       }
+      resource_equipment: {
+        Row: {
+          brand: string | null
+          capacity_tons: number | null
+          current_km: number | null
+          daily_rate: number | null
+          height_meters: number | null
+          id: string
+          insurance_expiry: string | null
+          insurance_policy: string | null
+          maintenance_interval_km: number | null
+          model: string | null
+          next_maintenance_date: string | null
+          notes: string | null
+          purchase_date: string | null
+          purchase_price: number | null
+          reach_meters: number | null
+          registration: string | null
+          resource_id: string
+          serial_number: string | null
+          technical_control_expiry: string | null
+          updated_at: string
+          vgp_expiry: string | null
+          vgp_frequency_months: number | null
+          weight_tons: number | null
+          year_manufacture: number | null
+        }
+        Insert: {
+          brand?: string | null
+          capacity_tons?: number | null
+          current_km?: number | null
+          daily_rate?: number | null
+          height_meters?: number | null
+          id?: string
+          insurance_expiry?: string | null
+          insurance_policy?: string | null
+          maintenance_interval_km?: number | null
+          model?: string | null
+          next_maintenance_date?: string | null
+          notes?: string | null
+          purchase_date?: string | null
+          purchase_price?: number | null
+          reach_meters?: number | null
+          registration?: string | null
+          resource_id: string
+          serial_number?: string | null
+          technical_control_expiry?: string | null
+          updated_at?: string
+          vgp_expiry?: string | null
+          vgp_frequency_months?: number | null
+          weight_tons?: number | null
+          year_manufacture?: number | null
+        }
+        Update: {
+          brand?: string | null
+          capacity_tons?: number | null
+          current_km?: number | null
+          daily_rate?: number | null
+          height_meters?: number | null
+          id?: string
+          insurance_expiry?: string | null
+          insurance_policy?: string | null
+          maintenance_interval_km?: number | null
+          model?: string | null
+          next_maintenance_date?: string | null
+          notes?: string | null
+          purchase_date?: string | null
+          purchase_price?: number | null
+          reach_meters?: number | null
+          registration?: string | null
+          resource_id?: string
+          serial_number?: string | null
+          technical_control_expiry?: string | null
+          updated_at?: string
+          vgp_expiry?: string | null
+          vgp_frequency_months?: number | null
+          weight_tons?: number | null
+          year_manufacture?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_equipment_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: true
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resource_interventions: {
+        Row: {
+          attachments: string[] | null
+          completed_date: string | null
+          cost: number | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          next_due_date: string | null
+          notes: string | null
+          priority: string
+          provider: string | null
+          reference: string | null
+          resource_id: string
+          scheduled_date: string | null
+          status: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          attachments?: string[] | null
+          completed_date?: string | null
+          cost?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          next_due_date?: string | null
+          notes?: string | null
+          priority?: string
+          provider?: string | null
+          reference?: string | null
+          resource_id: string
+          scheduled_date?: string | null
+          status?: string
+          title: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          attachments?: string[] | null
+          completed_date?: string | null
+          cost?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          next_due_date?: string | null
+          notes?: string | null
+          priority?: string
+          provider?: string | null
+          reference?: string | null
+          resource_id?: string
+          scheduled_date?: string | null
+          status?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_interventions_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resource_personnel: {
+        Row: {
+          aipr: boolean | null
+          caces: string[] | null
+          contract_type: string | null
+          emergency_contact: string | null
+          emergency_phone: string | null
+          employee_id: string | null
+          habilitations_elec: string[] | null
+          hire_date: string | null
+          id: string
+          job_title: string | null
+          last_medical_visit: string | null
+          medical_aptitude: string | null
+          next_medical_visit: string | null
+          notes: string | null
+          phone: string | null
+          resource_id: string
+          sst: boolean | null
+          updated_at: string
+        }
+        Insert: {
+          aipr?: boolean | null
+          caces?: string[] | null
+          contract_type?: string | null
+          emergency_contact?: string | null
+          emergency_phone?: string | null
+          employee_id?: string | null
+          habilitations_elec?: string[] | null
+          hire_date?: string | null
+          id?: string
+          job_title?: string | null
+          last_medical_visit?: string | null
+          medical_aptitude?: string | null
+          next_medical_visit?: string | null
+          notes?: string | null
+          phone?: string | null
+          resource_id: string
+          sst?: boolean | null
+          updated_at?: string
+        }
+        Update: {
+          aipr?: boolean | null
+          caces?: string[] | null
+          contract_type?: string | null
+          emergency_contact?: string | null
+          emergency_phone?: string | null
+          employee_id?: string | null
+          habilitations_elec?: string[] | null
+          hire_date?: string | null
+          id?: string
+          job_title?: string | null
+          last_medical_visit?: string | null
+          medical_aptitude?: string | null
+          next_medical_visit?: string | null
+          notes?: string | null
+          phone?: string | null
+          resource_id?: string
+          sst?: boolean | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_personnel_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: true
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resources: {
         Row: {
           certifications: string[] | null
