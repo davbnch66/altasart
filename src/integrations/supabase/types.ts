@@ -517,6 +517,60 @@ export type Database = {
           },
         ]
       }
+      devis_relances: {
+        Row: {
+          company_id: string
+          created_at: string
+          devis_id: string
+          id: string
+          recipient_email: string
+          recipient_name: string | null
+          relance_num: number
+          sent_at: string
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          devis_id: string
+          id?: string
+          recipient_email: string
+          recipient_name?: string | null
+          relance_num?: number
+          sent_at?: string
+          status?: string
+          subject?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          devis_id?: string
+          id?: string
+          recipient_email?: string
+          recipient_name?: string | null
+          relance_num?: number
+          sent_at?: string
+          status?: string
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "devis_relances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "devis_relances_devis_id_fkey"
+            columns: ["devis_id"]
+            isOneToOne: false
+            referencedRelation: "devis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       devis_signatures: {
         Row: {
           company_id: string

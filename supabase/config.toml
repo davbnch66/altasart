@@ -20,3 +20,15 @@ verify_jwt = false
 
 [functions.execute-email-action]
 verify_jwt = false
+
+[functions.send-devis-relance]
+verify_jwt = false
+
+[functions.get-signature-data]
+verify_jwt = false
+
+[functions.submit-signature]
+verify_jwt = false
+
+[functions.send-signature-email]
+verify_jwt = false
