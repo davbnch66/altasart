@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, MapPin, Clock, Plus, Briefcase, Truck } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,9 +46,15 @@ const Planning = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const navigate = useNavigate();
   const location = useLocation();
-  const initialTab = (location.state as any)?.planningTab as PlanningType | undefined;
-  const [planningType, setPlanningType] = useState<PlanningType>(initialTab || "exploitation");
+  const [planningType, setPlanningType] = useState<PlanningType>(() => {
+    return (sessionStorage.getItem("planningTab") as PlanningType) || "exploitation";
+  });
   const isMobile = useIsMobile();
+
+  // Persist active tab to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("planningTab", planningType);
+  }, [planningType]);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
