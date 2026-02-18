@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Mail, Send, Sparkles, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,9 +22,6 @@ interface SendEmailDialogProps {
   companyId?: string;
 }
 
-type EmailTone = "formel" | "cordial" | "relance";
-type EmailIntent = "envoi_rapport" | "relance" | "confirmation" | "custom";
-
 export function SendEmailDialog({
   open, onClose, defaultTo, defaultSubject, pdfBlobUrl, fileName,
   clientName, visiteCode, visiteTitle, visiteId, companyId,
@@ -34,47 +30,42 @@ export function SendEmailDialog({
   const [subject, setSubject] = useState(defaultSubject || "");
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [tone, setTone] = useState<EmailTone>("cordial");
-  const [intent, setIntent] = useState<EmailIntent>("envoi_rapport");
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
 
-  // Reset fields when dialog opens
+  // Load template when dialog opens
   useEffect(() => {
     if (open) {
       setTo(defaultTo || "");
       setSubject(defaultSubject || "");
       setBody("");
+      if (companyId) {
+        loadTemplate();
+      }
     }
-  }, [open, defaultTo, defaultSubject]);
+  }, [open, defaultTo, defaultSubject, companyId, visiteId]);
 
-  const handleGenerate = async () => {
-    setGenerating(true);
+  const loadTemplate = async () => {
+    setLoadingTemplate(true);
     try {
-      const { data, error } = await supabase.functions.invoke("draft-email", {
+      const { data, error } = await supabase.functions.invoke("resolve-email-template", {
         body: {
-          context: {
-            clientName: clientName || "",
-            visiteCode: visiteCode || "",
-            visiteTitle: visiteTitle || "",
-            subject,
-            existingBody: body || undefined,
-          },
-          tone,
-          intent,
+          templateType: "rapport_visite",
+          companyId,
+          visiteId,
         },
       });
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
 
-      if (data?.draft) {
-        setBody(data.draft);
-        toast.success("Brouillon généré — vérifiez et ajustez avant d'envoyer");
+      if (data?.found) {
+        setSubject(data.subject || defaultSubject || "");
+        setBody(data.body || "");
+        toast.success("Modèle d'email chargé automatiquement");
       }
     } catch (e: any) {
-      toast.error(e.message || "Erreur lors de la génération");
+      console.warn("Template not found or error:", e.message);
     } finally {
-      setGenerating(false);
+      setLoadingTemplate(false);
     }
   };
 
@@ -154,64 +145,36 @@ export function SendEmailDialog({
             />
           </div>
 
-          {/* AI assistance controls */}
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Label className="text-xs text-muted-foreground">Ton</Label>
-              <Select value={tone} onValueChange={(v) => setTone(v as EmailTone)}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cordial">Cordial</SelectItem>
-                  <SelectItem value="formel">Formel</SelectItem>
-                  <SelectItem value="relance">Relance</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1">
-              <Label className="text-xs text-muted-foreground">Type</Label>
-              <Select value={intent} onValueChange={(v) => setIntent(v as EmailIntent)}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="envoi_rapport">Envoi de rapport</SelectItem>
-                  <SelectItem value="relance">Relance</SelectItem>
-                  <SelectItem value="confirmation">Confirmation</SelectItem>
-                  <SelectItem value="custom">Personnalisé</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGenerate}
-              disabled={generating}
-              className="shrink-0 gap-1"
-            >
-              {generating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : body ? (
-                <RefreshCw className="h-4 w-4" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-              {body ? "Reformuler" : "Rédiger par IA"}
-            </Button>
-          </div>
-
           <div>
-            <Label>Message</Label>
+            <div className="flex items-center justify-between mb-1">
+              <Label>Message</Label>
+              {companyId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs gap-1 text-muted-foreground"
+                  onClick={loadTemplate}
+                  disabled={loadingTemplate}
+                >
+                  {loadingTemplate ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3 w-3" />
+                  )}
+                  Recharger le modèle
+                </Button>
+              )}
+            </div>
             <Textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder="Bonjour,&#10;&#10;Veuillez trouver ci-joint le rapport de visite technique.&#10;&#10;Cordialement,"
-              rows={7}
-              className={generating ? "opacity-50" : ""}
+              placeholder={loadingTemplate ? "Chargement du modèle..." : "Bonjour,\n\nVeuillez trouver ci-joint le rapport de visite technique.\n\nCordialement,"}
+              rows={10}
+              className={loadingTemplate ? "opacity-50" : ""}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              {generating ? "Génération en cours..." : "Relisez et ajustez le message avant envoi"}
+              {loadingTemplate ? "Chargement du modèle en cours..." : "Relisez et ajustez le message avant envoi"}
             </p>
           </div>
           {pdfBlobUrl && (
@@ -221,7 +184,7 @@ export function SendEmailDialog({
           )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose} disabled={sending}>Annuler</Button>
-            <Button onClick={handleSend} disabled={sending || generating}>
+            <Button onClick={handleSend} disabled={sending || loadingTemplate}>
               {sending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
               Envoyer
             </Button>
