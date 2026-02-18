@@ -825,7 +825,7 @@ function DocumentsTab({ resourceId, companyId, documents, onRefresh, onDeleteDoc
 function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState<boolean>(false);
   const docType = DOC_TYPES[doc.document_type] ?? DOC_TYPES.autre;
   const expireDays = getDaysUntil(doc.expires_at);
   const isPdf = doc.mime_type === "application/pdf" || doc.file_name?.toLowerCase().endsWith(".pdf");
