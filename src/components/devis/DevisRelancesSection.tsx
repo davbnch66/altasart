@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format, differenceInDays } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Send, Clock, CheckCircle, AlertTriangle, RefreshCw, Plus } from "lucide-react";
+import { Send, Clock, CheckCircle, AlertTriangle, RefreshCw, Plus, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface DevisRelancesSectionProps {
@@ -37,6 +38,8 @@ export const DevisRelancesSection = ({ devis }: DevisRelancesSectionProps) => {
   const [recipientEmail, setRecipientEmail] = useState(devis.clients?.email || "");
   const [recipientName, setRecipientName] = useState(devis.clients?.name || "");
   const [customMessage, setCustomMessage] = useState("");
+  const [aiTone, setAiTone] = useState("cordial");
+  const [generatingAi, setGeneratingAi] = useState(false);
 
   const { data: relances = [] } = useQuery({
     queryKey: ["devis-relances", devis.id],
@@ -77,6 +80,27 @@ export const DevisRelancesSection = ({ devis }: DevisRelancesSectionProps) => {
     onError: (e: any) => toast.error(e.message || "Erreur lors de l'envoi"),
   });
 
+  const generateWithAI = async () => {
+    setGeneratingAi(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-email-template", {
+        body: {
+          type: selectedRelanceNum === 1 ? "relance_1" : selectedRelanceNum === 2 ? "relance_2" : "relance_3",
+          tone: aiTone,
+          companyId: devis.company_id,
+          context: { devisCode: devis.code, devisObjet: devis.objet, clientName: devis.clients?.name, relanceNum: selectedRelanceNum },
+        },
+      });
+      if (error) throw error;
+      if (data?.body) setCustomMessage(data.body);
+      toast.success("Message généré par l'IA");
+    } catch (e: any) {
+      toast.error("Erreur lors de la génération IA");
+    } finally {
+      setGeneratingAi(false);
+    }
+  };
+
   const sentAt = devis.sent_at ? new Date(devis.sent_at) : null;
   const isAccepted = devis.status === "accepte";
   const isRefused = devis.status === "refuse";
@@ -90,6 +114,7 @@ export const DevisRelancesSection = ({ devis }: DevisRelancesSectionProps) => {
 
   const openSendDialog = (relanceNum: number) => {
     setSelectedRelanceNum(relanceNum);
+    setCustomMessage("");
     setSendDialogOpen(true);
   };
 
