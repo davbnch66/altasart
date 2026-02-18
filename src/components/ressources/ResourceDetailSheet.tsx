@@ -135,13 +135,21 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
     },
   });
 
+  // ---- Local status state (avoids stale prop) ----
+  const [localStatus, setLocalStatus] = useState(resource.status);
+
   // ---- Mutations ----
   const updateStatus = useMutation({
     mutationFn: async (status: string) => {
       const { error } = await supabase.from("resources").update({ status } as any).eq("id", resource.id);
       if (error) throw error;
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["resources"] }); toast.success("Statut mis à jour"); },
+    onSuccess: (_data, status) => {
+      setLocalStatus(status);
+      qc.invalidateQueries({ queryKey: ["resources"] });
+      toast.success("Statut mis à jour");
+    },
+    onError: () => toast.error("Erreur lors de la mise à jour du statut"),
   });
 
   const [eqForm, setEqForm] = useState<any>(null);
@@ -295,8 +303,8 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                   </div>
                 )}
               </div>
-              <Select value={resource.status} onValueChange={(v) => updateStatus.mutate(v)}>
-                <SelectTrigger className={`w-auto h-8 text-xs border rounded-full px-3 ${STATUS_COLORS[resource.status] ?? ""}`}>
+              <Select value={localStatus} onValueChange={(v) => updateStatus.mutate(v)}>
+                <SelectTrigger className={`w-auto h-8 text-xs border rounded-full px-3 ${STATUS_COLORS[localStatus] ?? ""}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
