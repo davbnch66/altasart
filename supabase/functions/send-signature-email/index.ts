@@ -90,7 +90,7 @@ serve(async (req) => {
         "Authorization": `Bearer ${resendKey}`,
       },
       body: JSON.stringify({
-        from: "noreply@altasart.fr",
+        from: `${companyName || "Altasart"} <onboarding@resend.dev>`,
         to: recipientEmail,
         subject: `Devis ${devisCode || ""} à accepter — ${companyName}`,
         html: emailHtml,

@@ -192,7 +192,6 @@ Deno.serve(async (req) => {
       throw new Error("RESEND_API_KEY non configuré");
     }
 
-    const fromEmail = "noreply@altasart.fr";
     const emailResponse = await fetch(RESEND_API_URL, {
       method: "POST",
       headers: {
@@ -200,7 +199,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: `${companyName} <${fromEmail}>`,
+        from: `${companyName} <onboarding@resend.dev>`,
         to: [recipientEmail],
         subject,
         html: htmlBody,
