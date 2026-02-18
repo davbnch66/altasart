@@ -72,21 +72,16 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
           type: "devis_envoi",
           tone: aiTone,
           companyId: devis.company_id,
-          context: {
-            devisCode: devis.code,
-            devisObjet: devis.objet,
-            devisAmount: devis.amount,
-            clientName: devis.clients?.name,
-            companyName: devis.companies?.name || devis.companies?.short_name,
-          },
+          devisId: devis.id,
         },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       if (data?.subject) setEmailSubject(data.subject);
       if (data?.body) setEmailBody(data.body);
-      toast.success("Contenu généré par l'IA");
+      toast.success("Contenu généré par l'IA ✓");
     } catch (e: any) {
-      toast.error("Erreur lors de la génération IA");
+      toast.error(e.message || "Erreur lors de la génération IA");
     } finally {
       setGeneratingAi(false);
     }

@@ -71,15 +71,16 @@ export function SendEmailDialog({
           type: "rapport_visite",
           tone: aiTone,
           companyId,
-          context: { visiteTitle, visiteCode, clientName },
+          visiteId,
         },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       if (data?.subject) setSubject(data.subject);
       if (data?.body) setBody(data.body);
-      toast.success("Contenu généré par l'IA");
+      toast.success("Contenu généré par l'IA ✓");
     } catch (e: any) {
-      toast.error("Erreur lors de la génération IA");
+      toast.error(e.message || "Erreur lors de la génération IA");
     } finally {
       setGeneratingAi(false);
     }

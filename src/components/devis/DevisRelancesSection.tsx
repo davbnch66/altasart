@@ -83,19 +83,25 @@ export const DevisRelancesSection = ({ devis }: DevisRelancesSectionProps) => {
   const generateWithAI = async () => {
     setGeneratingAi(true);
     try {
+      const relanceType = selectedRelanceNum === 1
+        ? "devis_relance_1"
+        : selectedRelanceNum === 2
+        ? "devis_relance_2"
+        : "devis_relance_3";
       const { data, error } = await supabase.functions.invoke("generate-email-template", {
         body: {
-          type: selectedRelanceNum === 1 ? "relance_1" : selectedRelanceNum === 2 ? "relance_2" : "relance_3",
+          type: relanceType,
           tone: aiTone,
           companyId: devis.company_id,
-          context: { devisCode: devis.code, devisObjet: devis.objet, clientName: devis.clients?.name, relanceNum: selectedRelanceNum },
+          devisId: devis.id,
         },
       });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       if (data?.body) setCustomMessage(data.body);
-      toast.success("Message généré par l'IA");
+      toast.success("Message généré par l'IA ✓");
     } catch (e: any) {
-      toast.error("Erreur lors de la génération IA");
+      toast.error(e.message || "Erreur lors de la génération IA");
     } finally {
       setGeneratingAi(false);
     }
