@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DevisLinesManager } from "@/components/DevisLinesManager";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, Pencil, FileText, Check, X, FileStack } from "lucide-react";
+import { ArrowLeft, Download, Pencil, FileText, Check, X, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
 import { DevisApplyTemplateDialog } from "@/components/devis/ApplyTemplateDialog";
+import { SendSignatureDialog } from "@/components/devis/SendSignatureDialog";
 
 const statusLabels: Record<string, string> = {
   brouillon: "Brouillon",
@@ -117,6 +118,7 @@ const DevisDetail = () => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
+  const [sendingSignature, setSendingSignature] = useState(false);
   const isMobile = useIsMobile();
   const fromClient = (location.state as any)?.fromClient === true;
   const fromDossier = (location.state as any)?.fromDossier as string | undefined;
@@ -207,6 +209,10 @@ const DevisDetail = () => {
           <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => generateDevisPdf(devis.id).catch(() => toast.error("Erreur PDF"))}>
             <Download className="h-4 w-4" />
             {!isMobile && <span className="ml-1">PDF</span>}
+          </Button>
+          <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => setSendingSignature(true)}>
+            <Send className="h-4 w-4" />
+            {!isMobile && <span className="ml-1">Envoyer</span>}
           </Button>
           <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => setEditing(true)}>
             <Pencil className="h-4 w-4" />
@@ -312,6 +318,9 @@ const DevisDetail = () => {
 
       {editing && (
         <EditDevisDialog devis={devis} open={editing} onOpenChange={(v) => !v && setEditing(false)} />
+      )}
+      {sendingSignature && (
+        <SendSignatureDialog devis={devis} open={sendingSignature} onOpenChange={(v) => !v && setSendingSignature(false)} />
       )}
     </div>
   );
