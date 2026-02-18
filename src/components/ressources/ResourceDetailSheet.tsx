@@ -354,6 +354,14 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                 <Settings className="h-4 w-4 mr-2" />Technique
               </TabsTrigger>
             )}
+            {isEquipment && (
+              <TabsTrigger value="documents" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm whitespace-nowrap">
+                <FileText className="h-4 w-4 mr-2" />Photos & Docs
+                {(documents as any[]).length > 0 && (
+                  <span className="ml-1.5 bg-muted text-muted-foreground text-[10px] rounded-full px-1.5 py-0.5">{(documents as any[]).length}</span>
+                )}
+              </TabsTrigger>
+            )}
             {isPersonnel && (
               <>
                 <TabsTrigger value="rh" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm whitespace-nowrap">
@@ -436,6 +444,30 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                   )}
                 </div>
               )}
+            </TabsContent>
+          )}
+
+          {/* ===== PHOTOS & DOCS ÉQUIPEMENT ===== */}
+          {isEquipment && (
+            <TabsContent value="documents" className="p-4">
+              <EquipmentPhotosDocsTab
+                resourceId={resource.id}
+                companyId={resource.companyIds?.[0] ?? ""}
+                documents={documents as any[]}
+                onRefresh={() => qc.invalidateQueries({ queryKey: ["resource-documents", resource.id] })}
+                onDeleteDoc={async (id: string, path: string) => {
+                  await supabase.storage.from("resource-documents").remove([path]);
+                  await supabase.from("resource_documents").delete().eq("id", id);
+                  qc.invalidateQueries({ queryKey: ["resource-documents", resource.id] });
+                  toast.success("Document supprimé");
+                }}
+                onAiExtracted={(data: any) => {
+                  setEqForm((prev: any) => ({ ...(equipment ?? {}), ...(prev ?? {}), ...data }));
+                  setEqEditing(true);
+                  setActiveTab("technique");
+                  toast.success("Fiche technique pré-remplie par l'IA ✨");
+                }}
+              />
             </TabsContent>
           )}
 
@@ -845,6 +877,371 @@ function DocumentsTab({ resourceId, companyId, documents, onRefresh, onDeleteDoc
           {documents.map((doc: any) => (
             <DocumentCard key={doc.id} doc={doc} onDelete={() => onDeleteDoc(doc.id, doc.storage_path)} />
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===== Equipment Photos & Documents Tab =====
+const EQUIP_DOC_TYPES: Record<string, { label: string; color: string }> = {
+  photo: { label: "Photo", color: "bg-blue-500/10 text-blue-600" },
+  carte_grise: { label: "Carte grise", color: "bg-green-500/10 text-green-600" },
+  vgp: { label: "VGP", color: "bg-purple-500/10 text-purple-600" },
+  assurance: { label: "Assurance", color: "bg-orange-500/10 text-orange-600" },
+  controle_technique: { label: "Contrôle tech.", color: "bg-yellow-500/10 text-yellow-700" },
+  abaque: { label: "Abaque", color: "bg-teal-500/10 text-teal-600" },
+  fiche_technique: { label: "Fiche technique", color: "bg-indigo-500/10 text-indigo-600" },
+  autre: { label: "Autre", color: "bg-muted text-muted-foreground" },
+};
+
+function EquipmentPhotosDocsTab({ resourceId, companyId, documents, onRefresh, onDeleteDoc, onAiExtracted }: {
+  resourceId: string;
+  companyId: string;
+  documents: any[];
+  onRefresh: () => void;
+  onDeleteDoc: (id: string, path: string) => void;
+  onAiExtracted: (data: any) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [newDocType, setNewDocType] = useState("carte_grise");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
+  // Separate photos from docs
+  const photos = documents.filter((d) => d.document_type === "photo" && (d.mime_type?.startsWith("image/") || d.file_name?.match(/\.(jpg|jpeg|png|webp|gif)$/i)));
+  const docs = documents.filter((d) => d.document_type !== "photo");
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) setPendingFile(f);
+  };
+
+  // Upload a photo (direct, no AI)
+  const uploadPhoto = async (file: File) => {
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `photos/${resourceId}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("resource-documents").upload(path, file);
+      if (upErr) throw upErr;
+      const { error: docErr } = await supabase.from("resource_documents").insert({
+        resource_id: resourceId,
+        company_id: companyId,
+        document_type: "photo",
+        name: file.name,
+        storage_path: path,
+        file_name: file.name,
+        mime_type: file.type,
+      } as any);
+      if (docErr) throw docErr;
+      onRefresh();
+      toast.success("Photo ajoutée");
+    } catch (e: any) { toast.error(e.message); }
+    finally { setUploading(false); if (photoRef.current) photoRef.current.value = ""; }
+  };
+
+  const uploadDocument = async (withAI: boolean) => {
+    if (!pendingFile) return;
+    setUploading(true);
+    if (withAI) setAnalyzing(true);
+    try {
+      const ext = pendingFile.name.split(".").pop();
+      const path = `docs/${resourceId}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("resource-documents").upload(path, pendingFile);
+      if (upErr) throw upErr;
+      const { data: docData, error: docErr } = await supabase.from("resource_documents").insert({
+        resource_id: resourceId,
+        company_id: companyId,
+        document_type: newDocType,
+        name: `${EQUIP_DOC_TYPES[newDocType]?.label ?? "Document"} — ${pendingFile.name}`,
+        storage_path: path,
+        file_name: pendingFile.name,
+        mime_type: pendingFile.type,
+        ai_extracted: withAI,
+      } as any).select().single();
+      if (docErr) throw docErr;
+
+      if (withAI && newDocType !== "photo" && (pendingFile.type.startsWith("image/") || pendingFile.type === "application/pdf")) {
+        try {
+          const reader = new FileReader();
+          const base64 = await new Promise<string>((resolve, reject) => {
+            reader.onload = (ev) => { resolve((ev.target?.result as string).split(",")[1]); };
+            reader.onerror = reject;
+            reader.readAsDataURL(pendingFile);
+          });
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-equipment-document`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+            body: JSON.stringify({ imageBase64: base64, mimeType: pendingFile.type, documentType: newDocType }),
+          });
+          const json = await res.json();
+          if (res.ok && json.data) {
+            const d = json.data;
+            const mapped: any = {};
+            if (d.registration) mapped.registration = d.registration;
+            if (d.brand) mapped.brand = d.brand;
+            if (d.model) mapped.model = d.model;
+            if (d.serial_number) mapped.serial_number = d.serial_number;
+            if (d.year_manufacture) mapped.year_manufacture = d.year_manufacture;
+            if (d.capacity_tons) mapped.capacity_tons = d.capacity_tons;
+            if (d.reach_meters) mapped.reach_meters = d.reach_meters;
+            if (d.height_meters) mapped.height_meters = d.height_meters;
+            if (d.weight_tons) mapped.weight_tons = d.weight_tons;
+            if (d.insurance_expiry) mapped.insurance_expiry = d.insurance_expiry;
+            if (d.insurance_policy) mapped.insurance_policy = d.insurance_policy;
+            if (d.technical_control_expiry) mapped.technical_control_expiry = d.technical_control_expiry;
+            if (d.vgp_expiry) mapped.vgp_expiry = d.vgp_expiry;
+            if (d.vgp_frequency_months) mapped.vgp_frequency_months = d.vgp_frequency_months;
+            if (d.next_maintenance_date) mapped.next_maintenance_date = d.next_maintenance_date;
+            if (d.document_expires_at && docData?.id) {
+              await supabase.from("resource_documents").update({ expires_at: d.document_expires_at, name: d.document_name ?? (docData as any).name } as any).eq("id", docData.id);
+            }
+            onAiExtracted(mapped);
+          } else if (!res.ok) {
+            toast.error(json.error ?? "Erreur lors de l'analyse IA");
+          }
+        } catch (aiErr: any) {
+          console.error("AI error:", aiErr);
+          toast.warning("Document importé, analyse IA échouée.");
+        }
+      }
+      onRefresh();
+      setPendingFile(null);
+      if (fileRef.current) fileRef.current.value = "";
+      toast.success(withAI ? "Document importé et analysé !" : "Document importé");
+    } catch (e: any) { toast.error(e.message); }
+    finally { setUploading(false); setAnalyzing(false); }
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* === PHOTO GALLERY === */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-sm flex items-center gap-2"><Camera className="h-4 w-4" />Photos de l'engin</h3>
+          <Button size="sm" variant="outline" onClick={() => photoRef.current?.click()} disabled={uploading}>
+            <Plus className="h-3.5 w-3.5 mr-1" />Ajouter une photo
+          </Button>
+          <input ref={photoRef} type="file" accept="image/*" multiple className="hidden"
+            onChange={(e) => { Array.from(e.target.files ?? []).forEach(uploadPhoto); }} />
+        </div>
+        {photos.length === 0 ? (
+          <div
+            onClick={() => photoRef.current?.click()}
+            className="rounded-lg border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center py-8 gap-2 cursor-pointer hover:bg-muted/50 transition-colors"
+          >
+            <Camera className="h-8 w-8 opacity-30" />
+            <p className="text-xs text-muted-foreground">Cliquez pour ajouter des photos</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {photos.map((p: any) => (
+              <EquipmentPhotoThumb key={p.id} photo={p} onDelete={() => onDeleteDoc(p.id, p.storage_path)} onView={setLightboxUrl} />
+            ))}
+            <div
+              onClick={() => photoRef.current?.click()}
+              className="aspect-square rounded-lg border-2 border-dashed border-border bg-muted/30 flex items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
+            >
+              <Plus className="h-5 w-5 text-muted-foreground" />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* === DOCUMENTS === */}
+      <div>
+        <h3 className="font-semibold text-sm mb-3 flex items-center gap-2"><FileText className="h-4 w-4" />Documents techniques</h3>
+        {/* Upload zone */}
+        <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 p-4 space-y-3 mb-3">
+          <div className="flex gap-2 flex-wrap">
+            <Select value={newDocType} onValueChange={setNewDocType}>
+              <SelectTrigger className="h-8 w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(EQUIP_DOC_TYPES).filter(([k]) => k !== "photo").map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
+              <Upload className="h-3.5 w-3.5 mr-1" />Choisir
+            </Button>
+            <input ref={fileRef} type="file" accept="image/*,application/pdf,.pdf,.doc,.docx" className="hidden" onChange={handleFileSelect} />
+          </div>
+          {pendingFile && (
+            <div className="rounded-md bg-background border p-3 space-y-3">
+              <div className="flex items-center gap-2 text-sm">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="flex-1 truncate font-medium">{pendingFile.name}</span>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setPendingFile(null)}><X className="h-3 w-3" /></Button>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" className="flex-1" onClick={() => uploadDocument(true)} disabled={uploading}>
+                  {analyzing ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Analyse IA...</> : <><Sparkles className="h-3.5 w-3.5 mr-1.5" />Importer + Analyser IA</>}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => uploadDocument(false)} disabled={uploading}>
+                  {uploading && !analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Importer"}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">L'IA extraira immatriculation, dates d'échéance, caractéristiques et pré-remplira la fiche technique.</p>
+            </div>
+          )}
+        </div>
+        {docs.length === 0 ? (
+          <div className="text-center py-6 text-muted-foreground text-sm">
+            <FileText className="h-8 w-8 mx-auto mb-2 opacity-20" />
+            <p>Aucun document</p>
+            <p className="text-xs mt-1">Carte grise, VGP, assurance, abaques...</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {docs.map((doc: any) => (
+              <EquipmentDocCard key={doc.id} doc={doc} onDelete={() => onDeleteDoc(doc.id, doc.storage_path)} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Lightbox */}
+      {lightboxUrl && (
+        <div className="fixed inset-0 z-[200] bg-black/90 flex flex-col">
+          <div className="flex items-center justify-end p-3 shrink-0">
+            <Button size="icon" variant="ghost" className="text-white" onClick={() => setLightboxUrl(null)}><X className="h-5 w-5" /></Button>
+          </div>
+          <div className="flex-1 min-h-0 flex items-center justify-center p-4">
+            <img src={lightboxUrl} alt="Aperçu" className="max-w-full max-h-full object-contain rounded shadow-2xl" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Photo thumbnail for equipment
+function EquipmentPhotoThumb({ photo, onDelete, onView }: { photo: any; onDelete: () => void; onView: (url: string) => void }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let url: string;
+    supabase.storage.from("resource-documents").download(photo.storage_path).then(({ data }) => {
+      if (data) { url = URL.createObjectURL(data); setBlobUrl(url); }
+      setLoading(false);
+    });
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, [photo.storage_path]);
+
+  return (
+    <div className="relative aspect-square rounded-lg overflow-hidden border bg-muted group cursor-pointer" onClick={() => blobUrl && onView(blobUrl)}>
+      {loading ? (
+        <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+      ) : blobUrl ? (
+        <img src={blobUrl} alt={photo.name} className="w-full h-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center"><Camera className="h-6 w-6 text-muted-foreground opacity-30" /></div>
+      )}
+      <button
+        className="absolute top-1 right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+// Document card for equipment
+function EquipmentDocCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
+  const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [blobCache, setBlobCache] = useState<Blob | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const docType = EQUIP_DOC_TYPES[doc.document_type] ?? EQUIP_DOC_TYPES.autre;
+  const expireDays = getDaysUntil(doc.expires_at);
+  const isPdf = doc.mime_type === "application/pdf" || doc.file_name?.toLowerCase().endsWith(".pdf");
+
+  const fetchBlob = async () => {
+    if (blobCache) return blobCache;
+    const { data: blob } = await supabase.storage.from("resource-documents").download(doc.storage_path);
+    if (blob) setBlobCache(blob);
+    return blob ?? null;
+  };
+
+  const viewDoc = async () => {
+    setLoading(true);
+    try {
+      const blob = await fetchBlob();
+      if (!blob) { toast.error("Impossible d'ouvrir le document"); return; }
+      if (isPdf) { setPdfData(await blob.arrayBuffer()); } else { setImgUrl(URL.createObjectURL(blob)); }
+      setPreviewOpen(true);
+    } finally { setLoading(false); }
+  };
+
+  const downloadDoc = async () => {
+    setLoading(true);
+    try {
+      const blob = await fetchBlob();
+      if (!blob) return;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = doc.file_name ?? doc.name;
+      a.click();
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border bg-card p-2.5">
+      <div className={`flex-shrink-0 h-8 w-8 rounded-md flex items-center justify-center text-xs font-bold ${docType.color}`}>
+        {isPdf ? "PDF" : <FileText className="h-4 w-4" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs font-medium truncate">{doc.name}</span>
+          <span className={`text-[10px] rounded-full px-1.5 py-0.5 ${docType.color}`}>{docType.label}</span>
+          {doc.ai_extracted && <span className="flex items-center gap-0.5 text-[10px] text-primary"><Sparkles className="h-2.5 w-2.5" />IA</span>}
+        </div>
+        {expireDays !== null && expireDays < 60 && (
+          <div className={`text-[10px] mt-0.5 flex items-center gap-1 ${expireDays < 0 ? "text-destructive" : "text-warning"}`}>
+            <AlertTriangle className="h-2.5 w-2.5" />
+            {expireDays < 0 ? `Expiré il y a ${Math.abs(expireDays)}j` : `Expire dans ${expireDays}j`}
+          </div>
+        )}
+      </div>
+      <div className="flex gap-1 shrink-0">
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={viewDoc} disabled={loading}>
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+        </Button>
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={downloadDoc} disabled={loading}>
+          <Download className="h-3.5 w-3.5" />
+        </Button>
+        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={onDelete}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      {previewOpen && (
+        <div className="fixed inset-0 z-[200] bg-black/80 flex flex-col">
+          <div className="flex items-center justify-between px-4 py-2 bg-card border-b shrink-0">
+            <span className="text-sm font-medium truncate">{doc.name}</span>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={downloadDoc}><Download className="h-4 w-4 mr-1" />Télécharger</Button>
+              <Button size="icon" variant="ghost" onClick={() => { setPreviewOpen(false); setImgUrl(null); setPdfData(null); }}><X className="h-4 w-4" /></Button>
+            </div>
+          </div>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {isPdf && pdfData ? <PdfCanvasViewer data={pdfData} /> : imgUrl ? (
+              <div className="flex items-center justify-center h-full p-4">
+                <img src={imgUrl} alt={doc.name} className="max-w-full max-h-full object-contain rounded shadow-xl" />
+              </div>
+            ) : <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+          </div>
         </div>
       )}
     </div>
