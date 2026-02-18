@@ -79,6 +79,7 @@ const VisiteDetail = () => {
   const fromClient = (location.state as any)?.fromClient === true;
   const fromDossier = (location.state as any)?.fromDossier as string | undefined;
   const fromPlanning = (location.state as any)?.fromPlanning === true;
+  const planningTab = (location.state as any)?.planningTab as string | undefined;
   const isOnline = useOnlineStatus();
   const [editData, setEditData] = useState<any>(null);
   const [saving, setSaving] = useState(false);
@@ -192,7 +193,7 @@ const VisiteDetail = () => {
       <div className="space-y-2">
         {/* Breadcrumb */}
         <DetailBreadcrumb items={[
-          ...(fromPlanning ? [{ label: "Planning", path: "/planning" }] : []),
+          ...(fromPlanning ? [{ label: "Planning", path: "/planning", state: { planningTab } }] : []),
           ...(fromClient && client?.id && !fromPlanning ? [{ label: client.name, path: `/clients/${client.id}` }] : []),
           ...(fromDossier && dossier && !fromPlanning ? [{ label: dossier.code || dossier.title, path: `/dossiers/${fromDossier}`, state: { fromClient } }] : !fromClient && !fromPlanning ? [{ label: "Visites", path: "/visites" }] : []),
           { label: visite.code ? `#${visite.code}` : visite.title },
@@ -200,7 +201,7 @@ const VisiteDetail = () => {
 
         {/* Title row */}
         <div className="flex items-start gap-2">
-          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => fromPlanning ? navigate("/planning") : fromDossier ? navigate(`/dossiers/${fromDossier}`, { state: { fromClient } }) : fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/visites")}>
+          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => fromPlanning ? navigate("/planning", { state: { planningTab } }) : fromDossier ? navigate(`/dossiers/${fromDossier}`, { state: { fromClient } }) : fromClient && client?.id ? navigate(`/clients/${client.id}`) : navigate("/visites")}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
