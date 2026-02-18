@@ -904,6 +904,7 @@ function EquipmentPhotosDocsTab({ resourceId, companyId, documents, onRefresh, o
   onDeleteDoc: (id: string, path: string) => void;
   onAiExtracted: (data: any) => void;
 }) {
+  const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const photoRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -940,6 +941,7 @@ function EquipmentPhotosDocsTab({ resourceId, companyId, documents, onRefresh, o
       } as any);
       if (docErr) throw docErr;
       onRefresh();
+      qc.invalidateQueries({ queryKey: ["fleet-photos-map"] });
       toast.success("Photo ajoutée");
     } catch (e: any) { toast.error(e.message); }
     finally { setUploading(false); if (photoRef.current) photoRef.current.value = ""; }
