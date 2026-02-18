@@ -263,9 +263,11 @@ export const EmailTemplatesTab = () => {
           .eq("id", editingId);
         if (error) throw error;
       } else {
+        const companyId = primaryCompanyId || dbCompanies[0]?.id;
+        if (!companyId) throw new Error("Aucune société sélectionnée");
         const { error } = await supabase
           .from("email_templates")
-          .insert({ ...data, company_id: primaryCompanyId });
+          .insert({ ...data, company_id: companyId });
         if (error) throw error;
       }
     },
