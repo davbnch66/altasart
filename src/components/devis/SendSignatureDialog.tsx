@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Copy, CheckCircle, Link, Loader2, RefreshCw } from "lucide-react";
+import { Send, Copy, CheckCircle, Link, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface SendSignatureDialogProps {
   devis: any;
@@ -24,6 +25,8 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
   const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const [aiTone, setAiTone] = useState("cordial");
+  const [generatingAi, setGeneratingAi] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -57,6 +60,34 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
       console.warn("Template not found:", e.message);
     } finally {
       setLoadingTemplate(false);
+    }
+  };
+
+  const generateWithAI = async () => {
+    setGeneratingAi(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-email-template", {
+        body: {
+          type: "devis_envoi",
+          tone: aiTone,
+          companyId: devis.company_id,
+          context: {
+            devisCode: devis.code,
+            devisObjet: devis.objet,
+            devisAmount: devis.amount,
+            clientName: devis.clients?.name,
+            companyName: devis.companies?.name || devis.companies?.short_name,
+          },
+        },
+      });
+      if (error) throw error;
+      if (data?.subject) setEmailSubject(data.subject);
+      if (data?.body) setEmailBody(data.body);
+      toast.success("Contenu généré par l'IA");
+    } catch (e: any) {
+      toast.error("Erreur lors de la génération IA");
+    } finally {
+      setGeneratingAi(false);
     }
   };
 
@@ -183,6 +214,36 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
                 placeholder="client@exemple.fr"
                 className="mt-1"
               />
+            </div>
+          </div>
+
+          {/* AI generation */}
+          <div className="rounded-lg border bg-primary/5 p-3 space-y-2">
+            <p className="text-xs font-medium text-primary flex items-center gap-1">
+              <Sparkles className="h-3 w-3" /> Générer avec l'IA
+            </p>
+            <div className="flex gap-2">
+              <Select value={aiTone} onValueChange={setAiTone}>
+                <SelectTrigger className="h-8 text-xs flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cordial">Cordial</SelectItem>
+                  <SelectItem value="professionnel">Professionnel</SelectItem>
+                  <SelectItem value="formel">Formel</SelectItem>
+                  <SelectItem value="chaleureux">Chaleureux</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 text-xs gap-1"
+                onClick={generateWithAI}
+                disabled={generatingAi}
+              >
+                {generatingAi ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                {generatingAi ? "Génération..." : "Générer"}
+              </Button>
             </div>
           </div>
 
