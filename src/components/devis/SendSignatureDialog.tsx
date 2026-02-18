@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Copy, CheckCircle, Link, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { Send, Copy, CheckCircle, Link, Loader2, RefreshCw, Sparkles, Paperclip } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { generateDevisPdf } from "@/lib/generateDevisPdf";
 
 interface SendSignatureDialogProps {
   devis: any;
@@ -138,6 +139,14 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Non connecté");
 
+      // Generate PDF as base64 to attach
+      let pdfBase64: string | undefined;
+      try {
+        pdfBase64 = await generateDevisPdf(devis.id, true) as string | undefined;
+      } catch (e) {
+        console.warn("PDF generation failed, sending without attachment", e);
+      }
+
       const response = await supabase.functions.invoke("send-signature-email", {
         body: {
           devisId: devis.id,
@@ -149,9 +158,9 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
           devisAmount: devis.amount,
           companyName: devis.companies?.name || devis.companies?.short_name,
           companyId: devis.company_id,
-          // Pass resolved body/subject if template was loaded
           customSubject: emailSubject || undefined,
           customBody: emailBody || undefined,
+          pdfBase64: pdfBase64 || undefined,
         },
       });
 
@@ -305,6 +314,10 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
           )}
 
           <div className="flex flex-col gap-2 pt-2">
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <Paperclip className="h-3 w-3" />
+              Le PDF du devis sera joint automatiquement à l'email
+            </p>
             <Button
               onClick={() => sendEmailMutation.mutate()}
               disabled={!recipientEmail.trim() || sendEmailMutation.isPending || loadingTemplate}

@@ -34,7 +34,12 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { emailType, tone = "cordial", companyName, context } = await req.json();
+    const body = await req.json();
+    // Support both "type" (frontend) and "emailType" (legacy)
+    const emailType = body.type || body.emailType;
+    const tone = body.tone || "cordial";
+    const companyName = body.companyName;
+    const context = body.context;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
