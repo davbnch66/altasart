@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Mail, Info } from "lucide-react";
+import { Plus, Pencil, Trash2, Mail, Info, Sparkles, Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +51,12 @@ const VARIABLES = [
   { key: "{{company_name}}", label: "Nom de la société" },
   { key: "{{signature_url}}", label: "Lien de signature" },
   { key: "{{sender_name}}", label: "Nom de l'expéditeur" },
+];
+
+const TONES = [
+  { value: "cordial", label: "Cordial" },
+  { value: "formel", label: "Formel" },
+  { value: "direct", label: "Direct" },
 ];
 
 const DEFAULT_SUBJECTS: Record<string, string> = {
@@ -161,6 +167,8 @@ export const EmailTemplatesTab = () => {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState<TemplateFormData>(EMPTY_FORM);
   const [showVars, setShowVars] = useState(false);
+  const [aiTone, setAiTone] = useState("cordial");
+  const [aiGenerating, setAiGenerating] = useState(false);
 
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["email-templates", companyIds],
@@ -241,6 +249,35 @@ export const EmailTemplatesTab = () => {
       subject: DEFAULT_SUBJECTS[f.type] || f.subject,
       body: DEFAULT_BODIES[f.type] || f.body,
     }));
+  };
+
+  const generateWithAI = async () => {
+    setAiGenerating(true);
+    try {
+      const companyName = dbCompanies.find(c => c.id === primaryCompanyId)?.name || "";
+      const { data, error } = await supabase.functions.invoke("generate-email-template", {
+        body: {
+          emailType: form.type,
+          tone: aiTone,
+          companyName,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+      setForm((f) => ({
+        ...f,
+        subject: data.subject || f.subject,
+        body: data.body || f.body,
+      }));
+      toast.success("Contenu généré par l'IA ✨");
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors de la génération");
+    } finally {
+      setAiGenerating(false);
+    }
   };
 
   const insertVariable = (variable: string) => {
@@ -370,6 +407,47 @@ export const EmailTemplatesTab = () => {
                   className="text-sm"
                 />
               </div>
+            </div>
+
+            {/* AI generation block */}
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-medium text-primary">Générer avec l'IA</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <Select value={aiTone} onValueChange={setAiTone}>
+                    <SelectTrigger className="text-xs h-8">
+                      <SelectValue placeholder="Ton" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TONES.map((t) => (
+                        <SelectItem key={t.value} value={t.value} className="text-xs">
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="text-xs h-8 gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
+                  onClick={generateWithAI}
+                  disabled={aiGenerating}
+                >
+                  {aiGenerating ? (
+                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Génération...</>
+                  ) : (
+                    <><Sparkles className="h-3.5 w-3.5" /> Générer</>
+                  )}
+                </Button>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                L'IA génère l'objet et le corps du message. Vous pouvez ensuite le modifier librement.
+              </p>
             </div>
 
             <div className="space-y-1.5">
