@@ -70,9 +70,14 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
     enabled: open && !!selectedClientId,
   });
 
+  // Default valid_until = today + 30 days
+  const defaultValidUntil = new Date();
+  defaultValidUntil.setDate(defaultValidUntil.getDate() + 30);
+  const defaultValidUntilStr = defaultValidUntil.toISOString().split("T")[0];
+
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { company_id: defaultCompanyId, amount: 0, dossier_id: preselectedDossierId || "" },
+    defaultValues: { company_id: defaultCompanyId, amount: 0, dossier_id: preselectedDossierId || "", valid_until: defaultValidUntilStr },
   });
 
   const createDossierMutation = useMutation({
@@ -230,10 +235,6 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
               <Label htmlFor="objet">Objet *</Label>
               <Input id="objet" {...register("objet")} placeholder="Objet du devis" />
               {errors.objet && <p className="text-xs text-destructive mt-1">{errors.objet.message}</p>}
-            </div>
-            <div>
-              <Label htmlFor="code">Code</Label>
-              <Input id="code" {...register("code")} placeholder="DEV-2026-XXX" />
             </div>
             <div>
               <Label htmlFor="amount">Montant (€) *</Label>
