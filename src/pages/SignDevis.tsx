@@ -19,6 +19,20 @@ const formatDate = (dateStr: string | null) => {
   try { return format(new Date(dateStr), "dd MMMM yyyy", { locale: fr }); } catch { return "—"; }
 };
 
+// Build the edge function base URL from env
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+
+const edgeFetch = (fnName: string, options: RequestInit = {}) =>
+  fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
+    ...options,
+    headers: {
+      "apikey": SUPABASE_ANON_KEY,
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+
 const SignDevis = () => {
   const { token } = useParams<{ token: string }>();
   const [signerName, setSignerName] = useState("");
@@ -28,13 +42,10 @@ const SignDevis = () => {
   const { data, isLoading, error } = useQuery({
     queryKey: ["sign-devis", token],
     queryFn: async () => {
-      const { data: sig, error: sigErr } = await supabase
-        .from("devis_signatures")
-        .select("*, devis(id, code, objet, amount, notes, valid_until, clients(name, email, address, city, postal_code), companies(name, short_name, address, phone, email))")
-        .eq("token", token!)
-        .single();
-      if (sigErr) throw sigErr;
-      return sig;
+      const res = await edgeFetch(`get-signature-data?token=${token}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Lien invalide");
+      return json.data;
     },
     enabled: !!token,
   });
@@ -43,26 +54,16 @@ const SignDevis = () => {
     mutationFn: async () => {
       if (!signerName.trim()) throw new Error("Le nom est requis");
 
-      // Update signature
-      const { error: sigErr } = await supabase
-        .from("devis_signatures")
-        .update({
-          status: "signed",
-          signer_name: signerName.trim(),
-          signer_email: signerEmail.trim() || null,
-          signed_at: new Date().toISOString(),
-        })
-        .eq("token", token!);
-      if (sigErr) throw sigErr;
-
-      // Update devis status
-      const devisId = (data?.devis as any)?.id;
-      if (devisId) {
-        await supabase.from("devis").update({
-          status: "accepte",
-          accepted_at: new Date().toISOString(),
-        }).eq("id", devisId);
-      }
+      const res = await edgeFetch("submit-signature", {
+        method: "POST",
+        body: JSON.stringify({
+          token,
+          signerName: signerName.trim(),
+          signerEmail: signerEmail.trim() || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Erreur lors de la signature");
     },
     onSuccess: () => setSigned(true),
     onError: (e: any) => toast.error(e.message || "Erreur lors de la signature"),
