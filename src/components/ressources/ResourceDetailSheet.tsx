@@ -297,7 +297,7 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0">
+      <SheetContent className="w-full sm:max-w-2xl overflow-y-auto p-0 flex flex-col">
         {/* Header */}
         <div className="p-6 border-b bg-muted/30">
           <SheetHeader>
@@ -358,7 +358,7 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0">
           <TabsList className="w-full rounded-none border-b h-auto p-0 bg-transparent justify-start gap-0 overflow-x-auto">
             {isEquipment && (
               <TabsTrigger value="technique" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm whitespace-nowrap">
@@ -400,7 +400,7 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
 
           {/* ===== TECHNIQUE ===== */}
           {isEquipment && (
-            <TabsContent value="technique" className="p-4 space-y-4">
+            <TabsContent value="technique" className="p-4 pb-8 space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-semibold text-sm">Fiche technique</h3>
                 <Button size="sm" variant="outline" onClick={() => { setEqForm(equipment ?? {}); setEqEditing(true); }}>
@@ -460,7 +460,7 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
 
           {/* ===== PHOTOS & DOCS ÉQUIPEMENT ===== */}
           {isEquipment && (
-            <TabsContent value="documents" className="p-4">
+            <TabsContent value="documents" className="p-4 pb-8">
               <EquipmentPhotosDocsTab
                 resourceId={resource.id}
                 companyId={resource.companyIds?.[0] ?? ""}
@@ -484,7 +484,7 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
 
           {/* ===== FICHE RH ===== */}
           {isPersonnel && (
-            <TabsContent value="rh" className="p-4 space-y-4">
+            <TabsContent value="rh" className="p-4 pb-8 space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-semibold text-sm">Fiche employé</h3>
                 <Button size="sm" variant="outline" onClick={() => { setPForm(personnel ?? {}); setPEditing(true); }}>
@@ -594,7 +594,7 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
           )}
 
           {/* ===== INTERVENTIONS ===== */}
-          <TabsContent value="interventions" className="p-4 space-y-4">
+          <TabsContent value="interventions" className="p-4 pb-8 space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="font-semibold text-sm">{upcomingInterventions.length} à venir</h3>
               <Button size="sm" onClick={() => setShowAddIntervention(!showAddIntervention)}>
@@ -625,7 +625,7 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
           </TabsContent>
 
           {/* ===== HISTORIQUE ===== */}
-          <TabsContent value="historique" className="p-4 space-y-4">
+          <TabsContent value="historique" className="p-4 pb-8 space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="font-semibold text-sm">{pastInterventions.length} interventions passées</h3>
               {totalCost > 0 && <span className="text-sm font-medium">Total : {totalCost.toLocaleString()} €</span>}
