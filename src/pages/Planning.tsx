@@ -664,44 +664,20 @@ const Planning = () => {
       </motion.div>
 
       {/* Controls row */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className={`flex gap-2 ${isMobile ? "flex-col" : "items-center justify-between flex-wrap"}`}>
+        {/* Top row on mobile: tabs + view toggle */}
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Exploitation / Commercial tabs */}
           <Tabs value={planningType} onValueChange={(v) => setPlanningType(v as PlanningType)}>
-            <TabsList className="h-9">
-              <TabsTrigger value="exploitation" className="text-xs gap-1.5">
-                <Truck className="h-3.5 w-3.5" /> Exploitation
+            <TabsList className="h-8">
+              <TabsTrigger value="exploitation" className="text-xs gap-1">
+                <Truck className="h-3 w-3" /> {isMobile ? "Exploit." : "Exploitation"}
               </TabsTrigger>
-              <TabsTrigger value="commercial" className="text-xs gap-1.5">
-                <Briefcase className="h-3.5 w-3.5" /> Commercial
+              <TabsTrigger value="commercial" className="text-xs gap-1">
+                <Briefcase className="h-3 w-3" /> Commercial
               </TabsTrigger>
             </TabsList>
           </Tabs>
-
-          {/* Commercial filter (only in commercial mode) */}
-          {planningType === "commercial" && (
-            <div className="flex rounded-lg border bg-card p-0.5 gap-0.5 overflow-x-auto scrollbar-none max-w-[320px]">
-              <button
-                onClick={() => setSelectedCommercial("global")}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${
-                  selectedCommercial === "global" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                <Globe className="h-3 w-3" /> Global
-              </button>
-              {commercials.map((advisor) => (
-                <button
-                  key={advisor}
-                  onClick={() => setSelectedCommercial(advisor)}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${
-                    selectedCommercial === advisor ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  <User className="h-3 w-3" /> {advisor}
-                </button>
-              ))}
-            </div>
-          )}
 
           {/* Navigation */}
           <div className="flex items-center gap-1">
@@ -710,30 +686,55 @@ const Planning = () => {
             </button>
             <button
               onClick={() => setCurrentDate(new Date())}
-              className={`rounded-lg border font-medium hover:bg-muted transition-colors ${isMobile ? "px-2.5 py-1 text-xs" : "px-4 py-1.5 text-sm"}`}
+              className={`rounded-lg border font-medium hover:bg-muted transition-colors ${isMobile ? "px-2 py-1 text-xs" : "px-4 py-1.5 text-sm"}`}
             >
-              Aujourd'hui
+              Auj.
             </button>
             <button onClick={() => nav(1)} className="p-1.5 rounded-lg border hover:bg-muted transition-colors">
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
+
+          {/* View toggle */}
+          <div className="flex rounded-lg border bg-card p-0.5 gap-0.5 ml-auto">
+            {(["day", "week", "month"] as ViewMode[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {v === "day" ? "Jour" : v === "week" ? "Sem." : "Mois"}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* View toggle */}
-        <div className="flex rounded-lg border bg-card p-0.5 gap-0.5">
-          {(["day", "week", "month"] as ViewMode[]).map((v) => (
+        {/* Commercial filter (only in commercial mode) */}
+        {planningType === "commercial" && (
+          <div className="flex rounded-lg border bg-card p-0.5 gap-0.5 overflow-x-auto scrollbar-none">
             <button
-              key={v}
-              onClick={() => setView(v)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+              onClick={() => setSelectedCommercial("global")}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${
+                selectedCommercial === "global" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
               }`}
             >
-              {v === "day" ? "Jour" : v === "week" ? "Semaine" : "Mois"}
+              <Globe className="h-3 w-3" /> Global
             </button>
-          ))}
-        </div>
+            {commercials.map((advisor) => (
+              <button
+                key={advisor}
+                onClick={() => setSelectedCommercial(advisor)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${
+                  selectedCommercial === advisor ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <User className="h-3 w-3" /> {advisor}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Content */}
