@@ -126,12 +126,8 @@ function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
       });
 
       if (error) {
-        // Extract the real error message from the edge function response body
-        let msg = "Erreur lors de la création du compte";
-        try {
-          const body = await (error as any).context?.json?.();
-          if (body?.error) msg = body.error;
-        } catch {}
+        // data may contain the actual error body when status is 4xx
+        const msg = (data as any)?.error || error.message || "Erreur lors de la création du compte";
         toast.error(msg);
         return;
       }
