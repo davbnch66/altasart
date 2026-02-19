@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.analyze-hr-document]
 verify_jwt = false
+
+[functions.create-user]
+verify_jwt = false
+
+[functions.analyze-equipment-document]
+verify_jwt = false

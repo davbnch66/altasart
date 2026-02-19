@@ -14,13 +14,19 @@ Deno.serve(async (req) => {
 
   // Authenticate caller
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return new Response(JSON.stringify({ error: "Non authentifié" }), { status: 401, headers: corsHeaders });
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Non authentifié" }), { status: 401, headers: corsHeaders });
+  }
 
   const callerClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
   });
-  const { data: { user: caller }, error: authErr } = await callerClient.auth.getUser();
-  if (authErr || !caller) return new Response(JSON.stringify({ error: "Token invalide" }), { status: 401, headers: corsHeaders });
+  const token = authHeader.replace("Bearer ", "");
+  const { data: claimsData, error: authErr } = await callerClient.auth.getClaims(token);
+  if (authErr || !claimsData?.claims) {
+    return new Response(JSON.stringify({ error: "Token invalide" }), { status: 401, headers: corsHeaders });
+  }
+  const callerId = claimsData.claims.sub;
 
   // Parse body
   const { email, full_name, password, company_id, role } = await req.json();
@@ -33,7 +39,7 @@ Deno.serve(async (req) => {
   const { data: membership } = await adminClient
     .from("company_memberships")
     .select("role")
-    .eq("profile_id", caller.id)
+    .eq("profile_id", callerId)
     .eq("company_id", company_id)
     .single();
 
@@ -65,7 +71,7 @@ Deno.serve(async (req) => {
     profile_id: newUser.user.id,
     company_id,
     role,
-    invited_by: caller.id,
+    invited_by: callerId,
   });
 
   if (memberErr) {
