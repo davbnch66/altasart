@@ -3,38 +3,21 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { NotificationBell } from "@/components/NotificationBell";
 import { motion } from "framer-motion";
 import {
-  LayoutDashboard,
-  Users,
-  CalendarDays,
-  FolderOpen,
-  FileText,
-  ClipboardCheck,
-  Inbox,
-  DollarSign,
-  Wrench,
-  Settings,
-  Building2,
-  ChevronDown,
-  Kanban,
-  Truck,
-  Warehouse,
-  LogOut,
-  Bell,
-  BarChart3,
-  HardHat,
+  LayoutDashboard, Users, CalendarDays, FolderOpen, FileText,
+  ClipboardCheck, Inbox, DollarSign, Wrench, Settings, Building2,
+  ChevronDown, Kanban, Truck, Warehouse, LogOut, BarChart3, HardHat,
 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useMyRole, ROLE_LABELS, canAccessRoute } from "@/hooks/useMyRole";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 
-const navItems = [
+const ALL_NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/clients", icon: Users, label: "Clients" },
   { to: "/pipeline", icon: Kanban, label: "Pipeline" },
@@ -60,11 +43,22 @@ const companyDotColor: Record<string, string> = {
   "primary": "bg-primary",
 };
 
+const ROLE_BADGE_COLOR: Record<string, string> = {
+  admin: "bg-primary/15 text-primary border-primary/30",
+  manager: "bg-blue-500/15 text-blue-600 border-blue-500/30",
+  commercial: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
+  exploitation: "bg-orange-500/15 text-orange-600 border-orange-500/30",
+  comptable: "bg-purple-500/15 text-purple-600 border-purple-500/30",
+  terrain: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30",
+  readonly: "bg-muted text-muted-foreground border-border",
+};
+
 export const AppSidebar: React.FC = () => {
   const { current, setCurrent, currentCompany, companies, dbCompanies } = useCompany();
   const { user, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const { role } = useMyRole();
 
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
@@ -91,6 +85,9 @@ export const AppSidebar: React.FC = () => {
     navigate("/auth");
   };
 
+  // Filter nav items based on role
+  const navItems = ALL_NAV_ITEMS.filter((item) => canAccessRoute(role, item.to));
+
   return (
     <aside className="flex h-screen w-60 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       {/* Company Switcher */}
@@ -98,18 +95,12 @@ export const AppSidebar: React.FC = () => {
         <DropdownMenu>
           <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium hover:bg-sidebar-accent transition-colors outline-none">
             <div className={`h-2.5 w-2.5 rounded-full ${companyDotColor[currentCompany.color] || "bg-primary"}`} />
-            <span className="flex-1 text-left text-sidebar-primary truncate">
-              {currentCompany.name}
-            </span>
+            <span className="flex-1 text-left text-sidebar-primary truncate">{currentCompany.name}</span>
             <ChevronDown className="h-4 w-4 text-sidebar-muted" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-52">
             {companies.map((c) => (
-              <DropdownMenuItem
-                key={c.id}
-                onClick={() => setCurrent(c.id)}
-                className="flex items-center gap-3"
-              >
+              <DropdownMenuItem key={c.id} onClick={() => setCurrent(c.id)} className="flex items-center gap-3">
                 <div className={`h-2 w-2 rounded-full ${companyDotColor[c.color] || "bg-primary"}`} />
                 <span>{c.name}</span>
               </DropdownMenuItem>
@@ -121,11 +112,7 @@ export const AppSidebar: React.FC = () => {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto scrollbar-thin py-3 px-3 space-y-0.5">
         {navItems.map((item) => {
-          const isActive =
-            item.to === "/"
-              ? location.pathname === "/"
-              : location.pathname.startsWith(item.to);
-
+          const isActive = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to);
           return (
             <NavLink
               key={item.to}
@@ -156,14 +143,16 @@ export const AppSidebar: React.FC = () => {
       {/* Footer */}
       <div className="border-t border-sidebar-border p-4">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-semibold text-sidebar-accent-foreground">
+          <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-semibold text-sidebar-accent-foreground shrink-0">
             {user?.email?.substring(0, 2).toUpperCase() || "??"}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-primary truncate">
               {user?.user_metadata?.full_name || "Utilisateur"}
             </p>
-            <p className="text-xs text-sidebar-muted truncate">{user?.email}</p>
+            <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${ROLE_BADGE_COLOR[role] || ROLE_BADGE_COLOR.readonly}`}>
+              {ROLE_LABELS[role] || role}
+            </span>
           </div>
           <NotificationBell />
           <button onClick={handleSignOut} className="p-1.5 rounded hover:bg-sidebar-accent transition-colors" title="Se déconnecter">
