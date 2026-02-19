@@ -253,22 +253,24 @@ const Parametres = () => {
   });
 
   const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
-  const companyIdsKey = companyIds.join(",");
 
-  const { data: teamMembers = [] } = useQuery({
-    queryKey: ["team-members", companyIdsKey],
+  // Fetch ALL memberships (RLS handles security filtering automatically)
+  const { data: allTeamMembers = [] } = useQuery({
+    queryKey: ["team-members-all"],
     queryFn: async () => {
-      const ids = current === "global" ? dbCompanies.map((c) => c.id) : [current];
-      if (ids.length === 0) return [];
       const { data, error } = await supabase
         .from("company_memberships")
-        .select("*, profiles(full_name, email, avatar_url), companies(id, short_name, name)")
-        .in("company_id", ids);
+        .select("*, profiles(full_name, email, avatar_url), companies(id, short_name, name)");
       if (error) console.error("team-members error:", error);
       return data || [];
     },
-    enabled: dbCompanies.length > 0,
   });
+
+  // Filter client-side by selected company
+  const teamMembers = current === "global"
+    ? allTeamMembers
+    : allTeamMembers.filter((m: any) => m.company_id === current);
+
 
   const saveProfile = async () => {
     if (!user) return;
