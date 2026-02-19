@@ -4,7 +4,7 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Menu, X, LayoutDashboard, FolderOpen, ClipboardCheck,
-  CalendarDays, MoreHorizontal, Truck, DollarSign, Users, Kanban,
+  CalendarDays, MoreHorizontal, Truck, HardHat,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OfflineBanner } from "@/components/OfflineBanner";
@@ -23,14 +23,15 @@ const PAGE_NAMES: Record<string, string> = {
   "/stockage": "Stockage",
   "/ressources": "Ressources",
   "/parametres": "Paramètres",
+  "/terrain": "Espace Terrain",
 };
 
 const BOTTOM_NAV = [
   { to: "/", icon: LayoutDashboard, label: "Accueil", exact: true },
   { to: "/dossiers", icon: FolderOpen, label: "Dossiers" },
   { to: "/visites", icon: ClipboardCheck, label: "Visites" },
+  { to: "/terrain", icon: HardHat, label: "Terrain" },
   { to: "/planning", icon: CalendarDays, label: "Planning" },
-  { to: "/flotte", icon: Truck, label: "Flotte" },
 ];
 
 export const AppLayout: React.FC = () => {
