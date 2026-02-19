@@ -6,12 +6,14 @@ import {
   CalendarDays,
   DollarSign,
   TrendingUp,
+  TrendingDown,
   Clock,
   AlertTriangle,
   CheckCircle2,
   FileText,
   Eye,
   ChevronRight,
+  BarChart3,
 } from "lucide-react";
 import { CreateClientDialog } from "@/components/forms/CreateClientDialog";
 import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
@@ -286,6 +288,32 @@ const Dashboard = () => {
   const { data: activity, isLoading: activityLoading } = useRecentActivity(companyIds);
   const isMobile = useIsMobile();
 
+  // Top dossiers rentabilité
+  const { data: topDossiers } = useQuery({
+    queryKey: ["dashboard-top-rentabilite", companyIds],
+    queryFn: async () => {
+      let q = supabase.from("dossiers").select("id, code, title, amount, clients(name)").in("company_id", companyIds).not("amount", "is", null).neq("amount", 0);
+      const { data: dossiers } = await q.limit(20);
+      if (!dossiers?.length) return [];
+      const ids = dossiers.map((d) => d.id);
+      const { data: costs } = await supabase.from("dossier_costs").select("dossier_id, amount").in("dossier_id", ids);
+      const costMap: Record<string, number> = {};
+      for (const c of costs || []) costMap[c.dossier_id] = (costMap[c.dossier_id] || 0) + Number(c.amount);
+      return dossiers
+        .filter((d) => costMap[d.id] !== undefined)
+        .map((d) => {
+          const ca = Number(d.amount);
+          const cost = costMap[d.id] || 0;
+          const margin = ca - cost;
+          const marginPct = ca > 0 ? Math.round((margin / ca) * 100) : 0;
+          return { ...d, margin, marginPct, clientName: (d.clients as any)?.name || "—" };
+        })
+        .sort((a, b) => b.marginPct - a.marginPct)
+        .slice(0, 5);
+    },
+    enabled: companyIds.length > 0,
+  });
+
   const navigate = useNavigate();
 
   const statCards = [
@@ -450,6 +478,46 @@ const Dashboard = () => {
           )}
         </div>
       </motion.div>
+
+      {/* Top Rentabilité */}
+      {topDossiers && topDossiers.length > 0 && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="rounded-xl border bg-card">
+          <div className={`border-b flex items-center justify-between ${isMobile ? "px-3 py-2" : "p-5"}`}>
+            <h2 className={`font-semibold flex items-center gap-2 ${isMobile ? "text-sm" : ""}`}>
+              <BarChart3 className="h-4 w-4 text-primary" />
+              Top Rentabilité
+            </h2>
+            <button onClick={() => navigate("/rentabilite")} className="text-xs text-primary hover:underline">
+              Voir tout →
+            </button>
+          </div>
+          <div className="divide-y">
+            {topDossiers.map((d, i) => (
+              <div
+                key={d.id}
+                onClick={() => navigate(`/dossiers/${d.id}`)}
+                className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3"}`}
+              >
+                <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}</span>
+                {d.margin >= 0
+                  ? <TrendingUp className="h-4 w-4 text-success shrink-0" />
+                  : <TrendingDown className="h-4 w-4 text-destructive shrink-0" />
+                }
+                <div className="flex-1 min-w-0">
+                  <p className={`font-medium truncate ${isMobile ? "text-xs" : "text-sm"}`}>{d.title}</p>
+                  <p className="text-xs text-muted-foreground">{d.clientName}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className={`text-sm font-bold ${d.marginPct >= 20 ? "text-success" : d.marginPct >= 0 ? "text-warning" : "text-destructive"}`}>
+                    {d.marginPct}%
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">{new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(d.margin)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Quick Actions — hidden on mobile since we have FABs */}
       {!isMobile && (

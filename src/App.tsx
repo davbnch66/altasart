@@ -26,6 +26,7 @@ import FleetPage from "@/pages/FleetPage";
 import StoragePage from "@/pages/StoragePage";
 import Auth from "@/pages/Auth";
 import SignDevis from "@/pages/SignDevis";
+import RentabiliteReport from "@/pages/RentabiliteReport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,7 @@ const ProtectedRoutes = () => {
           <Route path="/pipeline" element={<PipelineKanban />} />
           <Route path="/flotte" element={<FleetPage />} />
           <Route path="/stockage" element={<StoragePage />} />
+          <Route path="/rentabilite" element={<RentabiliteReport />} />
           <Route path="/parametres" element={<Parametres />} />
         </Route>
         <Route path="*" element={<NotFound />} />
