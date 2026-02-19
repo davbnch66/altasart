@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield, Info } from "lucide-react";
+import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,7 +17,6 @@ import { EmailTemplatesTab } from "@/components/settings/EmailTemplatesTab";
 import { ROLE_LABELS, ROLE_DESCRIPTIONS, type AppRole } from "@/hooks/useMyRole";
 
 const roleLabels = ROLE_LABELS;
-
 const ALL_ROLES: AppRole[] = ["admin", "manager", "commercial", "exploitation", "comptable", "terrain", "readonly"];
 
 // ─── Company Edit Card ────────────────────────────────────────────────────────
@@ -34,16 +33,13 @@ function CompanyEditCard({ company, isAdmin }: { company: any; isAdmin: boolean 
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase
-        .from("companies")
-        .update({
-          name: form.name.trim(),
-          address: form.address.trim() || null,
-          phone: form.phone.trim() || null,
-          email: form.email.trim() || null,
-          siret: form.siret.trim() || null,
-        })
-        .eq("id", company.id);
+      const { error } = await supabase.from("companies").update({
+        name: form.name.trim(),
+        address: form.address.trim() || null,
+        phone: form.phone.trim() || null,
+        email: form.email.trim() || null,
+        siret: form.siret.trim() || null,
+      }).eq("id", company.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -51,19 +47,14 @@ function CompanyEditCard({ company, isAdmin }: { company: any; isAdmin: boolean 
       queryClient.invalidateQueries({ queryKey: ["companies-details"] });
       setEditing(false);
     },
-    onError: (e: any) => toast.error(e.message || "Erreur lors de la sauvegarde"),
+    onError: (e: any) => toast.error(e.message || "Erreur"),
   });
 
   const field = (label: string, key: keyof typeof form, placeholder?: string) => (
     <div className="space-y-1.5">
       <Label className="text-xs">{label}</Label>
       {editing ? (
-        <Input
-          value={form[key]}
-          onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-          className="text-sm"
-          placeholder={placeholder}
-        />
+        <Input value={form[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))} className="text-sm" placeholder={placeholder} />
       ) : (
         <p className="text-sm font-medium py-2 px-3 rounded-md bg-muted/40">{form[key] || "—"}</p>
       )}
@@ -94,7 +85,6 @@ function CompanyEditCard({ company, isAdmin }: { company: any; isAdmin: boolean 
           </div>
         )}
       </div>
-
       <div className="grid gap-3 sm:grid-cols-2">
         {field("Nom", "name")}
         {field("SIRET", "siret", "12345678900000")}
@@ -106,10 +96,12 @@ function CompanyEditCard({ company, isAdmin }: { company: any; isAdmin: boolean 
   );
 }
 
-// ─── Invite Member Card ───────────────────────────────────────────────────────
-function InviteMemberCard({ companyIds, adminCompanyIds }: { companyIds: string[]; adminCompanyIds: string[] }) {
+// ─── Create User Card (admin only) ───────────────────────────────────────────
+function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [password, setPassword] = useState("");
   const [selectedCompany, setSelectedCompany] = useState(adminCompanyIds[0] || "");
   const [role, setRole] = useState<string>("readonly");
   const [loading, setLoading] = useState(false);
@@ -124,39 +116,21 @@ function InviteMemberCard({ companyIds, adminCompanyIds }: { companyIds: string[
     enabled: adminCompanyIds.length > 0,
   });
 
-  const invite = async () => {
-    if (!email.trim() || !selectedCompany) return;
+  const createAccount = async () => {
+    if (!email.trim() || !password || !selectedCompany) { toast.error("Veuillez remplir tous les champs obligatoires."); return; }
+    if (password.length < 8) { toast.error("Le mot de passe doit contenir au moins 8 caractères."); return; }
     setLoading(true);
     try {
-      // Find profile by email
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", email.trim().toLowerCase())
-        .maybeSingle();
-
-      if (profileError) throw profileError;
-      if (!profile) {
-        toast.error("Aucun compte trouvé avec cet email. L'utilisateur doit d'abord créer son compte.");
-        return;
-      }
-
-      const { error } = await supabase.from("company_memberships").insert({
-        profile_id: profile.id,
-        company_id: selectedCompany,
-        role: role as any,
+      const { data, error } = await supabase.functions.invoke("create-user", {
+        body: { email: email.trim().toLowerCase(), full_name: fullName.trim(), password, company_id: selectedCompany, role },
       });
-      if (error) {
-        if (error.code === "23505") toast.error("Ce membre est déjà dans cette société.");
-        else throw error;
-        return;
-      }
-
-      toast.success(`${email} ajouté avec le rôle ${roleLabels[role]}`);
-      setEmail("");
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Compte créé pour ${email}`);
+      setEmail(""); setFullName(""); setPassword("");
       queryClient.invalidateQueries({ queryKey: ["team-members"] });
     } catch (e: any) {
-      toast.error(e.message || "Erreur");
+      toast.error(e.message || "Erreur lors de la création du compte");
     } finally {
       setLoading(false);
     }
@@ -168,19 +142,26 @@ function InviteMemberCard({ companyIds, adminCompanyIds }: { companyIds: string[
     <div className="rounded-xl border bg-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <UserPlus className="h-4 w-4 text-primary" />
-        <h2 className="text-sm font-semibold">Inviter un membre</h2>
+        <h2 className="text-sm font-semibold">Créer un compte utilisateur</h2>
+        <span className="ml-auto text-[10px] text-muted-foreground border rounded-full px-2 py-0.5">Admin uniquement</span>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="space-y-1.5 sm:col-span-1">
-          <Label className="text-xs">Email</Label>
-          <Input value={email} onChange={(e) => setEmail(e.target.value)} className="text-sm" placeholder="prenom@exemple.fr" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Email <span className="text-destructive">*</span></Label>
+          <Input value={email} onChange={(e) => setEmail(e.target.value)} className="text-sm" placeholder="prenom@exemple.fr" type="email" />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">Société</Label>
+          <Label className="text-xs">Nom complet</Label>
+          <Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="text-sm" placeholder="Jean Dupont" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Mot de passe provisoire <span className="text-destructive">*</span></Label>
+          <Input value={password} onChange={(e) => setPassword(e.target.value)} className="text-sm" placeholder="Min. 8 caractères" type="password" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Société <span className="text-destructive">*</span></Label>
           <Select value={selectedCompany} onValueChange={setSelectedCompany}>
-            <SelectTrigger className="text-sm h-9">
-              <SelectValue placeholder="Choisir…" />
-            </SelectTrigger>
+            <SelectTrigger className="text-sm h-9"><SelectValue placeholder="Choisir…" /></SelectTrigger>
             <SelectContent>
               {adminCompanies.map((c: any) => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -191,9 +172,7 @@ function InviteMemberCard({ companyIds, adminCompanyIds }: { companyIds: string[
         <div className="space-y-1.5">
           <Label className="text-xs">Rôle</Label>
           <Select value={role} onValueChange={setRole}>
-            <SelectTrigger className="text-sm h-9">
-              <SelectValue />
-            </SelectTrigger>
+            <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
               {ALL_ROLES.map((r) => (
                 <SelectItem key={r} value={r}>{roleLabels[r]}</SelectItem>
@@ -202,9 +181,9 @@ function InviteMemberCard({ companyIds, adminCompanyIds }: { companyIds: string[
           </Select>
         </div>
       </div>
-      <Button size="sm" onClick={invite} disabled={loading || !email.trim()} className="text-xs gap-1.5">
+      <Button size="sm" onClick={createAccount} disabled={loading || !email.trim() || !password} className="text-xs gap-1.5">
         {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
-        Ajouter le membre
+        Créer le compte
       </Button>
     </div>
   );
@@ -242,7 +221,6 @@ const Parametres = () => {
     enabled: !!user,
   });
 
-  // Admin company IDs (for this user)
   const adminCompanyIds = memberships.filter((m: any) => m.role === "admin").map((m: any) => m.company_id);
 
   const { data: companyDetails = [] } = useQuery({
@@ -285,7 +263,7 @@ const Parametres = () => {
     }
   };
 
-  const updateRole = async (membershipId: string, companyId: string, newRole: string) => {
+  const updateRole = async (membershipId: string, newRole: string) => {
     const { error } = await supabase.from("company_memberships").update({ role: newRole as any }).eq("id", membershipId);
     if (error) toast.error(error.message);
     else { toast.success("Rôle mis à jour"); queryClient.invalidateQueries({ queryKey: ["team-members"] }); }
@@ -306,7 +284,7 @@ const Parametres = () => {
       </motion.div>
 
       <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList className={`${isMobile ? "w-full" : ""}`}>
+        <TabsList className={`${isMobile ? "w-full flex-wrap h-auto gap-1" : ""}`}>
           <TabsTrigger value="profile" className="text-xs gap-1.5"><User className="h-3.5 w-3.5" /> Profil</TabsTrigger>
           <TabsTrigger value="companies" className="text-xs gap-1.5"><Building2 className="h-3.5 w-3.5" /> Sociétés</TabsTrigger>
           <TabsTrigger value="team" className="text-xs gap-1.5"><Users className="h-3.5 w-3.5" /> Équipe</TabsTrigger>
@@ -354,7 +332,7 @@ const Parametres = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     {m.role === "admin" && <Shield className="h-3.5 w-3.5 text-primary" />}
-                    <Badge variant="secondary" className="text-xs">{roleLabels[m.role] || m.role}</Badge>
+                    <Badge variant="secondary" className="text-xs">{roleLabels[m.role as AppRole] || m.role}</Badge>
                   </div>
                 </div>
               ))}
@@ -365,10 +343,9 @@ const Parametres = () => {
         {/* Companies Tab */}
         <TabsContent value="companies">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-            {companyDetails.map((company: any) => {
-              const isAdmin = adminCompanyIds.includes(company.id);
-              return <CompanyEditCard key={company.id} company={company} isAdmin={isAdmin} />;
-            })}
+            {companyDetails.map((company: any) => (
+              <CompanyEditCard key={company.id} company={company} isAdmin={adminCompanyIds.includes(company.id)} />
+            ))}
             {!adminCompanyIds.length && (
               <p className="text-sm text-muted-foreground text-center py-6">Seuls les admins peuvent modifier les informations des sociétés.</p>
             )}
@@ -378,7 +355,7 @@ const Parametres = () => {
         {/* Team Tab */}
         <TabsContent value="team">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-            <InviteMemberCard companyIds={companyIds} adminCompanyIds={adminCompanyIds} />
+            <CreateUserCard adminCompanyIds={adminCompanyIds} />
 
             <div className="rounded-xl border bg-card p-5 space-y-3">
               <h2 className="text-sm font-semibold">Membres de l'équipe</h2>
@@ -402,10 +379,8 @@ const Parametres = () => {
                       <div className="flex items-center gap-2 shrink-0">
                         <Badge variant="secondary" className="text-[10px]">{(member.companies as any)?.short_name}</Badge>
                         {isAdminOfThisCompany && !isMe ? (
-                          <Select value={member.role} onValueChange={(v) => updateRole(member.id, (member.companies as any)?.id, v)}>
-                            <SelectTrigger className="h-6 text-[10px] w-28 px-2">
-                              <SelectValue />
-                            </SelectTrigger>
+                          <Select value={member.role} onValueChange={(v) => updateRole(member.id, v)}>
+                            <SelectTrigger className="h-6 text-[10px] w-28 px-2"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {ALL_ROLES.map((r) => (
                                 <SelectItem key={r} value={r} className="text-xs">{roleLabels[r]}</SelectItem>
@@ -413,15 +388,10 @@ const Parametres = () => {
                             </SelectContent>
                           </Select>
                         ) : (
-                          <Badge variant="outline" className="text-[10px]">{roleLabels[member.role] || member.role}</Badge>
+                          <Badge variant="outline" className="text-[10px]">{roleLabels[member.role as AppRole] || member.role}</Badge>
                         )}
                         {isAdminOfThisCompany && !isMe && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10"
-                            onClick={() => removeMember(member.id, member.profile_id)}
-                          >
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10" onClick={() => removeMember(member.id, member.profile_id)}>
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         )}
@@ -449,12 +419,12 @@ const Parametres = () => {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
             <div className="rounded-xl border bg-card p-5 space-y-1">
               <h2 className="text-sm font-semibold">Rôles disponibles</h2>
-              <p className="text-xs text-muted-foreground">Chaque membre se voit attribuer un rôle par société. Les accès sont filtrés automatiquement.</p>
+              <p className="text-xs text-muted-foreground">Chaque membre se voit attribuer un rôle par société. Les accès sont filtrés automatiquement selon ce rôle.</p>
             </div>
             {ALL_ROLES.map((r) => (
               <div key={r} className="rounded-xl border bg-card p-4 flex items-start gap-3">
                 <Shield className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                <div className="flex-1 space-y-1">
+                <div className="space-y-1">
                   <span className="text-sm font-semibold">{ROLE_LABELS[r]}</span>
                   <p className="text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[r]}</p>
                 </div>
@@ -468,4 +438,3 @@ const Parametres = () => {
 };
 
 export default Parametres;
-
