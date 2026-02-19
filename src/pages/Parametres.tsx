@@ -257,13 +257,14 @@ const Parametres = () => {
   const { data: teamMembers = [] } = useQuery({
     queryKey: ["team-members", companyIds],
     queryFn: async () => {
+      if (companyIds.length === 0) return [];
       const { data } = await supabase
         .from("company_memberships")
         .select("*, profiles(full_name, email, avatar_url), companies(id, short_name, name)")
         .in("company_id", companyIds);
       return data || [];
     },
-    enabled: companyIds.length > 0,
+    enabled: dbCompanies.length > 0,
   });
 
   const saveProfile = async () => {
