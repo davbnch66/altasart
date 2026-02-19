@@ -126,8 +126,18 @@ function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
       });
 
       if (error) {
-        // data may contain the actual error body when status is 4xx
-        const msg = (data as any)?.error || error.message || "Erreur lors de la création du compte";
+        // error.message looks like: 'Edge function returned 400: Error, {"error":"..."}'
+        // Extract the JSON part from the message string
+        let msg = "Erreur lors de la création du compte";
+        const jsonMatch = error.message?.match(/\{.*\}/s);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (parsed?.error) msg = parsed.error;
+          } catch {}
+        } else if (error.message) {
+          msg = error.message;
+        }
         toast.error(msg);
         return;
       }
