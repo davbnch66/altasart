@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield } from "lucide-react";
+import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield, Info } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,14 +14,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { EmailTemplatesTab } from "@/components/settings/EmailTemplatesTab";
+import { ROLE_LABELS, ROLE_DESCRIPTIONS, type AppRole } from "@/hooks/useMyRole";
 
-const roleLabels: Record<string, string> = {
-  admin: "Admin",
-  manager: "Manager",
-  readonly: "Lecture seule",
-};
+const roleLabels = ROLE_LABELS;
 
-const ALL_ROLES = ["admin", "manager", "readonly"] as const;
+const ALL_ROLES: AppRole[] = ["admin", "manager", "commercial", "exploitation", "comptable", "terrain", "readonly"];
 
 // ─── Company Edit Card ────────────────────────────────────────────────────────
 function CompanyEditCard({ company, isAdmin }: { company: any; isAdmin: boolean }) {
@@ -314,6 +311,7 @@ const Parametres = () => {
           <TabsTrigger value="companies" className="text-xs gap-1.5"><Building2 className="h-3.5 w-3.5" /> Sociétés</TabsTrigger>
           <TabsTrigger value="team" className="text-xs gap-1.5"><Users className="h-3.5 w-3.5" /> Équipe</TabsTrigger>
           <TabsTrigger value="emails" className="text-xs gap-1.5"><Mail className="h-3.5 w-3.5" /> Emails</TabsTrigger>
+          <TabsTrigger value="roles" className="text-xs gap-1.5"><Shield className="h-3.5 w-3.5" /> Rôles</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -445,9 +443,29 @@ const Parametres = () => {
             <EmailTemplatesTab />
           </motion.div>
         </TabsContent>
+
+        {/* Roles Tab */}
+        <TabsContent value="roles">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+            <div className="rounded-xl border bg-card p-5 space-y-1">
+              <h2 className="text-sm font-semibold">Rôles disponibles</h2>
+              <p className="text-xs text-muted-foreground">Chaque membre se voit attribuer un rôle par société. Les accès sont filtrés automatiquement.</p>
+            </div>
+            {ALL_ROLES.map((r) => (
+              <div key={r} className="rounded-xl border bg-card p-4 flex items-start gap-3">
+                <Shield className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                <div className="flex-1 space-y-1">
+                  <span className="text-sm font-semibold">{ROLE_LABELS[r]}</span>
+                  <p className="text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[r]}</p>
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        </TabsContent>
       </Tabs>
     </div>
   );
 };
 
 export default Parametres;
+
