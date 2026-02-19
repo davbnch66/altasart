@@ -253,15 +253,18 @@ const Parametres = () => {
   });
 
   const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
+  const companyIdsKey = companyIds.join(",");
 
   const { data: teamMembers = [] } = useQuery({
-    queryKey: ["team-members", companyIds],
+    queryKey: ["team-members", companyIdsKey],
     queryFn: async () => {
-      if (companyIds.length === 0) return [];
-      const { data } = await supabase
+      const ids = current === "global" ? dbCompanies.map((c) => c.id) : [current];
+      if (ids.length === 0) return [];
+      const { data, error } = await supabase
         .from("company_memberships")
         .select("*, profiles(full_name, email, avatar_url), companies(id, short_name, name)")
-        .in("company_id", companyIds);
+        .in("company_id", ids);
+      if (error) console.error("team-members error:", error);
       return data || [];
     },
     enabled: dbCompanies.length > 0,
