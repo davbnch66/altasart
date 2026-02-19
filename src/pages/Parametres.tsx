@@ -124,8 +124,20 @@ function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
       const { data, error } = await supabase.functions.invoke("create-user", {
         body: { email: email.trim().toLowerCase(), full_name: fullName.trim(), password, company_id: selectedCompany, role },
       });
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
+
+      if (error) {
+        // Extract the real error message from the edge function response body
+        let msg = "Erreur lors de la création du compte";
+        try {
+          const body = await (error as any).context?.json?.();
+          if (body?.error) msg = body.error;
+        } catch {}
+        toast.error(msg);
+        return;
+      }
+
+      if (data?.error) { toast.error(data.error); return; }
+
       toast.success(`Compte créé pour ${email}`);
       setEmail(""); setFullName(""); setPassword("");
       queryClient.invalidateQueries({ queryKey: ["team-members"] });
