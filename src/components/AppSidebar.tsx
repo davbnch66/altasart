@@ -20,6 +20,7 @@ import {
   Warehouse,
   LogOut,
   Bell,
+  BarChart3,
 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery } from "@tanstack/react-query";
@@ -42,6 +43,7 @@ const navItems = [
   { to: "/visites", icon: ClipboardCheck, label: "Visites" },
   { to: "/inbox", icon: Inbox, label: "Inbox" },
   { to: "/finance", icon: DollarSign, label: "Finance" },
+  { to: "/rentabilite", icon: BarChart3, label: "Rentabilité" },
   { to: "/flotte", icon: Truck, label: "Flotte" },
   { to: "/stockage", icon: Warehouse, label: "Stockage" },
   { to: "/ressources", icon: Wrench, label: "Ressources" },
