@@ -21,6 +21,7 @@ import {
   LogOut,
   Bell,
   BarChart3,
+  HardHat,
 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery } from "@tanstack/react-query";
@@ -41,6 +42,7 @@ const navItems = [
   { to: "/dossiers", icon: FolderOpen, label: "Dossiers" },
   { to: "/devis", icon: FileText, label: "Devis" },
   { to: "/visites", icon: ClipboardCheck, label: "Visites" },
+  { to: "/terrain", icon: HardHat, label: "Terrain" },
   { to: "/inbox", icon: Inbox, label: "Inbox" },
   { to: "/finance", icon: DollarSign, label: "Finance" },
   { to: "/rentabilite", icon: BarChart3, label: "Rentabilité" },
