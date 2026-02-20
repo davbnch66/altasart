@@ -1322,6 +1322,9 @@ export type Database = {
           delivery_address: string | null
           delivery_city: string | null
           dossier_id: string
+          end_signature_url: string | null
+          end_signed_at: string | null
+          end_signer_name: string | null
           facture_id: string | null
           id: string
           loading_address: string | null
@@ -1331,6 +1334,9 @@ export type Database = {
           notes: string | null
           operation_number: number
           sort_order: number
+          start_signature_url: string | null
+          start_signed_at: string | null
+          start_signer_name: string | null
           type: string
           updated_at: string
           volume: number | null
@@ -1343,6 +1349,9 @@ export type Database = {
           delivery_address?: string | null
           delivery_city?: string | null
           dossier_id: string
+          end_signature_url?: string | null
+          end_signed_at?: string | null
+          end_signer_name?: string | null
           facture_id?: string | null
           id?: string
           loading_address?: string | null
@@ -1352,6 +1361,9 @@ export type Database = {
           notes?: string | null
           operation_number?: number
           sort_order?: number
+          start_signature_url?: string | null
+          start_signed_at?: string | null
+          start_signer_name?: string | null
           type?: string
           updated_at?: string
           volume?: number | null
@@ -1364,6 +1376,9 @@ export type Database = {
           delivery_address?: string | null
           delivery_city?: string | null
           dossier_id?: string
+          end_signature_url?: string | null
+          end_signed_at?: string | null
+          end_signer_name?: string | null
           facture_id?: string | null
           id?: string
           loading_address?: string | null
@@ -1373,6 +1388,9 @@ export type Database = {
           notes?: string | null
           operation_number?: number
           sort_order?: number
+          start_signature_url?: string | null
+          start_signed_at?: string | null
+          start_signer_name?: string | null
           type?: string
           updated_at?: string
           volume?: number | null
