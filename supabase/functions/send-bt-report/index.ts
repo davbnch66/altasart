@@ -42,7 +42,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { to, pdfBase64, fileName, subject, companyName, operationId } = body;
+    const { to, storagePath, fileName, subject, companyName, operationId } = body;
 
     if (!to || typeof to !== "string" || !to.includes("@") || to.length > 320) {
       return new Response(
@@ -51,12 +51,34 @@ serve(async (req) => {
       );
     }
 
-    if (pdfBase64 && typeof pdfBase64 === "string" && pdfBase64.length > 7_000_000) {
+    if (!storagePath) {
       return new Response(
-        JSON.stringify({ error: "Pièce jointe trop volumineuse (max ~5MB)" }),
+        JSON.stringify({ error: "Chemin du fichier manquant" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Download PDF from storage
+    const { data: fileData, error: downloadError } = await serviceSupabase.storage
+      .from("bt-reports")
+      .download(storagePath);
+
+    if (downloadError || !fileData) {
+      console.error("Storage download error:", downloadError);
+      return new Response(
+        JSON.stringify({ error: "Impossible de récupérer le rapport depuis le stockage" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Convert to base64 for Resend attachment
+    const arrayBuffer = await fileData.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const pdfBase64 = btoa(binary);
 
     // Fetch operation details for email body
     const { data: op } = await serviceSupabase
@@ -85,14 +107,11 @@ serve(async (req) => {
       to: [to],
       subject: finalSubject,
       html: htmlBody,
-    };
-
-    if (pdfBase64) {
-      emailPayload.attachments = [{
+      attachments: [{
         filename: String(fileName || "rapport-bt.pdf").slice(0, 100),
         content: pdfBase64,
-      }];
-    }
+      }],
+    };
 
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -109,6 +128,9 @@ serve(async (req) => {
       console.error("Resend API error:", resendData);
       throw new Error("Erreur lors de l'envoi de l'email");
     }
+
+    // Clean up storage file after successful send
+    await serviceSupabase.storage.from("bt-reports").remove([storagePath]);
 
     return new Response(
       JSON.stringify({ success: true, id: resendData.id }),
