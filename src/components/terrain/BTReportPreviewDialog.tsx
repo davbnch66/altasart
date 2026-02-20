@@ -30,7 +30,16 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
       setPdfBase64(result.pdfBase64);
       setFileName(result.fileName);
       setClientEmail(result.clientEmail);
-      setPdfDataUri(`data:application/pdf;base64,${result.pdfBase64}`);
+      // Convert base64 to Blob URL (works on mobile unlike data: URIs)
+      const byteChars = atob(result.pdfBase64);
+      const byteNumbers = new Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) {
+        byteNumbers[i] = byteChars.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+      const blobUrl = URL.createObjectURL(blob);
+      setPdfDataUri(blobUrl);
       setStage("preview");
     } catch (err: any) {
       console.error(err);
@@ -69,6 +78,7 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
       toast.error("Erreur lors de l'envoi du rapport");
     } finally {
       setStage("idle");
+      if (pdfDataUri) URL.revokeObjectURL(pdfDataUri);
       setPdfDataUri(null);
       setPdfBase64(null);
     }
@@ -79,6 +89,7 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
     onOpenChange(val);
     if (!val) {
       setStage("idle");
+      if (pdfDataUri) URL.revokeObjectURL(pdfDataUri);
       setPdfDataUri(null);
       setPdfBase64(null);
     }
@@ -117,12 +128,23 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
           )}
 
           {(stage === "preview" || stage === "idle") && pdfDataUri && (
-            <div className="w-full h-[60vh] rounded-lg overflow-hidden border">
-              <iframe
-                src={pdfDataUri}
-                className="w-full h-full"
-                title="Aperçu rapport BT"
-              />
+            <div className="space-y-2">
+              <div className="w-full h-[55vh] rounded-lg overflow-hidden border">
+                <iframe
+                  src={pdfDataUri}
+                  className="w-full h-full"
+                  title="Aperçu rapport BT"
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs text-muted-foreground"
+                onClick={() => window.open(pdfDataUri, "_blank")}
+              >
+                <Eye className="h-3 w-3 mr-1" />
+                Ouvrir dans un nouvel onglet
+              </Button>
             </div>
           )}
         </div>
