@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Camera, X, Image as ImageIcon, Loader2, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,9 +25,9 @@ export function BTPhotoUpload({ btId, photos, onPhotosChange }: BTPhotoUploadPro
   };
 
   // Load URLs for existing photos
-  useState(() => {
+  useEffect(() => {
     photos.forEach(p => loadSignedUrl(p));
-  });
+  }, [photos.join(",")]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Send, Eye } from "lucide-react";
@@ -75,9 +75,11 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
   };
 
   // Auto-generate when opened
-  if (open && stage === "idle" && !pdfDataUri) {
-    handleGenerate();
-  }
+  useEffect(() => {
+    if (open && stage === "idle" && !pdfDataUri) {
+      handleGenerate();
+    }
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>

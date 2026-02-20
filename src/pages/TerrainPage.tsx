@@ -442,7 +442,7 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignE
   const photos: string[] = bt.photos || [];
 
   return (
-    <div className={`rounded-xl border bg-card p-3 space-y-2 ${completed ? "opacity-60" : ""}`}>
+    <div className={`rounded-xl border bg-card p-3 space-y-2`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           {completed
@@ -544,8 +544,8 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignE
 
       {/* Send report - available when completed (end signature done) */}
       {completed && onSendReport && (
-        <Button size="sm" className="w-full h-8 text-xs" onClick={onSendReport}>
-          <Eye className="h-3.5 w-3.5 mr-1" /> Rapport & Envoi
+        <Button size="sm" className="w-full h-9 text-xs" onClick={(e) => { e.stopPropagation(); onSendReport(); }}>
+          <Send className="h-3.5 w-3.5 mr-1" /> Envoyer rapport au client
         </Button>
       )}
     </div>
