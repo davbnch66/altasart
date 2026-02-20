@@ -548,7 +548,7 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSi
         </div>
       )}
 
-      {/* Signature status */}
+      {/* Signature status + action buttons */}
       {showSignature && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs">
@@ -584,7 +584,41 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSi
               </button>
             )}
           </div>
+
+          {/* Sign buttons - immediately after status for visibility */}
+          {(() => {
+            const needsOperator = !hasOperatorSig && onSignOperator;
+            const needsStart = hasOperatorSig && !hasStartSig && onSignStart;
+            const needsEnd = hasOperatorSig && hasStartSig && !hasEndSig && onSignEnd;
+            if (!needsOperator && !needsStart && !needsEnd) return null;
+            return (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {needsOperator && (
+                  <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={onSignOperator}>
+                    <HardHat className="h-3.5 w-3.5 mr-1" /> Signature opérateur
+                  </Button>
+                )}
+                {needsStart && (
+                  <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={onSignStart}>
+                    <Pen className="h-3.5 w-3.5 mr-1" /> Signer début (client)
+                  </Button>
+                )}
+                {needsEnd && (
+                  <Button size="sm" className="h-8 text-xs flex-1 bg-success hover:bg-success/90 text-success-foreground" onClick={onSignEnd}>
+                    <Pen className="h-3.5 w-3.5 mr-1" /> Signer fin (client)
+                  </Button>
+                )}
+              </div>
+            );
+          })()}
         </div>
+      )}
+
+      {/* Complete button for non-signature mode */}
+      {!completed && !showSignature && onComplete && (
+        <Button size="sm" className="w-full h-8 text-xs bg-success hover:bg-success/90 text-success-foreground" onClick={onComplete}>
+          <Check className="h-3.5 w-3.5 mr-1" /> Marquer terminé
+        </Button>
       )}
 
       {/* Commentaire chantier */}
@@ -594,39 +628,6 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSi
       {onPhotosChange && (
         <BTPhotoUpload btId={bt.id} photos={photos} onPhotosChange={onPhotosChange} />
       )}
-
-      {/* Actions - show sign buttons whenever a signature is missing */}
-      {(() => {
-        const needsOperator = showSignature && !hasOperatorSig && onSignOperator;
-        const needsStart = showSignature && hasOperatorSig && !hasStartSig && onSignStart;
-        const needsEnd = showSignature && hasOperatorSig && hasStartSig && !hasEndSig && onSignEnd;
-        const needsComplete = !completed && !showSignature && onComplete;
-        if (!needsOperator && !needsStart && !needsEnd && !needsComplete) return null;
-        return (
-          <div className="flex flex-wrap gap-2 pt-1">
-            {needsOperator && (
-              <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={onSignOperator}>
-                <HardHat className="h-3.5 w-3.5 mr-1" /> Signature opérateur
-              </Button>
-            )}
-            {needsStart && (
-              <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={onSignStart}>
-                <Pen className="h-3.5 w-3.5 mr-1" /> Signer début (client)
-              </Button>
-            )}
-            {needsEnd && (
-              <Button size="sm" className="h-8 text-xs flex-1 bg-success hover:bg-success/90 text-success-foreground" onClick={onSignEnd}>
-                <Pen className="h-3.5 w-3.5 mr-1" /> Signer fin (client)
-              </Button>
-            )}
-            {needsComplete && (
-              <Button size="sm" className="flex-1 h-8 text-xs bg-success hover:bg-success/90 text-success-foreground" onClick={onComplete}>
-                <Check className="h-3.5 w-3.5 mr-1" /> Marquer terminé
-              </Button>
-            )}
-          </div>
-        );
-      })()}
 
       {/* Send report - available when completed (end signature done) */}
       {completed && onSendReport && (
