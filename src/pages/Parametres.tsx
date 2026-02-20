@@ -100,11 +100,13 @@ function CompanyEditCard({ company, isAdmin }: { company: any; isAdmin: boolean 
 function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [selectedCompany, setSelectedCompany] = useState(adminCompanyIds[0] || "");
   const [role, setRole] = useState<string>("readonly");
   const [loading, setLoading] = useState(false);
+  const [useEmail, setUseEmail] = useState(true);
 
   const { data: adminCompanies = [] } = useQuery({
     queryKey: ["admin-companies", adminCompanyIds],
@@ -117,17 +119,21 @@ function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
   });
 
   const createAccount = async () => {
-    if (!email.trim() || !password || !selectedCompany) { toast.error("Veuillez remplir tous les champs obligatoires."); return; }
+    const hasIdentifier = useEmail ? email.trim().length > 0 : username.trim().length > 0;
+    if (!hasIdentifier || !password || !selectedCompany) { toast.error("Veuillez remplir tous les champs obligatoires."); return; }
     if (password.length < 8) { toast.error("Le mot de passe doit contenir au moins 8 caractères."); return; }
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("create-user", {
-        body: { email: email.trim().toLowerCase(), full_name: fullName.trim(), password, company_id: selectedCompany, role },
-      });
+      const body: any = { password, company_id: selectedCompany, role, full_name: fullName.trim() };
+      if (useEmail) {
+        body.email = email.trim().toLowerCase();
+      } else {
+        body.username = username.trim();
+      }
+
+      const { data, error } = await supabase.functions.invoke("create-user", { body });
 
       if (error) {
-        // error.message looks like: 'Edge function returned 400: Error, {"error":"..."}'
-        // Extract the JSON part from the message string
         let msg = "Erreur lors de la création du compte";
         const jsonMatch = error.message?.match(/\{.*\}/s);
         if (jsonMatch) {
@@ -144,9 +150,9 @@ function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
 
       if (data?.error) { toast.error(data.error); return; }
 
-      toast.success(`Compte créé pour ${email}`);
-      setEmail(""); setFullName(""); setPassword("");
-      queryClient.invalidateQueries({ queryKey: ["team-members"] });
+      toast.success(`Compte créé pour ${useEmail ? email : username}`);
+      setEmail(""); setUsername(""); setFullName(""); setPassword("");
+      queryClient.invalidateQueries({ queryKey: ["team-members-all"] });
     } catch (e: any) {
       toast.error(e.message || "Erreur lors de la création du compte");
     } finally {
@@ -156,6 +162,8 @@ function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
 
   if (adminCompanyIds.length === 0) return null;
 
+  const hasIdentifier = useEmail ? email.trim().length > 0 : username.trim().length > 0;
+
   return (
     <div className="rounded-xl border bg-card p-5 space-y-4">
       <div className="flex items-center gap-2">
@@ -163,11 +171,35 @@ function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
         <h2 className="text-sm font-semibold">Créer un compte utilisateur</h2>
         <span className="ml-auto text-[10px] text-muted-foreground border rounded-full px-2 py-0.5">Admin uniquement</span>
       </div>
+
+      {/* Toggle email vs pseudo */}
+      <div className="flex rounded-lg border bg-muted/30 p-0.5 gap-0.5 w-fit">
+        <button
+          onClick={() => setUseEmail(true)}
+          className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${useEmail ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+        >
+          Avec email
+        </button>
+        <button
+          onClick={() => setUseEmail(false)}
+          className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${!useEmail ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+        >
+          Avec pseudo
+        </button>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label className="text-xs">Email <span className="text-destructive">*</span></Label>
-          <Input value={email} onChange={(e) => setEmail(e.target.value)} className="text-sm" placeholder="prenom@exemple.fr" type="email" />
-        </div>
+        {useEmail ? (
+          <div className="space-y-1.5">
+            <Label className="text-xs">Email <span className="text-destructive">*</span></Label>
+            <Input value={email} onChange={(e) => setEmail(e.target.value)} className="text-sm" placeholder="prenom@exemple.fr" type="email" />
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <Label className="text-xs">Pseudo <span className="text-destructive">*</span></Label>
+            <Input value={username} onChange={(e) => setUsername(e.target.value)} className="text-sm" placeholder="jean.dupont" />
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label className="text-xs">Nom complet</Label>
           <Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="text-sm" placeholder="Jean Dupont" />
@@ -199,7 +231,7 @@ function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
           </Select>
         </div>
       </div>
-      <Button size="sm" onClick={createAccount} disabled={loading || !email.trim() || !password} className="text-xs gap-1.5">
+      <Button size="sm" onClick={createAccount} disabled={loading || !hasIdentifier || !password} className="text-xs gap-1.5">
         {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
         Créer le compte
       </Button>
@@ -290,14 +322,14 @@ const Parametres = () => {
   const updateRole = async (membershipId: string, newRole: string) => {
     const { error } = await supabase.from("company_memberships").update({ role: newRole as any }).eq("id", membershipId);
     if (error) toast.error(error.message);
-    else { toast.success("Rôle mis à jour"); queryClient.invalidateQueries({ queryKey: ["team-members"] }); }
+    else { toast.success("Rôle mis à jour"); queryClient.invalidateQueries({ queryKey: ["team-members-all"] }); }
   };
 
   const removeMember = async (membershipId: string, profileId: string) => {
     if (profileId === user?.id) { toast.error("Vous ne pouvez pas vous retirer vous-même."); return; }
     const { error } = await supabase.from("company_memberships").delete().eq("id", membershipId);
     if (error) toast.error(error.message);
-    else { toast.success("Membre retiré"); queryClient.invalidateQueries({ queryKey: ["team-members"] }); }
+    else { toast.success("Membre retiré"); queryClient.invalidateQueries({ queryKey: ["team-members-all"] }); }
   };
 
   return (
