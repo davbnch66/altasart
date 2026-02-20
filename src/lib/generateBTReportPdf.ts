@@ -214,28 +214,59 @@ export async function generateBTReportPdf(operationId: string): Promise<{ pdfBas
   y += 6;
 
   // Signatures section
-  y = checkPage(doc, y, 60, logo, company, pageW, marginL, marginR);
+  y = checkPage(doc, y, 80, logo, company, pageW, marginL, marginR);
   y = sectionTitle(doc, "SIGNATURES", y, marginL, contentW, pageW);
 
+  // Operator signature (full width)
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(brandR, brandG, brandB);
+  doc.text("Opérateur terrain", marginL, y + 4);
+
+  if (op.operator_signature_url) {
+    try {
+      const sigImg = await loadImageAsDataUrl(op.operator_signature_url);
+      if (!sigImg) {
+        doc.addImage(op.operator_signature_url, "PNG", marginL, y + 6, contentW / 2 - 5, 25);
+      } else {
+        doc.addImage(sigImg.dataUrl, "JPEG", marginL, y + 6, contentW / 2 - 5, 25);
+      }
+    } catch {
+      try { doc.addImage(op.operator_signature_url, "PNG", marginL, y + 6, contentW / 2 - 5, 25); } catch {}
+    }
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(100, 100, 100);
+    if (op.operator_signer_name) doc.text(`Opérateur : ${op.operator_signer_name}`, marginL, y + 34);
+    if (op.operator_signed_at) doc.text(format(new Date(op.operator_signed_at), "dd/MM/yyyy HH:mm"), marginL, y + 38);
+  } else {
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text("Non signé", marginL + 10, y + 18);
+  }
+
+  y += 44;
+
+  // Client signatures (start / end)
+  y = checkPage(doc, y, 50, logo, company, pageW, marginL, marginR);
   const sigW = contentW / 2 - 5;
 
   // Start signature
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(brandR, brandG, brandB);
-  doc.text("Debut de chantier", marginL, y + 4);
+  doc.text("Début de chantier (client)", marginL, y + 4);
 
   if (op.start_signature_url) {
     try {
       const sigImg = await loadImageAsDataUrl(op.start_signature_url);
       if (!sigImg) {
-        // It's a data URL already
         doc.addImage(op.start_signature_url, "PNG", marginL, y + 6, sigW, 30);
       } else {
         doc.addImage(sigImg.dataUrl, "JPEG", marginL, y + 6, sigW, 30);
       }
     } catch {
-      // Try as data URL directly
       try { doc.addImage(op.start_signature_url, "PNG", marginL, y + 6, sigW, 30); } catch {}
     }
     doc.setFont("helvetica", "normal");
@@ -247,7 +278,7 @@ export async function generateBTReportPdf(operationId: string): Promise<{ pdfBas
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
-    doc.text("Non signe", marginL + 10, y + 20);
+    doc.text("Non signé", marginL + 10, y + 20);
   }
 
   // End signature
@@ -255,7 +286,7 @@ export async function generateBTReportPdf(operationId: string): Promise<{ pdfBas
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(brandR, brandG, brandB);
-  doc.text("Fin de chantier", endX, y + 4);
+  doc.text("Fin de chantier (client)", endX, y + 4);
 
   if (op.end_signature_url) {
     try {
@@ -277,7 +308,7 @@ export async function generateBTReportPdf(operationId: string): Promise<{ pdfBas
     doc.setFont("helvetica", "italic");
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
-    doc.text("Non signe", endX + 10, y + 20);
+    doc.text("Non signé", endX + 10, y + 20);
   }
 
   y += 50;

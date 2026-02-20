@@ -45,7 +45,7 @@ const shiftDate = (dateStr: string, days: number) => {
 };
 
 type TerrainMode = "vehicle" | "person" | "admin";
-type SignatureTarget = { btId: string; type: "start" | "end" } | null;
+type SignatureTarget = { btId: string; type: "start" | "end" | "operator" } | null;
 
 export default function TerrainPage() {
   const { current, dbCompanies } = useCompany();
@@ -87,6 +87,20 @@ export default function TerrainPage() {
 
   const dateToUse = isAdmin ? selectedDate : todayStr();
 
+  // Fetch personnel resources for operator signature dropdown
+  const { data: personnelResources = [] } = useQuery({
+    queryKey: ["terrain-personnel", companyIds],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("resource_companies")
+        .select("resource_id, resources!inner(id, name, type)")
+        .in("company_id", companyIds)
+        .in("resources.type", ["employe", "equipe"]);
+      return (data || []).map((rc: any) => ({ id: rc.resources.id, name: rc.resources.name }));
+    },
+    enabled: companyIds.length > 0,
+  });
+
   // ===== DATA QUERIES =====
 
   // BTs - filtered based on mode
@@ -95,7 +109,7 @@ export default function TerrainPage() {
     queryFn: async () => {
       let query = supabase
         .from("operations")
-        .select("*, dossiers(title, code, clients(name, phone)), start_signature_url, start_signed_at, start_signer_name, end_signature_url, end_signed_at, end_signer_name")
+        .select("*, dossiers(title, code, clients(name, phone)), start_signature_url, start_signed_at, start_signer_name, end_signature_url, end_signed_at, end_signer_name, operator_signature_url, operator_signer_name, operator_signed_at")
         .in("company_id", companyIds)
         .eq("loading_date", dateToUse)
         .order("sort_order", { ascending: true });
@@ -178,10 +192,12 @@ export default function TerrainPage() {
   });
 
   const saveSignature = useMutation({
-    mutationFn: async ({ btId, type, dataUrl }: { btId: string; type: "start" | "end"; dataUrl: string }) => {
-      const updates = type === "start"
-        ? { start_signature_url: dataUrl, start_signed_at: new Date().toISOString() }
-        : { end_signature_url: dataUrl, end_signed_at: new Date().toISOString(), completed: true };
+    mutationFn: async ({ btId, type, dataUrl, signerName }: { btId: string; type: "start" | "end" | "operator"; dataUrl: string; signerName?: string }) => {
+      const updates = type === "operator"
+        ? { operator_signature_url: dataUrl, operator_signer_name: signerName || null, operator_signed_at: new Date().toISOString() }
+        : type === "start"
+          ? { start_signature_url: dataUrl, start_signed_at: new Date().toISOString(), start_signer_name: signerName || null }
+          : { end_signature_url: dataUrl, end_signed_at: new Date().toISOString(), end_signer_name: signerName || null, completed: true };
 
       const { error } = await supabase
         .from("operations")
@@ -191,14 +207,19 @@ export default function TerrainPage() {
     },
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ["terrain-bts"] });
-      toast.success(vars.type === "start" ? "Signature de début enregistrée" : "Signature de fin enregistrée — BT terminé");
+      const msgs: Record<string, string> = {
+        operator: "Signature opérateur enregistrée",
+        start: "Signature de début enregistrée",
+        end: "Signature de fin enregistrée — BT terminé",
+      };
+      toast.success(msgs[vars.type]);
       setSignatureTarget(null);
     },
   });
 
-  const handleSignatureSave = useCallback((dataUrl: string) => {
+  const handleSignatureSave = useCallback((dataUrl: string, signerName?: string) => {
     if (!signatureTarget) return;
-    saveSignature.mutate({ btId: signatureTarget.btId, type: signatureTarget.type, dataUrl });
+    saveSignature.mutate({ btId: signatureTarget.btId, type: signatureTarget.type, dataUrl, signerName });
   }, [signatureTarget, saveSignature]);
 
   const [reportBtId, setReportBtId] = useState<string | null>(null);
@@ -226,10 +247,12 @@ export default function TerrainPage() {
 
   // Signature overlay
   if (signatureTarget) {
+    const isOperator = signatureTarget.type === "operator";
     return (
       <SignaturePad
-        title={signatureTarget.type === "start" ? "Signature début de chantier" : "Signature fin de chantier"}
-        signerLabel="Nom du client"
+        title={isOperator ? "Signature opérateur" : signatureTarget.type === "start" ? "Signature début de chantier" : "Signature fin de chantier"}
+        signerLabel={isOperator ? "Nom de l'opérateur" : "Nom du client"}
+        signerOptions={isOperator ? personnelResources : undefined}
         onSave={handleSignatureSave}
         onCancel={() => setSignatureTarget(null)}
       />
@@ -305,9 +328,10 @@ export default function TerrainPage() {
                   key={bt.id}
                   bt={bt}
                   showSignature
-                  onComplete={() => completeBT.mutate(bt.id)}
-                  onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })}
-                  onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })}
+                   onComplete={() => completeBT.mutate(bt.id)}
+                   onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })}
+                   onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })}
+                   onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })}
                   onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
                   onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)}
                 />
@@ -358,6 +382,7 @@ export default function TerrainPage() {
                     bt={bt}
                     showSignature={mode === "person"}
                     onComplete={() => completeBT.mutate(bt.id)}
+                    onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })}
                     onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })}
                     onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })}
                     onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
@@ -430,14 +455,15 @@ function EmptyState({ icon: Icon, label }: { icon: React.ElementType; label: str
   );
 }
 
-function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignEnd, onNavigate, onPhotosChange, onSendReport }: {
+function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSignStart, onSignEnd, onNavigate, onPhotosChange, onSendReport }: {
   bt: any; completed?: boolean; showSignature?: boolean;
-  onComplete?: () => void; onSignStart?: () => void; onSignEnd?: () => void;
+  onComplete?: () => void; onSignOperator?: () => void; onSignStart?: () => void; onSignEnd?: () => void;
   onNavigate: () => void;
   onPhotosChange?: (photos: string[]) => void;
   onSendReport?: () => void;
 }) {
   const client = bt.dossiers?.clients;
+  const hasOperatorSig = !!bt.operator_signature_url;
   const hasStartSig = !!bt.start_signature_url;
   const hasEndSig = !!bt.end_signature_url;
   const photos: string[] = bt.photos || [];
@@ -505,7 +531,11 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignE
 
       {/* Signature status */}
       {showSignature && (
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex items-center gap-2 text-xs flex-wrap">
+          <span className={`flex items-center gap-1 ${hasOperatorSig ? "text-success" : "text-muted-foreground"}`}>
+            <HardHat className="h-3 w-3" />
+            Opérateur : {hasOperatorSig ? `✓ ${bt.operator_signer_name || "Signé"}` : "En attente"}
+          </span>
           <span className={`flex items-center gap-1 ${hasStartSig ? "text-success" : "text-muted-foreground"}`}>
             <Pen className="h-3 w-3" />
             Début : {hasStartSig ? "✓ Signé" : "En attente"}
@@ -528,14 +558,19 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignE
       {/* Actions */}
       {!completed && (
         <div className="flex flex-wrap gap-2 pt-1">
-          {showSignature && !hasStartSig && onSignStart && (
-            <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={onSignStart}>
-              <Pen className="h-3.5 w-3.5 mr-1" /> Signer début
+          {showSignature && !hasOperatorSig && onSignOperator && (
+            <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={onSignOperator}>
+              <HardHat className="h-3.5 w-3.5 mr-1" /> Signature opérateur
             </Button>
           )}
-          {showSignature && hasStartSig && !hasEndSig && onSignEnd && (
+          {showSignature && hasOperatorSig && !hasStartSig && onSignStart && (
+            <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={onSignStart}>
+              <Pen className="h-3.5 w-3.5 mr-1" /> Signer début (client)
+            </Button>
+          )}
+          {showSignature && hasOperatorSig && hasStartSig && !hasEndSig && onSignEnd && (
             <Button size="sm" className="h-8 text-xs flex-1 bg-success hover:bg-success/90 text-success-foreground" onClick={onSignEnd}>
-              <Pen className="h-3.5 w-3.5 mr-1" /> Signer fin
+              <Pen className="h-3.5 w-3.5 mr-1" /> Signer fin (client)
             </Button>
           )}
           {!showSignature && onComplete && (
