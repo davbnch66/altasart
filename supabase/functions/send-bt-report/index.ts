@@ -71,7 +71,10 @@ serve(async (req) => {
       );
     }
 
-    const downloadUrl = signedData.signedUrl;
+    // signedUrl may be relative — ensure it's a full URL
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const rawUrl = signedData.signedUrl;
+    const downloadUrl = rawUrl.startsWith("http") ? rawUrl : `${supabaseUrl}/storage/v1${rawUrl}`;
 
     // Fetch operation details for email body
     const { data: op } = await serviceSupabase
