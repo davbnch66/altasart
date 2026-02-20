@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Camera, X, Image as ImageIcon, Loader2 } from "lucide-react";
+import { Camera, X, Image as ImageIcon, Loader2, ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -13,7 +13,8 @@ interface BTPhotoUploadProps {
 export function BTPhotoUpload({ btId, photos, onPhotosChange }: BTPhotoUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
 
   const loadSignedUrl = async (path: string) => {
     if (photoUrls[path]) return;
@@ -47,7 +48,6 @@ export function BTPhotoUpload({ btId, photos, onPhotosChange }: BTPhotoUploadPro
         if (error) throw error;
         newPaths.push(path);
 
-        // Get signed URL for preview
         const { data: urlData } = await supabase.storage.from("operation-photos").createSignedUrl(path, 3600);
         if (urlData?.signedUrl) {
           setPhotoUrls(prev => ({ ...prev, [path]: urlData.signedUrl }));
@@ -68,7 +68,8 @@ export function BTPhotoUpload({ btId, photos, onPhotosChange }: BTPhotoUploadPro
       toast.error("Erreur lors de l'upload");
     } finally {
       setUploading(false);
-      if (inputRef.current) inputRef.current.value = "";
+      if (cameraRef.current) cameraRef.current.value = "";
+      if (galleryRef.current) galleryRef.current.value = "";
     }
   };
 
@@ -96,11 +97,21 @@ export function BTPhotoUpload({ btId, photos, onPhotosChange }: BTPhotoUploadPro
           size="sm"
           variant="outline"
           className="h-8 text-xs"
-          onClick={() => inputRef.current?.click()}
+          onClick={() => cameraRef.current?.click()}
           disabled={uploading}
         >
           {uploading ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Camera className="h-3.5 w-3.5 mr-1" />}
-          {uploading ? "Upload..." : "Ajouter photos"}
+          Prendre photo
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs"
+          onClick={() => galleryRef.current?.click()}
+          disabled={uploading}
+        >
+          <ImagePlus className="h-3.5 w-3.5 mr-1" />
+          Galerie
         </Button>
         {photos.length > 0 && (
           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
@@ -109,12 +120,22 @@ export function BTPhotoUpload({ btId, photos, onPhotosChange }: BTPhotoUploadPro
         )}
       </div>
 
+      {/* Camera input - uses capture to open camera directly */}
       <input
-        ref={inputRef}
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleUpload}
+      />
+
+      {/* Gallery input - no capture attribute so it opens file picker / gallery */}
+      <input
+        ref={galleryRef}
         type="file"
         accept="image/*"
         multiple
-        capture="environment"
         className="hidden"
         onChange={handleUpload}
       />

@@ -8,7 +8,7 @@ import { useMyRole } from "@/hooks/useMyRole";
 import { useNavigate } from "react-router-dom";
 import {
   HardHat, CalendarDays, ClipboardCheck, CheckCircle2, Circle,
-  MapPin, Clock, ChevronRight, Phone, FileText, Send,
+  MapPin, Clock, ChevronRight, Phone, FileText, Send, Eye,
   Package, AlertTriangle, Check, ChevronLeft, Pen, Truck, Loader2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { SignaturePad } from "@/components/terrain/SignaturePad";
 import { BTPhotoUpload } from "@/components/terrain/BTPhotoUpload";
-import { generateBTReportPdf } from "@/lib/generateBTReportPdf";
+import { BTReportPreviewDialog } from "@/components/terrain/BTReportPreviewDialog";
 
 const todayStr = () => {
   const d = new Date();
@@ -200,37 +200,13 @@ export default function TerrainPage() {
     saveSignature.mutate({ btId: signatureTarget.btId, type: signatureTarget.type, dataUrl });
   }, [signatureTarget, saveSignature]);
 
-  const [sendingReport, setSendingReport] = useState<string | null>(null);
+  const [reportBtId, setReportBtId] = useState<string | null>(null);
 
   const handlePhotosChange = useCallback((btId: string, photos: string[]) => {
     queryClient.setQueryData(["terrain-bts", companyIds, dateToUse, userId, mode], (old: any[]) =>
       old?.map((bt: any) => bt.id === btId ? { ...bt, photos } : bt) || []
     );
   }, [queryClient, companyIds, dateToUse, userId, mode]);
-
-  const handleSendReport = useCallback(async (btId: string) => {
-    setSendingReport(btId);
-    try {
-      const { pdfBase64, fileName, clientEmail } = await generateBTReportPdf(btId);
-      if (!clientEmail) {
-        toast.error("Aucun email client trouvé pour ce dossier");
-        return;
-      }
-
-      const { data: companyData } = await supabase.from("companies").select("name").in("id", companyIds).limit(1).single();
-
-      const { error } = await supabase.functions.invoke("send-bt-report", {
-        body: { to: clientEmail, pdfBase64, fileName, operationId: btId, companyName: companyData?.name || "" },
-      });
-      if (error) throw error;
-      toast.success(`Rapport envoyé à ${clientEmail}`);
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Erreur lors de l'envoi du rapport");
-    } finally {
-      setSendingReport(null);
-    }
-  }, [companyIds]);
 
   const uncompletedBTs = bts.filter((bt: any) => !bt.completed);
   const completedBTs = bts.filter((bt: any) => bt.completed);
@@ -339,7 +315,7 @@ export default function TerrainPage() {
                 <>
                   <p className="text-xs text-muted-foreground font-medium pt-2">Terminés ({completedBTs.length})</p>
                   {completedBTs.map((bt: any) => (
-                    <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onSendReport={() => handleSendReport(bt.id)} sendingReport={sendingReport === bt.id} />
+                    <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onSendReport={() => setReportBtId(bt.id)} />
                   ))}
                 </>
               )}
@@ -391,7 +367,7 @@ export default function TerrainPage() {
                   <>
                     <p className="text-xs text-muted-foreground font-medium pt-1">Terminés ({completedBTs.length})</p>
                     {completedBTs.map((bt: any) => (
-                      <BTCard key={bt.id} bt={bt} completed showSignature={mode === "person"} onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onSendReport={() => handleSendReport(bt.id)} sendingReport={sendingReport === bt.id} />
+                      <BTCard key={bt.id} bt={bt} completed showSignature={mode === "person"} onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onSendReport={() => setReportBtId(bt.id)} />
                     ))}
                   </>
                 )}
@@ -428,6 +404,16 @@ export default function TerrainPage() {
           )}
         </Tabs>
       )}
+
+      {/* Report preview dialog */}
+      {reportBtId && (
+        <BTReportPreviewDialog
+          open={!!reportBtId}
+          onOpenChange={(val) => { if (!val) setReportBtId(null); }}
+          btId={reportBtId}
+          companyIds={companyIds}
+        />
+      )}
     </div>
   );
 }
@@ -443,13 +429,12 @@ function EmptyState({ icon: Icon, label }: { icon: React.ElementType; label: str
   );
 }
 
-function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignEnd, onNavigate, onPhotosChange, onSendReport, sendingReport }: {
+function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignEnd, onNavigate, onPhotosChange, onSendReport }: {
   bt: any; completed?: boolean; showSignature?: boolean;
   onComplete?: () => void; onSignStart?: () => void; onSignEnd?: () => void;
   onNavigate: () => void;
   onPhotosChange?: (photos: string[]) => void;
   onSendReport?: () => void;
-  sendingReport?: boolean;
 }) {
   const client = bt.dossiers?.clients;
   const hasStartSig = !!bt.start_signature_url;
@@ -559,9 +544,8 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignE
 
       {/* Send report - available when completed (end signature done) */}
       {completed && onSendReport && (
-        <Button size="sm" className="w-full h-8 text-xs" onClick={onSendReport} disabled={sendingReport}>
-          {sendingReport ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
-          {sendingReport ? "Envoi en cours..." : "Envoyer rapport au client"}
+        <Button size="sm" className="w-full h-8 text-xs" onClick={onSendReport}>
+          <Eye className="h-3.5 w-3.5 mr-1" /> Rapport & Envoi
         </Button>
       )}
     </div>
