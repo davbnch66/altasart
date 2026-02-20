@@ -58,25 +58,20 @@ serve(async (req) => {
       );
     }
 
-    // Download PDF from storage
-    const { data: fileData, error: downloadError } = await serviceSupabase.storage
+    // Generate a signed URL for the PDF (valid 7 days)
+    const { data: signedData, error: signedError } = await serviceSupabase.storage
       .from("bt-reports")
-      .download(storagePath);
+      .createSignedUrl(storagePath, 60 * 60 * 24 * 7); // 7 days
 
-    if (downloadError || !fileData) {
-      console.error("Storage download error:", downloadError);
+    if (signedError || !signedData?.signedUrl) {
+      console.error("Signed URL error:", signedError);
       return new Response(
-        JSON.stringify({ error: "Impossible de récupérer le rapport depuis le stockage" }),
+        JSON.stringify({ error: "Impossible de générer le lien de téléchargement" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Convert to base64 for Resend attachment using native Deno encoding
-    const arrayBuffer = await fileData.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    // Use built-in base64 encoding (memory efficient)
-    const { encode } = await import("https://deno.land/std@0.168.0/encoding/base64.ts");
-    const pdfBase64 = encode(bytes);
+    const downloadUrl = signedData.signedUrl;
 
     // Fetch operation details for email body
     const { data: op } = await serviceSupabase
@@ -95,8 +90,14 @@ serve(async (req) => {
     const htmlBody = `
 <div style="font-family:sans-serif;color:#333;font-size:15px;line-height:1.7;">
   <p>Bonjour ${clientName},</p>
-  <p>Veuillez trouver ci-joint le rapport de fin de chantier pour l'opération <strong>${(op as any)?.type || ""} #${(op as any)?.operation_number || ""}</strong>${dossier?.code ? ` (Dossier ${dossier.code})` : ""}.</p>
+  <p>Le rapport de fin de chantier pour l'opération <strong>${(op as any)?.type || ""} #${(op as any)?.operation_number || ""}</strong>${dossier?.code ? ` (Dossier ${dossier.code})` : ""} est prêt.</p>
   <p>Ce rapport inclut les détails de l'intervention, les signatures de début et fin de chantier ainsi que les photos réalisées sur site.</p>
+  <p style="margin:24px 0;">
+    <a href="${downloadUrl}" style="display:inline-block;padding:12px 28px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;">
+      📄 Télécharger le rapport
+    </a>
+  </p>
+  <p style="font-size:13px;color:#666;">Ce lien est valable 7 jours.</p>
   <p>Cordialement,<br><strong>${senderCompany}</strong></p>
 </div>`;
 
@@ -105,10 +106,6 @@ serve(async (req) => {
       to: [to],
       subject: finalSubject,
       html: htmlBody,
-      attachments: [{
-        filename: String(fileName || "rapport-bt.pdf").slice(0, 100),
-        content: pdfBase64,
-      }],
     };
 
     const resendResponse = await fetch("https://api.resend.com/emails", {
@@ -127,8 +124,7 @@ serve(async (req) => {
       throw new Error("Erreur lors de l'envoi de l'email");
     }
 
-    // Clean up storage file after successful send
-    await serviceSupabase.storage.from("bt-reports").remove([storagePath]);
+    // File kept in storage for 7-day download link
 
     return new Response(
       JSON.stringify({ success: true, id: resendData.id }),
