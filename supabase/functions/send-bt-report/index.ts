@@ -71,14 +71,12 @@ serve(async (req) => {
       );
     }
 
-    // Convert to base64 for Resend attachment
+    // Convert to base64 for Resend attachment using native Deno encoding
     const arrayBuffer = await fileData.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    const pdfBase64 = btoa(binary);
+    // Use built-in base64 encoding (memory efficient)
+    const { encode } = await import("https://deno.land/std@0.168.0/encoding/base64.ts");
+    const pdfBase64 = encode(bytes);
 
     // Fetch operation details for email body
     const { data: op } = await serviceSupabase
