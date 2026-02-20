@@ -1,11 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Send, Eye, Download } from "lucide-react";
+import { Loader2, Send, Download, Eye } from "lucide-react";
 import { generateBTReportPdf } from "@/lib/generateBTReportPdf";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import * as pdfjsLib from "pdfjs-dist";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.mjs",
+  import.meta.url
+).toString();
 
 interface BTReportPreviewDialogProps {
   open: boolean;
@@ -18,7 +25,7 @@ type Stage = "idle" | "generating" | "preview" | "sending";
 
 export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: BTReportPreviewDialogProps) {
   const [stage, setStage] = useState<Stage>("idle");
-  const [pdfDataUri, setPdfDataUri] = useState<string | null>(null);
+  const [pageImages, setPageImages] = useState<string[]>([]);
   const [pdfBase64, setPdfBase64] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
   const [clientEmail, setClientEmail] = useState<string | null>(null);
@@ -30,28 +37,39 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
       setPdfBase64(result.pdfBase64);
       setFileName(result.fileName);
       setClientEmail(result.clientEmail);
-      // Convert base64 to Blob URL (works on mobile unlike data: URIs)
+
+      // Render PDF pages as images using pdfjs
       const byteChars = atob(result.pdfBase64);
-      const byteNumbers = new Array(byteChars.length);
+      const byteNumbers = new Uint8Array(byteChars.length);
       for (let i = 0; i < byteChars.length; i++) {
         byteNumbers[i] = byteChars.charCodeAt(i);
       }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: "application/pdf" });
-      const blobUrl = URL.createObjectURL(blob);
-      setPdfDataUri(blobUrl);
+      const pdf = await pdfjsLib.getDocument({ data: byteNumbers }).promise;
+      const images: string[] = [];
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const scale = 2;
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d")!;
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        images.push(canvas.toDataURL("image/png"));
+      }
+      setPageImages(images);
       setStage("preview");
     } catch (err: any) {
-      console.error(err);
+      console.error("PDF generation error:", err);
       toast.error("Erreur lors de la génération du rapport");
       setStage("idle");
     }
   };
 
   const handleDownload = () => {
-    if (!pdfDataUri) return;
+    if (!pdfBase64) return;
     const link = document.createElement("a");
-    link.href = pdfDataUri;
+    link.href = `data:application/pdf;base64,${pdfBase64}`;
     link.download = fileName || "rapport-bt.pdf";
     document.body.appendChild(link);
     link.click();
@@ -78,8 +96,7 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
       toast.error("Erreur lors de l'envoi du rapport");
     } finally {
       setStage("idle");
-      if (pdfDataUri) URL.revokeObjectURL(pdfDataUri);
-      setPdfDataUri(null);
+      setPageImages([]);
       setPdfBase64(null);
     }
   };
@@ -89,14 +106,13 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
     onOpenChange(val);
     if (!val) {
       setStage("idle");
-      if (pdfDataUri) URL.revokeObjectURL(pdfDataUri);
-      setPdfDataUri(null);
+      setPageImages([]);
       setPdfBase64(null);
     }
   };
 
   useEffect(() => {
-    if (open && stage === "idle" && !pdfDataUri) {
+    if (open && stage === "idle" && pageImages.length === 0) {
       handleGenerate();
     }
   }, [open]);
@@ -111,7 +127,7 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 px-4">
+        <div className="flex-1 min-h-0 px-4 overflow-hidden">
           {stage === "generating" && (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -127,25 +143,19 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
             </div>
           )}
 
-          {(stage === "preview" || stage === "idle") && pdfDataUri && (
-            <div className="space-y-2">
-              <div className="w-full h-[55vh] rounded-lg overflow-hidden border">
-                <iframe
-                  src={pdfDataUri}
-                  className="w-full h-full"
-                  title="Aperçu rapport BT"
-                />
+          {(stage === "preview" || stage === "idle") && pageImages.length > 0 && (
+            <ScrollArea className="h-[60vh] rounded-lg border bg-muted/30">
+              <div className="space-y-2 p-2">
+                {pageImages.map((src, i) => (
+                  <img
+                    key={i}
+                    src={src}
+                    alt={`Page ${i + 1}`}
+                    className="w-full rounded shadow-sm"
+                  />
+                ))}
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-xs text-muted-foreground"
-                onClick={() => window.open(pdfDataUri, "_blank")}
-              >
-                <Eye className="h-3 w-3 mr-1" />
-                Ouvrir dans un nouvel onglet
-              </Button>
-            </div>
+            </ScrollArea>
           )}
         </div>
 
