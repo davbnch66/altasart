@@ -379,7 +379,8 @@ const Planning = () => {
                       className={`border-r last:border-r-0 p-1 space-y-0.5 min-h-[64px] cursor-pointer transition-colors ${
                         isToday(day) ? "bg-primary/5" : rowIdx % 2 === 0 ? "bg-muted/10" : ""
                       } hover:bg-muted/30`}
-                      onClick={() => openCreate(day, resource.id)}
+                      onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
+                      onTouchEnd={(e) => { e.preventDefault(); openCreate(day, resource.id); }}
                     >
                       {cellEvents.map((evt: any) => {
                         const evtColor = EVENT_BG_COLORS[resource.colorIdx];
@@ -424,7 +425,8 @@ const Planning = () => {
                   <div
                     key={day.toISOString()}
                     className={`border-r last:border-r-0 p-1 space-y-0.5 min-h-[48px] cursor-pointer hover:bg-muted/20 ${isToday(day) ? "bg-primary/5" : ""}`}
-                    onClick={() => openCreate(day)}
+                    onClick={(e) => { e.stopPropagation(); openCreate(day); }}
+                    onTouchEnd={(e) => { e.preventDefault(); openCreate(day); }}
                   >
                     {cellEvents.map((evt: any) => (
                       <div
@@ -599,7 +601,10 @@ const Planning = () => {
               className={`border-r border-b last:border-r-0 min-h-[100px] p-1.5 cursor-pointer hover:bg-muted/20 transition-colors ${
                 isToday(day) ? "bg-primary/5 ring-1 ring-inset ring-primary/30" : ""
               } ${!isCurrentMonth ? "opacity-30" : ""}`}
-              onClick={() => { setView("day"); setCurrentDate(day); }}
+              onClick={(e) => { e.stopPropagation(); setView("day"); setCurrentDate(day); }}
+              onTouchEnd={(e) => { e.preventDefault(); setView("day"); setCurrentDate(day); }}
+              role="button"
+              tabIndex={0}
             >
               <p className={`text-xs font-bold mb-1 ${isToday(day) ? "text-primary" : "text-foreground"}`}>{format(day, "d")}</p>
               {isCommercial && dayVisites.slice(0, 2).map((v: any) => (
