@@ -8,8 +8,8 @@ import { useMyRole } from "@/hooks/useMyRole";
 import { useNavigate } from "react-router-dom";
 import {
   HardHat, CalendarDays, ClipboardCheck, CheckCircle2, Circle,
-  MapPin, Clock, ChevronRight, Phone, Camera, FileText,
-  Package, AlertTriangle, Check, ChevronLeft, Pen, Truck
+  MapPin, Clock, ChevronRight, Phone, FileText, Send,
+  Package, AlertTriangle, Check, ChevronLeft, Pen, Truck, Loader2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { SignaturePad } from "@/components/terrain/SignaturePad";
+import { BTPhotoUpload } from "@/components/terrain/BTPhotoUpload";
+import { generateBTReportPdf } from "@/lib/generateBTReportPdf";
 
 const todayStr = () => {
   const d = new Date();
@@ -198,6 +200,38 @@ export default function TerrainPage() {
     saveSignature.mutate({ btId: signatureTarget.btId, type: signatureTarget.type, dataUrl });
   }, [signatureTarget, saveSignature]);
 
+  const [sendingReport, setSendingReport] = useState<string | null>(null);
+
+  const handlePhotosChange = useCallback((btId: string, photos: string[]) => {
+    queryClient.setQueryData(["terrain-bts", companyIds, dateToUse, userId, mode], (old: any[]) =>
+      old?.map((bt: any) => bt.id === btId ? { ...bt, photos } : bt) || []
+    );
+  }, [queryClient, companyIds, dateToUse, userId, mode]);
+
+  const handleSendReport = useCallback(async (btId: string) => {
+    setSendingReport(btId);
+    try {
+      const { pdfBase64, fileName, clientEmail } = await generateBTReportPdf(btId);
+      if (!clientEmail) {
+        toast.error("Aucun email client trouvé pour ce dossier");
+        return;
+      }
+
+      const { data: companyData } = await supabase.from("companies").select("name").in("id", companyIds).limit(1).single();
+
+      const { error } = await supabase.functions.invoke("send-bt-report", {
+        body: { to: clientEmail, pdfBase64, fileName, operationId: btId, companyName: companyData?.name || "" },
+      });
+      if (error) throw error;
+      toast.success(`Rapport envoyé à ${clientEmail}`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erreur lors de l'envoi du rapport");
+    } finally {
+      setSendingReport(null);
+    }
+  }, [companyIds]);
+
   const uncompletedBTs = bts.filter((bt: any) => !bt.completed);
   const completedBTs = bts.filter((bt: any) => bt.completed);
 
@@ -298,13 +332,14 @@ export default function TerrainPage() {
                   onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })}
                   onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })}
                   onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
+                  onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)}
                 />
               ))}
               {completedBTs.length > 0 && (
                 <>
                   <p className="text-xs text-muted-foreground font-medium pt-2">Terminés ({completedBTs.length})</p>
                   {completedBTs.map((bt: any) => (
-                    <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} />
+                    <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onSendReport={() => handleSendReport(bt.id)} />
                   ))}
                 </>
               )}
@@ -349,13 +384,14 @@ export default function TerrainPage() {
                     onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })}
                     onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })}
                     onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
+                    onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)}
                   />
                 ))}
                 {completedBTs.length > 0 && (
                   <>
                     <p className="text-xs text-muted-foreground font-medium pt-1">Terminés ({completedBTs.length})</p>
                     {completedBTs.map((bt: any) => (
-                      <BTCard key={bt.id} bt={bt} completed showSignature={mode === "person"} onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} />
+                      <BTCard key={bt.id} bt={bt} completed showSignature={mode === "person"} onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onSendReport={() => handleSendReport(bt.id)} />
                     ))}
                   </>
                 )}
@@ -407,14 +443,17 @@ function EmptyState({ icon: Icon, label }: { icon: React.ElementType; label: str
   );
 }
 
-function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignEnd, onNavigate }: {
+function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignEnd, onNavigate, onPhotosChange, onSendReport }: {
   bt: any; completed?: boolean; showSignature?: boolean;
   onComplete?: () => void; onSignStart?: () => void; onSignEnd?: () => void;
   onNavigate: () => void;
+  onPhotosChange?: (photos: string[]) => void;
+  onSendReport?: () => void;
 }) {
   const client = bt.dossiers?.clients;
   const hasStartSig = !!bt.start_signature_url;
   const hasEndSig = !!bt.end_signature_url;
+  const photos: string[] = bt.photos || [];
 
   return (
     <div className={`rounded-xl border bg-card p-3 space-y-2 ${completed ? "opacity-60" : ""}`}>
@@ -491,6 +530,11 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignE
         </div>
       )}
 
+      {/* Photos - always available, even after completion */}
+      {onPhotosChange && (
+        <BTPhotoUpload btId={bt.id} photos={photos} onPhotosChange={onPhotosChange} />
+      )}
+
       {/* Actions */}
       {!completed && (
         <div className="flex flex-wrap gap-2 pt-1">
@@ -509,10 +553,14 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignE
               <Check className="h-3.5 w-3.5 mr-1" /> Marquer terminé
             </Button>
           )}
-          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onNavigate}>
-            <Camera className="h-3.5 w-3.5 mr-1" /> Photos
-          </Button>
         </div>
+      )}
+
+      {/* Send report - available when completed (end signature done) */}
+      {completed && onSendReport && (
+        <Button size="sm" className="w-full h-8 text-xs" onClick={onSendReport}>
+          <Send className="h-3.5 w-3.5 mr-1" /> Envoyer rapport au client
+        </Button>
       )}
     </div>
   );

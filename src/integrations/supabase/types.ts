@@ -1333,6 +1333,7 @@ export type Database = {
           lv_bt_number: string | null
           notes: string | null
           operation_number: number
+          photos: string[] | null
           sort_order: number
           start_signature_url: string | null
           start_signed_at: string | null
@@ -1360,6 +1361,7 @@ export type Database = {
           lv_bt_number?: string | null
           notes?: string | null
           operation_number?: number
+          photos?: string[] | null
           sort_order?: number
           start_signature_url?: string | null
           start_signed_at?: string | null
@@ -1387,6 +1389,7 @@ export type Database = {
           lv_bt_number?: string | null
           notes?: string | null
           operation_number?: number
+          photos?: string[] | null
           sort_order?: number
           start_signature_url?: string | null
           start_signed_at?: string | null
