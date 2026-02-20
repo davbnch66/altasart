@@ -9,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 import {
   HardHat, CalendarDays, ClipboardCheck, CheckCircle2, Circle,
   MapPin, Clock, ChevronRight, Phone, FileText, Send, Eye,
-  Package, AlertTriangle, Check, ChevronLeft, Pen, Truck, Loader2
+  Package, AlertTriangle, Check, ChevronLeft, Pen, Truck, Loader2, RotateCcw
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -222,6 +222,22 @@ export default function TerrainPage() {
     saveSignature.mutate({ btId: signatureTarget.btId, type: signatureTarget.type, dataUrl, signerName });
   }, [signatureTarget, saveSignature]);
 
+  const resetSignature = useMutation({
+    mutationFn: async ({ btId, type }: { btId: string; type: "operator" | "start" | "end" }) => {
+      const updates: Record<string, any> = type === "operator"
+        ? { operator_signature_url: null, operator_signer_name: null, operator_signed_at: null }
+        : type === "start"
+          ? { start_signature_url: null, start_signer_name: null, start_signed_at: null }
+          : { end_signature_url: null, end_signer_name: null, end_signed_at: null, completed: false };
+      const { error } = await supabase.from("operations").update(updates).eq("id", btId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["terrain-bts"] });
+      toast.success("Signature réinitialisée");
+    },
+  });
+
   const [reportBtId, setReportBtId] = useState<string | null>(null);
 
   const handlePhotosChange = useCallback((btId: string, photos: string[]) => {
@@ -332,15 +348,16 @@ export default function TerrainPage() {
                    onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })}
                    onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })}
                    onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })}
-                  onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
-                  onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)}
+                   onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
+                   onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)}
+                   onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })}
                 />
               ))}
               {completedBTs.length > 0 && (
                 <>
                   <p className="text-xs text-muted-foreground font-medium pt-2">Terminés ({completedBTs.length})</p>
                   {completedBTs.map((bt: any) => (
-                    <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onSendReport={() => setReportBtId(bt.id)} />
+                     <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })} onSendReport={() => setReportBtId(bt.id)} />
                   ))}
                 </>
               )}
@@ -387,13 +404,14 @@ export default function TerrainPage() {
                     onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })}
                     onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
                     onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)}
+                    onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })}
                   />
                 ))}
                 {completedBTs.length > 0 && (
                   <>
                     <p className="text-xs text-muted-foreground font-medium pt-1">Terminés ({completedBTs.length})</p>
                     {completedBTs.map((bt: any) => (
-                      <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onSendReport={() => setReportBtId(bt.id)} />
+                      <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })} onSendReport={() => setReportBtId(bt.id)} />
                     ))}
                   </>
                 )}
@@ -455,9 +473,10 @@ function EmptyState({ icon: Icon, label }: { icon: React.ElementType; label: str
   );
 }
 
-function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSignStart, onSignEnd, onNavigate, onPhotosChange, onSendReport }: {
+function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSignStart, onSignEnd, onResetSignature, onNavigate, onPhotosChange, onSendReport }: {
   bt: any; completed?: boolean; showSignature?: boolean;
   onComplete?: () => void; onSignOperator?: () => void; onSignStart?: () => void; onSignEnd?: () => void;
+  onResetSignature?: (type: "operator" | "start" | "end") => void;
   onNavigate: () => void;
   onPhotosChange?: (photos: string[]) => void;
   onSendReport?: () => void;
@@ -531,19 +550,40 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSi
 
       {/* Signature status */}
       {showSignature && (
-        <div className="flex items-center gap-2 text-xs flex-wrap">
-          <span className={`flex items-center gap-1 ${hasOperatorSig ? "text-success" : "text-muted-foreground"}`}>
-            <HardHat className="h-3 w-3" />
-            Opérateur : {hasOperatorSig ? `✓ ${bt.operator_signer_name || "Signé"}` : "En attente"}
-          </span>
-          <span className={`flex items-center gap-1 ${hasStartSig ? "text-success" : "text-muted-foreground"}`}>
-            <Pen className="h-3 w-3" />
-            Début : {hasStartSig ? "✓ Signé" : "En attente"}
-          </span>
-          <span className={`flex items-center gap-1 ${hasEndSig ? "text-success" : "text-muted-foreground"}`}>
-            <Pen className="h-3 w-3" />
-            Fin : {hasEndSig ? "✓ Signé" : "En attente"}
-          </span>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className={`flex items-center gap-1 ${hasOperatorSig ? "text-success" : "text-muted-foreground"}`}>
+              <HardHat className="h-3 w-3" />
+              Opérateur : {hasOperatorSig ? `✓ ${bt.operator_signer_name || "Signé"}` : "En attente"}
+            </span>
+            {hasOperatorSig && onResetSignature && (
+              <button onClick={() => onResetSignature("operator")} className="text-muted-foreground hover:text-destructive p-0.5">
+                <RotateCcw className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className={`flex items-center gap-1 ${hasStartSig ? "text-success" : "text-muted-foreground"}`}>
+              <Pen className="h-3 w-3" />
+              Début : {hasStartSig ? `✓ ${bt.start_signer_name || "Signé"}` : "En attente"}
+            </span>
+            {hasStartSig && onResetSignature && (
+              <button onClick={() => onResetSignature("start")} className="text-muted-foreground hover:text-destructive p-0.5">
+                <RotateCcw className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className={`flex items-center gap-1 ${hasEndSig ? "text-success" : "text-muted-foreground"}`}>
+              <Pen className="h-3 w-3" />
+              Fin : {hasEndSig ? `✓ ${bt.end_signer_name || "Signé"}` : "En attente"}
+            </span>
+            {hasEndSig && onResetSignature && (
+              <button onClick={() => onResetSignature("end")} className="text-muted-foreground hover:text-destructive p-0.5">
+                <RotateCcw className="h-3 w-3" />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
