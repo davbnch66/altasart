@@ -357,7 +357,7 @@ export default function TerrainPage() {
                 <>
                   <p className="text-xs text-muted-foreground font-medium pt-2">Terminés ({completedBTs.length})</p>
                   {completedBTs.map((bt: any) => (
-                     <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })} onSendReport={() => setReportBtId(bt.id)} />
+                     <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })} onSendReport={() => setReportBtId(bt.id)} onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })} onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })} onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })} />
                   ))}
                 </>
               )}
@@ -411,7 +411,7 @@ export default function TerrainPage() {
                   <>
                     <p className="text-xs text-muted-foreground font-medium pt-1">Terminés ({completedBTs.length})</p>
                     {completedBTs.map((bt: any) => (
-                      <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })} onSendReport={() => setReportBtId(bt.id)} />
+                      <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })} onSendReport={() => setReportBtId(bt.id)} onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })} onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })} onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })} />
                     ))}
                   </>
                 )}
@@ -595,31 +595,38 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSi
         <BTPhotoUpload btId={bt.id} photos={photos} onPhotosChange={onPhotosChange} />
       )}
 
-      {/* Actions */}
-      {!completed && (
-        <div className="flex flex-wrap gap-2 pt-1">
-          {showSignature && !hasOperatorSig && onSignOperator && (
-            <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={onSignOperator}>
-              <HardHat className="h-3.5 w-3.5 mr-1" /> Signature opérateur
-            </Button>
-          )}
-          {showSignature && hasOperatorSig && !hasStartSig && onSignStart && (
-            <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={onSignStart}>
-              <Pen className="h-3.5 w-3.5 mr-1" /> Signer début (client)
-            </Button>
-          )}
-          {showSignature && hasOperatorSig && hasStartSig && !hasEndSig && onSignEnd && (
-            <Button size="sm" className="h-8 text-xs flex-1 bg-success hover:bg-success/90 text-success-foreground" onClick={onSignEnd}>
-              <Pen className="h-3.5 w-3.5 mr-1" /> Signer fin (client)
-            </Button>
-          )}
-          {!showSignature && onComplete && (
-            <Button size="sm" className="flex-1 h-8 text-xs bg-success hover:bg-success/90 text-success-foreground" onClick={onComplete}>
-              <Check className="h-3.5 w-3.5 mr-1" /> Marquer terminé
-            </Button>
-          )}
-        </div>
-      )}
+      {/* Actions - show sign buttons whenever a signature is missing */}
+      {(() => {
+        const needsOperator = showSignature && !hasOperatorSig && onSignOperator;
+        const needsStart = showSignature && hasOperatorSig && !hasStartSig && onSignStart;
+        const needsEnd = showSignature && hasOperatorSig && hasStartSig && !hasEndSig && onSignEnd;
+        const needsComplete = !completed && !showSignature && onComplete;
+        if (!needsOperator && !needsStart && !needsEnd && !needsComplete) return null;
+        return (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {needsOperator && (
+              <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={onSignOperator}>
+                <HardHat className="h-3.5 w-3.5 mr-1" /> Signature opérateur
+              </Button>
+            )}
+            {needsStart && (
+              <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={onSignStart}>
+                <Pen className="h-3.5 w-3.5 mr-1" /> Signer début (client)
+              </Button>
+            )}
+            {needsEnd && (
+              <Button size="sm" className="h-8 text-xs flex-1 bg-success hover:bg-success/90 text-success-foreground" onClick={onSignEnd}>
+                <Pen className="h-3.5 w-3.5 mr-1" /> Signer fin (client)
+              </Button>
+            )}
+            {needsComplete && (
+              <Button size="sm" className="flex-1 h-8 text-xs bg-success hover:bg-success/90 text-success-foreground" onClick={onComplete}>
+                <Check className="h-3.5 w-3.5 mr-1" /> Marquer terminé
+              </Button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Send report - available when completed (end signature done) */}
       {completed && onSendReport && (
