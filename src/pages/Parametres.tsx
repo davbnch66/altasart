@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield } from "lucide-react";
+import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield, ChevronDown, ChevronUp } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -300,10 +300,23 @@ const Parametres = () => {
     },
   });
 
-  // Filter client-side by selected company
-  const teamMembers = current === "global"
-    ? allTeamMembers
-    : allTeamMembers.filter((m: any) => m.company_id === current);
+  // Group memberships by profile_id into one entry per person
+  const groupedMembers = (() => {
+    const filtered = current === "global"
+      ? allTeamMembers
+      : allTeamMembers.filter((m: any) => m.company_id === current);
+    const map = new Map<string, { profile: any; profileId: string; memberships: any[] }>();
+    filtered.forEach((m: any) => {
+      const pid = m.profile_id;
+      if (!map.has(pid)) {
+        map.set(pid, { profile: m.profiles, profileId: pid, memberships: [] });
+      }
+      map.get(pid)!.memberships.push(m);
+    });
+    return Array.from(map.values());
+  })();
+
+  const [editingMember, setEditingMember] = useState<string | null>(null);
 
 
   const saveProfile = async () => {
@@ -418,46 +431,94 @@ const Parametres = () => {
             <div className="rounded-xl border bg-card p-5 space-y-3">
               <h2 className="text-sm font-semibold">Membres de l'équipe</h2>
               <div className="space-y-2">
-                {teamMembers.map((member: any) => {
-                  const memberProfile = member.profiles as any;
-                  const isMe = member.profile_id === user?.id;
-                  const isAdminOfThisCompany = adminCompanyIds.includes((member.companies as any)?.id);
+                {groupedMembers.map((group) => {
+                  const prof = group.profile as any;
+                  const isMe = group.profileId === user?.id;
+                  const isExpanded = editingMember === group.profileId;
+                  const canEditAny = group.memberships.some((m: any) => adminCompanyIds.includes(m.company_id)) && !isMe;
+
                   return (
-                    <div key={member.id} className="flex items-center gap-3 rounded-lg border p-3">
-                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold shrink-0">
-                        {(memberProfile?.full_name || memberProfile?.email || "?").substring(0, 2).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-sm font-medium truncate">{memberProfile?.full_name || "Sans nom"}</p>
-                          {isMe && <Badge variant="outline" className="text-[10px]">Vous</Badge>}
+                    <div key={group.profileId} className="rounded-lg border overflow-hidden">
+                      {/* Summary row */}
+                      <button
+                        onClick={() => setEditingMember(isExpanded ? null : group.profileId)}
+                        className="flex items-center gap-3 p-3 w-full text-left hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-semibold shrink-0">
+                          {(prof?.full_name || prof?.email || "?").substring(0, 2).toUpperCase()}
                         </div>
-                        <p className="text-xs text-muted-foreground truncate">{memberProfile?.email}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant="secondary" className="text-[10px]">{(member.companies as any)?.short_name}</Badge>
-                        {isAdminOfThisCompany && !isMe ? (
-                          <Select value={member.role} onValueChange={(v) => updateRole(member.id, v)}>
-                            <SelectTrigger className="h-6 text-[10px] w-28 px-2"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {ALL_ROLES.map((r) => (
-                                <SelectItem key={r} value={r} className="text-xs">{roleLabels[r]}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Badge variant="outline" className="text-[10px]">{roleLabels[member.role as AppRole] || member.role}</Badge>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-medium truncate">{prof?.full_name || "Sans nom"}</p>
+                            {isMe && <Badge variant="outline" className="text-[10px]">Vous</Badge>}
+                          </div>
+                          {prof?.email && <p className="text-xs text-muted-foreground truncate">{prof.email}</p>}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                          {group.memberships.map((m: any) => (
+                            <span key={m.id} className="inline-flex items-center gap-1">
+                              <Badge variant="secondary" className="text-[10px]">{(m.companies as any)?.short_name}</Badge>
+                              <Badge variant="outline" className="text-[10px]">{roleLabels[m.role as AppRole] || m.role}</Badge>
+                            </span>
+                          ))}
+                        </div>
+                        {canEditAny && (
+                          isExpanded
+                            ? <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                            : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
                         )}
-                        {isAdminOfThisCompany && !isMe && (
-                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10" onClick={() => removeMember(member.id, member.profile_id)}>
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                      </button>
+
+                      {/* Expanded edit panel */}
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="border-t bg-muted/30 p-3 space-y-2">
+                              {group.memberships.map((m: any) => {
+                                const companyName = (m.companies as any)?.name || (m.companies as any)?.short_name;
+                                const isAdminOfThis = adminCompanyIds.includes(m.company_id);
+                                return (
+                                  <div key={m.id} className="flex items-center gap-3 rounded-md bg-card border p-2.5">
+                                    <span className="text-xs font-medium min-w-[80px]">{companyName}</span>
+                                    {isAdminOfThis && !isMe ? (
+                                      <>
+                                        <Select value={m.role} onValueChange={(v) => updateRole(m.id, v)}>
+                                          <SelectTrigger className="h-7 text-xs flex-1 max-w-[160px]"><SelectValue /></SelectTrigger>
+                                          <SelectContent>
+                                            {ALL_ROLES.map((r) => (
+                                              <SelectItem key={r} value={r} className="text-xs">{roleLabels[r]}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+                                          onClick={(e) => { e.stopPropagation(); removeMember(m.id, m.profile_id); }}
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <Badge variant="outline" className="text-[10px]">{roleLabels[m.role as AppRole] || m.role}</Badge>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </motion.div>
                         )}
-                      </div>
+                      </AnimatePresence>
                     </div>
                   );
                 })}
-                {teamMembers.length === 0 && (
+                {groupedMembers.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-6">Aucun membre trouvé</p>
                 )}
               </div>
