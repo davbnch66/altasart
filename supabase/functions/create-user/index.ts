@@ -21,12 +21,11 @@ Deno.serve(async (req) => {
   const callerClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
   });
-  const token = authHeader.replace("Bearer ", "");
-  const { data: claimsData, error: authErr } = await callerClient.auth.getClaims(token);
-  if (authErr || !claimsData?.claims) {
+  const { data: userData, error: authErr } = await callerClient.auth.getUser();
+  if (authErr || !userData?.user) {
     return new Response(JSON.stringify({ error: "Token invalide" }), { status: 401, headers: corsHeaders });
   }
-  const callerId = claimsData.claims.sub;
+  const callerId = userData.user.id;
 
   // Parse body
   const { email, username, full_name, password, company_id, role } = await req.json();
