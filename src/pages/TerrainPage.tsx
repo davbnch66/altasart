@@ -339,7 +339,7 @@ export default function TerrainPage() {
                 <>
                   <p className="text-xs text-muted-foreground font-medium pt-2">Terminés ({completedBTs.length})</p>
                   {completedBTs.map((bt: any) => (
-                    <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onSendReport={() => handleSendReport(bt.id)} />
+                    <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onSendReport={() => handleSendReport(bt.id)} sendingReport={sendingReport === bt.id} />
                   ))}
                 </>
               )}
@@ -391,7 +391,7 @@ export default function TerrainPage() {
                   <>
                     <p className="text-xs text-muted-foreground font-medium pt-1">Terminés ({completedBTs.length})</p>
                     {completedBTs.map((bt: any) => (
-                      <BTCard key={bt.id} bt={bt} completed showSignature={mode === "person"} onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onSendReport={() => handleSendReport(bt.id)} />
+                      <BTCard key={bt.id} bt={bt} completed showSignature={mode === "person"} onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onSendReport={() => handleSendReport(bt.id)} sendingReport={sendingReport === bt.id} />
                     ))}
                   </>
                 )}
@@ -443,12 +443,13 @@ function EmptyState({ icon: Icon, label }: { icon: React.ElementType; label: str
   );
 }
 
-function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignEnd, onNavigate, onPhotosChange, onSendReport }: {
+function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignEnd, onNavigate, onPhotosChange, onSendReport, sendingReport }: {
   bt: any; completed?: boolean; showSignature?: boolean;
   onComplete?: () => void; onSignStart?: () => void; onSignEnd?: () => void;
   onNavigate: () => void;
   onPhotosChange?: (photos: string[]) => void;
   onSendReport?: () => void;
+  sendingReport?: boolean;
 }) {
   const client = bt.dossiers?.clients;
   const hasStartSig = !!bt.start_signature_url;
@@ -558,8 +559,9 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignE
 
       {/* Send report - available when completed (end signature done) */}
       {completed && onSendReport && (
-        <Button size="sm" className="w-full h-8 text-xs" onClick={onSendReport}>
-          <Send className="h-3.5 w-3.5 mr-1" /> Envoyer rapport au client
+        <Button size="sm" className="w-full h-8 text-xs" onClick={onSendReport} disabled={sendingReport}>
+          {sendingReport ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
+          {sendingReport ? "Envoi en cours..." : "Envoyer rapport au client"}
         </Button>
       )}
     </div>
