@@ -1,12 +1,14 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Send, Download, Eye } from "lucide-react";
+import { Loader2, Send, Download, Eye, ChevronDown, Mail } from "lucide-react";
 import { generateBTReportPdf } from "@/lib/generateBTReportPdf";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import * as pdfjsLib from "pdfjs-dist";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -23,12 +25,75 @@ interface BTReportPreviewDialogProps {
 
 type Stage = "idle" | "generating" | "preview" | "sending";
 
+interface ContactEmail {
+  label: string;
+  email: string;
+}
+
 export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: BTReportPreviewDialogProps) {
   const [stage, setStage] = useState<Stage>("idle");
   const [pageImages, setPageImages] = useState<string[]>([]);
   const [pdfBase64, setPdfBase64] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
-  const [clientEmail, setClientEmail] = useState<string | null>(null);
+  const [selectedEmail, setSelectedEmail] = useState("");
+  const [contactEmails, setContactEmails] = useState<ContactEmail[]>([]);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
+  // Fetch client contacts for this operation's dossier
+  const fetchContactEmails = async () => {
+    try {
+      const { data: op } = await supabase
+        .from("operations")
+        .select("dossier_id, dossiers(client_id)")
+        .eq("id", btId)
+        .maybeSingle();
+
+      const clientId = (op as any)?.dossiers?.client_id;
+      if (!clientId) return;
+
+      // Fetch client main email
+      const { data: client } = await supabase
+        .from("clients")
+        .select("name, email, contact_name")
+        .eq("id", clientId)
+        .maybeSingle();
+
+      const emails: ContactEmail[] = [];
+
+      if (client?.email) {
+        emails.push({
+          label: client.contact_name || client.name || "Client principal",
+          email: client.email,
+        });
+      }
+
+      // Fetch client contacts
+      const { data: contacts } = await supabase
+        .from("client_contacts")
+        .select("first_name, last_name, email, function_title, is_default")
+        .eq("client_id", clientId)
+        .order("is_default", { ascending: false })
+        .order("sort_order", { ascending: true });
+
+      if (contacts) {
+        for (const c of contacts) {
+          if (c.email && !emails.some((e) => e.email === c.email)) {
+            const name = [c.first_name, c.last_name].filter(Boolean).join(" ");
+            const label = c.function_title ? `${name} (${c.function_title})` : name;
+            emails.push({ label, email: c.email });
+          }
+        }
+      }
+
+      setContactEmails(emails);
+      // Auto-select the first contact (default or main)
+      if (emails.length > 0 && !selectedEmail) {
+        setSelectedEmail(emails[0].email);
+      }
+    } catch (err) {
+      console.error("Error fetching contacts:", err);
+    }
+  };
 
   const handleGenerate = async () => {
     setStage("generating");
@@ -36,9 +101,13 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
       const result = await generateBTReportPdf(btId);
       setPdfBase64(result.pdfBase64);
       setFileName(result.fileName);
-      setClientEmail(result.clientEmail);
 
-      // Render PDF pages as images using pdfjs
+      // Set default email from PDF generation if none selected
+      if (!selectedEmail && result.clientEmail) {
+        setSelectedEmail(result.clientEmail);
+      }
+
+      // Render PDF pages as images
       const byteChars = atob(result.pdfBase64);
       const byteNumbers = new Uint8Array(byteChars.length);
       for (let i = 0; i < byteChars.length; i++) {
@@ -77,14 +146,20 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
     toast.success("Rapport téléchargé");
   };
 
+  const isValidEmail = (email: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 320;
+
   const handleSend = async () => {
-    if (!pdfBase64 || !clientEmail) {
-      toast.error("Aucun email client trouvé pour ce dossier");
+    if (!pdfBase64 || !selectedEmail) {
+      toast.error("Veuillez saisir un email destinataire");
+      return;
+    }
+    if (!isValidEmail(selectedEmail)) {
+      toast.error("Adresse email invalide");
       return;
     }
     setStage("sending");
     try {
-      // Convert base64 to binary and upload to storage
       const byteChars = atob(pdfBase64);
       const byteNumbers = new Uint8Array(byteChars.length);
       for (let i = 0; i < byteChars.length; i++) {
@@ -98,10 +173,10 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
 
       const { data: companyData } = await supabase.from("companies").select("name").in("id", companyIds).limit(1).single();
       const { error } = await supabase.functions.invoke("send-bt-report", {
-        body: { to: clientEmail, storagePath, fileName, operationId: btId, companyName: companyData?.name || "" },
+        body: { to: selectedEmail, storagePath, fileName, operationId: btId, companyName: companyData?.name || "" },
       });
       if (error) throw error;
-      toast.success(`Rapport envoyé à ${clientEmail}`);
+      toast.success(`Rapport envoyé à ${selectedEmail}`);
       onOpenChange(false);
     } catch (err: any) {
       console.error(err);
@@ -120,12 +195,15 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
       setStage("idle");
       setPageImages([]);
       setPdfBase64(null);
+      setSelectedEmail("");
+      setContactEmails([]);
     }
   };
 
   useEffect(() => {
     if (open && stage === "idle" && pageImages.length === 0) {
       handleGenerate();
+      fetchContactEmails();
     }
   }, [open]);
 
@@ -156,18 +234,65 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
           )}
 
           {(stage === "preview" || stage === "idle") && pageImages.length > 0 && (
-            <ScrollArea className="h-[60vh] rounded-lg border bg-muted/30">
-              <div className="space-y-2 p-2">
-                {pageImages.map((src, i) => (
-                  <img
-                    key={i}
-                    src={src}
-                    alt={`Page ${i + 1}`}
-                    className="w-full rounded shadow-sm"
+            <>
+              <ScrollArea className="h-[50vh] rounded-lg border bg-muted/30">
+                <div className="space-y-2 p-2">
+                  {pageImages.map((src, i) => (
+                    <img
+                      key={i}
+                      src={src}
+                      alt={`Page ${i + 1}`}
+                      className="w-full rounded shadow-sm"
+                    />
+                  ))}
+                </div>
+              </ScrollArea>
+
+              {/* Email selector */}
+              <div className="mt-3 space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  Envoyer à
+                </label>
+                <div className="flex gap-1.5">
+                  <Input
+                    type="email"
+                    placeholder="email@exemple.com"
+                    value={selectedEmail}
+                    onChange={(e) => setSelectedEmail(e.target.value)}
+                    className="flex-1 h-9 text-sm"
                   />
-                ))}
+                  {contactEmails.length > 0 && (
+                    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-9 px-2">
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72 p-1" align="end">
+                        <div className="space-y-0.5">
+                          {contactEmails.map((c) => (
+                            <button
+                              key={c.email}
+                              className={`w-full text-left px-3 py-2 rounded-md text-sm hover:bg-accent transition-colors ${
+                                selectedEmail === c.email ? "bg-accent font-medium" : ""
+                              }`}
+                              onClick={() => {
+                                setSelectedEmail(c.email);
+                                setPopoverOpen(false);
+                              }}
+                            >
+                              <div className="font-medium text-xs">{c.label}</div>
+                              <div className="text-xs text-muted-foreground">{c.email}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </div>
               </div>
-            </ScrollArea>
+            </>
           )}
         </div>
 
@@ -185,10 +310,10 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
                 size="sm"
                 className="flex-1"
                 onClick={handleSend}
-                disabled={!clientEmail}
+                disabled={!selectedEmail || !isValidEmail(selectedEmail)}
               >
                 <Send className="h-3.5 w-3.5 mr-1" />
-                Envoyer à {clientEmail || "—"}
+                Envoyer
               </Button>
             </>
           )}
