@@ -294,7 +294,7 @@ const Parametres = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("company_memberships")
-        .select("*, profiles(full_name, email, avatar_url), companies(id, short_name, name)");
+        .select("*, profiles!company_memberships_profile_id_fkey(full_name, email, avatar_url), companies(id, short_name, name)");
       if (error) console.error("team-members error:", error);
       return data || [];
     },
