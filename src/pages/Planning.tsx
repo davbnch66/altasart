@@ -497,7 +497,8 @@ const Planning = () => {
                 return (
                   <div
                     key={day.toISOString()}
-                    className={`border-r last:border-r-0 p-1.5 space-y-1 min-h-[80px] ${isToday(day) ? "bg-primary/5" : ""}`}
+                    className={`border-r last:border-r-0 p-1.5 space-y-1 min-h-[80px] cursor-pointer hover:bg-muted/20 transition-colors ${isToday(day) ? "bg-primary/5" : ""}`}
+                    onClick={() => { setView("day"); setCurrentDate(day); }}
                   >
                     {dayVisites.map((v: any) => (
                       <div
