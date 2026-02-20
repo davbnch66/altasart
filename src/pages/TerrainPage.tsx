@@ -36,46 +36,65 @@ export default function TerrainPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const today = todayStr();
+  const userId = user?.id;
 
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
     : [current];
 
-  // BT du jour (opérations avec loading_date = today)
+  // Fetch resource_id linked to current user profile
+  const { data: myResource } = useQuery({
+    queryKey: ["my-resource", userId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("resources")
+        .select("id")
+        .eq("linked_profile_id", userId!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!userId,
+  });
+
+  const myResourceId = myResource?.id;
+
+  // BT du jour (opérations assignées à l'utilisateur connecté)
   const { data: bts = [], isLoading: btLoading } = useQuery({
-    queryKey: ["terrain-bts", companyIds, today],
+    queryKey: ["terrain-bts", companyIds, today, userId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("operations")
         .select("*, dossiers(title, code, clients(name, phone))")
         .in("company_id", companyIds)
         .eq("loading_date", today)
+        .eq("assigned_to", userId!)
         .order("sort_order", { ascending: true });
       if (error) throw error;
       return data || [];
     },
-    enabled: companyIds.length > 0,
+    enabled: companyIds.length > 0 && !!userId,
   });
 
-  // Visites planifiées du jour
+  // Visites planifiées du jour (assignées à l'utilisateur connecté)
   const { data: visites = [], isLoading: visiteLoading } = useQuery({
-    queryKey: ["terrain-visites", companyIds, today],
+    queryKey: ["terrain-visites", companyIds, today, userId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("visites")
         .select("*, clients(name, phone, email)")
         .in("company_id", companyIds)
         .eq("scheduled_date", today)
+        .eq("technician_id", userId!)
         .order("created_at", { ascending: true });
       if (error) throw error;
       return data || [];
     },
-    enabled: companyIds.length > 0,
+    enabled: companyIds.length > 0 && !!userId,
   });
 
-  // Planning events du jour
+  // Planning events du jour (liés à la ressource de l'utilisateur connecté)
   const { data: events = [], isLoading: eventsLoading } = useQuery({
-    queryKey: ["terrain-events", companyIds, today],
+    queryKey: ["terrain-events", companyIds, today, myResourceId],
     queryFn: async () => {
       const todayStart = `${today}T00:00:00`;
       const todayEnd = `${today}T23:59:59`;
@@ -85,11 +104,12 @@ export default function TerrainPage() {
         .in("company_id", companyIds)
         .gte("start_time", todayStart)
         .lte("start_time", todayEnd)
+        .eq("resource_id", myResourceId!)
         .order("start_time", { ascending: true });
       if (error) throw error;
       return data || [];
     },
-    enabled: companyIds.length > 0,
+    enabled: companyIds.length > 0 && !!myResourceId,
   });
 
   // Marquer BT comme complété
