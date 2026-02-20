@@ -58,23 +58,10 @@ serve(async (req) => {
       );
     }
 
-    // Generate a signed URL for the PDF (valid 7 days)
-    const { data: signedData, error: signedError } = await serviceSupabase.storage
-      .from("bt-reports")
-      .createSignedUrl(storagePath, 60 * 60 * 24 * 7); // 7 days
-
-    if (signedError || !signedData?.signedUrl) {
-      console.error("Signed URL error:", signedError);
-      return new Response(
-        JSON.stringify({ error: "Impossible de générer le lien de téléchargement" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // signedUrl may be relative — ensure it's a full URL
+    // Use public URL since bt-reports bucket is public
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const rawUrl = signedData.signedUrl;
-    const downloadUrl = rawUrl.startsWith("http") ? rawUrl : `${supabaseUrl}/storage/v1${rawUrl}`;
+    const downloadUrl = `${supabaseUrl}/storage/v1/object/public/bt-reports/${storagePath}`;
+    console.log("Download URL:", downloadUrl);
 
     // Fetch operation details for email body
     const { data: op } = await serviceSupabase
@@ -100,7 +87,7 @@ serve(async (req) => {
       📄 Télécharger le rapport
     </a>
   </p>
-  <p style="font-size:13px;color:#666;">Ce lien est valable 7 jours.</p>
+  <p style="font-size:13px;color:#666;">Cliquez sur le bouton ci-dessus pour télécharger le rapport.</p>
   <p>Cordialement,<br><strong>${senderCompany}</strong></p>
 </div>`;
 
