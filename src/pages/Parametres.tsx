@@ -152,7 +152,9 @@ function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
 
       toast.success(`Compte créé pour ${useEmail ? email : username}`);
       setEmail(""); setUsername(""); setFullName(""); setPassword("");
-      queryClient.invalidateQueries({ queryKey: ["team-members-all"] });
+      // Small delay to ensure DB propagation before refetch
+      await new Promise((r) => setTimeout(r, 500));
+      await queryClient.invalidateQueries({ queryKey: ["team-members-all"] });
     } catch (e: any) {
       toast.error(e.message || "Erreur lors de la création du compte");
     } finally {
