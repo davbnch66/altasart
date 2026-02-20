@@ -1315,6 +1315,7 @@ export type Database = {
       }
       operations: {
         Row: {
+          assigned_to: string | null
           company_id: string
           completed: boolean
           created_at: string
@@ -1335,6 +1336,7 @@ export type Database = {
           volume: number | null
         }
         Insert: {
+          assigned_to?: string | null
           company_id: string
           completed?: boolean
           created_at?: string
@@ -1355,6 +1357,7 @@ export type Database = {
           volume?: number | null
         }
         Update: {
+          assigned_to?: string | null
           company_id?: string
           completed?: boolean
           created_at?: string
@@ -1375,6 +1378,13 @@ export type Database = {
           volume?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "operations_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "operations_company_id_fkey"
             columns: ["company_id"]
@@ -1926,6 +1936,7 @@ export type Database = {
           certifications: string[] | null
           created_at: string
           id: string
+          linked_profile_id: string | null
           name: string
           notes: string | null
           permits: string[] | null
@@ -1938,6 +1949,7 @@ export type Database = {
           certifications?: string[] | null
           created_at?: string
           id?: string
+          linked_profile_id?: string | null
           name: string
           notes?: string | null
           permits?: string[] | null
@@ -1950,6 +1962,7 @@ export type Database = {
           certifications?: string[] | null
           created_at?: string
           id?: string
+          linked_profile_id?: string | null
           name?: string
           notes?: string | null
           permits?: string[] | null
@@ -1958,7 +1971,15 @@ export type Database = {
           type?: Database["public"]["Enums"]["resource_type"]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "resources_linked_profile_id_fkey"
+            columns: ["linked_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       storage_units: {
         Row: {
