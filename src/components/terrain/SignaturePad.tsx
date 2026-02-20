@@ -1,15 +1,18 @@
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Eraser, Check } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface SignaturePadProps {
-  onSave: (dataUrl: string) => void;
+  onSave: (dataUrl: string, signerName?: string) => void;
   onCancel: () => void;
   title: string;
   signerLabel?: string;
+  /** If provided, show a dropdown instead of free text input */
+  signerOptions?: { id: string; name: string }[];
 }
 
-export function SignaturePad({ onSave, onCancel, title, signerLabel }: SignaturePadProps) {
+export function SignaturePad({ onSave, onCancel, title, signerLabel, signerOptions }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [drawing, setDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
@@ -82,7 +85,7 @@ export function SignaturePad({ onSave, onCancel, title, signerLabel }: Signature
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dataUrl = canvas.toDataURL("image/png");
-    onSave(dataUrl);
+    onSave(dataUrl, signerName);
   };
 
   return (
@@ -97,13 +100,26 @@ export function SignaturePad({ onSave, onCancel, title, signerLabel }: Signature
       {signerLabel && (
         <div className="mb-3">
           <label className="text-xs font-medium text-muted-foreground mb-1 block">{signerLabel}</label>
-          <input
-            type="text"
-            value={signerName}
-            onChange={(e) => setSignerName(e.target.value)}
-            placeholder="Nom du signataire"
-            className="w-full rounded-lg border bg-card px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+          {signerOptions && signerOptions.length > 0 ? (
+            <Select value={signerName} onValueChange={setSignerName}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choisir un intervenant" />
+              </SelectTrigger>
+              <SelectContent>
+                {signerOptions.map((opt) => (
+                  <SelectItem key={opt.id} value={opt.name}>{opt.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <input
+              type="text"
+              value={signerName}
+              onChange={(e) => setSignerName(e.target.value)}
+              placeholder="Nom du signataire"
+              className="w-full rounded-lg border bg-card px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          )}
         </div>
       )}
 
