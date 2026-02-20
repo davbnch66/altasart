@@ -84,9 +84,21 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
     }
     setStage("sending");
     try {
+      // Convert base64 to binary and upload to storage
+      const byteChars = atob(pdfBase64);
+      const byteNumbers = new Uint8Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) {
+        byteNumbers[i] = byteChars.charCodeAt(i);
+      }
+      const storagePath = `reports/${btId}_${Date.now()}.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from("bt-reports")
+        .upload(storagePath, byteNumbers, { contentType: "application/pdf", upsert: true });
+      if (uploadError) throw uploadError;
+
       const { data: companyData } = await supabase.from("companies").select("name").in("id", companyIds).limit(1).single();
       const { error } = await supabase.functions.invoke("send-bt-report", {
-        body: { to: clientEmail, pdfBase64, fileName, operationId: btId, companyName: companyData?.name || "" },
+        body: { to: clientEmail, storagePath, fileName, operationId: btId, companyName: companyData?.name || "" },
       });
       if (error) throw error;
       toast.success(`Rapport envoyé à ${clientEmail}`);
