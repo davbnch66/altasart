@@ -1,20 +1,22 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useMyRole } from "@/hooks/useMyRole";
 import { useNavigate } from "react-router-dom";
 import {
   HardHat, CalendarDays, ClipboardCheck, CheckCircle2, Circle,
-  MapPin, Clock, ChevronRight, Phone, Camera, FileText, Loader2,
-  Wrench, Package, AlertTriangle, Check
+  MapPin, Clock, ChevronRight, Phone, Camera, FileText,
+  Package, AlertTriangle, Check, ChevronLeft, Pen, Truck
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { SignaturePad } from "@/components/terrain/SignaturePad";
 
 const todayStr = () => new Date().toISOString().split("T")[0];
 
@@ -30,25 +32,38 @@ const formatDate = (dateStr: string | null) => {
   });
 };
 
+const shiftDate = (dateStr: string, days: number) => {
+  const d = new Date(dateStr + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+};
+
+type TerrainMode = "vehicle" | "person" | "admin";
+type SignatureTarget = { btId: string; type: "start" | "end" } | null;
+
 export default function TerrainPage() {
   const { current, dbCompanies } = useCompany();
   const { user } = useAuth();
+  const { role } = useMyRole();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const today = todayStr();
+
+  const [selectedDate, setSelectedDate] = useState(todayStr());
+  const [signatureTarget, setSignatureTarget] = useState<SignatureTarget>(null);
+
   const userId = user?.id;
 
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
     : [current];
 
-  // Fetch resource_id linked to current user profile
+  // Determine linked resource and its type
   const { data: myResource } = useQuery({
     queryKey: ["my-resource", userId],
     queryFn: async () => {
       const { data } = await supabase
         .from("resources")
-        .select("id")
+        .select("id, type")
         .eq("linked_profile_id", userId!)
         .maybeSingle();
       return data;
@@ -56,63 +71,92 @@ export default function TerrainPage() {
     enabled: !!userId,
   });
 
-  const myResourceId = myResource?.id;
+  // Determine mode
+  const isAdmin = role === "admin" || role === "manager";
+  const mode: TerrainMode = isAdmin
+    ? "admin"
+    : myResource?.type === "vehicule"
+      ? "vehicle"
+      : "person";
 
-  // BT du jour (opérations assignées à l'utilisateur connecté)
+  const dateToUse = isAdmin ? selectedDate : todayStr();
+
+  // ===== DATA QUERIES =====
+
+  // BTs - filtered based on mode
   const { data: bts = [], isLoading: btLoading } = useQuery({
-    queryKey: ["terrain-bts", companyIds, today, userId],
+    queryKey: ["terrain-bts", companyIds, dateToUse, userId, mode],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("operations")
-        .select("*, dossiers(title, code, clients(name, phone))")
+        .select("*, dossiers(title, code, clients(name, phone)), start_signature_url, start_signed_at, start_signer_name, end_signature_url, end_signed_at, end_signer_name")
         .in("company_id", companyIds)
-        .eq("loading_date", today)
-        .eq("assigned_to", userId!)
+        .eq("loading_date", dateToUse)
         .order("sort_order", { ascending: true });
+
+      // Vehicle & person mode: only assigned to me
+      if (mode !== "admin" && userId) {
+        query = query.eq("assigned_to", userId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
     enabled: companyIds.length > 0 && !!userId,
   });
 
-  // Visites planifiées du jour (assignées à l'utilisateur connecté)
+  // Visites - only for person & admin modes
+  const showVisites = mode === "person" || mode === "admin";
   const { data: visites = [], isLoading: visiteLoading } = useQuery({
-    queryKey: ["terrain-visites", companyIds, today, userId],
+    queryKey: ["terrain-visites", companyIds, dateToUse, userId, mode],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("visites")
         .select("*, clients(name, phone, email)")
         .in("company_id", companyIds)
-        .eq("scheduled_date", today)
-        .eq("technician_id", userId!)
+        .eq("scheduled_date", dateToUse)
         .order("created_at", { ascending: true });
+
+      if (mode === "person" && userId) {
+        query = query.eq("technician_id", userId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: companyIds.length > 0 && !!userId,
+    enabled: companyIds.length > 0 && showVisites && !!userId,
   });
 
-  // Planning events du jour (liés à la ressource de l'utilisateur connecté)
+  // Events - only for person & admin modes
+  const showEvents = mode === "person" || mode === "admin";
   const { data: events = [], isLoading: eventsLoading } = useQuery({
-    queryKey: ["terrain-events", companyIds, today, myResourceId],
+    queryKey: ["terrain-events", companyIds, dateToUse, myResource?.id, mode],
     queryFn: async () => {
-      const todayStart = `${today}T00:00:00`;
-      const todayEnd = `${today}T23:59:59`;
-      const { data, error } = await supabase
+      const dayStart = `${dateToUse}T00:00:00`;
+      const dayEnd = `${dateToUse}T23:59:59`;
+      let query = supabase
         .from("planning_events")
         .select("*, dossiers(title, code)")
         .in("company_id", companyIds)
-        .gte("start_time", todayStart)
-        .lte("start_time", todayEnd)
-        .eq("resource_id", myResourceId!)
+        .gte("start_time", dayStart)
+        .lte("start_time", dayEnd)
         .order("start_time", { ascending: true });
+
+      if (mode === "person" && myResource?.id) {
+        query = query.eq("resource_id", myResource.id);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
-    enabled: companyIds.length > 0 && !!myResourceId,
+    enabled: companyIds.length > 0 && showEvents && (mode === "admin" || !!myResource?.id),
   });
 
-  // Marquer BT comme complété
+  // ===== MUTATIONS =====
+
   const completeBT = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -127,102 +171,224 @@ export default function TerrainPage() {
     },
   });
 
+  const saveSignature = useMutation({
+    mutationFn: async ({ btId, type, dataUrl }: { btId: string; type: "start" | "end"; dataUrl: string }) => {
+      const updates = type === "start"
+        ? { start_signature_url: dataUrl, start_signed_at: new Date().toISOString() }
+        : { end_signature_url: dataUrl, end_signed_at: new Date().toISOString(), completed: true };
+
+      const { error } = await supabase
+        .from("operations")
+        .update(updates)
+        .eq("id", btId);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["terrain-bts"] });
+      toast.success(vars.type === "start" ? "Signature de début enregistrée" : "Signature de fin enregistrée — BT terminé");
+      setSignatureTarget(null);
+    },
+  });
+
+  const handleSignatureSave = useCallback((dataUrl: string) => {
+    if (!signatureTarget) return;
+    saveSignature.mutate({ btId: signatureTarget.btId, type: signatureTarget.type, dataUrl });
+  }, [signatureTarget, saveSignature]);
+
   const uncompletedBTs = bts.filter((bt: any) => !bt.completed);
   const completedBTs = bts.filter((bt: any) => bt.completed);
+
+  // Mode label
+  const modeLabels: Record<TerrainMode, string> = {
+    vehicle: "Mode Véhicule",
+    person: "Mode Personnel",
+    admin: "Mode Admin",
+  };
+  const modeIcons: Record<TerrainMode, React.ReactNode> = {
+    vehicle: <Truck className="h-4 w-4 text-primary" />,
+    person: <HardHat className="h-4 w-4 text-primary" />,
+    admin: <HardHat className="h-4 w-4 text-primary" />,
+  };
+
+  // Signature overlay
+  if (signatureTarget) {
+    return (
+      <SignaturePad
+        title={signatureTarget.type === "start" ? "Signature début de chantier" : "Signature fin de chantier"}
+        signerLabel="Nom du client"
+        onSave={handleSignatureSave}
+        onCancel={() => setSignatureTarget(null)}
+      />
+    );
+  }
 
   return (
     <div className="max-w-xl mx-auto px-3 pb-24 pt-2 space-y-4">
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-0.5">
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-1">
         <div className="flex items-center gap-2">
-          <HardHat className="h-5 w-5 text-primary" />
+          {modeIcons[mode]}
           <h1 className="text-lg font-bold">Espace Terrain</h1>
+          <Badge variant="secondary" className="text-[10px] ml-auto">{modeLabels[mode]}</Badge>
         </div>
-        <p className="text-xs text-muted-foreground capitalize">{formatDate(today)}</p>
+
+        {/* Date navigation for admin */}
+        {isAdmin ? (
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(shiftDate(selectedDate, -1))}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <button
+              onClick={() => setSelectedDate(todayStr())}
+              className={`text-xs capitalize flex-1 text-center ${selectedDate === todayStr() ? "font-bold text-primary" : "text-muted-foreground"}`}
+            >
+              {formatDate(selectedDate)}
+              {selectedDate !== todayStr() && (
+                <span className="block text-[10px] text-primary">↩ Revenir à aujourd'hui</span>
+              )}
+            </button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(shiftDate(selectedDate, 1))}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground capitalize">{formatDate(dateToUse)}</p>
+        )}
       </motion.div>
 
       {/* Summary badges */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className={`grid gap-2 ${showVisites ? "grid-cols-3" : "grid-cols-1"}`}>
         <div className="rounded-xl border bg-card p-3 text-center">
           <p className="text-xl font-bold text-primary">{uncompletedBTs.length}</p>
           <p className="text-[10px] text-muted-foreground">BT restants</p>
         </div>
-        <div className="rounded-xl border bg-card p-3 text-center">
-          <p className="text-xl font-bold text-info">{visites.length}</p>
-          <p className="text-[10px] text-muted-foreground">Visites</p>
-        </div>
-        <div className="rounded-xl border bg-card p-3 text-center">
-          <p className="text-xl font-bold text-warning">{events.length}</p>
-          <p className="text-[10px] text-muted-foreground">Événements</p>
-        </div>
+        {showVisites && (
+          <div className="rounded-xl border bg-card p-3 text-center">
+            <p className="text-xl font-bold text-info">{visites.length}</p>
+            <p className="text-[10px] text-muted-foreground">Visites</p>
+          </div>
+        )}
+        {showEvents && (
+          <div className="rounded-xl border bg-card p-3 text-center">
+            <p className="text-xl font-bold text-warning">{events.length}</p>
+            <p className="text-[10px] text-muted-foreground">Événements</p>
+          </div>
+        )}
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="bt">
-        <TabsList className="w-full grid grid-cols-3">
-          <TabsTrigger value="bt" className="text-xs">
-            <Package className="h-3.5 w-3.5 mr-1" />
-            BT ({bts.length})
-          </TabsTrigger>
-          <TabsTrigger value="visites" className="text-xs">
-            <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
-            Visites ({visites.length})
-          </TabsTrigger>
-          <TabsTrigger value="planning" className="text-xs">
-            <CalendarDays className="h-3.5 w-3.5 mr-1" />
-            Planning ({events.length})
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ===== BT Tab ===== */}
-        <TabsContent value="bt" className="mt-3 space-y-2">
+      {/* Content */}
+      {mode === "vehicle" ? (
+        // VEHICLE MODE: Only BTs, no tabs
+        <div className="space-y-2">
           {btLoading ? (
             <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}</div>
           ) : bts.length === 0 ? (
-            <EmptyState icon={Package} label="Aucun BT prévu aujourd'hui" />
+            <EmptyState icon={Package} label="Aucun BT assigné aujourd'hui" />
           ) : (
             <>
               {uncompletedBTs.map((bt: any) => (
-                <BTCard key={bt.id} bt={bt} onComplete={() => completeBT.mutate(bt.id)} onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} />
+                <BTCard
+                  key={bt.id}
+                  bt={bt}
+                  showSignature
+                  onComplete={() => completeBT.mutate(bt.id)}
+                  onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })}
+                  onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })}
+                  onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
+                />
               ))}
               {completedBTs.length > 0 && (
                 <>
-                  <p className="text-xs text-muted-foreground font-medium pt-1">Terminés ({completedBTs.length})</p>
+                  <p className="text-xs text-muted-foreground font-medium pt-2">Terminés ({completedBTs.length})</p>
                   {completedBTs.map((bt: any) => (
-                    <BTCard key={bt.id} bt={bt} completed onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} />
+                    <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} />
                   ))}
                 </>
               )}
             </>
           )}
-        </TabsContent>
+        </div>
+      ) : (
+        // PERSON & ADMIN MODES: Tabs
+        <Tabs defaultValue="bt">
+          <TabsList className={`w-full grid ${showVisites && showEvents ? "grid-cols-3" : "grid-cols-2"}`}>
+            <TabsTrigger value="bt" className="text-xs">
+              <Package className="h-3.5 w-3.5 mr-1" />
+              BT ({bts.length})
+            </TabsTrigger>
+            {showVisites && (
+              <TabsTrigger value="visites" className="text-xs">
+                <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
+                Visites ({visites.length})
+              </TabsTrigger>
+            )}
+            {showEvents && (
+              <TabsTrigger value="planning" className="text-xs">
+                <CalendarDays className="h-3.5 w-3.5 mr-1" />
+                Planning ({events.length})
+              </TabsTrigger>
+            )}
+          </TabsList>
 
-        {/* ===== Visites Tab ===== */}
-        <TabsContent value="visites" className="mt-3 space-y-2">
-          {visiteLoading ? (
-            <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}</div>
-          ) : visites.length === 0 ? (
-            <EmptyState icon={ClipboardCheck} label="Aucune visite planifiée aujourd'hui" />
-          ) : (
-            visites.map((visite: any) => (
-              <VisiteCard key={visite.id} visite={visite} onNavigate={() => navigate(`/visites/${visite.id}`)} />
-            ))
-          )}
-        </TabsContent>
+          <TabsContent value="bt" className="mt-3 space-y-2">
+            {btLoading ? (
+              <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}</div>
+            ) : bts.length === 0 ? (
+              <EmptyState icon={Package} label="Aucun BT prévu" />
+            ) : (
+              <>
+                {uncompletedBTs.map((bt: any) => (
+                  <BTCard
+                    key={bt.id}
+                    bt={bt}
+                    showSignature={mode === "person"}
+                    onComplete={() => completeBT.mutate(bt.id)}
+                    onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })}
+                    onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })}
+                    onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
+                  />
+                ))}
+                {completedBTs.length > 0 && (
+                  <>
+                    <p className="text-xs text-muted-foreground font-medium pt-1">Terminés ({completedBTs.length})</p>
+                    {completedBTs.map((bt: any) => (
+                      <BTCard key={bt.id} bt={bt} completed showSignature={mode === "person"} onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} />
+                    ))}
+                  </>
+                )}
+              </>
+            )}
+          </TabsContent>
 
-        {/* ===== Planning Tab ===== */}
-        <TabsContent value="planning" className="mt-3 space-y-2">
-          {eventsLoading ? (
-            <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}</div>
-          ) : events.length === 0 ? (
-            <EmptyState icon={CalendarDays} label="Aucun événement planifié aujourd'hui" />
-          ) : (
-            events.map((event: any) => (
-              <EventCard key={event.id} event={event} />
-            ))
+          {showVisites && (
+            <TabsContent value="visites" className="mt-3 space-y-2">
+              {visiteLoading ? (
+                <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}</div>
+              ) : visites.length === 0 ? (
+                <EmptyState icon={ClipboardCheck} label="Aucune visite planifiée" />
+              ) : (
+                visites.map((visite: any) => (
+                  <VisiteCard key={visite.id} visite={visite} onNavigate={() => navigate(`/visites/${visite.id}`)} />
+                ))
+              )}
+            </TabsContent>
           )}
-        </TabsContent>
-      </Tabs>
+
+          {showEvents && (
+            <TabsContent value="planning" className="mt-3 space-y-2">
+              {eventsLoading ? (
+                <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}</div>
+              ) : events.length === 0 ? (
+                <EmptyState icon={CalendarDays} label="Aucun événement planifié" />
+              ) : (
+                events.map((event: any) => (
+                  <EventCard key={event.id} event={event} />
+                ))
+              )}
+            </TabsContent>
+          )}
+        </Tabs>
+      )}
     </div>
   );
 }
@@ -238,10 +404,15 @@ function EmptyState({ icon: Icon, label }: { icon: React.ElementType; label: str
   );
 }
 
-function BTCard({ bt, completed, onComplete, onNavigate }: {
-  bt: any; completed?: boolean; onComplete?: () => void; onNavigate: () => void;
+function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignEnd, onNavigate }: {
+  bt: any; completed?: boolean; showSignature?: boolean;
+  onComplete?: () => void; onSignStart?: () => void; onSignEnd?: () => void;
+  onNavigate: () => void;
 }) {
   const client = bt.dossiers?.clients;
+  const hasStartSig = !!bt.start_signature_url;
+  const hasEndSig = !!bt.end_signature_url;
+
   return (
     <div className={`rounded-xl border bg-card p-3 space-y-2 ${completed ? "opacity-60" : ""}`}>
       <div className="flex items-start justify-between gap-2">
@@ -303,22 +474,39 @@ function BTCard({ bt, completed, onComplete, onNavigate }: {
         </div>
       )}
 
+      {/* Signature status */}
+      {showSignature && (
+        <div className="flex items-center gap-3 text-xs">
+          <span className={`flex items-center gap-1 ${hasStartSig ? "text-success" : "text-muted-foreground"}`}>
+            <Pen className="h-3 w-3" />
+            Début : {hasStartSig ? "✓ Signé" : "En attente"}
+          </span>
+          <span className={`flex items-center gap-1 ${hasEndSig ? "text-success" : "text-muted-foreground"}`}>
+            <Pen className="h-3 w-3" />
+            Fin : {hasEndSig ? "✓ Signé" : "En attente"}
+          </span>
+        </div>
+      )}
+
       {/* Actions */}
-      {!completed && onComplete && (
-        <div className="flex gap-2 pt-1">
-          <Button
-            size="sm"
-            className="flex-1 h-8 text-xs bg-success hover:bg-success/90 text-success-foreground"
-            onClick={onComplete}
-          >
-            <Check className="h-3.5 w-3.5 mr-1" /> Marquer terminé
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 text-xs"
-            onClick={onNavigate}
-          >
+      {!completed && (
+        <div className="flex flex-wrap gap-2 pt-1">
+          {showSignature && !hasStartSig && onSignStart && (
+            <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={onSignStart}>
+              <Pen className="h-3.5 w-3.5 mr-1" /> Signer début
+            </Button>
+          )}
+          {showSignature && hasStartSig && !hasEndSig && onSignEnd && (
+            <Button size="sm" className="h-8 text-xs flex-1 bg-success hover:bg-success/90 text-success-foreground" onClick={onSignEnd}>
+              <Pen className="h-3.5 w-3.5 mr-1" /> Signer fin
+            </Button>
+          )}
+          {!showSignature && onComplete && (
+            <Button size="sm" className="flex-1 h-8 text-xs bg-success hover:bg-success/90 text-success-foreground" onClick={onComplete}>
+              <Check className="h-3.5 w-3.5 mr-1" /> Marquer terminé
+            </Button>
+          )}
+          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onNavigate}>
             <Camera className="h-3.5 w-3.5 mr-1" /> Photos
           </Button>
         </div>
