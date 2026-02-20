@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { SignaturePad } from "@/components/terrain/SignaturePad";
 import { BTPhotoUpload } from "@/components/terrain/BTPhotoUpload";
+import { BTCommentField } from "@/components/terrain/BTCommentField";
 import { BTReportPreviewDialog } from "@/components/terrain/BTReportPreviewDialog";
 
 const todayStr = () => {
@@ -515,6 +516,9 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignStart, onSignE
           </span>
         </div>
       )}
+
+      {/* Commentaire chantier */}
+      <BTCommentField btId={bt.id} initialValue={bt.notes || ""} />
 
       {/* Photos - always available, even after completion */}
       {onPhotosChange && (

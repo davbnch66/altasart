@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Send, Eye } from "lucide-react";
+import { Loader2, Send, Eye, Download } from "lucide-react";
 import { generateBTReportPdf } from "@/lib/generateBTReportPdf";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -30,7 +30,6 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
       setPdfBase64(result.pdfBase64);
       setFileName(result.fileName);
       setClientEmail(result.clientEmail);
-      // Build data URI for preview
       setPdfDataUri(`data:application/pdf;base64,${result.pdfBase64}`);
       setStage("preview");
     } catch (err: any) {
@@ -38,6 +37,17 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
       toast.error("Erreur lors de la génération du rapport");
       setStage("idle");
     }
+  };
+
+  const handleDownload = () => {
+    if (!pdfDataUri) return;
+    const link = document.createElement("a");
+    link.href = pdfDataUri;
+    link.download = fileName || "rapport-bt.pdf";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Rapport téléchargé");
   };
 
   const handleSend = async () => {
@@ -74,7 +84,6 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
     }
   };
 
-  // Auto-generate when opened
   useEffect(() => {
     if (open && stage === "idle" && !pdfDataUri) {
       handleGenerate();
@@ -123,6 +132,10 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
             <>
               <Button variant="outline" size="sm" className="flex-1" onClick={() => handleClose(false)}>
                 Annuler
+              </Button>
+              <Button variant="secondary" size="sm" onClick={handleDownload}>
+                <Download className="h-3.5 w-3.5 mr-1" />
+                Télécharger
               </Button>
               <Button
                 size="sm"
