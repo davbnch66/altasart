@@ -380,7 +380,7 @@ export default function TerrainPage() {
                   <BTCard
                     key={bt.id}
                     bt={bt}
-                    showSignature={mode === "person"}
+                    showSignature
                     onComplete={() => completeBT.mutate(bt.id)}
                     onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })}
                     onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })}
@@ -393,7 +393,7 @@ export default function TerrainPage() {
                   <>
                     <p className="text-xs text-muted-foreground font-medium pt-1">Terminés ({completedBTs.length})</p>
                     {completedBTs.map((bt: any) => (
-                      <BTCard key={bt.id} bt={bt} completed showSignature={mode === "person"} onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onSendReport={() => setReportBtId(bt.id)} />
+                      <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onSendReport={() => setReportBtId(bt.id)} />
                     ))}
                   </>
                 )}
