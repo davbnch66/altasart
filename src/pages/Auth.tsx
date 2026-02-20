@@ -58,8 +58,13 @@ const Auth = () => {
               <label className="text-sm font-medium text-foreground mb-1.5 block">Pseudo ou Email</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
+                 <input
                    type="text"
+                   inputMode="email"
+                   autoCapitalize="off"
+                   autoCorrect="off"
+                   autoComplete="username"
+                   spellCheck={false}
                    value={email}
                    onChange={(e) => setEmail(e.target.value)}
                    placeholder="PL19 ou admin@artlevage.fr"
