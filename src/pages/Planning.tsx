@@ -298,7 +298,8 @@ const Planning = () => {
             {days.map((day) => (
               <div
                 key={day.toISOString()}
-                className={`px-2 py-3 text-center border-r last:border-r-0 ${isToday(day) ? "bg-primary/10 border-b-2 border-b-primary" : "bg-muted/30"}`}
+                className={`px-2 py-3 text-center border-r last:border-r-0 cursor-pointer hover:bg-primary/15 transition-colors ${isToday(day) ? "bg-primary/10 border-b-2 border-b-primary" : "bg-muted/30"}`}
+                onClick={() => { setView("day"); setCurrentDate(day); }}
               >
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                   {format(day, "EEE", { locale: fr })}
@@ -473,7 +474,8 @@ const Planning = () => {
               {days.map((day) => (
                 <div
                   key={day.toISOString()}
-                  className={`px-2 py-3 text-center border-r last:border-r-0 ${isToday(day) ? "bg-primary/10 border-b-2 border-b-primary" : "bg-muted/30"}`}
+                  className={`px-2 py-3 text-center border-r last:border-r-0 cursor-pointer hover:bg-primary/15 transition-colors ${isToday(day) ? "bg-primary/10 border-b-2 border-b-primary" : "bg-muted/30"}`}
+                  onClick={() => { setView("day"); setCurrentDate(day); }}
                 >
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                     {format(day, "EEE", { locale: fr })}
