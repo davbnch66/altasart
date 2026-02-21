@@ -36,7 +36,7 @@ export function VehicleExpensesTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vehicle_expenses")
-        .select("*, resources(name, type)")
+        .select("*, resources!left(name, type)")
         .in("company_id", companyIds)
         .order("expense_date", { ascending: false })
         .limit(50);
