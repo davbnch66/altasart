@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { DollarSign, TrendingUp, AlertTriangle, CheckCircle2, ArrowUpRight, ArrowDownRight, Pencil, Trash2, CreditCard, Download, ChevronRight, Euro } from "lucide-react";
+import { DollarSign, TrendingUp, AlertTriangle, CheckCircle2, ArrowUpRight, ArrowDownRight, Pencil, Trash2, CreditCard, Download, ChevronRight, Euro, Fuel } from "lucide-react";
 import { generateFacturePdf } from "@/lib/generateFacturePdf";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +19,7 @@ import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { VehicleExpensesTab } from "@/components/finance/VehicleExpensesTab";
 
 function useCompanyFilter() {
   const { current, dbCompanies } = useCompany();
@@ -289,6 +290,7 @@ const Finance = () => {
         <TabsList className={isMobile ? "w-full" : ""}>
           <TabsTrigger value="factures" className="gap-2"><DollarSign className="h-4 w-4" /> Factures</TabsTrigger>
           <TabsTrigger value="reglements" className="gap-2"><CreditCard className="h-4 w-4" /> Règlements</TabsTrigger>
+          <TabsTrigger value="depenses" className="gap-2"><Fuel className="h-4 w-4" /> Véhicules</TabsTrigger>
         </TabsList>
 
         <TabsContent value="factures">
@@ -468,6 +470,10 @@ const Finance = () => {
               </table>
             </motion.div>
           )}
+        </TabsContent>
+
+        <TabsContent value="depenses">
+          <VehicleExpensesTab />
         </TabsContent>
       </Tabs>
 

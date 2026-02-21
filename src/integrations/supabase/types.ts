@@ -2087,6 +2087,88 @@ export type Database = {
           },
         ]
       }
+      vehicle_expenses: {
+        Row: {
+          ai_extracted: boolean | null
+          amount: number
+          company_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          expense_date: string
+          expense_type: string
+          id: string
+          liters: number | null
+          mileage_km: number | null
+          notes: string | null
+          photo_url: string | null
+          reference: string | null
+          resource_id: string
+          updated_at: string
+          vendor: string | null
+        }
+        Insert: {
+          ai_extracted?: boolean | null
+          amount?: number
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expense_date?: string
+          expense_type?: string
+          id?: string
+          liters?: number | null
+          mileage_km?: number | null
+          notes?: string | null
+          photo_url?: string | null
+          reference?: string | null
+          resource_id: string
+          updated_at?: string
+          vendor?: string | null
+        }
+        Update: {
+          ai_extracted?: boolean | null
+          amount?: number
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          expense_date?: string
+          expense_type?: string
+          id?: string
+          liters?: number | null
+          mileage_km?: number | null
+          notes?: string | null
+          photo_url?: string | null
+          reference?: string | null
+          resource_id?: string
+          updated_at?: string
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_expenses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_expenses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_expenses_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visite_contraintes: {
         Row: {
           authorizations: string | null
