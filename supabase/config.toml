@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.analyze-equipment-document]
 verify_jwt = false
+
+[functions.analyze-expense-photo]
+verify_jwt = false

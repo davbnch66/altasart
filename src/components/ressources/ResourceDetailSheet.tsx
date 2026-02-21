@@ -15,8 +15,9 @@ import {
   User, Wrench, Truck, AlertTriangle, CheckCircle2, Clock, Plus, Trash2,
   Shield, Heart, GraduationCap, Settings, FileText, Calendar, Phone,
   ShieldCheck, Activity, Zap, HardHat, Package, Mail, MapPin, Upload,
-  Camera, Sparkles, Eye, Download, IdCard, X, Loader2
+  Camera, Sparkles, Eye, Download, IdCard, X, Loader2, Receipt
 } from "lucide-react";
+import { VehicleExpenseDialog } from "@/components/terrain/VehicleExpenseDialog";
 import { format, differenceInDays } from "date-fns";
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -396,6 +397,11 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
             <TabsTrigger value="historique" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm whitespace-nowrap">
               <Clock className="h-4 w-4 mr-2" />Historique
             </TabsTrigger>
+            {isEquipment && (
+              <TabsTrigger value="depenses" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm whitespace-nowrap">
+                <Receipt className="h-4 w-4 mr-2" />Dépenses
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* ===== TECHNIQUE ===== */}
@@ -642,6 +648,20 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
               </div>
             )}
           </TabsContent>
+
+          {/* ===== DÉPENSES VÉHICULE ===== */}
+          {isEquipment && (
+            <TabsContent value="depenses" className="p-4 pb-8 space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="font-semibold text-sm">Dépenses véhicule</h3>
+                <VehicleExpenseDialog
+                  resourceId={resource.id}
+                  companyId={resource.companyIds?.[0] || companies[0]?.id}
+                />
+              </div>
+              <ResourceExpensesList resourceId={resource.id} companyIds={resource.companyIds || companies.map((c: any) => c.id)} />
+            </TabsContent>
+          )}
         </Tabs>
       </SheetContent>
     </Sheet>
@@ -1673,5 +1693,93 @@ function PersonnelForm({ form, onChange, onSave, onCancel, isPending }: any) {
         <Button size="sm" variant="ghost" onClick={onCancel}>Annuler</Button>
       </div>
     </div>
+  );
+}
+
+// ===== Resource Expenses List =====
+function ResourceExpensesList({ resourceId, companyIds }: { resourceId: string; companyIds: string[] }) {
+  const qc = useQueryClient();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const { data: expenses = [], isLoading } = useQuery({
+    queryKey: ["vehicle-expenses", resourceId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vehicle_expenses")
+        .select("*")
+        .eq("resource_id", resourceId)
+        .order("expense_date", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const exp = expenses.find((e: any) => e.id === id);
+      if (exp?.photo_url) await supabase.storage.from("vehicle-expenses").remove([exp.photo_url]);
+      const { error } = await supabase.from("vehicle_expenses").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Dépense supprimée");
+      qc.invalidateQueries({ queryKey: ["vehicle-expenses"] });
+      setDeleteId(null);
+    },
+  });
+
+  const EXPENSE_TYPE_LABELS: Record<string, string> = {
+    gasoil: "Gasoil", entretien: "Entretien", reparation: "Réparation",
+    peage: "Péage", lavage: "Lavage", amende: "Amende", autre: "Autre",
+  };
+
+  const fmt = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
+  const total = expenses.reduce((s: number, e: any) => s + Number(e.amount), 0);
+
+  if (isLoading) return <div className="space-y-2">{[1,2].map(i => <div key={i} className="h-16 bg-muted/30 rounded-lg animate-pulse" />)}</div>;
+  if (expenses.length === 0) return <div className="text-center py-8 text-muted-foreground text-sm"><Receipt className="h-8 w-8 mx-auto mb-2 opacity-20" />Aucune dépense</div>;
+
+  return (
+    <>
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>{expenses.length} dépense(s)</span>
+        <span className="font-semibold">Total : {fmt(total)}</span>
+      </div>
+      <div className="space-y-2">
+        {expenses.map((exp: any) => (
+          <div key={exp.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="font-medium">{EXPENSE_TYPE_LABELS[exp.expense_type] || exp.expense_type}</span>
+                <span className="font-semibold">{fmt(Number(exp.amount))}</span>
+                {exp.ai_extracted && <Sparkles className="h-3 w-3 text-primary" />}
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {format(new Date(exp.expense_date), "d MMM yyyy", { locale: undefined })}
+                {exp.vendor && ` · ${exp.vendor}`}
+                {exp.liters && ` · ${exp.liters}L`}
+                {exp.mileage_km && ` · ${exp.mileage_km.toLocaleString()} km`}
+              </div>
+              {exp.description && <p className="text-xs text-muted-foreground truncate">{exp.description}</p>}
+            </div>
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setDeleteId(exp.id)}>
+              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+            </Button>
+          </div>
+        ))}
+      </div>
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setDeleteId(null)}>
+          <div className="bg-card rounded-xl p-6 shadow-xl max-w-sm mx-4 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <p className="font-semibold">Supprimer cette dépense ?</p>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" size="sm" onClick={() => setDeleteId(null)}>Annuler</Button>
+              <Button variant="destructive" size="sm" onClick={() => deleteId && deleteMutation.mutate(deleteId)}>Supprimer</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

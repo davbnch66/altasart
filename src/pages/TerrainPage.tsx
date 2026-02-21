@@ -20,6 +20,8 @@ import { SignaturePad } from "@/components/terrain/SignaturePad";
 import { BTPhotoUpload } from "@/components/terrain/BTPhotoUpload";
 import { BTCommentField } from "@/components/terrain/BTCommentField";
 import { BTReportPreviewDialog } from "@/components/terrain/BTReportPreviewDialog";
+import { VehicleExpenseDialog } from "@/components/terrain/VehicleExpenseDialog";
+import { Receipt } from "lucide-react";
 
 const todayStr = () => {
   const d = new Date();
@@ -69,7 +71,7 @@ export default function TerrainPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("resources")
-        .select("id, type")
+        .select("id, type, resource_companies(company_id)")
         .eq("linked_profile_id", userId!)
         .maybeSingle();
       return data;
@@ -331,8 +333,21 @@ export default function TerrainPage() {
 
       {/* Content */}
       {mode === "vehicle" ? (
-        // VEHICLE MODE: Only BTs, no tabs
+        // VEHICLE MODE: BTs + Expense button
         <div className="space-y-2">
+          {/* Expense button for vehicle */}
+          {myResource?.id && (
+            <VehicleExpenseDialog
+              resourceId={myResource.id}
+              companyId={(myResource as any).resource_companies?.[0]?.company_id || companyIds[0]}
+              trigger={
+                <Button variant="outline" className="w-full gap-2 border-dashed">
+                  <Receipt className="h-4 w-4" /> Ajouter une dépense (gasoil, entretien...)
+                </Button>
+              }
+            />
+          )}
+
           {btLoading ? (
             <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}</div>
           ) : bts.length === 0 ? (
