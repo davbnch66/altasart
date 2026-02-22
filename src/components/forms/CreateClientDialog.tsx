@@ -66,6 +66,11 @@ const schema = z.object({
   payment_method: z.string().trim().max(100).optional(),
   credit_limit: z.coerce.number().min(0).optional(),
   special_conditions: z.string().trim().max(1000).optional(),
+  iban: z.string().trim().max(34).optional(),
+  bic: z.string().trim().max(11).optional(),
+  invoice_by_email: z.boolean().default(false),
+  account_number: z.string().trim().max(20).optional(),
+  accounting_collective: z.string().trim().max(20).optional(),
   advisor: z.string().trim().max(200).optional(),
   source: z.string().trim().max(200).optional(),
   commercial_notes: z.string().trim().max(2000).optional(),
@@ -89,7 +94,7 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { company_id: defaultCompanyId, client_type: "societe", status: "nouveau_lead", tags: [], country: "France", credit_limit: 0 },
+    defaultValues: { company_id: defaultCompanyId, client_type: "societe", status: "nouveau_lead", tags: [], country: "France", credit_limit: 0, invoice_by_email: false },
   });
 
   const mutation = useMutation({
@@ -118,6 +123,11 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
         payment_method: data.payment_method || null,
         credit_limit: data.credit_limit || 0,
         special_conditions: data.special_conditions || null,
+        iban: data.iban || null,
+        bic: data.bic || null,
+        invoice_by_email: data.invoice_by_email || false,
+        account_number: data.account_number || null,
+        accounting_collective: data.accounting_collective || null,
         advisor: data.advisor || null,
         source: data.source || null,
         commercial_notes: data.commercial_notes || null,
@@ -154,7 +164,7 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
   });
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { reset({ company_id: defaultCompanyId, client_type: "societe", status: "nouveau_lead", tags: [], country: "France", credit_limit: 0 }); } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { reset({ company_id: defaultCompanyId, client_type: "societe", status: "nouveau_lead", tags: [], country: "France", credit_limit: 0, invoice_by_email: false }); } }}>
       <DialogTrigger asChild>
         {trigger || (
           <Button className="flex items-center gap-2">
@@ -359,6 +369,29 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
                   <div className="col-span-2">
                     <Label htmlFor="special_conditions">Conditions particulières</Label>
                     <Textarea id="special_conditions" {...register("special_conditions")} rows={2} placeholder="Conditions spéciales, remises, etc." />
+                  </div>
+                  <div>
+                    <Label htmlFor="account_number">N° de compte</Label>
+                    <Input id="account_number" {...register("account_number")} placeholder="411000" />
+                  </div>
+                  <div>
+                    <Label htmlFor="accounting_collective">Collectif</Label>
+                    <Input id="accounting_collective" {...register("accounting_collective")} placeholder="411" />
+                  </div>
+                  <div className="col-span-2 border-t pt-3 mt-1">
+                    <Label className="text-sm font-semibold">Coordonnées bancaires</Label>
+                  </div>
+                  <div>
+                    <Label htmlFor="iban">IBAN</Label>
+                    <Input id="iban" {...register("iban")} placeholder="FR76 1234 5678 9012 3456 7890 123" />
+                  </div>
+                  <div>
+                    <Label htmlFor="bic">BIC</Label>
+                    <Input id="bic" {...register("bic")} placeholder="BNPAFRPP" />
+                  </div>
+                  <div className="col-span-2 flex items-center gap-2">
+                    <input type="checkbox" id="invoice_by_email" {...register("invoice_by_email")} className="rounded border-input" />
+                    <Label htmlFor="invoice_by_email" className="mb-0">Facture par email</Label>
                   </div>
                 </div>
               </TabsContent>

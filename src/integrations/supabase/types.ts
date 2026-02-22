@@ -223,9 +223,12 @@ export type Database = {
       }
       clients: {
         Row: {
+          account_number: string | null
+          accounting_collective: string | null
           address: string | null
           advisor: string | null
           ape_naf: string | null
+          bic: string | null
           billing_address: string | null
           city: string | null
           client_type: string
@@ -238,7 +241,9 @@ export type Database = {
           credit_limit: number | null
           email: string | null
           fax: string | null
+          iban: string | null
           id: string
+          invoice_by_email: boolean | null
           mobile: string | null
           name: string
           notes: string | null
@@ -257,9 +262,12 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          account_number?: string | null
+          accounting_collective?: string | null
           address?: string | null
           advisor?: string | null
           ape_naf?: string | null
+          bic?: string | null
           billing_address?: string | null
           city?: string | null
           client_type?: string
@@ -272,7 +280,9 @@ export type Database = {
           credit_limit?: number | null
           email?: string | null
           fax?: string | null
+          iban?: string | null
           id?: string
+          invoice_by_email?: boolean | null
           mobile?: string | null
           name: string
           notes?: string | null
@@ -291,9 +301,12 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          account_number?: string | null
+          accounting_collective?: string | null
           address?: string | null
           advisor?: string | null
           ape_naf?: string | null
+          bic?: string | null
           billing_address?: string | null
           city?: string | null
           client_type?: string
@@ -306,7 +319,9 @@ export type Database = {
           credit_limit?: number | null
           email?: string | null
           fax?: string | null
+          iban?: string | null
           id?: string
+          invoice_by_email?: boolean | null
           mobile?: string | null
           name?: string
           notes?: string | null
