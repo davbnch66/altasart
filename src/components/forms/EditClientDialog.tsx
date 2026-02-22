@@ -66,6 +66,11 @@ const schema = z.object({
   payment_method: z.string().trim().max(100).optional(),
   credit_limit: z.coerce.number().min(0).optional(),
   special_conditions: z.string().trim().max(1000).optional(),
+  iban: z.string().trim().max(34).optional(),
+  bic: z.string().trim().max(11).optional(),
+  invoice_by_email: z.boolean().default(false),
+  account_number: z.string().trim().max(20).optional(),
+  accounting_collective: z.string().trim().max(20).optional(),
   advisor: z.string().trim().max(200).optional(),
   source: z.string().trim().max(200).optional(),
   commercial_notes: z.string().trim().max(2000).optional(),
@@ -116,6 +121,11 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
         payment_method: client.payment_method || "",
         credit_limit: client.credit_limit || 0,
         special_conditions: client.special_conditions || "",
+        iban: client.iban || "",
+        bic: client.bic || "",
+        invoice_by_email: client.invoice_by_email || false,
+        account_number: client.account_number || "",
+        accounting_collective: client.accounting_collective || "",
         advisor: client.advisor || "",
         source: client.source || "",
         commercial_notes: client.commercial_notes || "",
@@ -152,6 +162,11 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
         payment_method: data.payment_method || null,
         credit_limit: data.credit_limit || 0,
         special_conditions: data.special_conditions || null,
+        iban: data.iban || null,
+        bic: data.bic || null,
+        invoice_by_email: data.invoice_by_email || false,
+        account_number: data.account_number || null,
+        accounting_collective: data.accounting_collective || null,
         advisor: data.advisor || null,
         source: data.source || null,
         commercial_notes: data.commercial_notes || null,
@@ -388,6 +403,29 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
                   <div className="col-span-2">
                     <Label htmlFor="edit-special">Conditions particulières</Label>
                     <Textarea id="edit-special" {...register("special_conditions")} rows={2} />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-account">N° de compte</Label>
+                    <Input id="edit-account" {...register("account_number")} placeholder="411000" />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-collective">Collectif</Label>
+                    <Input id="edit-collective" {...register("accounting_collective")} placeholder="411" />
+                  </div>
+                  <div className="col-span-2 border-t pt-3 mt-1">
+                    <Label className="text-sm font-semibold">Coordonnées bancaires</Label>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-iban">IBAN</Label>
+                    <Input id="edit-iban" {...register("iban")} />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-bic">BIC</Label>
+                    <Input id="edit-bic" {...register("bic")} />
+                  </div>
+                  <div className="col-span-2 flex items-center gap-2">
+                    <input type="checkbox" id="edit-invoice-email" {...register("invoice_by_email")} className="rounded border-input" />
+                    <Label htmlFor="edit-invoice-email" className="mb-0">Facture par email</Label>
                   </div>
                 </div>
               </TabsContent>
