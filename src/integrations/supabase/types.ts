@@ -1493,17 +1493,35 @@ export type Database = {
           company_id: string
           completed: boolean
           created_at: string
+          delivery_access: string | null
           delivery_address: string | null
           delivery_city: string | null
+          delivery_comments: string | null
+          delivery_date: string | null
+          delivery_elevator: boolean | null
+          delivery_floor: string | null
+          delivery_parking_request: boolean | null
+          delivery_postal_code: string | null
+          delivery_time_end: string | null
+          delivery_time_start: string | null
           dossier_id: string
           end_signature_url: string | null
           end_signed_at: string | null
           end_signer_name: string | null
           facture_id: string | null
           id: string
+          instructions: string | null
+          loading_access: string | null
           loading_address: string | null
           loading_city: string | null
+          loading_comments: string | null
           loading_date: string | null
+          loading_elevator: boolean | null
+          loading_floor: string | null
+          loading_parking_request: boolean | null
+          loading_postal_code: string | null
+          loading_time_end: string | null
+          loading_time_start: string | null
           lv_bt_number: string | null
           notes: string | null
           operation_number: number
@@ -1518,23 +1536,42 @@ export type Database = {
           type: string
           updated_at: string
           volume: number | null
+          weight: number | null
         }
         Insert: {
           assigned_to?: string | null
           company_id: string
           completed?: boolean
           created_at?: string
+          delivery_access?: string | null
           delivery_address?: string | null
           delivery_city?: string | null
+          delivery_comments?: string | null
+          delivery_date?: string | null
+          delivery_elevator?: boolean | null
+          delivery_floor?: string | null
+          delivery_parking_request?: boolean | null
+          delivery_postal_code?: string | null
+          delivery_time_end?: string | null
+          delivery_time_start?: string | null
           dossier_id: string
           end_signature_url?: string | null
           end_signed_at?: string | null
           end_signer_name?: string | null
           facture_id?: string | null
           id?: string
+          instructions?: string | null
+          loading_access?: string | null
           loading_address?: string | null
           loading_city?: string | null
+          loading_comments?: string | null
           loading_date?: string | null
+          loading_elevator?: boolean | null
+          loading_floor?: string | null
+          loading_parking_request?: boolean | null
+          loading_postal_code?: string | null
+          loading_time_end?: string | null
+          loading_time_start?: string | null
           lv_bt_number?: string | null
           notes?: string | null
           operation_number?: number
@@ -1549,23 +1586,42 @@ export type Database = {
           type?: string
           updated_at?: string
           volume?: number | null
+          weight?: number | null
         }
         Update: {
           assigned_to?: string | null
           company_id?: string
           completed?: boolean
           created_at?: string
+          delivery_access?: string | null
           delivery_address?: string | null
           delivery_city?: string | null
+          delivery_comments?: string | null
+          delivery_date?: string | null
+          delivery_elevator?: boolean | null
+          delivery_floor?: string | null
+          delivery_parking_request?: boolean | null
+          delivery_postal_code?: string | null
+          delivery_time_end?: string | null
+          delivery_time_start?: string | null
           dossier_id?: string
           end_signature_url?: string | null
           end_signed_at?: string | null
           end_signer_name?: string | null
           facture_id?: string | null
           id?: string
+          instructions?: string | null
+          loading_access?: string | null
           loading_address?: string | null
           loading_city?: string | null
+          loading_comments?: string | null
           loading_date?: string | null
+          loading_elevator?: boolean | null
+          loading_floor?: string | null
+          loading_parking_request?: boolean | null
+          loading_postal_code?: string | null
+          loading_time_end?: string | null
+          loading_time_start?: string | null
           lv_bt_number?: string | null
           notes?: string | null
           operation_number?: number
@@ -1580,6 +1636,7 @@ export type Database = {
           type?: string
           updated_at?: string
           volume?: number | null
+          weight?: number | null
         }
         Relationships: [
           {
