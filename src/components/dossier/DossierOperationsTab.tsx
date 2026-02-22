@@ -7,11 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Check, Users, X, Pencil, MessageSquare, Warehouse, MapPin, ClipboardList, FileText } from "lucide-react";
+import { Plus, Trash2, Check, Users, X, Pencil, MessageSquare, Warehouse } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -42,6 +41,10 @@ const emptyForm = () => ({
   loading_comments: "",
   loading_time_start: "",
   loading_time_end: "",
+  loading_portage: "0",
+  loading_passage_fenetre: false,
+  loading_monte_meubles: false,
+  loading_transbordement: false,
   delivery_city: "",
   delivery_address: "",
   delivery_postal_code: "",
@@ -53,6 +56,10 @@ const emptyForm = () => ({
   delivery_date: "",
   delivery_time_start: "",
   delivery_time_end: "",
+  delivery_portage: "0",
+  delivery_passage_fenetre: false,
+  delivery_monte_meubles: false,
+  delivery_transbordement: false,
   lv_bt_number: "",
   volume: "",
   weight: "",
@@ -62,7 +69,110 @@ const emptyForm = () => ({
 
 type OpForm = ReturnType<typeof emptyForm>;
 
-/* ──────────────────────────── Form content (shared between create & edit) ──────────────────────────── */
+/* ──────── Address Block (Chargement or Livraison) ──────── */
+const AddressBlock = ({
+  title, prefix, form, setForm, fillDepot,
+}: {
+  title: string;
+  prefix: "loading" | "delivery";
+  form: OpForm;
+  setForm: (f: OpForm) => void;
+  fillDepot: (p: "loading" | "delivery") => void;
+}) => {
+  const up = (k: string, v: any) => setForm({ ...form, [k]: v });
+  const f = (field: string) => (form as any)[`${prefix}_${field}`];
+
+  return (
+    <div className="rounded-lg border bg-card p-3 space-y-2.5">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-primary">{title}</h4>
+        <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2" onClick={() => fillDepot(prefix)}>
+          <Warehouse className="h-3 w-3" /> Dépôt
+        </Button>
+      </div>
+
+      {/* Date + Horaires */}
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Date</Label>
+          <Input type="date" value={f("date")} onChange={(e) => up(`${prefix}_date`, e.target.value)} className="h-7 text-xs" />
+        </div>
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Début</Label>
+          <Input type="time" value={f("time_start")} onChange={(e) => up(`${prefix}_time_start`, e.target.value)} className="h-7 text-xs" />
+        </div>
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Fin</Label>
+          <Input type="time" value={f("time_end")} onChange={(e) => up(`${prefix}_time_end`, e.target.value)} className="h-7 text-xs" />
+        </div>
+      </div>
+
+      {/* Adresse */}
+      <div>
+        <Label className="text-[10px] text-muted-foreground">Adresse</Label>
+        <Input value={f("address")} onChange={(e) => up(`${prefix}_address`, e.target.value)} className="h-7 text-xs" />
+      </div>
+
+      {/* CP + Ville */}
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <Label className="text-[10px] text-muted-foreground">CP</Label>
+          <Input value={f("postal_code")} onChange={(e) => up(`${prefix}_postal_code`, e.target.value)} className="h-7 text-xs" />
+        </div>
+        <div className="col-span-2">
+          <Label className="text-[10px] text-muted-foreground">Ville</Label>
+          <Input value={f("city")} onChange={(e) => up(`${prefix}_city`, e.target.value)} className="h-7 text-xs" />
+        </div>
+      </div>
+
+      {/* Étage + Portage */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Étage</Label>
+          <Input value={f("floor")} onChange={(e) => up(`${prefix}_floor`, e.target.value)} className="h-7 text-xs" placeholder="RDC, 3e…" />
+        </div>
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Portage</Label>
+          <Input type="number" value={f("portage")} onChange={(e) => up(`${prefix}_portage`, e.target.value)} className="h-7 text-xs" />
+        </div>
+      </div>
+
+      {/* Checkboxes */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+        {[
+          { key: "elevator", label: "Ascenseur" },
+          { key: "passage_fenetre", label: "Passage fenêtre" },
+          { key: "monte_meubles", label: "Monte-meubles" },
+          { key: "transbordement", label: "Transbordement" },
+          { key: "parking_request", label: "Stationnement" },
+        ].map(({ key, label }) => (
+          <div key={key} className="flex items-center gap-1.5">
+            <Checkbox
+              id={`${prefix}-${key}`}
+              checked={!!f(key)}
+              onCheckedChange={(v) => up(`${prefix}_${key}`, !!v)}
+            />
+            <label htmlFor={`${prefix}-${key}`} className="text-[10px]">{label}</label>
+          </div>
+        ))}
+      </div>
+
+      {/* Accès */}
+      <div>
+        <Label className="text-[10px] text-muted-foreground">Accès</Label>
+        <Input value={f("access")} onChange={(e) => up(`${prefix}_access`, e.target.value)} className="h-7 text-xs" placeholder="Digicode, portail…" />
+      </div>
+
+      {/* Observations */}
+      <div>
+        <Label className="text-[10px] text-muted-foreground">Observations</Label>
+        <Textarea value={f("comments")} onChange={(e) => up(`${prefix}_comments`, e.target.value)} className="min-h-[40px] text-xs resize-none" />
+      </div>
+    </div>
+  );
+};
+
+/* ──────── Full Operation Form (Safari GT layout) ──────── */
 const OperationFormContent = ({
   form, setForm, fillDepot, isMobile,
 }: {
@@ -74,178 +184,47 @@ const OperationFormContent = ({
   const up = (k: string, v: any) => setForm({ ...form, [k]: v });
 
   return (
-    <Tabs defaultValue="general" className="w-full">
-      <TabsList className="w-full flex-wrap h-auto gap-1 justify-start">
-        <TabsTrigger value="general" className="text-[11px] gap-1 h-7">
-          <FileText className="h-3 w-3" /> Général
-        </TabsTrigger>
-        <TabsTrigger value="loading" className="text-[11px] gap-1 h-7">
-          <MapPin className="h-3 w-3" /> Chargement
-        </TabsTrigger>
-        <TabsTrigger value="delivery" className="text-[11px] gap-1 h-7">
-          <MapPin className="h-3 w-3" /> Livraison
-        </TabsTrigger>
-        <TabsTrigger value="instructions" className="text-[11px] gap-1 h-7">
-          <ClipboardList className="h-3 w-3" /> Consignes
-        </TabsTrigger>
-      </TabsList>
-
-      {/* ── Général ── */}
-      <TabsContent value="general" className="mt-2">
-        <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-3"}`}>
-          <div>
-            <Label className="text-xs">Type</Label>
-            <select value={form.type} onChange={(e) => up("type", e.target.value)} className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm">
-              {OP_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div>
-            <Label className="text-xs">N° LV/BT</Label>
-            <Input value={form.lv_bt_number} onChange={(e) => up("lv_bt_number", e.target.value)} className="h-9 text-sm" />
-          </div>
-          <div>
-            <Label className="text-xs">Volume (m³)</Label>
-            <Input type="number" value={form.volume} onChange={(e) => up("volume", e.target.value)} className="h-9 text-sm" />
-          </div>
-          <div>
-            <Label className="text-xs">Poids (t)</Label>
-            <Input type="number" value={form.weight} onChange={(e) => up("weight", e.target.value)} className="h-9 text-sm" />
-          </div>
-        </div>
-      </TabsContent>
-
-      {/* ── Chargement ── */}
-      <TabsContent value="loading" className="mt-2 space-y-3">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm font-semibold text-primary">Chargement</Label>
-          <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => fillDepot("loading")}>
-            <Warehouse className="h-3 w-3" /> Dépôt
-          </Button>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs">Date</Label>
-            <Input type="date" value={form.loading_date} onChange={(e) => up("loading_date", e.target.value)} className="h-9 text-sm" />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">Début</Label>
-              <Input type="time" value={form.loading_time_start} onChange={(e) => up("loading_time_start", e.target.value)} className="h-9 text-sm" />
-            </div>
-            <div>
-              <Label className="text-xs">Fin</Label>
-              <Input type="time" value={form.loading_time_end} onChange={(e) => up("loading_time_end", e.target.value)} className="h-9 text-sm" />
-            </div>
-          </div>
-          <div className="col-span-2">
-            <Label className="text-xs">Adresse</Label>
-            <Input value={form.loading_address} onChange={(e) => up("loading_address", e.target.value)} className="h-9 text-sm" placeholder="Adresse de chargement" />
-          </div>
-          <div>
-            <Label className="text-xs">Code postal</Label>
-            <Input value={form.loading_postal_code} onChange={(e) => up("loading_postal_code", e.target.value)} className="h-9 text-sm" />
-          </div>
-          <div>
-            <Label className="text-xs">Ville</Label>
-            <Input value={form.loading_city} onChange={(e) => up("loading_city", e.target.value)} className="h-9 text-sm" />
-          </div>
-          <div>
-            <Label className="text-xs">Étage</Label>
-            <Input value={form.loading_floor} onChange={(e) => up("loading_floor", e.target.value)} className="h-9 text-sm" placeholder="RDC, 3e…" />
-          </div>
-          <div>
-            <Label className="text-xs">Accès</Label>
-            <Input value={form.loading_access} onChange={(e) => up("loading_access", e.target.value)} className="h-9 text-sm" placeholder="Digicode, portail…" />
-          </div>
-          <div className="col-span-2 flex items-center gap-4">
-            <div className="flex items-center gap-1.5">
-              <Checkbox id="ld-elev" checked={form.loading_elevator} onCheckedChange={(v) => up("loading_elevator", !!v)} />
-              <label htmlFor="ld-elev" className="text-xs">Ascenseur</label>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Checkbox id="ld-park" checked={form.loading_parking_request} onCheckedChange={(v) => up("loading_parking_request", !!v)} />
-              <label htmlFor="ld-park" className="text-xs">Stationnement</label>
-            </div>
-          </div>
-          <div className="col-span-2">
-            <Label className="text-xs">Observations</Label>
-            <Textarea value={form.loading_comments} onChange={(e) => up("loading_comments", e.target.value)} className="min-h-[50px] text-sm resize-none" placeholder="Contraintes, observations…" />
-          </div>
-        </div>
-      </TabsContent>
-
-      {/* ── Livraison ── */}
-      <TabsContent value="delivery" className="mt-2 space-y-3">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm font-semibold text-primary">Livraison</Label>
-          <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => fillDepot("delivery")}>
-            <Warehouse className="h-3 w-3" /> Dépôt
-          </Button>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label className="text-xs">Date</Label>
-            <Input type="date" value={form.delivery_date} onChange={(e) => up("delivery_date", e.target.value)} className="h-9 text-sm" />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs">Début</Label>
-              <Input type="time" value={form.delivery_time_start} onChange={(e) => up("delivery_time_start", e.target.value)} className="h-9 text-sm" />
-            </div>
-            <div>
-              <Label className="text-xs">Fin</Label>
-              <Input type="time" value={form.delivery_time_end} onChange={(e) => up("delivery_time_end", e.target.value)} className="h-9 text-sm" />
-            </div>
-          </div>
-          <div className="col-span-2">
-            <Label className="text-xs">Adresse</Label>
-            <Input value={form.delivery_address} onChange={(e) => up("delivery_address", e.target.value)} className="h-9 text-sm" placeholder="Adresse de livraison" />
-          </div>
-          <div>
-            <Label className="text-xs">Code postal</Label>
-            <Input value={form.delivery_postal_code} onChange={(e) => up("delivery_postal_code", e.target.value)} className="h-9 text-sm" />
-          </div>
-          <div>
-            <Label className="text-xs">Ville</Label>
-            <Input value={form.delivery_city} onChange={(e) => up("delivery_city", e.target.value)} className="h-9 text-sm" />
-          </div>
-          <div>
-            <Label className="text-xs">Étage</Label>
-            <Input value={form.delivery_floor} onChange={(e) => up("delivery_floor", e.target.value)} className="h-9 text-sm" placeholder="RDC, 3e…" />
-          </div>
-          <div>
-            <Label className="text-xs">Accès</Label>
-            <Input value={form.delivery_access} onChange={(e) => up("delivery_access", e.target.value)} className="h-9 text-sm" placeholder="Digicode, portail…" />
-          </div>
-          <div className="col-span-2 flex items-center gap-4">
-            <div className="flex items-center gap-1.5">
-              <Checkbox id="dl-elev" checked={form.delivery_elevator} onCheckedChange={(v) => up("delivery_elevator", !!v)} />
-              <label htmlFor="dl-elev" className="text-xs">Ascenseur</label>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Checkbox id="dl-park" checked={form.delivery_parking_request} onCheckedChange={(v) => up("delivery_parking_request", !!v)} />
-              <label htmlFor="dl-park" className="text-xs">Stationnement</label>
-            </div>
-          </div>
-          <div className="col-span-2">
-            <Label className="text-xs">Observations</Label>
-            <Textarea value={form.delivery_comments} onChange={(e) => up("delivery_comments", e.target.value)} className="min-h-[50px] text-sm resize-none" placeholder="Contraintes, observations…" />
-          </div>
-        </div>
-      </TabsContent>
-
-      {/* ── Consignes ── */}
-      <TabsContent value="instructions" className="mt-2 space-y-3">
+    <div className="space-y-4">
+      {/* ── Header row: type, LV/BT, volume, weight ── */}
+      <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-4"}`}>
         <div>
-          <Label className="text-xs font-medium">Consignes / Mode opératoire</Label>
-          <Textarea value={form.instructions} onChange={(e) => up("instructions", e.target.value)} placeholder="Mode opératoire, consignes de sécurité…" className="min-h-[100px] text-sm mt-1 resize-none" />
+          <Label className="text-[10px] text-muted-foreground">Type</Label>
+          <select value={form.type} onChange={(e) => up("type", e.target.value)} className="w-full h-7 rounded-md border border-input bg-background px-2 text-xs">
+            {OP_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
         </div>
         <div>
-          <Label className="text-xs font-medium">Notes internes</Label>
-          <Textarea value={form.notes} onChange={(e) => up("notes", e.target.value)} placeholder="Notes internes, rappels…" className="min-h-[60px] text-sm mt-1 resize-none" />
+          <Label className="text-[10px] text-muted-foreground">N° LV/BT</Label>
+          <Input value={form.lv_bt_number} onChange={(e) => up("lv_bt_number", e.target.value)} className="h-7 text-xs" />
         </div>
-      </TabsContent>
-    </Tabs>
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Volume (m³)</Label>
+          <Input type="number" value={form.volume} onChange={(e) => up("volume", e.target.value)} className="h-7 text-xs" />
+        </div>
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Poids (t)</Label>
+          <Input type="number" value={form.weight} onChange={(e) => up("weight", e.target.value)} className="h-7 text-xs" />
+        </div>
+      </div>
+
+      {/* ── Chargement / Livraison side by side ── */}
+      <div className={`grid gap-3 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
+        <AddressBlock title="Chargement" prefix="loading" form={form} setForm={setForm} fillDepot={fillDepot} />
+        <AddressBlock title="Livraison" prefix="delivery" form={form} setForm={setForm} fillDepot={fillDepot} />
+      </div>
+
+      {/* ── Consignes + Notes ── */}
+      <div className={`grid gap-3 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
+        <div>
+          <Label className="text-[10px] text-muted-foreground font-medium">Consignes / Mode opératoire</Label>
+          <Textarea value={form.instructions} onChange={(e) => up("instructions", e.target.value)} placeholder="Mode opératoire, consignes de sécurité…" className="min-h-[60px] text-xs mt-1 resize-none" />
+        </div>
+        <div>
+          <Label className="text-[10px] text-muted-foreground font-medium">Commentaires de l'opération</Label>
+          <Textarea value={form.notes} onChange={(e) => up("notes", e.target.value)} placeholder="Notes internes, rappels…" className="min-h-[60px] text-xs mt-1 resize-none" />
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -322,6 +301,10 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
     loading_comments: f.loading_comments?.trim() || null,
     loading_time_start: f.loading_time_start || null,
     loading_time_end: f.loading_time_end || null,
+    loading_portage: f.loading_portage ? Number(f.loading_portage) : 0,
+    loading_passage_fenetre: f.loading_passage_fenetre || false,
+    loading_monte_meubles: f.loading_monte_meubles || false,
+    loading_transbordement: f.loading_transbordement || false,
     delivery_city: f.delivery_city?.trim() || null,
     delivery_address: f.delivery_address?.trim() || null,
     delivery_postal_code: f.delivery_postal_code?.trim() || null,
@@ -333,6 +316,10 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
     delivery_date: f.delivery_date || null,
     delivery_time_start: f.delivery_time_start || null,
     delivery_time_end: f.delivery_time_end || null,
+    delivery_portage: f.delivery_portage ? Number(f.delivery_portage) : 0,
+    delivery_passage_fenetre: f.delivery_passage_fenetre || false,
+    delivery_monte_meubles: f.delivery_monte_meubles || false,
+    delivery_transbordement: f.delivery_transbordement || false,
     lv_bt_number: f.lv_bt_number?.trim() || null,
     volume: f.volume ? Number(f.volume) : 0,
     weight: f.weight ? Number(f.weight) : 0,
@@ -464,6 +451,10 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
       loading_comments: op.loading_comments || "",
       loading_time_start: op.loading_time_start || "",
       loading_time_end: op.loading_time_end || "",
+      loading_portage: String(op.loading_portage ?? 0),
+      loading_passage_fenetre: op.loading_passage_fenetre || false,
+      loading_monte_meubles: op.loading_monte_meubles || false,
+      loading_transbordement: op.loading_transbordement || false,
       delivery_city: op.delivery_city || "",
       delivery_address: op.delivery_address || "",
       delivery_postal_code: op.delivery_postal_code || "",
@@ -475,6 +466,10 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
       delivery_date: op.delivery_date || "",
       delivery_time_start: op.delivery_time_start || "",
       delivery_time_end: op.delivery_time_end || "",
+      delivery_portage: String(op.delivery_portage ?? 0),
+      delivery_passage_fenetre: op.delivery_passage_fenetre || false,
+      delivery_monte_meubles: op.delivery_monte_meubles || false,
+      delivery_transbordement: op.delivery_transbordement || false,
       lv_bt_number: op.lv_bt_number || "",
       volume: op.volume ?? "",
       weight: op.weight ?? "",
@@ -506,7 +501,7 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
 
       {/* ══ Create Dialog ══ */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Nouvelle opération</DialogTitle>
           </DialogHeader>
@@ -524,7 +519,7 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
 
       {/* ══ Edit Dialog ══ */}
       <Dialog open={editOpen} onOpenChange={(v) => { setEditOpen(v); if (!v) { setEditingOpId(null); setForm(emptyForm()); } }}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Modifier Op. {editingOpNum}</DialogTitle>
           </DialogHeader>
