@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2, ChevronRight, Check } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Trash2, ChevronRight, Check, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigate } from "react-router-dom";
@@ -31,6 +32,7 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
     lv_bt_number: "",
     volume: "",
   });
+  const [editingResources, setEditingResources] = useState<string | null>(null);
 
   const { data: operations = [], isLoading } = useQuery({
     queryKey: ["dossier-operations", dossierId],
@@ -43,6 +45,36 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
       if (error) throw error;
       return data || [];
     },
+  });
+
+  // Fetch operation_resources for all operations
+  const opIds = operations.map((o: any) => o.id);
+  const { data: opResources = [] } = useQuery({
+    queryKey: ["operation-resources", dossierId, opIds],
+    queryFn: async () => {
+      if (opIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("operation_resources")
+        .select("*, resources!left(id, name, type)")
+        .in("operation_id", opIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: opIds.length > 0,
+  });
+
+  // Fetch available resources for assignment
+  const { data: availableResources = [] } = useQuery({
+    queryKey: ["company-resources", companyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("resource_companies")
+        .select("resource_id, resources!inner(id, name, type)")
+        .eq("company_id", companyId);
+      if (error) throw error;
+      return (data || []).map((rc: any) => rc.resources);
+    },
+    enabled: !!companyId,
   });
 
   const addMutation = useMutation({
@@ -89,6 +121,37 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dossier-operations"] }),
   });
+
+  const addResourceToOp = useMutation({
+    mutationFn: async ({ operationId, resourceId }: { operationId: string; resourceId: string }) => {
+      const { error } = await supabase.from("operation_resources").insert({
+        operation_id: operationId,
+        resource_id: resourceId,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["operation-resources"] });
+      queryClient.invalidateQueries({ queryKey: ["terrain-bts"] });
+      toast.success("Ressource affectée");
+    },
+    onError: (e: any) => toast.error(e.message?.includes("duplicate") ? "Déjà affecté" : "Erreur"),
+  });
+
+  const removeResourceFromOp = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("operation_resources").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["operation-resources"] });
+      queryClient.invalidateQueries({ queryKey: ["terrain-bts"] });
+      toast.success("Ressource retirée");
+    },
+  });
+
+  const getResourcesForOp = (opId: string) =>
+    opResources.filter((or: any) => or.operation_id === opId);
 
   if (isLoading) return <div className="text-sm text-muted-foreground p-4">Chargement…</div>;
 
@@ -148,31 +211,78 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
       <div className="rounded-xl border bg-card divide-y">
         {operations.length === 0 ? (
           <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucune opération</div>
-        ) : operations.map((op: any) => (
-          <div key={op.id} className={`flex items-center gap-3 ${isMobile ? "px-3 py-2.5" : "px-5 py-3"}`}>
-            <button
-              onClick={() => toggleComplete.mutate({ id: op.id, completed: op.completed })}
-              className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 transition-colors ${
-                op.completed ? "bg-success border-success text-success-foreground" : "border-muted-foreground/30 hover:border-primary"
-              }`}
-            >
-              {op.completed && <Check className="h-3 w-3" />}
-            </button>
-            <div className="flex-1 min-w-0">
-              <p className={`font-medium truncate ${isMobile ? "text-xs" : "text-sm"} ${op.completed ? "line-through text-muted-foreground" : ""}`}>
-                Op. {op.operation_number} — {op.type}
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                {formatDate(op.loading_date)} · {op.loading_city || "—"} → {op.delivery_city || "—"}
-                {op.lv_bt_number && ` · LV/BT: ${op.lv_bt_number}`}
-                {op.factures?.code && ` · Fact: ${op.factures.code}`}
-              </p>
+        ) : operations.map((op: any) => {
+          const assignedResources = getResourcesForOp(op.id);
+          const isEditingThis = editingResources === op.id;
+          const assignedIds = assignedResources.map((ar: any) => ar.resource_id);
+          const unassigned = availableResources.filter((r: any) => !assignedIds.includes(r.id));
+
+          return (
+            <div key={op.id} className={`${isMobile ? "px-3 py-2.5" : "px-5 py-3"}`}>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => toggleComplete.mutate({ id: op.id, completed: op.completed })}
+                  className={`h-5 w-5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                    op.completed ? "bg-success border-success text-success-foreground" : "border-muted-foreground/30 hover:border-primary"
+                  }`}
+                >
+                  {op.completed && <Check className="h-3 w-3" />}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className={`font-medium truncate ${isMobile ? "text-xs" : "text-sm"} ${op.completed ? "line-through text-muted-foreground" : ""}`}>
+                    Op. {op.operation_number} — {op.type}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {formatDate(op.loading_date)} · {op.loading_city || "—"} → {op.delivery_city || "—"}
+                    {op.lv_bt_number && ` · LV/BT: ${op.lv_bt_number}`}
+                    {op.factures?.code && ` · Fact: ${op.factures.code}`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setEditingResources(isEditingThis ? null : op.id)}
+                  className={`p-1 rounded transition-colors shrink-0 ${isEditingThis ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-primary"}`}
+                  title="Affecter des ressources"
+                >
+                  <Users className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => deleteMutation.mutate(op.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* Assigned resources badges */}
+              {assignedResources.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5 ml-8">
+                  {assignedResources.map((ar: any) => (
+                    <Badge key={ar.id} variant="secondary" className="text-[10px] gap-1 pr-1">
+                      {ar.resources?.name || "—"}
+                      {isEditingThis && (
+                        <button onClick={() => removeResourceFromOp.mutate(ar.id)} className="ml-0.5 hover:text-destructive">
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
+              {/* Resource assignment dropdown */}
+              {isEditingThis && unassigned.length > 0 && (
+                <div className="ml-8 mt-2 flex flex-wrap gap-1">
+                  {unassigned.map((r: any) => (
+                    <button
+                      key={r.id}
+                      onClick={() => addResourceToOp.mutate({ operationId: op.id, resourceId: r.id })}
+                      className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                    >
+                      + {r.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-            <button onClick={() => deleteMutation.mutate(op.id)} className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0">
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

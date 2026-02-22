@@ -109,22 +109,49 @@ export default function TerrainPage() {
   // ===== DATA QUERIES =====
 
   // BTs - filtered based on mode
+  // For vehicle/person: get BTs linked via operation_resources to my resource
   const { data: bts = [], isLoading: btLoading } = useQuery({
-    queryKey: ["terrain-bts", companyIds, dateToUse, userId, mode],
+    queryKey: ["terrain-bts", companyIds, dateToUse, userId, mode, myResource?.id],
     queryFn: async () => {
-      let query = supabase
+      if (mode !== "admin" && myResource?.id) {
+        // Get operation IDs linked to my resource
+        const { data: linkedOps } = await supabase
+          .from("operation_resources")
+          .select("operation_id")
+          .eq("resource_id", myResource.id);
+        
+        const opIds = (linkedOps || []).map((lo: any) => lo.operation_id);
+        
+        if (opIds.length === 0) {
+          // Fallback: also check assigned_to for backwards compatibility
+          const { data, error } = await supabase
+            .from("operations")
+            .select("*, dossiers(title, code, clients(name, phone))")
+            .in("company_id", companyIds)
+            .eq("loading_date", dateToUse)
+            .eq("assigned_to", userId!)
+            .order("sort_order", { ascending: true });
+          if (error) throw error;
+          return data || [];
+        }
+
+        const { data, error } = await supabase
+          .from("operations")
+          .select("*, dossiers(title, code, clients(name, phone))")
+          .in("id", opIds)
+          .eq("loading_date", dateToUse)
+          .order("sort_order", { ascending: true });
+        if (error) throw error;
+        return data || [];
+      }
+
+      // Admin mode: all BTs for the day
+      const { data, error } = await supabase
         .from("operations")
-        .select("*, dossiers(title, code, clients(name, phone)), start_signature_url, start_signed_at, start_signer_name, end_signature_url, end_signed_at, end_signer_name, operator_signature_url, operator_signer_name, operator_signed_at")
+        .select("*, dossiers(title, code, clients(name, phone))")
         .in("company_id", companyIds)
         .eq("loading_date", dateToUse)
         .order("sort_order", { ascending: true });
-
-      // Vehicle & person mode: only assigned to me
-      if (mode !== "admin" && userId) {
-        query = query.eq("assigned_to", userId);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
