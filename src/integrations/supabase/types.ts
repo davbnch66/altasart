@@ -1500,10 +1500,14 @@ export type Database = {
           delivery_date: string | null
           delivery_elevator: boolean | null
           delivery_floor: string | null
+          delivery_monte_meubles: boolean | null
           delivery_parking_request: boolean | null
+          delivery_passage_fenetre: boolean | null
+          delivery_portage: number | null
           delivery_postal_code: string | null
           delivery_time_end: string | null
           delivery_time_start: string | null
+          delivery_transbordement: boolean | null
           dossier_id: string
           end_signature_url: string | null
           end_signed_at: string | null
@@ -1518,10 +1522,14 @@ export type Database = {
           loading_date: string | null
           loading_elevator: boolean | null
           loading_floor: string | null
+          loading_monte_meubles: boolean | null
           loading_parking_request: boolean | null
+          loading_passage_fenetre: boolean | null
+          loading_portage: number | null
           loading_postal_code: string | null
           loading_time_end: string | null
           loading_time_start: string | null
+          loading_transbordement: boolean | null
           lv_bt_number: string | null
           notes: string | null
           operation_number: number
@@ -1550,10 +1558,14 @@ export type Database = {
           delivery_date?: string | null
           delivery_elevator?: boolean | null
           delivery_floor?: string | null
+          delivery_monte_meubles?: boolean | null
           delivery_parking_request?: boolean | null
+          delivery_passage_fenetre?: boolean | null
+          delivery_portage?: number | null
           delivery_postal_code?: string | null
           delivery_time_end?: string | null
           delivery_time_start?: string | null
+          delivery_transbordement?: boolean | null
           dossier_id: string
           end_signature_url?: string | null
           end_signed_at?: string | null
@@ -1568,10 +1580,14 @@ export type Database = {
           loading_date?: string | null
           loading_elevator?: boolean | null
           loading_floor?: string | null
+          loading_monte_meubles?: boolean | null
           loading_parking_request?: boolean | null
+          loading_passage_fenetre?: boolean | null
+          loading_portage?: number | null
           loading_postal_code?: string | null
           loading_time_end?: string | null
           loading_time_start?: string | null
+          loading_transbordement?: boolean | null
           lv_bt_number?: string | null
           notes?: string | null
           operation_number?: number
@@ -1600,10 +1616,14 @@ export type Database = {
           delivery_date?: string | null
           delivery_elevator?: boolean | null
           delivery_floor?: string | null
+          delivery_monte_meubles?: boolean | null
           delivery_parking_request?: boolean | null
+          delivery_passage_fenetre?: boolean | null
+          delivery_portage?: number | null
           delivery_postal_code?: string | null
           delivery_time_end?: string | null
           delivery_time_start?: string | null
+          delivery_transbordement?: boolean | null
           dossier_id?: string
           end_signature_url?: string | null
           end_signed_at?: string | null
@@ -1618,10 +1638,14 @@ export type Database = {
           loading_date?: string | null
           loading_elevator?: boolean | null
           loading_floor?: string | null
+          loading_monte_meubles?: boolean | null
           loading_parking_request?: boolean | null
+          loading_passage_fenetre?: boolean | null
+          loading_portage?: number | null
           loading_postal_code?: string | null
           loading_time_end?: string | null
           loading_time_start?: string | null
+          loading_transbordement?: boolean | null
           lv_bt_number?: string | null
           notes?: string | null
           operation_number?: number
