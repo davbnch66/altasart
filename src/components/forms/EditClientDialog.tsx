@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2, Users, MapPin, CreditCard, Briefcase, StickyNote } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
@@ -183,15 +183,32 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
         <DialogHeader>
           <DialogTitle>Modifier le client</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="flex-1 overflow-y-auto pr-1 space-y-2">
-          <Accordion type="multiple" defaultValue={["general", "contact", "address", "finance", "commercial", "notes"]} className="w-full">
-            {/* Section 1: Informations générales */}
-            <AccordionItem value="general">
-              <AccordionTrigger className="text-sm font-semibold">
-                <span className="flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Informations générales</span>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="grid grid-cols-2 gap-3 pt-1">
+        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="flex-1 overflow-hidden flex flex-col">
+          <Tabs defaultValue="general" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="w-full flex-wrap h-auto gap-1 justify-start">
+              <TabsTrigger value="general" className="flex items-center gap-1.5 text-xs">
+                <Building2 className="h-3.5 w-3.5" /> Général
+              </TabsTrigger>
+              <TabsTrigger value="contact" className="flex items-center gap-1.5 text-xs">
+                <Users className="h-3.5 w-3.5" /> Contact
+              </TabsTrigger>
+              <TabsTrigger value="address" className="flex items-center gap-1.5 text-xs">
+                <MapPin className="h-3.5 w-3.5" /> Adresses
+              </TabsTrigger>
+              <TabsTrigger value="finance" className="flex items-center gap-1.5 text-xs">
+                <CreditCard className="h-3.5 w-3.5" /> Finance
+              </TabsTrigger>
+              <TabsTrigger value="commercial" className="flex items-center gap-1.5 text-xs">
+                <Briefcase className="h-3.5 w-3.5" /> Commercial
+              </TabsTrigger>
+              <TabsTrigger value="notes" className="flex items-center gap-1.5 text-xs">
+                <StickyNote className="h-3.5 w-3.5" /> Notes
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="flex-1 overflow-y-auto pr-1 mt-2">
+              <TabsContent value="general" className="mt-0">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <Label htmlFor="edit-name">Nom / Raison sociale *</Label>
                     <Input id="edit-name" {...register("name")} />
@@ -244,16 +261,10 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
                     </div>
                   </div>
                 </div>
-              </AccordionContent>
-            </AccordionItem>
+              </TabsContent>
 
-            {/* Section 2: Contact */}
-            <AccordionItem value="contact">
-              <AccordionTrigger className="text-sm font-semibold">
-                <span className="flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Contact principal</span>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="grid grid-cols-2 gap-3 pt-1">
+              <TabsContent value="contact" className="mt-0">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <Label htmlFor="edit-contact">Nom du contact</Label>
                     <Input id="edit-contact" {...register("contact_name")} />
@@ -273,16 +284,10 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-3">💡 Gérez les contacts multiples depuis l'onglet Contacts de la fiche client.</p>
-              </AccordionContent>
-            </AccordionItem>
+              </TabsContent>
 
-            {/* Section 3: Adresses */}
-            <AccordionItem value="address">
-              <AccordionTrigger className="text-sm font-semibold">
-                <span className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Adresses</span>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="grid grid-cols-2 gap-3 pt-1">
+              <TabsContent value="address" className="mt-0">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
                     <Label>Adresse principale</Label>
                     <AddressAutocomplete
@@ -324,16 +329,10 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
                     />
                   </div>
                 </div>
-              </AccordionContent>
-            </AccordionItem>
+              </TabsContent>
 
-            {/* Section 4: Informations financières */}
-            <AccordionItem value="finance">
-              <AccordionTrigger className="text-sm font-semibold">
-                <span className="flex items-center gap-2"><CreditCard className="h-4 w-4 text-primary" /> Informations financières</span>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="grid grid-cols-2 gap-3 pt-1">
+              <TabsContent value="finance" className="mt-0">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label>Mode de règlement</Label>
                     <Select value={watch("payment_method") || ""} onValueChange={(v) => setValue("payment_method", v)}>
@@ -356,16 +355,10 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
                     <Textarea id="edit-special" {...register("special_conditions")} rows={2} />
                   </div>
                 </div>
-              </AccordionContent>
-            </AccordionItem>
+              </TabsContent>
 
-            {/* Section 5: Commercial */}
-            <AccordionItem value="commercial">
-              <AccordionTrigger className="text-sm font-semibold">
-                <span className="flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> Informations commerciales</span>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="grid grid-cols-2 gap-3 pt-1">
+              <TabsContent value="commercial" className="mt-0">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label htmlFor="edit-advisor">Commercial responsable</Label>
                     <Input id="edit-advisor" {...register("advisor")} />
@@ -384,24 +377,18 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
                     <Textarea id="edit-commercial-notes" {...register("commercial_notes")} rows={2} />
                   </div>
                 </div>
-              </AccordionContent>
-            </AccordionItem>
+              </TabsContent>
 
-            {/* Section 6: Notes */}
-            <AccordionItem value="notes">
-              <AccordionTrigger className="text-sm font-semibold">
-                <span className="flex items-center gap-2"><StickyNote className="h-4 w-4 text-primary" /> Notes internes</span>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="pt-1">
+              <TabsContent value="notes" className="mt-0">
+                <div>
                   <Label htmlFor="edit-notes">Notes internes</Label>
                   <Textarea id="edit-notes" {...register("notes")} rows={3} />
                 </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+              </TabsContent>
+            </div>
+          </Tabs>
 
-          <div className="flex justify-end gap-2 pt-3 pb-1 sticky bottom-0 bg-background border-t mt-2">
+          <div className="flex justify-end gap-2 pt-3 pb-1 border-t mt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? "Enregistrement..." : "Enregistrer"}
