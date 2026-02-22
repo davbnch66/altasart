@@ -505,8 +505,19 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
           <DialogHeader>
             <DialogTitle>Nouvelle opération</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto pr-1">
+          <div className="flex-1 overflow-y-auto pr-1 space-y-4">
             <OperationFormContent form={form} setForm={setForm} fillDepot={fillDepot} isMobile={isMobile} />
+            {/* Placeholder for resources - only available after creation */}
+            <div className={`grid gap-3 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
+              <div className="rounded-lg border border-dashed bg-muted/30 p-3 space-y-1">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Véhicules réservés</h4>
+                <p className="text-[10px] text-muted-foreground italic">Disponible après création de l'opération</p>
+              </div>
+              <div className="rounded-lg border border-dashed bg-muted/30 p-3 space-y-1">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Personnel réservé</h4>
+                <p className="text-[10px] text-muted-foreground italic">Disponible après création de l'opération</p>
+              </div>
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-3 border-t">
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Annuler</Button>
