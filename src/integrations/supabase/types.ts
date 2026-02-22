@@ -229,17 +229,24 @@ export type Database = {
           city: string | null
           client_type: string
           code: string | null
+          commercial_notes: string | null
           company_id: string
           contact_name: string | null
+          country: string | null
           created_at: string
+          credit_limit: number | null
           email: string | null
           id: string
           mobile: string | null
           name: string
           notes: string | null
+          payment_method: string | null
           payment_terms: string | null
           phone: string | null
           postal_code: string | null
+          site_address: string | null
+          source: string | null
+          special_conditions: string | null
           status: Database["public"]["Enums"]["client_status"]
           tags: string[] | null
           updated_at: string
@@ -251,17 +258,24 @@ export type Database = {
           city?: string | null
           client_type?: string
           code?: string | null
+          commercial_notes?: string | null
           company_id: string
           contact_name?: string | null
+          country?: string | null
           created_at?: string
+          credit_limit?: number | null
           email?: string | null
           id?: string
           mobile?: string | null
           name: string
           notes?: string | null
+          payment_method?: string | null
           payment_terms?: string | null
           phone?: string | null
           postal_code?: string | null
+          site_address?: string | null
+          source?: string | null
+          special_conditions?: string | null
           status?: Database["public"]["Enums"]["client_status"]
           tags?: string[] | null
           updated_at?: string
@@ -273,17 +287,24 @@ export type Database = {
           city?: string | null
           client_type?: string
           code?: string | null
+          commercial_notes?: string | null
           company_id?: string
           contact_name?: string | null
+          country?: string | null
           created_at?: string
+          credit_limit?: number | null
           email?: string | null
           id?: string
           mobile?: string | null
           name?: string
           notes?: string | null
+          payment_method?: string | null
           payment_terms?: string | null
           phone?: string | null
           postal_code?: string | null
+          site_address?: string | null
+          source?: string | null
+          special_conditions?: string | null
           status?: Database["public"]["Enums"]["client_status"]
           tags?: string[] | null
           updated_at?: string
