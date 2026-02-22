@@ -192,7 +192,7 @@ export const EditDossierDialog = ({ dossier, open, onOpenChange }: EditDossierDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Modifier le dossier</DialogTitle>
         </DialogHeader>
@@ -325,109 +325,59 @@ export const EditDossierDialog = ({ dossier, open, onOpenChange }: EditDossierDi
 
               {/* ── Adresses ── */}
               <TabsContent value="addresses" className="mt-0">
-                <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Chargement */}
-                  <div>
+                  <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold text-primary">Chargement</Label>
-                      <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => { setValue("loading_address", DEPOT_ADDRESS.address); setValue("loading_postal_code", DEPOT_ADDRESS.postal_code); setValue("loading_city", DEPOT_ADDRESS.city); }}>
+                      <Label className="text-sm font-bold uppercase tracking-wider text-primary">Chargement</Label>
+                      <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1" onClick={() => { setValue("loading_address", DEPOT_ADDRESS.address); setValue("loading_postal_code", DEPOT_ADDRESS.postal_code); setValue("loading_city", DEPOT_ADDRESS.city); }}>
                         <Warehouse className="h-3 w-3" /> Dépôt
                       </Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 mt-2">
-                      <div className="col-span-2">
-                        <Label>Adresse</Label>
-                        <AddressAutocomplete
-                          id="edit-loading-addr"
-                          value={watch("loading_address") || ""}
-                          onChange={(v) => setValue("loading_address", v)}
-                          onSelect={(s) => {
-                            if (s.postcode) setValue("loading_postal_code", s.postcode);
-                            if (s.city) setValue("loading_city", s.city);
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="edit-lpc">Code postal</Label>
-                        <Input id="edit-lpc" {...register("loading_postal_code")} />
-                      </div>
-                      <div>
-                        <Label htmlFor="edit-lcity">Ville</Label>
-                        <Input id="edit-lcity" {...register("loading_city")} />
-                      </div>
-                      <div>
-                        <Label htmlFor="edit-lfloor">Étage</Label>
-                        <Input id="edit-lfloor" {...register("loading_floor")} />
-                      </div>
-                      <div>
-                        <Label htmlFor="edit-laccess">Accès</Label>
-                        <Input id="edit-laccess" {...register("loading_access")} />
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input type="checkbox" id="edit-lelev" {...register("loading_elevator")} className="rounded border-input" />
-                        <Label htmlFor="edit-lelev" className="mb-0">Ascenseur</Label>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input type="checkbox" id="edit-lpark" {...register("loading_parking_request")} className="rounded border-input" />
-                        <Label htmlFor="edit-lpark" className="mb-0">Demande stationnement</Label>
-                      </div>
-                      <div className="col-span-2">
-                        <Label htmlFor="edit-lcom">Commentaires</Label>
-                        <Textarea id="edit-lcom" {...register("loading_comments")} rows={2} />
-                      </div>
+                    <div>
+                      <Label className="text-xs">Adresse</Label>
+                      <AddressAutocomplete id="edit-loading-addr" value={watch("loading_address") || ""} onChange={(v) => setValue("loading_address", v)} onSelect={(s) => { if (s.postcode) setValue("loading_postal_code", s.postcode); if (s.city) setValue("loading_city", s.city); }} />
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><Label className="text-xs">CP</Label><Input {...register("loading_postal_code")} className="h-8 text-xs" /></div>
+                      <div><Label className="text-xs">Ville</Label><Input {...register("loading_city")} className="h-8 text-xs" /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><Label className="text-xs">Étage</Label><Input {...register("loading_floor")} className="h-8 text-xs" /></div>
+                      <div><Label className="text-xs">Accès</Label><Input {...register("loading_access")} className="h-8 text-xs" /></div>
+                    </div>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" {...register("loading_elevator")} className="rounded border-input" />Ascenseur</label>
+                      <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" {...register("loading_parking_request")} className="rounded border-input" />Stationnement</label>
+                    </div>
+                    <div><Label className="text-xs">Commentaires</Label><Textarea {...register("loading_comments")} rows={2} className="text-xs" /></div>
                   </div>
 
                   {/* Livraison */}
-                  <div className="border-t pt-4">
+                  <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold text-primary">Livraison</Label>
-                      <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => { setValue("delivery_address", DEPOT_ADDRESS.address); setValue("delivery_postal_code", DEPOT_ADDRESS.postal_code); setValue("delivery_city", DEPOT_ADDRESS.city); }}>
+                      <Label className="text-sm font-bold uppercase tracking-wider text-primary">Livraison</Label>
+                      <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1" onClick={() => { setValue("delivery_address", DEPOT_ADDRESS.address); setValue("delivery_postal_code", DEPOT_ADDRESS.postal_code); setValue("delivery_city", DEPOT_ADDRESS.city); }}>
                         <Warehouse className="h-3 w-3" /> Dépôt
                       </Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 mt-2">
-                      <div className="col-span-2">
-                        <Label>Adresse</Label>
-                        <AddressAutocomplete
-                          id="edit-delivery-addr"
-                          value={watch("delivery_address") || ""}
-                          onChange={(v) => setValue("delivery_address", v)}
-                          onSelect={(s) => {
-                            if (s.postcode) setValue("delivery_postal_code", s.postcode);
-                            if (s.city) setValue("delivery_city", s.city);
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="edit-dpc">Code postal</Label>
-                        <Input id="edit-dpc" {...register("delivery_postal_code")} />
-                      </div>
-                      <div>
-                        <Label htmlFor="edit-dcity">Ville</Label>
-                        <Input id="edit-dcity" {...register("delivery_city")} />
-                      </div>
-                      <div>
-                        <Label htmlFor="edit-dfloor">Étage</Label>
-                        <Input id="edit-dfloor" {...register("delivery_floor")} />
-                      </div>
-                      <div>
-                        <Label htmlFor="edit-daccess">Accès</Label>
-                        <Input id="edit-daccess" {...register("delivery_access")} />
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input type="checkbox" id="edit-delev" {...register("delivery_elevator")} className="rounded border-input" />
-                        <Label htmlFor="edit-delev" className="mb-0">Ascenseur</Label>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input type="checkbox" id="edit-dpark" {...register("delivery_parking_request")} className="rounded border-input" />
-                        <Label htmlFor="edit-dpark" className="mb-0">Demande stationnement</Label>
-                      </div>
-                      <div className="col-span-2">
-                        <Label htmlFor="edit-dcom">Commentaires</Label>
-                        <Textarea id="edit-dcom" {...register("delivery_comments")} rows={2} />
-                      </div>
+                    <div>
+                      <Label className="text-xs">Adresse</Label>
+                      <AddressAutocomplete id="edit-delivery-addr" value={watch("delivery_address") || ""} onChange={(v) => setValue("delivery_address", v)} onSelect={(s) => { if (s.postcode) setValue("delivery_postal_code", s.postcode); if (s.city) setValue("delivery_city", s.city); }} />
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><Label className="text-xs">CP</Label><Input {...register("delivery_postal_code")} className="h-8 text-xs" /></div>
+                      <div><Label className="text-xs">Ville</Label><Input {...register("delivery_city")} className="h-8 text-xs" /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><Label className="text-xs">Étage</Label><Input {...register("delivery_floor")} className="h-8 text-xs" /></div>
+                      <div><Label className="text-xs">Accès</Label><Input {...register("delivery_access")} className="h-8 text-xs" /></div>
+                    </div>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" {...register("delivery_elevator")} className="rounded border-input" />Ascenseur</label>
+                      <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" {...register("delivery_parking_request")} className="rounded border-input" />Stationnement</label>
+                    </div>
+                    <div><Label className="text-xs">Commentaires</Label><Textarea {...register("delivery_comments")} rows={2} className="text-xs" /></div>
                   </div>
                 </div>
               </TabsContent>

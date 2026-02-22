@@ -196,7 +196,7 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Nouveau dossier</DialogTitle>
         </DialogHeader>
@@ -342,111 +342,59 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
 
               {/* ── Adresses ── */}
               <TabsContent value="addresses" className="mt-0">
-                <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Chargement */}
-                  <div>
+                  <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold text-primary">Chargement</Label>
-                      <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => { setValue("loading_address", DEPOT_ADDRESS.address); setValue("loading_postal_code", DEPOT_ADDRESS.postal_code); setValue("loading_city", DEPOT_ADDRESS.city); }}>
+                      <Label className="text-sm font-bold uppercase tracking-wider text-primary">Chargement</Label>
+                      <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1" onClick={() => { setValue("loading_address", DEPOT_ADDRESS.address); setValue("loading_postal_code", DEPOT_ADDRESS.postal_code); setValue("loading_city", DEPOT_ADDRESS.city); }}>
                         <Warehouse className="h-3 w-3" /> Dépôt
                       </Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 mt-2">
-                      <div className="col-span-2">
-                        <Label>Adresse</Label>
-                        <AddressAutocomplete
-                          id="loading-address"
-                          value={watch("loading_address") || ""}
-                          onChange={(v) => setValue("loading_address", v)}
-                          onSelect={(s) => {
-                            if (s.postcode) setValue("loading_postal_code", s.postcode);
-                            if (s.city) setValue("loading_city", s.city);
-                          }}
-                          placeholder="Adresse de chargement"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="loading_postal_code">Code postal</Label>
-                        <Input id="loading_postal_code" {...register("loading_postal_code")} />
-                      </div>
-                      <div>
-                        <Label htmlFor="loading_city">Ville</Label>
-                        <Input id="loading_city" {...register("loading_city")} />
-                      </div>
-                      <div>
-                        <Label htmlFor="loading_floor">Étage</Label>
-                        <Input id="loading_floor" {...register("loading_floor")} placeholder="RDC, 3e..." />
-                      </div>
-                      <div>
-                        <Label htmlFor="loading_access">Accès</Label>
-                        <Input id="loading_access" {...register("loading_access")} placeholder="Portail, digicode..." />
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input type="checkbox" id="loading_elevator" {...register("loading_elevator")} className="rounded border-input" />
-                        <Label htmlFor="loading_elevator" className="mb-0">Ascenseur</Label>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input type="checkbox" id="loading_parking" {...register("loading_parking_request")} className="rounded border-input" />
-                        <Label htmlFor="loading_parking" className="mb-0">Demande stationnement</Label>
-                      </div>
-                      <div className="col-span-2">
-                        <Label htmlFor="loading_comments">Commentaires</Label>
-                        <Textarea id="loading_comments" {...register("loading_comments")} rows={2} />
-                      </div>
+                    <div>
+                      <Label className="text-xs">Adresse</Label>
+                      <AddressAutocomplete id="loading-address" value={watch("loading_address") || ""} onChange={(v) => setValue("loading_address", v)} onSelect={(s) => { if (s.postcode) setValue("loading_postal_code", s.postcode); if (s.city) setValue("loading_city", s.city); }} placeholder="Adresse de chargement" />
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><Label className="text-xs">CP</Label><Input {...register("loading_postal_code")} className="h-8 text-xs" /></div>
+                      <div><Label className="text-xs">Ville</Label><Input {...register("loading_city")} className="h-8 text-xs" /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><Label className="text-xs">Étage</Label><Input {...register("loading_floor")} placeholder="RDC, 3e..." className="h-8 text-xs" /></div>
+                      <div><Label className="text-xs">Accès</Label><Input {...register("loading_access")} placeholder="Portail..." className="h-8 text-xs" /></div>
+                    </div>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" {...register("loading_elevator")} className="rounded border-input" />Ascenseur</label>
+                      <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" {...register("loading_parking_request")} className="rounded border-input" />Stationnement</label>
+                    </div>
+                    <div><Label className="text-xs">Commentaires</Label><Textarea {...register("loading_comments")} rows={2} className="text-xs" /></div>
                   </div>
 
                   {/* Livraison */}
-                  <div className="border-t pt-4">
+                  <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold text-primary">Livraison</Label>
-                      <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => { setValue("delivery_address", DEPOT_ADDRESS.address); setValue("delivery_postal_code", DEPOT_ADDRESS.postal_code); setValue("delivery_city", DEPOT_ADDRESS.city); }}>
+                      <Label className="text-sm font-bold uppercase tracking-wider text-primary">Livraison</Label>
+                      <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1" onClick={() => { setValue("delivery_address", DEPOT_ADDRESS.address); setValue("delivery_postal_code", DEPOT_ADDRESS.postal_code); setValue("delivery_city", DEPOT_ADDRESS.city); }}>
                         <Warehouse className="h-3 w-3" /> Dépôt
                       </Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 mt-2">
-                      <div className="col-span-2">
-                        <Label>Adresse</Label>
-                        <AddressAutocomplete
-                          id="delivery-address"
-                          value={watch("delivery_address") || ""}
-                          onChange={(v) => setValue("delivery_address", v)}
-                          onSelect={(s) => {
-                            if (s.postcode) setValue("delivery_postal_code", s.postcode);
-                            if (s.city) setValue("delivery_city", s.city);
-                          }}
-                          placeholder="Adresse de livraison"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="delivery_postal_code">Code postal</Label>
-                        <Input id="delivery_postal_code" {...register("delivery_postal_code")} />
-                      </div>
-                      <div>
-                        <Label htmlFor="delivery_city">Ville</Label>
-                        <Input id="delivery_city" {...register("delivery_city")} />
-                      </div>
-                      <div>
-                        <Label htmlFor="delivery_floor">Étage</Label>
-                        <Input id="delivery_floor" {...register("delivery_floor")} placeholder="RDC, 3e..." />
-                      </div>
-                      <div>
-                        <Label htmlFor="delivery_access">Accès</Label>
-                        <Input id="delivery_access" {...register("delivery_access")} placeholder="Portail, digicode..." />
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input type="checkbox" id="delivery_elevator" {...register("delivery_elevator")} className="rounded border-input" />
-                        <Label htmlFor="delivery_elevator" className="mb-0">Ascenseur</Label>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input type="checkbox" id="delivery_parking" {...register("delivery_parking_request")} className="rounded border-input" />
-                        <Label htmlFor="delivery_parking" className="mb-0">Demande stationnement</Label>
-                      </div>
-                      <div className="col-span-2">
-                        <Label htmlFor="delivery_comments">Commentaires</Label>
-                        <Textarea id="delivery_comments" {...register("delivery_comments")} rows={2} />
-                      </div>
+                    <div>
+                      <Label className="text-xs">Adresse</Label>
+                      <AddressAutocomplete id="delivery-address" value={watch("delivery_address") || ""} onChange={(v) => setValue("delivery_address", v)} onSelect={(s) => { if (s.postcode) setValue("delivery_postal_code", s.postcode); if (s.city) setValue("delivery_city", s.city); }} placeholder="Adresse de livraison" />
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><Label className="text-xs">CP</Label><Input {...register("delivery_postal_code")} className="h-8 text-xs" /></div>
+                      <div><Label className="text-xs">Ville</Label><Input {...register("delivery_city")} className="h-8 text-xs" /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><Label className="text-xs">Étage</Label><Input {...register("delivery_floor")} placeholder="RDC, 3e..." className="h-8 text-xs" /></div>
+                      <div><Label className="text-xs">Accès</Label><Input {...register("delivery_access")} placeholder="Portail..." className="h-8 text-xs" /></div>
+                    </div>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" {...register("delivery_elevator")} className="rounded border-input" />Ascenseur</label>
+                      <label className="flex items-center gap-1.5 text-xs"><input type="checkbox" {...register("delivery_parking_request")} className="rounded border-input" />Stationnement</label>
+                    </div>
+                    <div><Label className="text-xs">Commentaires</Label><Textarea {...register("delivery_comments")} rows={2} className="text-xs" /></div>
                   </div>
                 </div>
               </TabsContent>

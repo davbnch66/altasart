@@ -13,9 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, FileText, Calendar, MapPin, StickyNote } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { ContactSelect } from "@/components/client/ContactSelect";
+
+const visitTypeOptions = ["VT - Visite Technique", "VC - Visite Commerciale", "VI - Visite d'Inspection", "VR - Visite de Réception"];
 
 const schema = z.object({
   title: z.string().min(1, "Le titre est requis"),
@@ -67,7 +71,6 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
     defaultValues: { company_id: defaultCompanyId, client_id: preselectedClientId || ("" as any) },
   });
 
-  // Pre-fill address from selected client
   const watchClientId = watch("client_id");
   const prevClientRef = useRef("");
   useEffect(() => {
@@ -128,97 +131,131 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Nouvelle visite</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4 overflow-y-auto flex-1 pr-2">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <Label>Société *</Label>
-              <select
-                value={watch("company_id")}
-                onChange={(e) => handleCompanyChange(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                <option value="">Sélectionner</option>
-                {dbCompanies.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-              {errors.company_id && <p className="text-xs text-destructive mt-1">{errors.company_id.message}</p>}
+        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="flex-1 overflow-hidden flex flex-col">
+          <Tabs defaultValue="general" className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="w-full flex-wrap h-auto gap-1 justify-start">
+              <TabsTrigger value="general" className="flex items-center gap-1.5 text-xs">
+                <FileText className="h-3.5 w-3.5" /> Général
+              </TabsTrigger>
+              <TabsTrigger value="planning" className="flex items-center gap-1.5 text-xs">
+                <Calendar className="h-3.5 w-3.5" /> Planification
+              </TabsTrigger>
+              <TabsTrigger value="address" className="flex items-center gap-1.5 text-xs">
+                <MapPin className="h-3.5 w-3.5" /> Adresse
+              </TabsTrigger>
+              <TabsTrigger value="notes" className="flex items-center gap-1.5 text-xs">
+                <StickyNote className="h-3.5 w-3.5" /> Notes
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="flex-1 overflow-y-auto pr-1 mt-2">
+              {/* ── Général ── */}
+              <TabsContent value="general" className="mt-0">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Société *</Label>
+                    <Select value={watch("company_id")} onValueChange={handleCompanyChange}>
+                      <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                      <SelectContent>
+                        {dbCompanies.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {errors.company_id && <p className="text-xs text-destructive mt-1">{errors.company_id.message}</p>}
+                  </div>
+                  <div>
+                    <Label>Client *</Label>
+                    <Select value={watch("client_id") || ""} onValueChange={(v) => setValue("client_id", v)}>
+                      <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                      <SelectContent>
+                        {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.code ? `${c.code} - ` : ""}{c.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {errors.client_id && <p className="text-xs text-destructive mt-1">{errors.client_id.message}</p>}
+                  </div>
+                  {watch("client_id") && (
+                    <div className="col-span-2">
+                      <ContactSelect clientId={watch("client_id")} value={selectedContactId} onChange={setSelectedContactId} label="Contact sur site" />
+                    </div>
+                  )}
+                  <div className="col-span-2">
+                    <Label htmlFor="visite-title">Titre *</Label>
+                    <Input id="visite-title" {...register("title")} placeholder="Ex: Visite technique curage" />
+                    {errors.title && <p className="text-xs text-destructive mt-1">{errors.title.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="visite-code">Code visite</Label>
+                    <Input id="visite-code" {...register("code")} placeholder="15086" />
+                  </div>
+                  <div>
+                    <Label>Type de visite</Label>
+                    <Select value={watch("visit_type") || ""} onValueChange={(v) => setValue("visit_type", v)}>
+                      <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                      <SelectContent>
+                        {visitTypeOptions.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="visite-advisor">Conseiller / Technicien</Label>
+                    <Input id="visite-advisor" {...register("advisor")} placeholder="Nom du responsable" />
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* ── Planification ── */}
+              <TabsContent value="planning" className="mt-0">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="visite-date">Date</Label>
+                    <Input id="visite-date" type="date" {...register("scheduled_date")} />
+                  </div>
+                  <div>
+                    <Label htmlFor="visite-time">Heure</Label>
+                    <Input id="visite-time" type="time" {...register("scheduled_time")} />
+                  </div>
+                  <div className="col-span-2 pt-2">
+                    <p className="text-xs text-muted-foreground">💡 Après création, vous pourrez planifier plus finement depuis le calendrier.</p>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* ── Adresse ── */}
+              <TabsContent value="address" className="mt-0">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <Label htmlFor="visite-address">Adresse du rendez-vous</Label>
+                    <AddressAutocomplete
+                      id="visite-address"
+                      value={watch("address") || ""}
+                      onChange={(v) => setValue("address", v)}
+                      placeholder="Adresse du rendez-vous"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="visite-zone">Zone / Ville</Label>
+                    <Input id="visite-zone" {...register("zone")} placeholder="Paris, Lyon..." />
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* ── Notes ── */}
+              <TabsContent value="notes" className="mt-0">
+                <div>
+                  <Label htmlFor="visite-notes">Notes / Observations</Label>
+                  <Textarea id="visite-notes" {...register("notes")} rows={6} placeholder="Notes, observations, points à vérifier..." />
+                </div>
+              </TabsContent>
             </div>
-            <div className="col-span-2">
-              <Label>Client *</Label>
-              <select
-                value={watch("client_id") || ""}
-                onChange={(e) => setValue("client_id", e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                <option value="">Sélectionner un client</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.code ? `${c.code} - ` : ""}{c.name}</option>
-                ))}
-              </select>
-              {errors.client_id && <p className="text-xs text-destructive mt-1">{errors.client_id.message}</p>}
-            </div>
-            {watch("client_id") && (
-              <div className="col-span-2">
-                <ContactSelect
-                  clientId={watch("client_id")}
-                  value={selectedContactId}
-                  onChange={setSelectedContactId}
-                  label="Contact sur site"
-                />
-              </div>
-            )}
-            <div className="col-span-2">
-              <Label htmlFor="visite-title">Titre *</Label>
-              <Input id="visite-title" {...register("title")} placeholder="Ex: Visite technique curage" />
-              {errors.title && <p className="text-xs text-destructive mt-1">{errors.title.message}</p>}
-            </div>
-            <div>
-              <Label htmlFor="visite-code">Code visite</Label>
-              <Input id="visite-code" {...register("code")} placeholder="15086" />
-            </div>
-            <div>
-              <Label htmlFor="visite-zone">Zone</Label>
-              <Input id="visite-zone" {...register("zone")} placeholder="Paris" />
-            </div>
-            <div>
-              <Label htmlFor="visite-date">Date</Label>
-              <Input id="visite-date" type="date" {...register("scheduled_date")} />
-            </div>
-            <div>
-              <Label htmlFor="visite-time">Heure</Label>
-              <Input id="visite-time" type="time" {...register("scheduled_time")} />
-            </div>
-            <div>
-              <Label htmlFor="visite-type">Type visite</Label>
-              <Input id="visite-type" {...register("visit_type")} placeholder="VT, VC..." />
-            </div>
-            <div>
-              <Label htmlFor="visite-advisor">Conseiller</Label>
-              <Input id="visite-advisor" {...register("advisor")} />
-            </div>
-            <div className="col-span-2">
-              <Label htmlFor="visite-address">Adresse</Label>
-              <AddressAutocomplete
-                id="visite-address"
-                value={watch("address") || ""}
-                onChange={(v) => setValue("address", v)}
-                placeholder="Adresse du rendez-vous"
-              />
-            </div>
-            <div className="col-span-2">
-              <Label htmlFor="visite-notes">Notes</Label>
-              <Textarea id="visite-notes" {...register("notes")} rows={2} placeholder="Notes..." />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
+          </Tabs>
+
+          <div className="flex justify-end gap-2 pt-3 pb-1 border-t mt-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "Création..." : "Créer"}
+              {mutation.isPending ? "Création..." : "Créer la visite"}
             </Button>
           </div>
         </form>
