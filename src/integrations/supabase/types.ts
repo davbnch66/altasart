@@ -1313,6 +1313,42 @@ export type Database = {
           },
         ]
       }
+      operation_resources: {
+        Row: {
+          created_at: string
+          id: string
+          operation_id: string
+          resource_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          operation_id: string
+          resource_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          operation_id?: string
+          resource_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operation_resources_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operation_resources_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operations: {
         Row: {
           assigned_to: string | null
