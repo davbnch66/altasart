@@ -1,4 +1,7 @@
 import { useState, useCallback } from "react";
+import { format } from "date-fns";
+import { fr } from "date-fns/locale";
+import { Fuel, Wrench } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -127,6 +130,27 @@ export default function TerrainPage() {
     },
     enabled: companyIds.length > 0 && !!userId,
   });
+
+  // Vehicle expenses for terrain
+  const { data: recentExpenses = [] } = useQuery({
+    queryKey: ["terrain-vehicle-expenses", myResource?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("vehicle_expenses")
+        .select("*")
+        .eq("resource_id", myResource!.id)
+        .order("expense_date", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!myResource?.id && mode === "vehicle",
+  });
+
+  const EXPENSE_ICONS: Record<string, React.ElementType> = {
+    gasoil: Fuel, entretien: Wrench, reparation: Wrench,
+  };
+  const fmtCurrency = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
 
   // Visites - only for person & admin modes
   const showVisites = mode === "person" || mode === "admin";
@@ -346,6 +370,24 @@ export default function TerrainPage() {
                 </Button>
               }
             />
+          )}
+
+          {/* Recent expenses */}
+          {recentExpenses.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">Dépenses récentes</p>
+              {recentExpenses.map((exp: any) => {
+                const ExpIcon = EXPENSE_ICONS[exp.expense_type] || Receipt;
+                return (
+                  <div key={exp.id} className="flex items-center gap-2 rounded-lg border bg-card p-2">
+                    <ExpIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-xs flex-1 truncate">{exp.vendor || exp.expense_type}</span>
+                    <span className="text-xs text-muted-foreground">{format(new Date(exp.expense_date), "d MMM", { locale: fr })}</span>
+                    <span className="text-xs font-semibold">{fmtCurrency(Number(exp.amount))}</span>
+                  </div>
+                );
+              })}
+            </div>
           )}
 
           {btLoading ? (
