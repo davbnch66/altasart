@@ -13,8 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus } from "lucide-react";
+
+const fmt = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
 
 const schema = z.object({
   code: z.string().trim().max(20).optional(),
@@ -144,60 +146,54 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <Label>Société *</Label>
-              <select
-                value={watch("company_id") || ""}
-                onChange={(e) => handleCompanyChange(e.target.value)}
-                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                <option value="" disabled>Sélectionner</option>
-                {dbCompanies.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <Select value={watch("company_id") || ""} onValueChange={handleCompanyChange}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                <SelectContent>
+                  {dbCompanies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {errors.company_id && <p className="text-xs text-destructive mt-1">{errors.company_id.message}</p>}
             </div>
             <div className="col-span-2">
               <Label>Client *</Label>
-              <select
-                value={watch("client_id") || ""}
-                onChange={(e) => handleClientChange(e.target.value)}
-                className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                <option value="" disabled>Sélectionner un client</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <Select value={watch("client_id") || ""} onValueChange={handleClientChange}>
+                <SelectTrigger><SelectValue placeholder="Sélectionner un client" /></SelectTrigger>
+                <SelectContent>
+                  {clients.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {errors.client_id && <p className="text-xs text-destructive mt-1">{errors.client_id.message}</p>}
             </div>
             {devisList.length > 0 && (
               <div className="col-span-2">
                 <Label>Devis associé</Label>
-                <select
-                  value={watch("devis_id") || "none"}
-                  onChange={(e) => handleDevisChange(e.target.value)}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                >
-                  <option value="none">Aucun</option>
-                  {devisList.map((d) => (
-                    <option key={d.id} value={d.id}>{d.code || d.objet} — {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(Number(d.amount))}</option>
-                  ))}
-                </select>
+                <Select value={watch("devis_id") || "none"} onValueChange={handleDevisChange}>
+                  <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucun</SelectItem>
+                    {devisList.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>{d.code || d.objet} — {fmt(Number(d.amount))}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             {dossiers.length > 0 && (
               <div className="col-span-2">
                 <Label>Dossier associé</Label>
-                <select
-                  value={watch("dossier_id") || "none"}
-                  onChange={(e) => setValue("dossier_id", e.target.value)}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                >
-                  <option value="none">Aucun</option>
-                  {dossiers.map((d) => (
-                    <option key={d.id} value={d.id}>{d.code || d.title}</option>
-                  ))}
-                </select>
+                <Select value={watch("dossier_id") || "none"} onValueChange={(v) => setValue("dossier_id", v)}>
+                  <SelectTrigger><SelectValue placeholder="Aucun" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucun</SelectItem>
+                    {dossiers.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>{d.code || d.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             <div>
