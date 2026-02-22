@@ -47,10 +47,15 @@ const schema = z.object({
   code: z.string().trim().max(20).optional(),
   client_type: z.string().default("societe"),
   status: z.string(),
+  siret: z.string().trim().max(20).optional(),
+  ape_naf: z.string().trim().max(10).optional(),
+  tva_intra: z.string().trim().max(20).optional(),
+  website: z.string().trim().max(255).optional(),
   contact_name: z.string().trim().max(200).optional(),
   email: z.string().trim().email("Email invalide").max(255).optional().or(z.literal("")),
   phone: z.string().trim().max(20).optional(),
   mobile: z.string().trim().max(20).optional(),
+  fax: z.string().trim().max(20).optional(),
   address: z.string().trim().max(500).optional(),
   postal_code: z.string().trim().max(10).optional(),
   city: z.string().trim().max(100).optional(),
@@ -92,10 +97,15 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
         code: client.code || "",
         client_type: client.client_type || "societe",
         status: client.status || "nouveau_lead",
+        siret: client.siret || "",
+        ape_naf: client.ape_naf || "",
+        tva_intra: client.tva_intra || "",
+        website: client.website || "",
         contact_name: client.contact_name || "",
         email: client.email || "",
         phone: client.phone || "",
         mobile: client.mobile || "",
+        fax: client.fax || "",
         address: client.address || "",
         postal_code: client.postal_code || "",
         city: client.city || "",
@@ -123,10 +133,15 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
         code: data.code || null,
         client_type: data.client_type,
         status: data.status as any,
+        siret: data.siret || null,
+        ape_naf: data.ape_naf || null,
+        tva_intra: data.tva_intra || null,
+        website: data.website || null,
         contact_name: data.contact_name || null,
         email: data.email || null,
         phone: data.phone || null,
         mobile: data.mobile || null,
+        fax: data.fax || null,
         address: data.address || null,
         postal_code: data.postal_code || null,
         city: data.city || null,
@@ -246,6 +261,22 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
                     </Select>
                     {errors.company_id && <p className="text-xs text-destructive mt-1">{errors.company_id.message}</p>}
                   </div>
+                  <div>
+                    <Label htmlFor="edit-siret">SIRET</Label>
+                    <Input id="edit-siret" {...register("siret")} />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-ape">APE / NAF</Label>
+                    <Input id="edit-ape" {...register("ape_naf")} />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-tva">TVA Intracommunautaire</Label>
+                    <Input id="edit-tva" {...register("tva_intra")} />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-website">Site web</Label>
+                    <Input id="edit-website" {...register("website")} />
+                  </div>
                   <div className="col-span-2">
                     <Label>Tags métier</Label>
                     <div className="flex flex-wrap gap-2 mt-1">
@@ -281,6 +312,10 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
                   <div>
                     <Label htmlFor="edit-mobile">Mobile</Label>
                     <Input id="edit-mobile" {...register("mobile")} />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-fax">Fax</Label>
+                    <Input id="edit-fax" {...register("fax")} />
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-3">💡 Gérez les contacts multiples depuis l'onglet Contacts de la fiche client.</p>
