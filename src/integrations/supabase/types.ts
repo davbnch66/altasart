@@ -771,54 +771,141 @@ export type Database = {
       dossiers: {
         Row: {
           address: string | null
+          advisor: string | null
           amount: number | null
           client_id: string
           code: string | null
           company_id: string
+          confirmation_date: string | null
+          coordinator: string | null
           cost: number | null
           created_at: string
+          delivery_access: string | null
+          delivery_address: string | null
+          delivery_city: string | null
+          delivery_comments: string | null
+          delivery_elevator: boolean | null
+          delivery_floor: string | null
+          delivery_parking_request: boolean | null
+          delivery_postal_code: string | null
           description: string | null
+          distance: number | null
+          dossier_type: string | null
           end_date: string | null
+          execution_mode: string | null
           id: string
+          instructions: string | null
+          loading_access: string | null
+          loading_address: string | null
+          loading_city: string | null
+          loading_comments: string | null
+          loading_elevator: boolean | null
+          loading_floor: string | null
+          loading_parking_request: boolean | null
+          loading_postal_code: string | null
+          loss_reason: string | null
+          nature: string | null
           notes: string | null
+          origin: string | null
           stage: Database["public"]["Enums"]["dossier_stage"]
           start_date: string | null
           title: string
           updated_at: string
+          visite_date: string | null
+          volume: number | null
+          weight: number | null
         }
         Insert: {
           address?: string | null
+          advisor?: string | null
           amount?: number | null
           client_id: string
           code?: string | null
           company_id: string
+          confirmation_date?: string | null
+          coordinator?: string | null
           cost?: number | null
           created_at?: string
+          delivery_access?: string | null
+          delivery_address?: string | null
+          delivery_city?: string | null
+          delivery_comments?: string | null
+          delivery_elevator?: boolean | null
+          delivery_floor?: string | null
+          delivery_parking_request?: boolean | null
+          delivery_postal_code?: string | null
           description?: string | null
+          distance?: number | null
+          dossier_type?: string | null
           end_date?: string | null
+          execution_mode?: string | null
           id?: string
+          instructions?: string | null
+          loading_access?: string | null
+          loading_address?: string | null
+          loading_city?: string | null
+          loading_comments?: string | null
+          loading_elevator?: boolean | null
+          loading_floor?: string | null
+          loading_parking_request?: boolean | null
+          loading_postal_code?: string | null
+          loss_reason?: string | null
+          nature?: string | null
           notes?: string | null
+          origin?: string | null
           stage?: Database["public"]["Enums"]["dossier_stage"]
           start_date?: string | null
           title: string
           updated_at?: string
+          visite_date?: string | null
+          volume?: number | null
+          weight?: number | null
         }
         Update: {
           address?: string | null
+          advisor?: string | null
           amount?: number | null
           client_id?: string
           code?: string | null
           company_id?: string
+          confirmation_date?: string | null
+          coordinator?: string | null
           cost?: number | null
           created_at?: string
+          delivery_access?: string | null
+          delivery_address?: string | null
+          delivery_city?: string | null
+          delivery_comments?: string | null
+          delivery_elevator?: boolean | null
+          delivery_floor?: string | null
+          delivery_parking_request?: boolean | null
+          delivery_postal_code?: string | null
           description?: string | null
+          distance?: number | null
+          dossier_type?: string | null
           end_date?: string | null
+          execution_mode?: string | null
           id?: string
+          instructions?: string | null
+          loading_access?: string | null
+          loading_address?: string | null
+          loading_city?: string | null
+          loading_comments?: string | null
+          loading_elevator?: boolean | null
+          loading_floor?: string | null
+          loading_parking_request?: boolean | null
+          loading_postal_code?: string | null
+          loss_reason?: string | null
+          nature?: string | null
           notes?: string | null
+          origin?: string | null
           stage?: Database["public"]["Enums"]["dossier_stage"]
           start_date?: string | null
           title?: string
           updated_at?: string
+          visite_date?: string | null
+          volume?: number | null
+          weight?: number | null
         }
         Relationships: [
           {
