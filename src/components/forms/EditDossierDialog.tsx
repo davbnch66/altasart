@@ -14,9 +14,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, MapPin, ClipboardList } from "lucide-react";
+import { FileText, MapPin, ClipboardList, Warehouse } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
+const DEPOT_ADDRESS = { address: "12 rue Jean Monnet", postal_code: "95190", city: "Goussainville" };
 const executionOptions = ["Route", "Maritime", "Aérien", "Ferroviaire", "Mixte"];
 
 const stageOptions = [
@@ -327,7 +328,12 @@ export const EditDossierDialog = ({ dossier, open, onOpenChange }: EditDossierDi
                 <div className="space-y-6">
                   {/* Chargement */}
                   <div>
-                    <Label className="text-sm font-semibold text-primary">Chargement</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold text-primary">Chargement</Label>
+                      <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => { setValue("loading_address", DEPOT_ADDRESS.address); setValue("loading_postal_code", DEPOT_ADDRESS.postal_code); setValue("loading_city", DEPOT_ADDRESS.city); }}>
+                        <Warehouse className="h-3 w-3" /> Dépôt
+                      </Button>
+                    </div>
                     <div className="grid grid-cols-2 gap-3 mt-2">
                       <div className="col-span-2">
                         <Label>Adresse</Label>
@@ -374,7 +380,12 @@ export const EditDossierDialog = ({ dossier, open, onOpenChange }: EditDossierDi
 
                   {/* Livraison */}
                   <div className="border-t pt-4">
-                    <Label className="text-sm font-semibold text-primary">Livraison</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-semibold text-primary">Livraison</Label>
+                      <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => { setValue("delivery_address", DEPOT_ADDRESS.address); setValue("delivery_postal_code", DEPOT_ADDRESS.postal_code); setValue("delivery_city", DEPOT_ADDRESS.city); }}>
+                        <Warehouse className="h-3 w-3" /> Dépôt
+                      </Button>
+                    </div>
                     <div className="grid grid-cols-2 gap-3 mt-2">
                       <div className="col-span-2">
                         <Label>Adresse</Label>
