@@ -140,6 +140,7 @@ export function VehicleExpenseDialog({ resourceId, companyId, trigger }: Props) 
     onSuccess: () => {
       toast.success("Dépense enregistrée");
       qc.invalidateQueries({ queryKey: ["vehicle-expenses"] });
+      qc.invalidateQueries({ queryKey: ["terrain-vehicle-expenses"] });
       qc.invalidateQueries({ queryKey: ["resource-interventions"] });
       resetForm();
       setOpen(false);
