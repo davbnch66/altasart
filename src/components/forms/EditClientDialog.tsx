@@ -209,7 +209,7 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Modifier le client</DialogTitle>
         </DialogHeader>

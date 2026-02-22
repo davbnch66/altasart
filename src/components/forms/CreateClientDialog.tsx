@@ -172,7 +172,7 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Nouveau client</DialogTitle>
         </DialogHeader>
