@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Props {
   clientId: string;
@@ -29,19 +30,20 @@ export const ContactSelect = ({ clientId, value, onChange, label = "Contact" }: 
   return (
     <div>
       <Label>{label}</Label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-      >
-        <option value="">— Aucun contact —</option>
-        {contacts.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.is_default ? "★ " : ""}{c.civility} {c.first_name} {c.last_name}
-            {c.function_title ? ` (${c.function_title})` : ""}
-          </option>
-        ))}
-      </select>
+      <Select value={value || "none"} onValueChange={(v) => onChange(v === "none" ? "" : v)}>
+        <SelectTrigger>
+          <SelectValue placeholder="— Aucun contact —" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">— Aucun contact —</SelectItem>
+          {contacts.map((c) => (
+            <SelectItem key={c.id} value={c.id}>
+              {c.is_default ? "★ " : ""}{c.civility} {c.first_name} {c.last_name}
+              {c.function_title ? ` (${c.function_title})` : ""}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 };
