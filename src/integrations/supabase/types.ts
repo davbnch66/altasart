@@ -225,6 +225,7 @@ export type Database = {
         Row: {
           address: string | null
           advisor: string | null
+          ape_naf: string | null
           billing_address: string | null
           city: string | null
           client_type: string
@@ -236,6 +237,7 @@ export type Database = {
           created_at: string
           credit_limit: number | null
           email: string | null
+          fax: string | null
           id: string
           mobile: string | null
           name: string
@@ -244,16 +246,20 @@ export type Database = {
           payment_terms: string | null
           phone: string | null
           postal_code: string | null
+          siret: string | null
           site_address: string | null
           source: string | null
           special_conditions: string | null
           status: Database["public"]["Enums"]["client_status"]
           tags: string[] | null
+          tva_intra: string | null
           updated_at: string
+          website: string | null
         }
         Insert: {
           address?: string | null
           advisor?: string | null
+          ape_naf?: string | null
           billing_address?: string | null
           city?: string | null
           client_type?: string
@@ -265,6 +271,7 @@ export type Database = {
           created_at?: string
           credit_limit?: number | null
           email?: string | null
+          fax?: string | null
           id?: string
           mobile?: string | null
           name: string
@@ -273,16 +280,20 @@ export type Database = {
           payment_terms?: string | null
           phone?: string | null
           postal_code?: string | null
+          siret?: string | null
           site_address?: string | null
           source?: string | null
           special_conditions?: string | null
           status?: Database["public"]["Enums"]["client_status"]
           tags?: string[] | null
+          tva_intra?: string | null
           updated_at?: string
+          website?: string | null
         }
         Update: {
           address?: string | null
           advisor?: string | null
+          ape_naf?: string | null
           billing_address?: string | null
           city?: string | null
           client_type?: string
@@ -294,6 +305,7 @@ export type Database = {
           created_at?: string
           credit_limit?: number | null
           email?: string | null
+          fax?: string | null
           id?: string
           mobile?: string | null
           name?: string
@@ -302,12 +314,15 @@ export type Database = {
           payment_terms?: string | null
           phone?: string | null
           postal_code?: string | null
+          siret?: string | null
           site_address?: string | null
           source?: string | null
           special_conditions?: string | null
           status?: Database["public"]["Enums"]["client_status"]
           tags?: string[] | null
+          tva_intra?: string | null
           updated_at?: string
+          website?: string | null
         }
         Relationships: [
           {

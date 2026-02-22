@@ -47,10 +47,15 @@ const schema = z.object({
   code: z.string().trim().max(20).optional(),
   client_type: z.string().default("societe"),
   status: z.string().default("nouveau_lead"),
+  siret: z.string().trim().max(20).optional(),
+  ape_naf: z.string().trim().max(10).optional(),
+  tva_intra: z.string().trim().max(20).optional(),
+  website: z.string().trim().max(255).optional(),
   contact_name: z.string().trim().max(200).optional(),
   email: z.string().trim().email("Email invalide").max(255).optional().or(z.literal("")),
   phone: z.string().trim().max(20).optional(),
   mobile: z.string().trim().max(20).optional(),
+  fax: z.string().trim().max(20).optional(),
   address: z.string().trim().max(500).optional(),
   postal_code: z.string().trim().max(10).optional(),
   city: z.string().trim().max(100).optional(),
@@ -94,10 +99,15 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
         code: data.code || null,
         client_type: data.client_type,
         status: data.status as any,
+        siret: data.siret || null,
+        ape_naf: data.ape_naf || null,
+        tva_intra: data.tva_intra || null,
+        website: data.website || null,
         contact_name: data.contact_name || null,
         email: data.email || null,
         phone: data.phone || null,
         mobile: data.mobile || null,
+        fax: data.fax || null,
         address: data.address || null,
         postal_code: data.postal_code || null,
         city: data.city || null,
@@ -219,6 +229,22 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
                     </Select>
                     {errors.company_id && <p className="text-xs text-destructive mt-1">{errors.company_id.message}</p>}
                   </div>
+                  <div>
+                    <Label htmlFor="siret">SIRET</Label>
+                    <Input id="siret" {...register("siret")} placeholder="123 456 789 00012" />
+                  </div>
+                  <div>
+                    <Label htmlFor="ape_naf">APE / NAF</Label>
+                    <Input id="ape_naf" {...register("ape_naf")} placeholder="4942Z" />
+                  </div>
+                  <div>
+                    <Label htmlFor="tva_intra">TVA Intracommunautaire</Label>
+                    <Input id="tva_intra" {...register("tva_intra")} placeholder="FR 12 345678901" />
+                  </div>
+                  <div>
+                    <Label htmlFor="website">Site web</Label>
+                    <Input id="website" {...register("website")} placeholder="https://..." />
+                  </div>
                   <div className="col-span-2">
                     <Label>Tags métier</Label>
                     <div className="flex flex-wrap gap-2 mt-1">
@@ -254,6 +280,10 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
                   <div>
                     <Label htmlFor="mobile">Mobile</Label>
                     <Input id="mobile" {...register("mobile")} placeholder="06 12 34 56 78" />
+                  </div>
+                  <div>
+                    <Label htmlFor="fax">Fax</Label>
+                    <Input id="fax" {...register("fax")} placeholder="01 23 45 67 90" />
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-3">💡 Vous pourrez ajouter d'autres contacts depuis la fiche client.</p>
