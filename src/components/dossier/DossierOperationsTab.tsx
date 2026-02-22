@@ -523,8 +523,110 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
           <DialogHeader>
             <DialogTitle>Modifier Op. {editingOpNum}</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto pr-1">
+          <div className="flex-1 overflow-y-auto pr-1 space-y-4">
             <OperationFormContent form={form} setForm={setForm} fillDepot={fillDepot} isMobile={isMobile} />
+
+            {/* ── Ressources affectées (Véhicules + Personnel) ── */}
+            {editingOpId && (() => {
+              const assignedResources = getResourcesForOp(editingOpId);
+              const assignedIds = assignedResources.map((ar: any) => ar.resource_id);
+              const unassigned = availableResources.filter((r: any) => !assignedIds.includes(r.id));
+              const vehicles = assignedResources.filter((ar: any) => ar.resources?.type === "vehicule" || ar.resources?.type === "vehicle");
+              const personnel = assignedResources.filter((ar: any) => ar.resources?.type === "personnel" || ar.resources?.type === "person");
+              const other = assignedResources.filter((ar: any) => !vehicles.includes(ar) && !personnel.includes(ar));
+              const unassignedVehicles = unassigned.filter((r: any) => r.type === "vehicule" || r.type === "vehicle");
+              const unassignedPersonnel = unassigned.filter((r: any) => r.type === "personnel" || r.type === "person");
+              const unassignedOther = unassigned.filter((r: any) => !unassignedVehicles.includes(r) && !unassignedPersonnel.includes(r));
+
+              return (
+                <div className={`grid gap-3 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
+                  {/* Véhicules réservés */}
+                  <div className="rounded-lg border bg-card p-3 space-y-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-primary">Véhicules réservés</h4>
+                    {vehicles.length === 0 && unassignedVehicles.length === 0 && (
+                      <p className="text-[10px] text-muted-foreground">Aucun véhicule disponible</p>
+                    )}
+                    {vehicles.length > 0 && (
+                      <div className="space-y-1">
+                        {vehicles.map((ar: any) => (
+                          <div key={ar.id} className="flex items-center justify-between rounded bg-muted/50 px-2 py-1">
+                            <span className="text-xs font-medium">{ar.resources?.name || "—"}</span>
+                            <button onClick={() => removeResourceFromOp.mutate(ar.id)} className="text-muted-foreground hover:text-destructive">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {unassignedVehicles.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {unassignedVehicles.map((r: any) => (
+                          <button key={r.id} onClick={() => addResourceToOp.mutate({ operationId: editingOpId, resourceId: r.id })}
+                            className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+                            + {r.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Personnel réservé */}
+                  <div className="rounded-lg border bg-card p-3 space-y-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-primary">Personnel réservé</h4>
+                    {personnel.length === 0 && unassignedPersonnel.length === 0 && (
+                      <p className="text-[10px] text-muted-foreground">Aucun personnel disponible</p>
+                    )}
+                    {personnel.length > 0 && (
+                      <div className="space-y-1">
+                        {personnel.map((ar: any) => (
+                          <div key={ar.id} className="flex items-center justify-between rounded bg-muted/50 px-2 py-1">
+                            <span className="text-xs font-medium">{ar.resources?.name || "—"}</span>
+                            <button onClick={() => removeResourceFromOp.mutate(ar.id)} className="text-muted-foreground hover:text-destructive">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {unassignedPersonnel.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {unassignedPersonnel.map((r: any) => (
+                          <button key={r.id} onClick={() => addResourceToOp.mutate({ operationId: editingOpId, resourceId: r.id })}
+                            className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+                            + {r.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Autres ressources (si type non reconnu) */}
+                  {(other.length > 0 || unassignedOther.length > 0) && (
+                    <div className="rounded-lg border bg-card p-3 space-y-2 col-span-full">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-primary">Autres ressources</h4>
+                      {other.map((ar: any) => (
+                        <div key={ar.id} className="flex items-center justify-between rounded bg-muted/50 px-2 py-1">
+                          <span className="text-xs font-medium">{ar.resources?.name || "—"}</span>
+                          <button onClick={() => removeResourceFromOp.mutate(ar.id)} className="text-muted-foreground hover:text-destructive">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {unassignedOther.length > 0 && (
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {unassignedOther.map((r: any) => (
+                            <button key={r.id} onClick={() => addResourceToOp.mutate({ operationId: editingOpId, resourceId: r.id })}
+                              className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+                              + {r.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           <div className="flex justify-end gap-2 pt-3 border-t">
             <Button variant="outline" onClick={() => setEditOpen(false)}>Annuler</Button>
