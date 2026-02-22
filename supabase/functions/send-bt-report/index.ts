@@ -58,10 +58,20 @@ serve(async (req) => {
       );
     }
 
-    // Use public URL since bt-reports bucket is public
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const downloadUrl = `${supabaseUrl}/storage/v1/object/public/bt-reports/${storagePath}`;
-    console.log("Download URL:", downloadUrl);
+    // Generate a signed URL (7 days) since bt-reports bucket is private
+    const { data: signedUrlData, error: signedUrlError } = await serviceSupabase
+      .storage
+      .from("bt-reports")
+      .createSignedUrl(storagePath, 604800); // 7 days
+
+    if (signedUrlError || !signedUrlData?.signedUrl) {
+      console.error("Signed URL error:", signedUrlError);
+      return new Response(
+        JSON.stringify({ error: "Impossible de générer le lien de téléchargement." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const downloadUrl = signedUrlData.signedUrl;
 
     // Fetch operation details for email body
     const { data: op } = await serviceSupabase

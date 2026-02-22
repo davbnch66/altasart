@@ -10,8 +10,15 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // This is a webhook endpoint - authenticate via shared secret or accept from known sources
-    // For now, validate inputs strictly since this is a webhook
+    // Webhook authentication via shared secret
+    const webhookSecret = req.headers.get("X-Webhook-Secret");
+    const expectedSecret = Deno.env.get("INBOUND_EMAIL_WEBHOOK_SECRET");
+    if (!expectedSecret || webhookSecret !== expectedSecret) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json();
 
     const fromEmail = body.from_email || body.from?.address || body.from;
