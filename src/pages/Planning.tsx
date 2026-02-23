@@ -112,7 +112,7 @@ const Planning = () => {
   const [savingVisite, setSavingVisite] = useState(false);
 
   // ── Drag & Drop state ──
-  type DragItem = { kind: "op" | "evt"; id: string; durationDays: number; startTime?: string; endTime?: string };
+  type DragItem = { kind: "op" | "evt" | "visite"; id: string; durationDays: number; startTime?: string; endTime?: string };
   const [dragOverCell, setDragOverCell] = useState<string | null>(null);
 
   const handleDragStart = useCallback((e: DragEvent<HTMLDivElement>, item: DragItem) => {
@@ -151,6 +151,11 @@ const Planning = () => {
         const { error } = await supabase.from("operations").update(updateData).eq("id", item.id);
         if (error) throw error;
         toast.success("Opération déplacée");
+      } else if (item.kind === "visite") {
+        const { error } = await supabase.from("visites").update({ scheduled_date: newDate }).eq("id", item.id);
+        if (error) throw error;
+        toast.success("Visite déplacée");
+        queryClient.invalidateQueries({ queryKey: ["planning-visites"] });
       } else {
         // Shift preserving time-of-day and duration
         const oldStart = new Date(item.startTime!);
@@ -1064,8 +1069,11 @@ const Planning = () => {
                 return (
                   <div
                     key={day.toISOString()}
-                    className={`border-r last:border-r-0 relative ${isToday(day) ? "bg-primary/[0.03]" : ""}`}
+                    className={`border-r last:border-r-0 relative ${isToday(day) ? "bg-primary/[0.03]" : ""} ${dragOverCell === `comm-${format(day, "yyyy-MM-dd")}` ? "bg-primary/10" : ""}`}
                     style={{ height: totalHeight }}
+                    onDragOver={(e) => handleDragOver(e, `comm-${format(day, "yyyy-MM-dd")}`)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, day)}
                     onClick={() => { setView("day"); setCurrentDate(day); }}
                   >
                     {/* Hour grid lines */}
@@ -1083,7 +1091,9 @@ const Planning = () => {
                       return (
                         <div
                           key={v.id}
-                          className="absolute left-1 right-1 rounded-md px-2 py-1 bg-info text-white text-[10px] cursor-pointer hover:opacity-90 transition-opacity shadow-sm overflow-hidden z-10 border-l-[3px] border-l-[hsl(354,70%,54%)]"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, { kind: "visite" as any, id: v.id, durationDays: 1, startTime: v.scheduled_date, endTime: v.scheduled_time })}
+                          className="absolute left-1 right-1 rounded-md px-2 py-1 bg-info text-white text-[10px] cursor-grab hover:opacity-90 transition-opacity shadow-sm overflow-hidden z-10 border-l-[3px] border-l-[hsl(354,70%,54%)]"
                           style={{ top, height: Math.max(height, 28) }}
                           onClick={(e) => { e.stopPropagation(); navigate(`/visites/${v.id}`); }}
                         >
@@ -1099,14 +1109,16 @@ const Planning = () => {
                       const { top, height } = getEventTopAndHeight(evt, day);
                       const bgColor = evt.color || "#ef4444";
                       const client = (evt.dossiers as any)?.clients?.name;
-                      // Multi-day events that span the full day
                       const eStart = startOfDay(new Date(evt.start_time));
                       const eEnd = startOfDay(new Date(evt.end_time));
                       const isMultiDay = eStart.getTime() !== eEnd.getTime();
+                      const totalEvtDays = Math.round((eEnd.getTime() - eStart.getTime()) / 86400000) + 1;
                       return (
                         <div
                           key={evt.id}
-                          className="absolute left-0.5 right-0.5 rounded-md px-2 py-1 text-white text-[10px] font-medium cursor-pointer hover:opacity-90 transition-opacity shadow-sm overflow-hidden z-10"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, { kind: "evt", id: evt.id, durationDays: totalEvtDays, startTime: evt.start_time, endTime: evt.end_time })}
+                          className="absolute left-0.5 right-0.5 rounded-md px-2 py-1 text-white text-[10px] font-medium cursor-grab hover:opacity-90 transition-opacity shadow-sm overflow-hidden z-10"
                           style={{
                             backgroundColor: bgColor,
                             top: isMultiDay ? 0 : top,
