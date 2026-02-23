@@ -861,6 +861,7 @@ const Planning = () => {
               {days.map((day) => {
                 const dayVisites = getVisitesForDay(day);
                 const dayEvents = getEventsForDay(day);
+                const dayOps = getOpsForDay(day);
                 return (
                   <div
                     key={day.toISOString()}
@@ -871,13 +872,30 @@ const Planning = () => {
                       <div
                         key={v.id}
                         className="rounded-md px-2 py-1.5 bg-info text-white text-[10px] cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
-                        onClick={() => navigate(`/visites/${v.id}`)}
+                        onClick={(e) => { e.stopPropagation(); navigate(`/visites/${v.id}`); }}
                       >
                         <p className="font-bold truncate">🏠 {(v.clients as any)?.name || "Visite"}</p>
                         {v.scheduled_time && <p className="opacity-80">{v.scheduled_time}</p>}
                         {v.address && <p className="opacity-70 truncate flex items-center gap-0.5"><MapPin className="h-2 w-2 shrink-0" />{v.address}</p>}
                       </div>
                     ))}
+                    {dayOps.map((op: any) => {
+                      const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
+                      const client = (op.dossiers as any)?.clients?.name;
+                      const dossierCode = (op.dossiers as any)?.code;
+                      return (
+                        <div
+                          key={op.id}
+                          className={`rounded-md px-2 py-1.5 text-[10px] cursor-pointer hover:opacity-90 transition-opacity shadow-sm ${color}`}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/dossiers/${op.dossier_id}`); }}
+                        >
+                          <p className="font-bold truncate">🔧 {op.type} #{op.operation_number}{dossierCode ? ` — ${dossierCode}` : ""}</p>
+                          {client && <p className="opacity-85 truncate">{client}</p>}
+                          {op.loading_time_start && <p className="opacity-80">{op.loading_time_start}</p>}
+                          {op.loading_address && <p className="opacity-70 truncate flex items-center gap-0.5"><MapPin className="h-2 w-2 shrink-0" />{op.loading_address}</p>}
+                        </div>
+                      );
+                    })}
                     {dayEvents.map((evt: any) => {
                       const bgColor = evt.color || "#6b7280";
                       const client = (evt.dossiers as any)?.clients?.name;
@@ -913,7 +931,7 @@ const Planning = () => {
                         </div>
                       );
                     })}
-                    {dayVisites.length === 0 && dayEvents.length === 0 && (
+                    {dayVisites.length === 0 && dayEvents.length === 0 && dayOps.length === 0 && (
                       <p className="text-[10px] text-muted-foreground/40 text-center pt-2">—</p>
                     )}
                   </div>
