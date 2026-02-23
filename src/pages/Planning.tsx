@@ -180,6 +180,61 @@ const Planning = () => {
     }
   }, [queryClient]);
 
+  /** Commercial drop: uses Y position to compute target hour */
+  const handleCommercialDrop = useCallback(async (e: DragEvent<HTMLDivElement>, targetDay: Date) => {
+    e.preventDefault();
+    setDragOverCell(null);
+    try {
+      const raw = e.dataTransfer.getData("application/json");
+      if (!raw) return;
+      const item: DragItem = JSON.parse(raw);
+      const newDate = format(targetDay, "yyyy-MM-dd");
+
+      // Calculate target hour from Y position in the column
+      const rect = e.currentTarget.getBoundingClientRect();
+      const yOffset = e.clientY - rect.top;
+      const rawMinutes = (yOffset / HOUR_HEIGHT) * 60;
+      // Snap to 15-minute increments
+      const snappedMinutes = Math.round(rawMinutes / 15) * 15;
+      const targetHour = HOUR_START + Math.floor(snappedMinutes / 60);
+      const targetMinute = snappedMinutes % 60;
+      const clampedHour = Math.max(HOUR_START, Math.min(HOUR_END - 1, targetHour));
+
+      if (item.kind === "visite") {
+        const newTime = `${String(clampedHour).padStart(2, "0")}:${String(targetMinute).padStart(2, "0")}`;
+        const { error } = await supabase.from("visites").update({ scheduled_date: newDate, scheduled_time: newTime }).eq("id", item.id);
+        if (error) throw error;
+        toast.success("Visite déplacée");
+        queryClient.invalidateQueries({ queryKey: ["planning-visites"] });
+      } else if (item.kind === "evt") {
+        const oldStart = new Date(item.startTime!);
+        const oldEnd = new Date(item.endTime!);
+        const durationMs = oldEnd.getTime() - oldStart.getTime();
+        const newStart = new Date(targetDay);
+        newStart.setHours(clampedHour, targetMinute, 0, 0);
+        const newEnd = new Date(newStart.getTime() + durationMs);
+        const { error } = await supabase.from("planning_events").update({
+          start_time: newStart.toISOString(),
+          end_time: newEnd.toISOString(),
+        }).eq("id", item.id);
+        if (error) throw error;
+        toast.success("Événement déplacé");
+        queryClient.invalidateQueries({ queryKey: ["planning-events"] });
+      } else if (item.kind === "op") {
+        const updateData: any = { loading_date: newDate };
+        if (item.durationDays > 1) {
+          updateData.delivery_date = format(addDays(targetDay, item.durationDays - 1), "yyyy-MM-dd");
+        }
+        const { error } = await supabase.from("operations").update(updateData).eq("id", item.id);
+        if (error) throw error;
+        toast.success("Opération déplacée");
+        queryClient.invalidateQueries({ queryKey: ["planning-operations"] });
+      }
+    } catch (err: any) {
+      toast.error("Erreur: " + (err.message || "Impossible de déplacer"));
+    }
+  }, [queryClient]);
+
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
     : [current];
@@ -1073,7 +1128,7 @@ const Planning = () => {
                     style={{ height: totalHeight }}
                     onDragOver={(e) => handleDragOver(e, `comm-${format(day, "yyyy-MM-dd")}`)}
                     onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, day)}
+                    onDrop={(e) => handleCommercialDrop(e, day)}
                     onClick={() => { setView("day"); setCurrentDate(day); }}
                   >
                     {/* Hour grid lines */}
