@@ -637,6 +637,20 @@ const Planning = () => {
             const renderedOpIds = new Set<string>();
             const renderedEvtIds = new Set<string>();
 
+            // Pre-compute max stack count across all days for dynamic row height
+            let maxStack = 1;
+            days.forEach((day) => {
+              let count = 0;
+              resourceOps.forEach((op: any) => { if (isOpOnDay(op, day)) count++; });
+              resourceEvents.forEach((evt: any) => {
+                const evtStart = startOfDay(new Date(evt.start_time));
+                const evtEnd = startOfDay(new Date(evt.end_time));
+                if (evtStart <= day && evtEnd >= day) count++;
+              });
+              if (count > maxStack) maxStack = count;
+            });
+            const rowMinHeight = Math.max(64, 8 + maxStack * 28);
+
             return (
               <div
                 key={resource.id}
@@ -747,9 +761,10 @@ const Planning = () => {
                   return (
                     <div
                       key={day.toISOString()}
-                      className={`border-r last:border-r-0 min-h-[64px] relative overflow-visible cursor-pointer transition-colors ${
+                      className={`border-r last:border-r-0 relative overflow-visible cursor-pointer transition-colors ${
                         isToday(day) ? "bg-primary/5" : rowIdx % 2 === 0 ? "bg-muted/10" : ""
                       } hover:bg-muted/30`}
+                      style={{ minHeight: `${rowMinHeight}px` }}
                       onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
                       onTouchEnd={(e) => { e.preventDefault(); openCreate(day, resource.id); }}
                     >
