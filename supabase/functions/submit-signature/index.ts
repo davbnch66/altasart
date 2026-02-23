@@ -25,10 +25,10 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Fetch signature record first
+    // Fetch signature record with devis info
     const { data: sig, error: sigFetchErr } = await supabase
       .from("devis_signatures")
-      .select("id, status, expires_at, devis_id")
+      .select("id, status, expires_at, devis_id, company_id")
       .eq("token", token)
       .single();
 
@@ -66,6 +66,13 @@ Deno.serve(async (req) => {
 
     if (updateSigErr) throw updateSigErr;
 
+    // Fetch devis details for notification
+    const { data: devisData } = await supabase
+      .from("devis")
+      .select("code, objet, company_id, created_by, client_id, clients(name)")
+      .eq("id", sig.devis_id)
+      .single();
+
     // Update devis status
     const { error: updateDevisErr } = await supabase
       .from("devis")
@@ -76,6 +83,32 @@ Deno.serve(async (req) => {
       .eq("id", sig.devis_id);
 
     if (updateDevisErr) throw updateDevisErr;
+
+    // Send notifications to all company members
+    if (devisData) {
+      const clientName = (devisData as any).clients?.name || signerName.trim();
+      const devisCode = devisData.code || "";
+      const companyId = devisData.company_id;
+
+      // Get all members of this company
+      const { data: members } = await supabase
+        .from("company_memberships")
+        .select("profile_id")
+        .eq("company_id", companyId);
+
+      if (members && members.length > 0) {
+        const notifications = members.map((m: any) => ({
+          user_id: m.profile_id,
+          company_id: companyId,
+          type: "devis_accepted" as const,
+          title: `Devis ${devisCode} accepté !`,
+          body: `${clientName} a accepté le devis "${devisData.objet || devisCode}".`,
+          link: `/devis/${sig.devis_id}`,
+        }));
+
+        await supabase.from("notifications").insert(notifications);
+      }
+    }
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
