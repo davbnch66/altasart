@@ -16,7 +16,23 @@ serve(async (req) => {
 
     const { imageBase64, mimeType } = await req.json();
     if (!imageBase64) {
-      return new Response(JSON.stringify({ error: "imageBase64 required" }), { status: 400, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "imageBase64 required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Validate base64 size (max 10MB)
+    const sizeBytes = (imageBase64.length * 3) / 4;
+    if (sizeBytes > 10 * 1024 * 1024) {
+      return new Response(JSON.stringify({ error: "Image trop volumineuse (max 10MB)" }), {
+        status: 413, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate mime type
+    const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
+    if (mimeType && !allowedTypes.includes(mimeType)) {
+      return new Response(JSON.stringify({ error: "Format d'image non supporté" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -99,7 +115,7 @@ Règles :
     });
   } catch (e) {
     console.error("analyze-expense-photo error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Erreur inconnue" }), {
+    return new Response(JSON.stringify({ error: "Une erreur est survenue lors de l'analyse." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
