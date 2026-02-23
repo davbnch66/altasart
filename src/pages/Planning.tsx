@@ -373,10 +373,25 @@ const Planning = () => {
             <>
               {operations.map((op: any, opIdx: number) => {
                 const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
+                const loadDay = op.loading_date ? startOfDay(new Date(op.loading_date)) : null;
+                const delivDay = op.delivery_date ? startOfDay(new Date(op.delivery_date)) : loadDay;
+                const totalDays = loadDay && delivDay ? Math.round((delivDay.getTime() - loadDay.getTime()) / 86400000) + 1 : 1;
+
+                // Find first and last visible day index for this op
+                let firstIdx = -1;
+                let lastIdx = -1;
+                days.forEach((d, i) => {
+                  if (isOpOnDay(op, d)) {
+                    if (firstIdx === -1) firstIdx = i;
+                    lastIdx = i;
+                  }
+                });
+                const span = firstIdx >= 0 ? lastIdx - firstIdx + 1 : 0;
+
                 return (
-                  <div key={op.id} className="grid border-b cursor-pointer" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
+                  <div key={op.id} className="grid border-b" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
                     <div
-                      className="px-3 py-2.5 border-r bg-muted/10 flex items-center gap-2 hover:bg-muted/30 transition-colors"
+                      className="px-3 py-2.5 border-r bg-muted/10 flex items-center gap-2 cursor-pointer hover:bg-muted/30 transition-colors"
                       onClick={() => { setEditingOpId(op.id); setOpDialogOpen(true); }}
                     >
                       <div className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 bg-warning/20 text-warning">
@@ -392,49 +407,30 @@ const Planning = () => {
                         </p>
                       </div>
                     </div>
-                    {days.map((day) => {
-                      const isOpDay = isOpOnDay(op, day);
-                      const loadDay = op.loading_date ? startOfDay(new Date(op.loading_date)) : null;
-                      const delivDay = op.delivery_date ? startOfDay(new Date(op.delivery_date)) : loadDay;
-                      const isMultiDay = loadDay && delivDay && loadDay.getTime() !== delivDay.getTime();
-                      const isFirst = loadDay && isSameDay(day, loadDay);
-                      const isLast = delivDay && isSameDay(day, delivDay);
-                      const dayNum = loadDay ? Math.round((startOfDay(day).getTime() - loadDay.getTime()) / 86400000) + 1 : 1;
-                      const totalDays = loadDay && delivDay ? Math.round((delivDay.getTime() - loadDay.getTime()) / 86400000) + 1 : 1;
-                      return (
-                        <div
-                          key={day.toISOString()}
-                          className={`border-r last:border-r-0 p-1.5 min-h-[64px] ${isToday(day) ? "bg-primary/5" : ""}`}
-                        >
-                          {isOpDay && (
-                            <div
-                              className={`px-2 py-1 text-[10px] font-medium leading-tight cursor-pointer hover:opacity-90 transition-opacity ${color} ${
-                                isMultiDay
-                                  ? isFirst ? "rounded-l rounded-r-none -mr-1.5" 
-                                  : isLast ? "rounded-r rounded-l-none -ml-1.5"
-                                  : "rounded-none -mx-1.5"
-                                  : "rounded"
-                              }`}
-                              onClick={() => { setEditingOpId(op.id); setOpDialogOpen(true); }}
-                            >
-                              {isFirst ? (
-                                <>
-                                  <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
-                                  <p className="opacity-80 flex items-center gap-0.5 truncate">
-                                    <MapPin className="h-2 w-2 shrink-0" />
-                                    {op.loading_city || "—"} → {op.delivery_city || "—"}
-                                  </p>
-                                  {isMultiDay && <p className="opacity-70 truncate">J{dayNum}/{totalDays}</p>}
-                                  {!isMultiDay && op.volume != null && <p className="opacity-70 truncate">{op.volume} m³</p>}
-                                </>
-                              ) : (
-                                <p className="opacity-70 truncate text-center">J{dayNum}/{totalDays}</p>
-                              )}
+                    {days.map((day, dayIdx) => (
+                      <div
+                        key={day.toISOString()}
+                        className={`border-r last:border-r-0 min-h-[64px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""}`}
+                      >
+                        {dayIdx === firstIdx && span > 0 && (
+                          <div
+                            className={`absolute inset-y-1 left-1 rounded-lg ${color} flex items-center px-3 cursor-pointer hover:opacity-90 transition-opacity shadow-sm`}
+                            style={{ width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)", zIndex: 5 }}
+                            onClick={() => { setEditingOpId(op.id); setOpDialogOpen(true); }}
+                          >
+                            <div className="flex items-center gap-3 min-w-0 w-full text-[11px] font-medium overflow-hidden">
+                              <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
+                              <p className="opacity-80 flex items-center gap-0.5 truncate shrink-0">
+                                <MapPin className="h-2.5 w-2.5 shrink-0" />
+                                {op.loading_city || "—"} → {op.delivery_city || "—"}
+                              </p>
+                              {totalDays > 1 && <span className="opacity-70 shrink-0">{totalDays}j</span>}
+                              {op.volume != null && totalDays <= 1 && <span className="opacity-70 shrink-0">{op.volume} m³</span>}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 );
               })}
