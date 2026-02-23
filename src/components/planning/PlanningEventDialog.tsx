@@ -1,24 +1,17 @@
 import { useState, useEffect, useMemo } from "react";
-import { Calendar as CalendarIcon, Clock, Loader2, MapPin, Palette, Tag, Users, Truck, User, Link2, AlertTriangle, FileText, Trash2, Plus, X } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, Loader2, MapPin, Palette, Tag, Users, Truck, User, Link2, AlertTriangle, FileText, Trash2, Plus, X, Warehouse, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -28,8 +21,9 @@ import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { format, parse, differenceInCalendarDays } from "date-fns";
+import { format, differenceInCalendarDays } from "date-fns";
 import { fr } from "date-fns/locale";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 interface PlanningEventDialogProps {
   open: boolean;
@@ -42,7 +36,9 @@ interface PlanningEventDialogProps {
 const EVENT_TYPES = [
   { value: "intervention", label: "Intervention", icon: "🔧" },
   { value: "livraison", label: "Livraison", icon: "📦" },
+  { value: "demenagement", label: "Déménagement", icon: "🏠" },
   { value: "visite", label: "Visite technique", icon: "🔍" },
+  { value: "manutention", label: "Manutention", icon: "📐" },
   { value: "reunion", label: "Réunion", icon: "👥" },
   { value: "formation", label: "Formation", icon: "🎓" },
   { value: "maintenance", label: "Maintenance", icon: "⚙️" },
@@ -63,17 +59,15 @@ const COLOR_OPTIONS = [
 
 const PRIORITY_OPTIONS = [
   { value: "basse", label: "Basse", color: "bg-muted text-muted-foreground" },
-  { value: "normale", label: "Normale", color: "bg-info/20 text-info" },
-  { value: "haute", label: "Haute", color: "bg-warning/20 text-warning" },
-  { value: "urgente", label: "Urgente", color: "bg-destructive/20 text-destructive" },
+  { value: "normale", label: "Normale", color: "bg-blue-100 text-blue-700" },
+  { value: "haute", label: "Haute", color: "bg-orange-100 text-orange-700" },
+  { value: "urgente", label: "Urgente", color: "bg-red-100 text-red-700" },
 ];
 
+const DEPOT_ADDRESS = { address: "12 rue Jean Monnet", postal_code: "95190", city: "Goussainville" };
+
 export const PlanningEventDialog = ({
-  open,
-  onOpenChange,
-  event,
-  defaultDate,
-  defaultResourceId,
+  open, onOpenChange, event, defaultDate, defaultResourceId,
 }: PlanningEventDialogProps) => {
   const { current, dbCompanies } = useCompany();
   const { user } = useAuth();
@@ -83,7 +77,7 @@ export const PlanningEventDialog = ({
   const companyId = current === "global" ? dbCompanies[0]?.id : current;
   const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
 
-  // Form state
+  // ── Form state ──
   const [title, setTitle] = useState("");
   const [eventType, setEventType] = useState("intervention");
   const [description, setDescription] = useState("");
@@ -94,13 +88,46 @@ export const PlanningEventDialog = ({
   const [allDay, setAllDay] = useState(false);
   const [resourceIds, setResourceIds] = useState<string[]>([]);
   const [dossierId, setDossierId] = useState<string>("__none__");
+  const [clientId, setClientId] = useState<string>("__none__");
   const [selectedCompanyId, setSelectedCompanyId] = useState(companyId || "");
   const [eventColor, setEventColor] = useState("#3b82f6");
   const [priority, setPriority] = useState("normale");
-  const [location, setLocation] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
 
-  // Fetch resources
+  // Loading address
+  const [loadingAddress, setLoadingAddress] = useState("");
+  const [loadingPostalCode, setLoadingPostalCode] = useState("");
+  const [loadingCity, setLoadingCity] = useState("");
+  const [loadingFloor, setLoadingFloor] = useState("");
+  const [loadingAccess, setLoadingAccess] = useState("");
+  const [loadingElevator, setLoadingElevator] = useState(false);
+  const [loadingParkingRequest, setLoadingParkingRequest] = useState(false);
+  const [loadingPortage, setLoadingPortage] = useState("0");
+  const [loadingPassageFenetre, setLoadingPassageFenetre] = useState(false);
+  const [loadingMonteMeubles, setLoadingMonteMeubles] = useState(false);
+  const [loadingTransbordement, setLoadingTransbordement] = useState(false);
+  const [loadingComments, setLoadingComments] = useState("");
+
+  // Delivery address
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryPostalCode, setDeliveryPostalCode] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryFloor, setDeliveryFloor] = useState("");
+  const [deliveryAccess, setDeliveryAccess] = useState("");
+  const [deliveryElevator, setDeliveryElevator] = useState(false);
+  const [deliveryParkingRequest, setDeliveryParkingRequest] = useState(false);
+  const [deliveryPortage, setDeliveryPortage] = useState("0");
+  const [deliveryPassageFenetre, setDeliveryPassageFenetre] = useState(false);
+  const [deliveryMonteMeubles, setDeliveryMonteMeubles] = useState(false);
+  const [deliveryTransbordement, setDeliveryTransbordement] = useState(false);
+  const [deliveryComments, setDeliveryComments] = useState("");
+
+  // Logistics
+  const [volume, setVolume] = useState("");
+  const [weight, setWeight] = useState("");
+  const [instructions, setInstructions] = useState("");
+
+  // ── Fetch resources ──
   const { data: resources = [] } = useQuery({
     queryKey: ["planning-resources-dialog", companyIds],
     queryFn: async () => {
@@ -116,13 +143,28 @@ export const PlanningEventDialog = ({
     enabled: open && companyIds.length > 0,
   });
 
-  // Fetch dossiers
+  // ── Fetch clients ──
+  const { data: clients = [] } = useQuery({
+    queryKey: ["planning-clients-dialog", companyIds],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("clients")
+        .select("id, name, address, postal_code, city, phone, email")
+        .in("company_id", companyIds)
+        .order("name")
+        .limit(200);
+      return data || [];
+    },
+    enabled: open && companyIds.length > 0,
+  });
+
+  // ── Fetch dossiers ──
   const { data: dossiers = [] } = useQuery({
     queryKey: ["planning-dossiers-dialog", companyIds],
     queryFn: async () => {
       const { data } = await supabase
         .from("dossiers")
-        .select("id, title, code, clients(name)")
+        .select("id, title, code, client_id, clients(name), loading_address, loading_postal_code, loading_city, delivery_address, delivery_postal_code, delivery_city, volume, weight")
         .in("company_id", companyIds)
         .not("stage", "in", '("termine","paye")')
         .order("created_at", { ascending: false })
@@ -143,18 +185,18 @@ export const PlanningEventDialog = ({
     return groups;
   }, [resources]);
 
-  // Duration display
   const durationDays = useMemo(() => {
     if (!startDate || !endDate) return 0;
     return differenceInCalendarDays(endDate, startDate) + 1;
   }, [startDate, endDate]);
 
-  // Populate on edit
+  // ── Populate on edit / reset on create ──
   useEffect(() => {
     if (!open) return;
     if (event) {
       setTitle(event.title || "");
-      setDescription(event.description || "");
+      setDescription(event.description?.replace(/\n\n\[Notes internes\].*$/s, "") || "");
+      setInternalNotes(event.description?.match(/\[Notes internes\]\s*(.*)/s)?.[1] || "");
       const sDate = new Date(event.start_time);
       const eDate = new Date(event.end_time);
       setStartDate(sDate);
@@ -163,32 +205,95 @@ export const PlanningEventDialog = ({
       setEndTime(format(eDate, "HH:mm"));
       setResourceIds(event.resource_id ? [event.resource_id] : []);
       setDossierId(event.dossier_id || "__none__");
+      setClientId("__none__");
       setSelectedCompanyId(event.company_id || companyId || "");
       setEventColor(event.color || "#3b82f6");
       setEventType("intervention");
       setPriority("normale");
-      setLocation("");
-      setInternalNotes("");
       setAllDay(false);
+      // Reset addresses
+      resetAddresses();
     } else {
       const d = defaultDate || new Date();
       setTitle("");
       setDescription("");
+      setInternalNotes("");
       setStartDate(d);
       setEndDate(d);
       setStartTime("08:00");
       setEndTime("17:00");
       setResourceIds(defaultResourceId ? [defaultResourceId] : []);
       setDossierId("__none__");
+      setClientId("__none__");
       setSelectedCompanyId(companyId || "");
       setEventColor("#3b82f6");
       setEventType("intervention");
       setPriority("normale");
-      setLocation("");
-      setInternalNotes("");
       setAllDay(false);
+      resetAddresses();
     }
   }, [event, defaultDate, defaultResourceId, companyId, open]);
+
+  const resetAddresses = () => {
+    setLoadingAddress(""); setLoadingPostalCode(""); setLoadingCity("");
+    setLoadingFloor(""); setLoadingAccess(""); setLoadingElevator(false);
+    setLoadingParkingRequest(false); setLoadingPortage("0");
+    setLoadingPassageFenetre(false); setLoadingMonteMeubles(false);
+    setLoadingTransbordement(false); setLoadingComments("");
+    setDeliveryAddress(""); setDeliveryPostalCode(""); setDeliveryCity("");
+    setDeliveryFloor(""); setDeliveryAccess(""); setDeliveryElevator(false);
+    setDeliveryParkingRequest(false); setDeliveryPortage("0");
+    setDeliveryPassageFenetre(false); setDeliveryMonteMeubles(false);
+    setDeliveryTransbordement(false); setDeliveryComments("");
+    setVolume(""); setWeight(""); setInstructions("");
+  };
+
+  const fillDepot = (prefix: "loading" | "delivery") => {
+    if (prefix === "loading") {
+      setLoadingAddress(DEPOT_ADDRESS.address);
+      setLoadingPostalCode(DEPOT_ADDRESS.postal_code);
+      setLoadingCity(DEPOT_ADDRESS.city);
+    } else {
+      setDeliveryAddress(DEPOT_ADDRESS.address);
+      setDeliveryPostalCode(DEPOT_ADDRESS.postal_code);
+      setDeliveryCity(DEPOT_ADDRESS.city);
+    }
+  };
+
+  const fillFromClient = (prefix: "loading" | "delivery") => {
+    const client = clients.find((c: any) => c.id === clientId);
+    if (!client) return;
+    if (prefix === "loading") {
+      setLoadingAddress(client.address || "");
+      setLoadingPostalCode(client.postal_code || "");
+      setLoadingCity(client.city || "");
+    } else {
+      setDeliveryAddress(client.address || "");
+      setDeliveryPostalCode(client.postal_code || "");
+      setDeliveryCity(client.city || "");
+    }
+  };
+
+  // When dossier is selected, auto-fill addresses & client
+  const handleDossierChange = (val: string) => {
+    setDossierId(val);
+    if (val === "__none__") return;
+    const dossier = dossiers.find((d: any) => d.id === val);
+    if (!dossier) return;
+    if (dossier.client_id) setClientId(dossier.client_id);
+    if (dossier.loading_address) {
+      setLoadingAddress(dossier.loading_address || "");
+      setLoadingPostalCode(dossier.loading_postal_code || "");
+      setLoadingCity(dossier.loading_city || "");
+    }
+    if (dossier.delivery_address) {
+      setDeliveryAddress(dossier.delivery_address || "");
+      setDeliveryPostalCode(dossier.delivery_postal_code || "");
+      setDeliveryCity(dossier.delivery_city || "");
+    }
+    if (dossier.volume) setVolume(String(dossier.volume));
+    if (dossier.weight) setWeight(String(dossier.weight));
+  };
 
   const toggleResource = (id: string) => {
     setResourceIds((prev) =>
@@ -213,9 +318,51 @@ export const PlanningEventDialog = ({
       const sT = allDay ? "00:00" : startTime;
       const eT = allDay ? "23:59" : endTime;
 
+      // Build a rich description that encodes all extra fields
+      const addressInfo = [];
+      if (loadingAddress || loadingCity) {
+        addressInfo.push(`[Chargement] ${loadingAddress} ${loadingPostalCode} ${loadingCity}`.trim());
+        const details: string[] = [];
+        if (loadingFloor) details.push(`Étage: ${loadingFloor}`);
+        if (loadingElevator) details.push("Ascenseur");
+        if (loadingParkingRequest) details.push("Stationnement");
+        if (Number(loadingPortage) > 0) details.push(`Portage: ${loadingPortage}m`);
+        if (loadingPassageFenetre) details.push("Passage fenêtre");
+        if (loadingMonteMeubles) details.push("Monte-meubles");
+        if (loadingTransbordement) details.push("Transbordement");
+        if (loadingAccess) details.push(`Accès: ${loadingAccess}`);
+        if (details.length) addressInfo.push(details.join(" | "));
+        if (loadingComments) addressInfo.push(`Obs: ${loadingComments}`);
+      }
+      if (deliveryAddress || deliveryCity) {
+        addressInfo.push(`[Livraison] ${deliveryAddress} ${deliveryPostalCode} ${deliveryCity}`.trim());
+        const details: string[] = [];
+        if (deliveryFloor) details.push(`Étage: ${deliveryFloor}`);
+        if (deliveryElevator) details.push("Ascenseur");
+        if (deliveryParkingRequest) details.push("Stationnement");
+        if (Number(deliveryPortage) > 0) details.push(`Portage: ${deliveryPortage}m`);
+        if (deliveryPassageFenetre) details.push("Passage fenêtre");
+        if (deliveryMonteMeubles) details.push("Monte-meubles");
+        if (deliveryTransbordement) details.push("Transbordement");
+        if (deliveryAccess) details.push(`Accès: ${deliveryAccess}`);
+        if (details.length) addressInfo.push(details.join(" | "));
+        if (deliveryComments) addressInfo.push(`Obs: ${deliveryComments}`);
+      }
+      const logistics: string[] = [];
+      if (volume) logistics.push(`Volume: ${volume} m³`);
+      if (weight) logistics.push(`Poids: ${weight} t`);
+
+      const descParts = [
+        description,
+        addressInfo.length ? addressInfo.join("\n") : "",
+        logistics.length ? logistics.join(" — ") : "",
+        instructions ? `[Consignes] ${instructions}` : "",
+        internalNotes ? `[Notes internes] ${internalNotes}` : "",
+      ].filter(Boolean);
+
       const payload = {
         title: title.trim(),
-        description: [description, internalNotes ? `[Notes internes] ${internalNotes}` : ""].filter(Boolean).join("\n\n").trim() || null,
+        description: descParts.join("\n\n").trim() || null,
         start_time: `${sDateStr}T${sT}:00`,
         end_time: `${eDateStr}T${eT}:00`,
         resource_id: resourceIds.length > 0 ? resourceIds[0] : null,
@@ -226,16 +373,11 @@ export const PlanningEventDialog = ({
       };
 
       if (event) {
-        const { error } = await supabase
-          .from("planning_events")
-          .update(payload)
-          .eq("id", event.id);
+        const { error } = await supabase.from("planning_events").update(payload).eq("id", event.id);
         if (error) throw error;
         toast.success("Événement modifié");
       } else {
-        const { error } = await supabase
-          .from("planning_events")
-          .insert(payload);
+        const { error } = await supabase.from("planning_events").insert(payload);
         if (error) throw error;
         toast.success("Événement créé");
       }
@@ -253,10 +395,7 @@ export const PlanningEventDialog = ({
     if (!event) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("planning_events")
-        .delete()
-        .eq("id", event.id);
+      const { error } = await supabase.from("planning_events").delete().eq("id", event.id);
       if (error) throw error;
       toast.success("Événement supprimé");
       queryClient.invalidateQueries({ queryKey: ["planning-events"] });
@@ -269,11 +408,98 @@ export const PlanningEventDialog = ({
   };
 
   const selectedResources = resources.filter((r: any) => resourceIds.includes(r.id));
+  const selectedClient = clients.find((c: any) => c.id === clientId);
+
+  // ── Address Block sub-component ──
+  const AddressBlock = ({ title: blockTitle, prefix }: { title: string; prefix: "loading" | "delivery" }) => {
+    const isLoading = prefix === "loading";
+    const address = isLoading ? loadingAddress : deliveryAddress;
+    const setAddress = isLoading ? setLoadingAddress : setDeliveryAddress;
+    const postalCode = isLoading ? loadingPostalCode : deliveryPostalCode;
+    const setPostalCode = isLoading ? setLoadingPostalCode : setDeliveryPostalCode;
+    const city = isLoading ? loadingCity : deliveryCity;
+    const setCity = isLoading ? setLoadingCity : setDeliveryCity;
+    const floor = isLoading ? loadingFloor : deliveryFloor;
+    const setFloor = isLoading ? setLoadingFloor : setDeliveryFloor;
+    const access = isLoading ? loadingAccess : deliveryAccess;
+    const setAccess = isLoading ? setLoadingAccess : setDeliveryAccess;
+    const elevator = isLoading ? loadingElevator : deliveryElevator;
+    const setElevator = isLoading ? setLoadingElevator : setDeliveryElevator;
+    const parkingRequest = isLoading ? loadingParkingRequest : deliveryParkingRequest;
+    const setParkingRequest = isLoading ? setLoadingParkingRequest : setDeliveryParkingRequest;
+    const portage = isLoading ? loadingPortage : deliveryPortage;
+    const setPortage = isLoading ? setLoadingPortage : setDeliveryPortage;
+    const passageFenetre = isLoading ? loadingPassageFenetre : deliveryPassageFenetre;
+    const setPassageFenetre = isLoading ? setLoadingPassageFenetre : setDeliveryPassageFenetre;
+    const monteMeubles = isLoading ? loadingMonteMeubles : deliveryMonteMeubles;
+    const setMonteMeubles = isLoading ? setLoadingMonteMeubles : setDeliveryMonteMeubles;
+    const transbordement = isLoading ? loadingTransbordement : deliveryTransbordement;
+    const setTransbordement = isLoading ? setLoadingTransbordement : setDeliveryTransbordement;
+    const comments = isLoading ? loadingComments : deliveryComments;
+    const setComments = isLoading ? setLoadingComments : setDeliveryComments;
+
+    return (
+      <div className="rounded-lg border bg-card p-3 space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-primary">{blockTitle}</h4>
+          <div className="flex gap-1">
+            {clientId !== "__none__" && (
+              <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2" onClick={() => fillFromClient(prefix)}>
+                <Building2 className="h-3 w-3" /> Client
+              </Button>
+            )}
+            <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2" onClick={() => fillDepot(prefix)}>
+              <Warehouse className="h-3 w-3" /> Dépôt
+            </Button>
+          </div>
+        </div>
+
+        <div>
+          <Label className="text-[10px] text-muted-foreground">Adresse</Label>
+          <AddressAutocomplete
+            value={address}
+            onChange={setAddress}
+            onSelect={(s) => {
+              setAddress(s.label);
+              if (s.postcode) setPostalCode(s.postcode);
+              if (s.city) setCity(s.city);
+            }}
+            placeholder="Adresse"
+            className="h-7 text-xs"
+          />
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div><Label className="text-[10px] text-muted-foreground">CP</Label><Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="h-7 text-xs" /></div>
+          <div className="col-span-2"><Label className="text-[10px] text-muted-foreground">Ville</Label><Input value={city} onChange={(e) => setCity(e.target.value)} className="h-7 text-xs" /></div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div><Label className="text-[10px] text-muted-foreground">Étage</Label><Input value={floor} onChange={(e) => setFloor(e.target.value)} className="h-7 text-xs" placeholder="RDC, 3e…" /></div>
+          <div><Label className="text-[10px] text-muted-foreground">Portage (m)</Label><Input type="number" value={portage} onChange={(e) => setPortage(e.target.value)} className="h-7 text-xs" /></div>
+        </div>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+          {[
+            { checked: elevator, set: setElevator, label: "Ascenseur" },
+            { checked: passageFenetre, set: setPassageFenetre, label: "Passage fenêtre" },
+            { checked: monteMeubles, set: setMonteMeubles, label: "Monte-meubles" },
+            { checked: transbordement, set: setTransbordement, label: "Transbordement" },
+            { checked: parkingRequest, set: setParkingRequest, label: "Stationnement" },
+          ].map(({ checked, set, label }) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <Checkbox checked={checked} onCheckedChange={(v) => set(!!v)} />
+              <label className="text-[10px] cursor-pointer">{label}</label>
+            </div>
+          ))}
+        </div>
+        <div><Label className="text-[10px] text-muted-foreground">Accès</Label><Input value={access} onChange={(e) => setAccess(e.target.value)} className="h-7 text-xs" placeholder="Digicode, portail…" /></div>
+        <div><Label className="text-[10px] text-muted-foreground">Observations</Label><Textarea value={comments} onChange={(e) => setComments(e.target.value)} className="min-h-[40px] text-xs resize-none" /></div>
+      </div>
+    );
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
-        {/* Header with color accent */}
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+        {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b" style={{ borderBottomColor: eventColor }}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
@@ -284,8 +510,6 @@ export const PlanningEventDialog = ({
               )}
             </DialogTitle>
           </DialogHeader>
-
-          {/* Title input inline in header */}
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -299,6 +523,9 @@ export const PlanningEventDialog = ({
             <TabsTrigger value="general" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none py-2.5 text-xs">
               Général
             </TabsTrigger>
+            <TabsTrigger value="adresses" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none py-2.5 text-xs">
+              Adresses
+            </TabsTrigger>
             <TabsTrigger value="ressources" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none py-2.5 text-xs">
               Ressources {resourceIds.length > 0 && <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1">{resourceIds.length}</Badge>}
             </TabsTrigger>
@@ -309,14 +536,12 @@ export const PlanningEventDialog = ({
 
           {/* ── Tab: Général ── */}
           <TabsContent value="general" className="px-6 py-4 space-y-4 mt-0">
-            {/* Type + Priority row */}
+            {/* Type + Priority */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Type</Label>
                 <Select value={eventType} onValueChange={setEventType}>
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {EVENT_TYPES.map((t) => (
                       <SelectItem key={t.value} value={t.value}>
@@ -329,9 +554,7 @@ export const PlanningEventDialog = ({
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Priorité</Label>
                 <Select value={priority} onValueChange={setPriority}>
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {PRIORITY_OPTIONS.map((p) => (
                       <SelectItem key={p.value} value={p.value}>
@@ -346,6 +569,43 @@ export const PlanningEventDialog = ({
               </div>
             </div>
 
+            {/* Client */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                <Building2 className="h-3 w-3" /> Client
+              </Label>
+              <Select value={clientId} onValueChange={setClientId}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Aucun" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Aucun</SelectItem>
+                  {clients.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Dossier */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                <Link2 className="h-3 w-3" /> Dossier lié
+              </Label>
+              <Select value={dossierId} onValueChange={handleDossierChange}>
+                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Aucun" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Aucun</SelectItem>
+                  {dossiers.map((d: any) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.code ? `${d.code} — ` : ""}{d.title} ({(d.clients as any)?.name || "—"})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {dossierId !== "__none__" && (
+                <p className="text-[10px] text-muted-foreground">Les adresses et volumes du dossier ont été pré-remplis.</p>
+              )}
+            </div>
+
             {/* Date range */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -356,7 +616,6 @@ export const PlanningEventDialog = ({
                 </label>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {/* Start date */}
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className={cn("h-9 text-xs justify-start", !startDate && "text-muted-foreground")}>
@@ -365,19 +624,9 @@ export const PlanningEventDialog = ({
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={startDate}
-                      onSelect={(d) => {
-                        setStartDate(d);
-                        if (d && (!endDate || d > endDate)) setEndDate(d);
-                      }}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
+                    <Calendar mode="single" selected={startDate} onSelect={(d) => { setStartDate(d); if (d && (!endDate || d > endDate)) setEndDate(d); }} initialFocus className="p-3 pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
-                {/* End date */}
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className={cn("h-9 text-xs justify-start", !endDate && "text-muted-foreground")}>
@@ -386,18 +635,10 @@ export const PlanningEventDialog = ({
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={endDate}
-                      onSelect={setEndDate}
-                      disabled={(d) => startDate ? d < startDate : false}
-                      initialFocus
-                      className={cn("p-3 pointer-events-auto")}
-                    />
+                    <Calendar mode="single" selected={endDate} onSelect={setEndDate} disabled={(d) => startDate ? d < startDate : false} initialFocus className="p-3 pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
               </div>
-              {/* Times */}
               {!allDay && (
                 <div className="grid grid-cols-2 gap-3 mt-2">
                   <div className="flex items-center gap-2">
@@ -412,23 +653,12 @@ export const PlanningEventDialog = ({
               )}
             </div>
 
-            {/* Location */}
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Lieu</Label>
-              <div className="flex items-center gap-2">
-                <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Adresse ou lieu" className="h-9 text-xs" />
-              </div>
-            </div>
-
             {/* Company selector (global mode) */}
             {current === "global" && (
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Société</Label>
                 <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="Sélectionner…" />
-                  </SelectTrigger>
+                  <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Sélectionner…" /></SelectTrigger>
                   <SelectContent>
                     {dbCompanies.map((c) => (
                       <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
@@ -437,26 +667,6 @@ export const PlanningEventDialog = ({
                 </Select>
               </div>
             )}
-
-            {/* Dossier */}
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <Link2 className="h-3 w-3" /> Dossier lié
-              </Label>
-              <Select value={dossierId} onValueChange={setDossierId}>
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue placeholder="Aucun" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Aucun</SelectItem>
-                  {dossiers.map((d: any) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.code ? `${d.code} — ` : ""}{d.title} ({(d.clients as any)?.name || "—"})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
             {/* Color */}
             <div className="space-y-1.5">
@@ -481,9 +691,29 @@ export const PlanningEventDialog = ({
             </div>
           </TabsContent>
 
+          {/* ── Tab: Adresses ── */}
+          <TabsContent value="adresses" className="px-6 py-4 space-y-4 mt-0">
+            {/* Volume / Weight */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Volume (m³)</Label>
+                <Input type="number" value={volume} onChange={(e) => setVolume(e.target.value)} className="h-9 text-xs" placeholder="0" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Poids (tonnes)</Label>
+                <Input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="h-9 text-xs" placeholder="0" />
+              </div>
+            </div>
+
+            {/* Chargement / Livraison side by side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <AddressBlock title="Chargement" prefix="loading" />
+              <AddressBlock title="Livraison" prefix="delivery" />
+            </div>
+          </TabsContent>
+
           {/* ── Tab: Ressources ── */}
           <TabsContent value="ressources" className="px-6 py-4 space-y-4 mt-0">
-            {/* Selected resources summary */}
             {selectedResources.length > 0 && (
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Affectés ({selectedResources.length})</Label>
@@ -501,33 +731,19 @@ export const PlanningEventDialog = ({
               </div>
             )}
 
-            {/* Personnel section */}
             {groupedResources.employe?.length > 0 && (
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Users className="h-3 w-3" /> Personnel
-                </Label>
+                <Label className="text-xs text-muted-foreground flex items-center gap-1"><Users className="h-3 w-3" /> Personnel</Label>
                 <div className="grid grid-cols-2 gap-1.5 max-h-[200px] overflow-y-auto">
                   {groupedResources.employe.map((r: any) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() => toggleResource(r.id)}
-                      className={cn(
-                        "flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left text-xs transition-colors",
-                        resourceIds.includes(r.id)
-                          ? "bg-primary/10 border-primary text-primary font-medium"
-                          : "bg-card border-border hover:bg-muted/50"
-                      )}
-                    >
-                      <div className={cn(
-                        "h-6 w-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0",
-                        resourceIds.includes(r.id) ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    <button key={r.id} type="button" onClick={() => toggleResource(r.id)}
+                      className={cn("flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left text-xs transition-colors",
+                        resourceIds.includes(r.id) ? "bg-primary/10 border-primary text-primary font-medium" : "bg-card border-border hover:bg-muted/50"
                       )}>
-                        {r.name?.charAt(0)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate">{r.name}</p>
+                      <div className={cn("h-6 w-6 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0",
+                        resourceIds.includes(r.id) ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                      )}>{r.name?.charAt(0)}</div>
+                      <div className="min-w-0"><p className="truncate">{r.name}</p>
                         {r.status === "absent" && <p className="text-[9px] text-destructive">Absent</p>}
                       </div>
                     </button>
@@ -536,26 +752,16 @@ export const PlanningEventDialog = ({
               </div>
             )}
 
-            {/* Véhicules section */}
             {groupedResources.vehicule?.length > 0 && (
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Truck className="h-3 w-3" /> Véhicules
-                </Label>
+                <Label className="text-xs text-muted-foreground flex items-center gap-1"><Truck className="h-3 w-3" /> Véhicules</Label>
                 <div className="grid grid-cols-2 gap-1.5 max-h-[200px] overflow-y-auto">
                   {groupedResources.vehicule.map((r: any) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() => toggleResource(r.id)}
-                      className={cn(
-                        "flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left text-xs transition-colors",
-                        resourceIds.includes(r.id)
-                          ? "bg-warning/10 border-warning text-warning font-medium"
-                          : "bg-card border-border hover:bg-muted/50"
-                      )}
-                    >
-                      <Truck className={cn("h-4 w-4 shrink-0", resourceIds.includes(r.id) ? "text-warning" : "text-muted-foreground")} />
+                    <button key={r.id} type="button" onClick={() => toggleResource(r.id)}
+                      className={cn("flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left text-xs transition-colors",
+                        resourceIds.includes(r.id) ? "bg-amber-500/10 border-amber-500 text-amber-700 font-medium" : "bg-card border-border hover:bg-muted/50"
+                      )}>
+                      <Truck className={cn("h-4 w-4 shrink-0", resourceIds.includes(r.id) ? "text-amber-500" : "text-muted-foreground")} />
                       <span className="truncate">{r.name}</span>
                     </button>
                   ))}
@@ -563,25 +769,15 @@ export const PlanningEventDialog = ({
               </div>
             )}
 
-            {/* Grues section */}
             {groupedResources.grue?.length > 0 && (
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                  ⛽ Grues / Engins
-                </Label>
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">⛽ Grues / Engins</Label>
                 <div className="grid grid-cols-2 gap-1.5 max-h-[200px] overflow-y-auto">
                   {groupedResources.grue.map((r: any) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() => toggleResource(r.id)}
-                      className={cn(
-                        "flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left text-xs transition-colors",
-                        resourceIds.includes(r.id)
-                          ? "bg-info/10 border-info text-info font-medium"
-                          : "bg-card border-border hover:bg-muted/50"
-                      )}
-                    >
+                    <button key={r.id} type="button" onClick={() => toggleResource(r.id)}
+                      className={cn("flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left text-xs transition-colors",
+                        resourceIds.includes(r.id) ? "bg-cyan-500/10 border-cyan-500 text-cyan-700 font-medium" : "bg-card border-border hover:bg-muted/50"
+                      )}>
                       <span className="text-sm shrink-0">🏗️</span>
                       <span className="truncate">{r.name}</span>
                     </button>
@@ -594,27 +790,18 @@ export const PlanningEventDialog = ({
           {/* ── Tab: Détails ── */}
           <TabsContent value="details" className="px-6 py-4 space-y-4 mt-0">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Description</Label>
-              <Textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Instructions, détails de l'intervention…"
-                rows={4}
-                className="resize-none text-sm"
-              />
+              <Label className="text-xs text-muted-foreground">Consignes / Mode opératoire</Label>
+              <Textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Mode opératoire, consignes de sécurité…" rows={3} className="resize-none text-sm" />
             </div>
-
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Description</Label>
+              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Détails de l'intervention…" rows={3} className="resize-none text-sm" />
+            </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground flex items-center gap-1">
                 <FileText className="h-3 w-3" /> Notes internes
               </Label>
-              <Textarea
-                value={internalNotes}
-                onChange={(e) => setInternalNotes(e.target.value)}
-                placeholder="Notes visibles uniquement en interne…"
-                rows={3}
-                className="resize-none text-sm bg-muted/30"
-              />
+              <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="Notes visibles uniquement en interne…" rows={3} className="resize-none text-sm bg-muted/30" />
             </div>
           </TabsContent>
         </Tabs>
@@ -623,8 +810,7 @@ export const PlanningEventDialog = ({
         <DialogFooter className="flex gap-2 px-6 py-4 border-t">
           {event && (
             <Button variant="destructive" size="sm" onClick={handleDelete} disabled={saving} className="mr-auto gap-1">
-              <Trash2 className="h-3.5 w-3.5" />
-              Supprimer
+              <Trash2 className="h-3.5 w-3.5" /> Supprimer
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Annuler</Button>
