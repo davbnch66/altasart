@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useState, useMemo, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -30,6 +30,7 @@ import { useNavigate } from "react-router-dom";
 
 type ViewMode = "day" | "week" | "month";
 type PlanningType = "exploitation" | "commercial";
+type ExploitationMode = "operation" | "vehicule" | "personnel";
 
 // Vibrant palette for event rows (exploitation)
 const ROW_COLORS = [
@@ -68,7 +69,14 @@ const Planning = () => {
     return (sessionStorage.getItem("planningTab") as PlanningType) || "exploitation";
   });
   const [selectedCommercial, setSelectedCommercial] = useState<string>("global");
+  const [exploitationMode, setExploitationMode] = useState<ExploitationMode>(() => {
+    return (sessionStorage.getItem("exploitationMode") as ExploitationMode) || "vehicule";
+  });
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    sessionStorage.setItem("exploitationMode", exploitationMode);
+  }, [exploitationMode]);
 
   useEffect(() => {
     sessionStorage.setItem("planningTab", planningType);
@@ -158,7 +166,22 @@ const Planning = () => {
     enabled: companyIds.length > 0,
   });
 
-  // Fetch visites for commercial planning
+  // Fetch operation_resources to link operations to resources
+  const { data: opResources = [] } = useQuery({
+    queryKey: ["planning-op-resources", companyIds, rangeStart.toISOString()],
+    queryFn: async () => {
+      if (companyIds.length === 0 || operations.length === 0) return [];
+      const opIds = operations.map((op: any) => op.id);
+      const { data, error } = await supabase
+        .from("operation_resources")
+        .select("operation_id, resource_id, resources(id, name, type)")
+        .in("operation_id", opIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: companyIds.length > 0 && operations.length > 0 && planningType === "exploitation",
+  });
+
   const { data: visites = [] } = useQuery({
     queryKey: ["planning-visites", companyIds, rangeStart.toISOString(), rangeEnd.toISOString()],
     queryFn: async () => {
@@ -223,6 +246,27 @@ const Planning = () => {
     }));
     return rows;
   }, [resources]);
+
+  // Filtered resource rows based on exploitation mode
+  const filteredResourceRows = useMemo(() => {
+    if (exploitationMode === "vehicule") {
+      return resourceRows.filter((r: any) => r.type === "vehicule" || r.type === "grue");
+    }
+    if (exploitationMode === "personnel") {
+      return resourceRows.filter((r: any) => r.type === "employe" || r.type === "equipe");
+    }
+    return resourceRows; // operation mode shows all
+  }, [resourceRows, exploitationMode]);
+
+  // Get operations for a specific resource on a specific day
+  const getOpsForResourceDay = (resourceId: string, day: Date) => {
+    const opIds = opResources
+      .filter((or: any) => or.resource_id === resourceId)
+      .map((or: any) => or.operation_id);
+    return operations.filter((op: any) =>
+      opIds.includes(op.id) && op.loading_date && isSameDay(new Date(op.loading_date), day)
+    );
+  };
 
   const getEventsForResource = (resourceId: string, day: Date) => {
     return events.filter((e: any) => {
@@ -293,7 +337,9 @@ const Planning = () => {
           {/* Day headers */}
           <div className="grid border-b sticky top-0 bg-card z-10 shadow-sm" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
             <div className="px-3 py-3 border-r bg-muted/50">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Ressource</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                {exploitationMode === "vehicule" ? "Véhicule" : exploitationMode === "personnel" ? "Personnel" : "Opération"}
+              </span>
             </div>
             {days.map((day) => (
               <div
@@ -312,42 +358,55 @@ const Planning = () => {
             ))}
           </div>
 
-          {/* Operations row */}
-          {operations.length > 0 && (
-            <div className="grid border-b" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
-              <div className="px-3 py-2.5 border-r bg-warning/5 flex items-center gap-2">
-                <Truck className="h-3.5 w-3.5 text-warning shrink-0" />
-                <span className="text-xs font-bold text-warning">Opérations</span>
-              </div>
-              {days.map((day) => {
-                const dayOps = getOpsForDay(day);
+          {/* Operations summary row (only in operation mode) */}
+          {exploitationMode === "operation" && operations.length > 0 && (
+            <>
+              {operations.map((op: any, opIdx: number) => {
+                const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
                 return (
-                  <div
-                    key={day.toISOString()}
-                    className={`border-r last:border-r-0 p-1.5 space-y-1 min-h-[48px] ${isToday(day) ? "bg-primary/5" : ""}`}
-                  >
-                    {dayOps.map((op: any) => {
-                      const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
+                  <div key={op.id} className="grid border-b" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
+                    <div className="px-3 py-2.5 border-r bg-muted/10 flex items-center gap-2">
+                      <div className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 bg-warning/20 text-warning">
+                        {opIdx + 1}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold truncate text-foreground">
+                          {(op.dossiers as any)?.clients?.name || "—"}
+                        </p>
+                        <p className="text-[9px] text-muted-foreground truncate">
+                          {op.lv_bt_number ? `BT ${op.lv_bt_number}` : `Op. ${op.operation_number}`}
+                          {(op.dossiers as any)?.code ? ` · ${(op.dossiers as any).code}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    {days.map((day) => {
+                      const isOpDay = op.loading_date && isSameDay(new Date(op.loading_date), day);
                       return (
-                        <div key={op.id} className={`rounded px-2 py-1 text-[10px] font-medium leading-tight ${color}`}>
-                          <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
-                          <p className="opacity-80 flex items-center gap-0.5 truncate">
-                            <MapPin className="h-2 w-2 shrink-0" />
-                            {op.loading_city || "—"} → {op.delivery_city || "—"}
-                          </p>
-                          {op.lv_bt_number && <p className="opacity-70 truncate">N° {op.lv_bt_number}</p>}
+                        <div
+                          key={day.toISOString()}
+                          className={`border-r last:border-r-0 p-1.5 min-h-[64px] ${isToday(day) ? "bg-primary/5" : ""}`}
+                        >
+                          {isOpDay && (
+                            <div className={`rounded px-2 py-1 text-[10px] font-medium leading-tight ${color}`}>
+                              <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
+                              <p className="opacity-80 flex items-center gap-0.5 truncate">
+                                <MapPin className="h-2 w-2 shrink-0" />
+                                {op.loading_city || "—"} → {op.delivery_city || "—"}
+                              </p>
+                              {op.volume != null && <p className="opacity-70 truncate">{op.volume} m³</p>}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 );
               })}
-            </div>
+            </>
           )}
 
-          {/* Resource rows */}
-          {resourceRows.map((resource: any, rowIdx: number) => {
-            const rowColor = ROW_COLORS[resource.colorIdx];
+          {/* Resource rows (vehicule / personnel modes) */}
+          {exploitationMode !== "operation" && filteredResourceRows.map((resource: any, rowIdx: number) => {
             return (
               <div
                 key={resource.id}
@@ -372,8 +431,9 @@ const Planning = () => {
                 </div>
 
                 {/* Day cells */}
-                {days.map((day, dayIdx) => {
+                {days.map((day) => {
                   const cellEvents = getEventsForResource(resource.id, day);
+                  const cellOps = getOpsForResourceDay(resource.id, day);
                   return (
                     <div
                       key={day.toISOString()}
@@ -383,6 +443,21 @@ const Planning = () => {
                       onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
                       onTouchEnd={(e) => { e.preventDefault(); openCreate(day, resource.id); }}
                     >
+                      {/* Operations assigned to this resource */}
+                      {cellOps.map((op: any) => {
+                        const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
+                        return (
+                          <div key={op.id} className={`rounded px-2 py-1 text-[10px] font-medium leading-tight ${color}`}>
+                            <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
+                            <p className="opacity-80 flex items-center gap-0.5 truncate">
+                              <MapPin className="h-2 w-2 shrink-0" />
+                              {op.loading_city || "—"} → {op.delivery_city || "—"}
+                            </p>
+                            {op.lv_bt_number && <p className="opacity-70 truncate">N° {op.lv_bt_number}</p>}
+                          </div>
+                        );
+                      })}
+                      {/* Planning events */}
                       {cellEvents.map((evt: any) => {
                         const evtColor = EVENT_BG_COLORS[resource.colorIdx];
                         const client = (evt.dossiers as any)?.clients?.name;
@@ -415,7 +490,7 @@ const Planning = () => {
           })}
 
           {/* Unassigned row */}
-          {events.some((e: any) => !e.resource_id) && (
+          {exploitationMode !== "operation" && events.some((e: any) => !e.resource_id) && (
             <div className="grid border-t" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
               <div className="px-3 py-2.5 border-r bg-muted/30 flex items-center gap-2">
                 <span className="text-xs font-semibold text-muted-foreground">Non assigné</span>
@@ -444,10 +519,17 @@ const Planning = () => {
             </div>
           )}
 
-          {resourceRows.length === 0 && operations.length === 0 && (
+          {((exploitationMode === "operation" && operations.length === 0) ||
+            (exploitationMode !== "operation" && filteredResourceRows.length === 0 && operations.length === 0)) && (
             <div className="px-4 py-16 text-center text-sm text-muted-foreground">
               <Truck className="h-8 w-8 mx-auto mb-3 opacity-30" />
-              <p>Aucune ressource. Ajoutez des ressources dans la section Ressources.</p>
+              <p>
+                {exploitationMode === "operation"
+                  ? "Aucune opération sur cette période."
+                  : exploitationMode === "vehicule"
+                  ? "Aucun véhicule configuré. Ajoutez des véhicules dans la section Ressources."
+                  : "Aucun personnel configuré. Ajoutez du personnel dans la section Ressources."}
+              </p>
             </div>
           )}
         </div>
@@ -718,6 +800,27 @@ const Planning = () => {
             ))}
           </div>
         </div>
+
+        {/* Exploitation mode filter */}
+        {planningType === "exploitation" && (
+          <div className="flex rounded-lg border bg-card p-0.5 gap-0.5 overflow-x-auto scrollbar-none">
+            {([
+              { value: "operation" as ExploitationMode, label: "Opération", icon: ClipboardList },
+              { value: "vehicule" as ExploitationMode, label: "Véhicule", icon: Truck },
+              { value: "personnel" as ExploitationMode, label: "Personnel", icon: User },
+            ]).map((mode) => (
+              <button
+                key={mode.value}
+                onClick={() => setExploitationMode(mode.value)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${
+                  exploitationMode === mode.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <mode.icon className="h-3 w-3" /> {mode.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Commercial filter (only in commercial mode) */}
         {planningType === "commercial" && (
