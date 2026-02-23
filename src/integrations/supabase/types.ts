@@ -3177,6 +3177,7 @@ export type Database = {
         | "visite_requested"
         | "client_response"
         | "date_to_validate"
+        | "devis_accepted"
       resource_status: "disponible" | "occupe" | "maintenance" | "absent"
       resource_type: "employe" | "grue" | "vehicule" | "equipement" | "equipe"
       vehicule_type:
@@ -3356,6 +3357,7 @@ export const Constants = {
         "visite_requested",
         "client_response",
         "date_to_validate",
+        "devis_accepted",
       ],
       resource_status: ["disponible", "occupe", "maintenance", "absent"],
       resource_type: ["employe", "grue", "vehicule", "equipement", "equipe"],
