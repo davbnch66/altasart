@@ -440,10 +440,10 @@ const Planning = () => {
           {/* Resource rows (vehicule / personnel modes) */}
           {exploitationMode !== "operation" && filteredResourceRows.map((resource: any, rowIdx: number) => {
             // Pre-compute spans for ops and events on this resource
-            const resourceOps = operations.filter((op: any) => {
-              const opResIds = (op.operation_resources || []).map((or: any) => or.resource_id);
-              return opResIds.includes(resource.id);
-            });
+            const resOpIds = opResources
+              .filter((or: any) => or.resource_id === resource.id)
+              .map((or: any) => or.operation_id);
+            const resourceOps = operations.filter((op: any) => resOpIds.includes(op.id));
             const resourceEvents = events.filter((e: any) => e.resource_id === resource.id);
             const renderedOpIds = new Set<string>();
             const renderedEvtIds = new Set<string>();
