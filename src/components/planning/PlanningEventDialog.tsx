@@ -225,7 +225,7 @@ export const PlanningEventDialog = ({
       setClientId("__none__");
       setSelectedCompanyId(event.company_id || companyId || "");
       setEventColor(event.color || "#3b82f6");
-      setEventType("intervention");
+      setEventType((event as any).event_type || "intervention");
       setPriority("normale");
       setAllDay(false);
       resetAddresses();
@@ -387,6 +387,7 @@ export const PlanningEventDialog = ({
         company_id: selectedCompanyId,
         created_by: user?.id || null,
         color: eventColor,
+        event_type: eventType,
       };
 
       let eventId: string;

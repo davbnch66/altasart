@@ -1,0 +1,1 @@
+ALTER TABLE public.planning_events ADD COLUMN event_type text NOT NULL DEFAULT 'intervention';
