@@ -205,6 +205,8 @@ export const PlanningEventDialog = ({
   });
 
   // ── Populate on edit / reset on create ──
+  const eventId = event?.id;
+  const eventResLinksKey = JSON.stringify(eventResLinks);
   useEffect(() => {
     if (!open) return;
     if (event) {
@@ -217,8 +219,8 @@ export const PlanningEventDialog = ({
       setEndDate(eDate);
       setStartTime(format(sDate, "HH:mm"));
       setEndTime(format(eDate, "HH:mm"));
-      // Use junction table data; fallback to legacy resource_id
-      setResourceIds(eventResLinks.length > 0 ? eventResLinks : event.resource_id ? [event.resource_id] : []);
+      const parsedLinks = JSON.parse(eventResLinksKey) as string[];
+      setResourceIds(parsedLinks.length > 0 ? parsedLinks : event.resource_id ? [event.resource_id] : []);
       setDossierId(event.dossier_id || "__none__");
       setClientId("__none__");
       setSelectedCompanyId(event.company_id || companyId || "");
@@ -226,7 +228,6 @@ export const PlanningEventDialog = ({
       setEventType("intervention");
       setPriority("normale");
       setAllDay(false);
-      // Reset addresses
       resetAddresses();
     } else {
       const d = defaultDate || new Date();
@@ -247,7 +248,8 @@ export const PlanningEventDialog = ({
       setAllDay(false);
       resetAddresses();
     }
-  }, [event, defaultDate, defaultResourceId, companyId, open, eventResLinks]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, defaultDate, defaultResourceId, companyId, open, eventResLinksKey]);
 
   const resetAddresses = () => {
     setLoadingAddress(""); setLoadingPostalCode(""); setLoadingCity("");
@@ -589,7 +591,7 @@ export const PlanningEventDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0" onInteractOutside={(e) => e.preventDefault()}>
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b" style={{ borderBottomColor: eventColor }}>
           <DialogHeader>
