@@ -210,25 +210,53 @@ export const PlanningEventDialog = ({
   useEffect(() => {
     if (!open) return;
     if (event) {
-      setTitle(event.title || "");
-      setDescription(event.description?.replace(/\n\n\[Notes internes\].*$/s, "") || "");
-      setInternalNotes(event.description?.match(/\[Notes internes\]\s*(.*)/s)?.[1] || "");
-      const sDate = new Date(event.start_time);
-      const eDate = new Date(event.end_time);
+      const e = event as any;
+      setTitle(e.title || "");
+      setDescription(e.description?.replace(/\n\n\[Notes internes\].*$/s, "").replace(/\n\n\[Consignes\].*$/s, "") || "");
+      setInternalNotes(e.internal_notes || "");
+      setInstructions(e.instructions || "");
+      const sDate = new Date(e.start_time);
+      const eDate = new Date(e.end_time);
       setStartDate(sDate);
       setEndDate(eDate);
       setStartTime(format(sDate, "HH:mm"));
       setEndTime(format(eDate, "HH:mm"));
       const parsedLinks = JSON.parse(eventResLinksKey) as string[];
-      setResourceIds(parsedLinks.length > 0 ? parsedLinks : event.resource_id ? [event.resource_id] : []);
-      setDossierId(event.dossier_id || "__none__");
-      setClientId("__none__");
-      setSelectedCompanyId(event.company_id || companyId || "");
-      setEventColor(event.color || "#3b82f6");
-      setEventType((event as any).event_type || "intervention");
-      setPriority("normale");
-      setAllDay(false);
-      resetAddresses();
+      setResourceIds(parsedLinks.length > 0 ? parsedLinks : e.resource_id ? [e.resource_id] : []);
+      setDossierId(e.dossier_id || "__none__");
+      setClientId(e.client_id || "__none__");
+      setSelectedCompanyId(e.company_id || companyId || "");
+      setEventColor(e.color || "#3b82f6");
+      setEventType(e.event_type || "intervention");
+      setPriority(e.priority || "normale");
+      setAllDay(e.all_day || false);
+      setVolume(e.volume != null ? String(e.volume) : "");
+      setWeight(e.weight != null ? String(e.weight) : "");
+      // Restore addresses
+      setLoadingAddress(e.loading_address || "");
+      setLoadingPostalCode(e.loading_postal_code || "");
+      setLoadingCity(e.loading_city || "");
+      setLoadingFloor(e.loading_floor || "");
+      setLoadingAccess(e.loading_access || "");
+      setLoadingElevator(e.loading_elevator || false);
+      setLoadingParkingRequest(e.loading_parking_request || false);
+      setLoadingPortage(String(e.loading_portage || 0));
+      setLoadingPassageFenetre(e.loading_passage_fenetre || false);
+      setLoadingMonteMeubles(e.loading_monte_meubles || false);
+      setLoadingTransbordement(e.loading_transbordement || false);
+      setLoadingComments(e.loading_comments || "");
+      setDeliveryAddress(e.delivery_address || "");
+      setDeliveryPostalCode(e.delivery_postal_code || "");
+      setDeliveryCity(e.delivery_city || "");
+      setDeliveryFloor(e.delivery_floor || "");
+      setDeliveryAccess(e.delivery_access || "");
+      setDeliveryElevator(e.delivery_elevator || false);
+      setDeliveryParkingRequest(e.delivery_parking_request || false);
+      setDeliveryPortage(String(e.delivery_portage || 0));
+      setDeliveryPassageFenetre(e.delivery_passage_fenetre || false);
+      setDeliveryMonteMeubles(e.delivery_monte_meubles || false);
+      setDeliveryTransbordement(e.delivery_transbordement || false);
+      setDeliveryComments(e.delivery_comments || "");
     } else {
       const d = defaultDate || new Date();
       setTitle("");
@@ -377,28 +405,59 @@ export const PlanningEventDialog = ({
         internalNotes ? `[Notes internes] ${internalNotes}` : "",
       ].filter(Boolean);
 
-      const payload = {
+      const payload: Record<string, any> = {
         title: title.trim(),
         description: descParts.join("\n\n").trim() || null,
         start_time: `${sDateStr}T${sT}:00`,
         end_time: `${eDateStr}T${eT}:00`,
         resource_id: resourceIds.length > 0 ? resourceIds[0] : null,
         dossier_id: dossierId === "__none__" ? null : dossierId,
+        client_id: clientId === "__none__" ? null : clientId,
         company_id: selectedCompanyId,
         created_by: user?.id || null,
         color: eventColor,
         event_type: eventType,
+        priority,
+        all_day: allDay,
+        internal_notes: internalNotes || null,
+        instructions: instructions || null,
+        volume: volume ? Number(volume) : null,
+        weight: weight ? Number(weight) : null,
+        loading_address: loadingAddress || null,
+        loading_postal_code: loadingPostalCode || null,
+        loading_city: loadingCity || null,
+        loading_floor: loadingFloor || null,
+        loading_access: loadingAccess || null,
+        loading_elevator: loadingElevator,
+        loading_parking_request: loadingParkingRequest,
+        loading_portage: Number(loadingPortage) || 0,
+        loading_passage_fenetre: loadingPassageFenetre,
+        loading_monte_meubles: loadingMonteMeubles,
+        loading_transbordement: loadingTransbordement,
+        loading_comments: loadingComments || null,
+        delivery_address: deliveryAddress || null,
+        delivery_postal_code: deliveryPostalCode || null,
+        delivery_city: deliveryCity || null,
+        delivery_floor: deliveryFloor || null,
+        delivery_access: deliveryAccess || null,
+        delivery_elevator: deliveryElevator,
+        delivery_parking_request: deliveryParkingRequest,
+        delivery_portage: Number(deliveryPortage) || 0,
+        delivery_passage_fenetre: deliveryPassageFenetre,
+        delivery_monte_meubles: deliveryMonteMeubles,
+        delivery_transbordement: deliveryTransbordement,
+        delivery_comments: deliveryComments || null,
       };
 
       let eventId: string;
 
       if (event) {
-        const { error } = await supabase.from("planning_events").update(payload).eq("id", event.id);
+        const { error } = await supabase.from("planning_events").update(payload as any).eq("id", event.id);
         if (error) throw error;
         eventId = event.id;
         toast.success("Événement modifié");
       } else {
-        const { data: inserted, error } = await supabase.from("planning_events").insert(payload).select("id").single();
+        const { data: inserted, error } = await supabase.from("planning_events").insert(payload as any).select("id").single();
         if (error) throw error;
         eventId = inserted.id;
         toast.success("Événement créé");
