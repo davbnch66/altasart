@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Calendar as CalendarIcon, Clock, Loader2, MapPin, Palette, Tag, Users, Truck, User, Link2, AlertTriangle, FileText, Trash2, Plus, X, Warehouse, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -439,6 +439,68 @@ export const PlanningEventDialog = ({
   const selectedResources = resources.filter((r: any) => resourceIds.includes(r.id));
   const selectedClient = clients.find((c: any) => c.id === clientId);
 
+  // ── Conflict detection ──
+  const { data: conflicts = [] } = useQuery({
+    queryKey: ["resource-conflicts", resourceIds, startDate?.toISOString(), endDate?.toISOString(), startTime, endTime, allDay, event?.id],
+    queryFn: async () => {
+      if (resourceIds.length === 0 || !startDate) return [];
+      const sDateStr = format(startDate, "yyyy-MM-dd");
+      const eDateStr = endDate ? format(endDate, "yyyy-MM-dd") : sDateStr;
+      const sT = allDay ? "00:00" : startTime;
+      const eT = allDay ? "23:59" : endTime;
+      const rangeStart = `${sDateStr}T${sT}:00`;
+      const rangeEnd = `${eDateStr}T${eT}:00`;
+
+      // Find all events overlapping the time range
+      const { data: overlapping } = await supabase
+        .from("planning_events")
+        .select("id, title, start_time, end_time, resource_id")
+        .lt("start_time", rangeEnd)
+        .gt("end_time", rangeStart);
+
+      if (!overlapping || overlapping.length === 0) return [];
+
+      // Exclude current event being edited
+      const otherEvents = overlapping.filter((e: any) => e.id !== event?.id);
+      if (otherEvents.length === 0) return [];
+
+      // Get event_resources for these events
+      const eventIds = otherEvents.map((e: any) => e.id);
+      const { data: erLinks } = await supabase
+        .from("event_resources")
+        .select("event_id, resource_id")
+        .in("event_id", eventIds);
+
+      // Build a map: resourceId -> conflicting events
+      const result: { resourceId: string; resourceName: string; eventTitle: string; eventStart: string; eventEnd: string }[] = [];
+
+      for (const rid of resourceIds) {
+        // Check legacy resource_id
+        const legacyConflicts = otherEvents.filter((e: any) => e.resource_id === rid);
+        // Check junction table
+        const junctionEventIds = (erLinks || []).filter((l: any) => l.resource_id === rid).map((l: any) => l.event_id);
+        const junctionConflicts = otherEvents.filter((e: any) => junctionEventIds.includes(e.id));
+        
+        const allConflicts = [...legacyConflicts, ...junctionConflicts];
+        const seen = new Set<string>();
+        for (const c of allConflicts) {
+          if (seen.has(c.id)) continue;
+          seen.add(c.id);
+          const res = resources.find((r: any) => r.id === rid);
+          result.push({
+            resourceId: rid,
+            resourceName: res?.name || "Ressource",
+            eventTitle: c.title,
+            eventStart: c.start_time,
+            eventEnd: c.end_time,
+          });
+        }
+      }
+      return result;
+    },
+    enabled: open && resourceIds.length > 0 && !!startDate,
+  });
+
   // ── Address Block sub-component ──
   const AddressBlock = ({ title: blockTitle, prefix }: { title: string; prefix: "loading" | "delivery" }) => {
     const isLoading = prefix === "loading";
@@ -743,6 +805,23 @@ export const PlanningEventDialog = ({
 
           {/* ── Tab: Ressources ── */}
           <TabsContent value="ressources" className="px-6 py-4 space-y-4 mt-0">
+            {/* Conflict alerts */}
+            {conflicts.length > 0 && (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-destructive font-semibold text-xs">
+                  <AlertTriangle className="h-4 w-4" />
+                  Conflit(s) de planification détecté(s)
+                </div>
+                {conflicts.map((c, i) => (
+                  <p key={i} className="text-[11px] text-destructive/90">
+                    <strong>{c.resourceName}</strong> est déjà affecté(e) à « {c.eventTitle} » du{" "}
+                    {format(new Date(c.eventStart), "dd/MM HH:mm", { locale: fr })} au{" "}
+                    {format(new Date(c.eventEnd), "dd/MM HH:mm", { locale: fr })}
+                  </p>
+                ))}
+              </div>
+            )}
+
             {selectedResources.length > 0 && (
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Affectés ({selectedResources.length})</Label>
@@ -836,17 +915,25 @@ export const PlanningEventDialog = ({
         </Tabs>
 
         {/* Footer */}
-        <DialogFooter className="flex gap-2 px-6 py-4 border-t">
-          {event && (
-            <Button variant="destructive" size="sm" onClick={handleDelete} disabled={saving} className="mr-auto gap-1">
-              <Trash2 className="h-3.5 w-3.5" /> Supprimer
-            </Button>
+        <DialogFooter className="flex flex-col gap-2 px-6 py-4 border-t">
+          {conflicts.length > 0 && (
+            <div className="w-full flex items-center gap-1.5 text-destructive text-[11px] font-medium">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {conflicts.length} conflit(s) — l'événement sera créé mais des ressources se chevauchent
+            </div>
           )}
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Annuler</Button>
-          <Button size="sm" onClick={handleSave} disabled={saving || !title.trim() || !startDate}>
-            {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
-            {event ? "Enregistrer" : "Créer"}
-          </Button>
+          <div className="flex gap-2 w-full">
+            {event && (
+              <Button variant="destructive" size="sm" onClick={handleDelete} disabled={saving} className="mr-auto gap-1">
+                <Trash2 className="h-3.5 w-3.5" /> Supprimer
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Annuler</Button>
+            <Button size="sm" onClick={handleSave} disabled={saving || !title.trim() || !startDate}>
+              {saving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+              {event ? "Enregistrer" : "Créer"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
