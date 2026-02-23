@@ -877,7 +877,7 @@ const Planning = () => {
 
     return (
       <div className="flex-1 flex flex-col gap-4 min-h-0">
-        <div className="rounded-xl border bg-card overflow-auto flex-1">
+        <div className="rounded-xl border bg-card overflow-auto flex-1 min-h-[400px] max-h-[calc(100vh-320px)]">
           <div className={isMobile ? "min-w-[700px]" : ""}>
             {/* Day headers */}
             <div className="grid border-b sticky top-0 bg-card z-20 shadow-sm" style={{ gridTemplateColumns: `60px ${colWidth}` }}>
