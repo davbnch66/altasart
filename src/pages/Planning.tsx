@@ -439,6 +439,15 @@ const Planning = () => {
 
           {/* Resource rows (vehicule / personnel modes) */}
           {exploitationMode !== "operation" && filteredResourceRows.map((resource: any, rowIdx: number) => {
+            // Pre-compute spans for ops and events on this resource
+            const resourceOps = operations.filter((op: any) => {
+              const opResIds = (op.operation_resources || []).map((or: any) => or.resource_id);
+              return opResIds.includes(resource.id);
+            });
+            const resourceEvents = events.filter((e: any) => e.resource_id === resource.id);
+            const renderedOpIds = new Set<string>();
+            const renderedEvtIds = new Set<string>();
+
             return (
               <div
                 key={resource.id}
@@ -463,93 +472,93 @@ const Planning = () => {
                 </div>
 
                 {/* Day cells */}
-                {days.map((day) => {
-                  const cellEvents = getEventsForResource(resource.id, day);
-                  const cellOps = getOpsForResourceDay(resource.id, day);
+                {days.map((day, dayIdx) => {
+                  // Count items to stack them
+                  let stackIdx = 0;
+                  const items: React.ReactNode[] = [];
+
+                  // Operations
+                  resourceOps.forEach((op: any) => {
+                    if (!isOpOnDay(op, day)) return;
+                    const loadDay = op.loading_date ? startOfDay(new Date(op.loading_date)) : null;
+                    const delivDay = op.delivery_date ? startOfDay(new Date(op.delivery_date)) : loadDay;
+                    const isFirst = loadDay && isSameDay(day, loadDay);
+                    if (!isFirst && renderedOpIds.has(op.id)) return;
+                    if (!isFirst) return; // only render on first day
+                    renderedOpIds.add(op.id);
+                    let spanEnd = dayIdx;
+                    for (let i = dayIdx; i < days.length; i++) {
+                      if (isOpOnDay(op, days[i])) spanEnd = i;
+                      else break;
+                    }
+                    const span = spanEnd - dayIdx + 1;
+                    const totalDays = loadDay && delivDay ? Math.round((delivDay.getTime() - loadDay.getTime()) / 86400000) + 1 : 1;
+                    const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
+                    const myIdx = stackIdx++;
+                    items.push(
+                      <div
+                        key={`op-${op.id}`}
+                        className={`absolute left-1 rounded-lg ${color} flex items-center px-3 cursor-pointer hover:opacity-90 transition-opacity shadow-sm`}
+                        style={{ width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)", zIndex: 5, top: `${4 + myIdx * 28}px`, height: "24px" }}
+                        onClick={(e) => { e.stopPropagation(); setEditingOpId(op.id); setOpDialogOpen(true); }}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 w-full text-[11px] font-medium overflow-hidden">
+                          <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
+                          <p className="opacity-80 flex items-center gap-0.5 truncate shrink-0">
+                            <MapPin className="h-2.5 w-2.5 shrink-0" />
+                            {op.loading_city || "—"} → {op.delivery_city || "—"}
+                          </p>
+                          {totalDays > 1 && <span className="opacity-70 shrink-0">{totalDays}j</span>}
+                        </div>
+                      </div>
+                    );
+                  });
+
+                  // Events
+                  resourceEvents.forEach((evt: any) => {
+                    const evtStart = startOfDay(new Date(evt.start_time));
+                    const evtEnd = startOfDay(new Date(evt.end_time));
+                    if (evtStart > day || evtEnd < day) return;
+                    const isFirst = isSameDay(evtStart, day);
+                    if (!isFirst && renderedEvtIds.has(evt.id)) return;
+                    if (!isFirst) return;
+                    renderedEvtIds.add(evt.id);
+                    let spanEnd = dayIdx;
+                    for (let i = dayIdx; i < days.length; i++) {
+                      if (evtEnd >= startOfDay(days[i])) spanEnd = i;
+                      else break;
+                    }
+                    const span = spanEnd - dayIdx + 1;
+                    const bgColor = evt.color || "#6b7280";
+                    const client = (evt.dossiers as any)?.clients?.name;
+                    const totalDays = Math.round((evtEnd.getTime() - evtStart.getTime()) / 86400000) + 1;
+                    const myIdx = stackIdx++;
+                    items.push(
+                      <div
+                        key={`evt-${evt.id}`}
+                        className="absolute left-1 rounded-lg flex items-center px-3 cursor-pointer hover:opacity-90 transition-opacity shadow-sm text-white"
+                        style={{ backgroundColor: bgColor, width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)", zIndex: 5, top: `${4 + myIdx * 28}px`, height: "24px" }}
+                        onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 w-full text-[11px] font-medium overflow-hidden">
+                          <p className="font-bold truncate">{evt.title}</p>
+                          {client && <p className="opacity-85 truncate">{client}</p>}
+                          {totalDays > 1 && <span className="opacity-70 shrink-0">{totalDays}j</span>}
+                        </div>
+                      </div>
+                    );
+                  });
+
                   return (
                     <div
                       key={day.toISOString()}
-                      className={`border-r last:border-r-0 p-1 space-y-0.5 min-h-[64px] cursor-pointer transition-colors ${
+                      className={`border-r last:border-r-0 min-h-[64px] relative overflow-visible cursor-pointer transition-colors ${
                         isToday(day) ? "bg-primary/5" : rowIdx % 2 === 0 ? "bg-muted/10" : ""
                       } hover:bg-muted/30`}
                       onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
                       onTouchEnd={(e) => { e.preventDefault(); openCreate(day, resource.id); }}
                     >
-                      {/* Operations assigned to this resource */}
-                      {cellOps.map((op: any) => {
-                        const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
-                        const loadDay = op.loading_date ? startOfDay(new Date(op.loading_date)) : null;
-                        const delivDay = op.delivery_date ? startOfDay(new Date(op.delivery_date)) : loadDay;
-                        const isMultiDay = loadDay && delivDay && loadDay.getTime() !== delivDay.getTime();
-                        const isFirst = loadDay && isSameDay(day, loadDay);
-                        const isLast = delivDay && isSameDay(day, delivDay);
-                        const dayNum = loadDay ? Math.round((startOfDay(day).getTime() - loadDay.getTime()) / 86400000) + 1 : 1;
-                        const totalDays = loadDay && delivDay ? Math.round((delivDay.getTime() - loadDay.getTime()) / 86400000) + 1 : 1;
-                        return (
-                          <div
-                            key={op.id}
-                            className={`px-2 py-1 text-[10px] font-medium leading-tight cursor-pointer hover:opacity-90 transition-opacity ${color} ${
-                              isMultiDay
-                                ? isFirst ? "rounded-l rounded-r-none -mr-[5px]" 
-                                : isLast ? "rounded-r rounded-l-none -ml-[5px]"
-                                : "rounded-none -mx-[5px]"
-                                : "rounded"
-                            }`}
-                            onClick={(e) => { e.stopPropagation(); setEditingOpId(op.id); setOpDialogOpen(true); }}
-                          >
-                            {isFirst ? (
-                              <>
-                                <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
-                                <p className="opacity-80 flex items-center gap-0.5 truncate">
-                                  <MapPin className="h-2 w-2 shrink-0" />
-                                  {op.loading_city || "—"} → {op.delivery_city || "—"}
-                                </p>
-                                {isMultiDay && <p className="opacity-70 truncate">J{dayNum}/{totalDays}</p>}
-                              </>
-                            ) : (
-                              <p className="opacity-70 truncate text-center">J{dayNum}/{totalDays}</p>
-                            )}
-                            {op.lv_bt_number && <p className="opacity-70 truncate">N° {op.lv_bt_number}</p>}
-                          </div>
-                        );
-                      })}
-                      {/* Planning events */}
-                      {cellEvents.map((evt: any) => {
-                        const bgColor = evt.color || "#6b7280";
-                        const client = (evt.dossiers as any)?.clients?.name;
-                        const dossierCode = (evt.dossiers as any)?.code;
-                        const evtStart = startOfDay(new Date(evt.start_time));
-                        const evtEnd = startOfDay(new Date(evt.end_time));
-                        const isMultiDay = evtStart.getTime() !== evtEnd.getTime();
-                        const isFirst = isSameDay(evtStart, day);
-                        const isLast = isSameDay(evtEnd, day);
-                        const dayNum = Math.round((startOfDay(day).getTime() - evtStart.getTime()) / 86400000) + 1;
-                        const totalDays = Math.round((evtEnd.getTime() - evtStart.getTime()) / 86400000) + 1;
-                        return (
-                          <div
-                            key={evt.id}
-                            className={`px-2 py-1 text-[10px] text-white font-medium leading-tight cursor-pointer hover:opacity-90 transition-opacity ${
-                              isMultiDay
-                                ? isFirst ? "rounded-l rounded-r-none -mr-[5px]"
-                                : isLast ? "rounded-r rounded-l-none -ml-[5px]"
-                                : "rounded-none -mx-[5px]"
-                                : "rounded"
-                            }`}
-                            style={{ backgroundColor: bgColor }}
-                            onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
-                          >
-                            {isFirst ? (
-                              <>
-                                <p className="font-bold truncate">{evt.title}</p>
-                                {client && <p className="opacity-85 truncate">{client}{dossierCode ? ` · ${dossierCode}` : ""}</p>}
-                                {isMultiDay && <p className="opacity-70 truncate">J{dayNum}/{totalDays}</p>}
-                              </>
-                            ) : (
-                              <p className="opacity-70 truncate text-center">J{dayNum}/{totalDays}</p>
-                            )}
-                          </div>
-                        );
-                      })}
+                      {items}
                     </div>
                   );
                 })}
@@ -558,60 +567,68 @@ const Planning = () => {
           })}
 
           {/* Unassigned events row */}
-          {events.some((e: any) => !e.resource_id) && (
-            <div className="grid border-t" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
-              <div className="px-3 py-2.5 border-r bg-muted/30 flex items-center gap-2">
-                <span className="text-xs font-semibold text-muted-foreground">Non assigné</span>
-              </div>
-              {days.map((day) => {
-                const cellEvents = getUnassignedEventsForDay(day);
-                return (
-                  <div
-                    key={day.toISOString()}
-                    className={`border-r last:border-r-0 p-1 space-y-0.5 min-h-[48px] cursor-pointer hover:bg-muted/20 ${isToday(day) ? "bg-primary/5" : ""}`}
-                    onClick={(e) => { e.stopPropagation(); openCreate(day); }}
-                    onTouchEnd={(e) => { e.preventDefault(); openCreate(day); }}
-                  >
-                    {cellEvents.map((evt: any) => {
-                      const bgColor = evt.color || "#6b7280";
-                      const evtStart = startOfDay(new Date(evt.start_time));
-                      const evtEnd = startOfDay(new Date(evt.end_time));
-                      const isMultiDay = evtStart.getTime() !== evtEnd.getTime();
-                      const isFirst = isSameDay(evtStart, day);
-                      const isLast = isSameDay(evtEnd, day);
-                      const dayNum = Math.round((startOfDay(day).getTime() - evtStart.getTime()) / 86400000) + 1;
-                      const totalDays = Math.round((evtEnd.getTime() - evtStart.getTime()) / 86400000) + 1;
-                      const client = (evt.dossiers as any)?.clients?.name;
-                      return (
-                        <div
-                          key={evt.id}
-                          className={`px-2 py-1 text-[10px] text-white font-medium leading-tight cursor-pointer hover:opacity-80 ${
-                            isMultiDay
-                              ? isFirst ? "rounded-l rounded-r-none -mr-[5px]"
-                              : isLast ? "rounded-r rounded-l-none -ml-[5px]"
-                              : "rounded-none -mx-[5px]"
-                              : "rounded"
-                          }`}
-                          style={{ backgroundColor: bgColor }}
-                          onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
-                        >
-                          {isFirst ? (
-                            <>
+          {events.some((e: any) => !e.resource_id) && (() => {
+            const unassignedEvents = events.filter((e: any) => !e.resource_id);
+            // Deduplicate: only render each event once, on its first visible day
+            const renderedEventIds = new Set<string>();
+            return (
+              <div className="grid border-t" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
+                <div className="px-3 py-2.5 border-r bg-muted/30 flex items-center gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground">Non assigné</span>
+                </div>
+                {days.map((day, dayIdx) => {
+                  const cellEvents = getUnassignedEventsForDay(day);
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      className={`border-r last:border-r-0 min-h-[48px] relative overflow-visible cursor-pointer hover:bg-muted/20 ${isToday(day) ? "bg-primary/5" : ""}`}
+                      onClick={(e) => { e.stopPropagation(); openCreate(day); }}
+                      onTouchEnd={(e) => { e.preventDefault(); openCreate(day); }}
+                    >
+                      {cellEvents.map((evt: any, evtIdx: number) => {
+                        if (renderedEventIds.has(evt.id)) return null;
+                        const evtStart = startOfDay(new Date(evt.start_time));
+                        const evtEnd = startOfDay(new Date(evt.end_time));
+                        const isFirst = isSameDay(evtStart, day);
+                        if (!isFirst) return null;
+                        renderedEventIds.add(evt.id);
+                        // Calculate span within visible days
+                        let spanEnd = dayIdx;
+                        for (let i = dayIdx; i < days.length; i++) {
+                          if (evtEnd >= startOfDay(days[i])) spanEnd = i;
+                          else break;
+                        }
+                        const span = spanEnd - dayIdx + 1;
+                        const bgColor = evt.color || "#6b7280";
+                        const client = (evt.dossiers as any)?.clients?.name;
+                        const totalDays = Math.round((evtEnd.getTime() - evtStart.getTime()) / 86400000) + 1;
+                        return (
+                          <div
+                            key={evt.id}
+                            className="absolute left-1 rounded-lg flex items-center px-3 cursor-pointer hover:opacity-90 transition-opacity shadow-sm text-white"
+                            style={{
+                              backgroundColor: bgColor,
+                              width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)",
+                              zIndex: 5,
+                              top: `${4 + evtIdx * 28}px`,
+                              height: "24px",
+                            }}
+                            onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
+                          >
+                            <div className="flex items-center gap-3 min-w-0 w-full text-[11px] font-medium overflow-hidden">
                               <p className="font-bold truncate">{evt.title}</p>
                               {client && <p className="opacity-85 truncate">{client}</p>}
-                              {isMultiDay && <p className="opacity-70 truncate">J{dayNum}/{totalDays}</p>}
-                            </>
-                          ) : (
-                            <p className="opacity-70 truncate text-center">J{dayNum}/{totalDays}</p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                              {totalDays > 1 && <span className="opacity-70 shrink-0">{totalDays}j</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           {((exploitationMode === "operation" && operations.length === 0) ||
             (exploitationMode !== "operation" && filteredResourceRows.length === 0 && operations.length === 0)) && (
