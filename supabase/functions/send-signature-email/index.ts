@@ -129,6 +129,9 @@ serve(async (req) => {
       }
     }
 
+    // Remove raw signature URL from custom body text so it's replaced by a button
+    const cleanedBody = emailBodyText.replace(/https?:\/\/[^\s]*\/sign\/[^\s]*/g, "").trim();
+
     const emailHtml = useCustomTemplate
       ? `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;">
@@ -137,7 +140,13 @@ serve(async (req) => {
       <h1 style="color:#ffffff;margin:0;font-size:22px;">${companyName || "Votre prestataire"}</h1>
     </div>
     <div style="padding:32px;">
-      <div style="white-space:pre-wrap;color:#333;font-size:15px;line-height:1.7;">${emailBodyText.replace(/\n/g, "<br>")}</div>
+      <div style="white-space:pre-wrap;color:#333;font-size:15px;line-height:1.7;">${cleanedBody.replace(/\n/g, "<br>")}</div>
+      <div style="text-align:center;margin:32px 0;">
+        <a href="${signatureUrl}" style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:700;">
+          ✓ Voir et accepter le devis
+        </a>
+      </div>
+      <p style="color:#888;font-size:13px;text-align:center;">Ce lien est valable 30 jours.</p>
     </div>
     <div style="background:#f5f5f5;padding:16px;text-align:center;border-top:1px solid #eee;">
       <p style="color:#aaa;font-size:12px;margin:0;">${companyName} — altasart.fr</p>
