@@ -560,15 +560,39 @@ const Planning = () => {
                     onClick={(e) => { e.stopPropagation(); openCreate(day); }}
                     onTouchEnd={(e) => { e.preventDefault(); openCreate(day); }}
                   >
-                    {cellEvents.map((evt: any) => (
-                      <div
-                        key={evt.id}
-                        className="rounded px-2 py-1 text-[10px] bg-muted text-muted-foreground leading-tight cursor-pointer hover:opacity-80"
-                        onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
-                      >
-                        <p className="font-bold truncate">{evt.title}</p>
-                      </div>
-                    ))}
+                    {cellEvents.map((evt: any) => {
+                      const startDay = startOfDay(new Date(evt.start_time));
+                      const endDay = startOfDay(new Date(evt.end_time));
+                      const isMultiDay = startDay.getTime() !== endDay.getTime();
+                      const isFirst = isSameDay(startDay, day);
+                      const isLast = isSameDay(endDay, day);
+                      const dayNum = Math.round((startOfDay(day).getTime() - startDay.getTime()) / 86400000) + 1;
+                      const totalDays = Math.round((endDay.getTime() - startDay.getTime()) / 86400000) + 1;
+                      const client = (evt.dossiers as any)?.clients?.name;
+                      return (
+                        <div
+                          key={evt.id}
+                          className={`px-2 py-1 text-[10px] bg-muted text-muted-foreground leading-tight cursor-pointer hover:opacity-80 ${
+                            isMultiDay
+                              ? isFirst ? "rounded-l rounded-r-none -mr-1"
+                              : isLast ? "rounded-r rounded-l-none -ml-1"
+                              : "rounded-none -mx-1"
+                              : "rounded"
+                          }`}
+                          onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
+                        >
+                          {isFirst ? (
+                            <>
+                              <p className="font-bold truncate">{evt.title}</p>
+                              {client && <p className="opacity-85 truncate">{client}</p>}
+                              {isMultiDay && <p className="opacity-70 truncate">J{dayNum}/{totalDays}</p>}
+                            </>
+                          ) : (
+                            <p className="opacity-70 truncate text-center">J{dayNum}/{totalDays}</p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
