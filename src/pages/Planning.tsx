@@ -1093,7 +1093,7 @@ const Planning = () => {
   );
 
   return (
-    <div className={`max-w-full mx-auto h-full flex flex-col ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-5"}`}>
+    <div className={`max-w-full mx-auto flex flex-col ${isMobile ? "p-3 pb-20 space-y-3 min-h-full" : "p-6 lg:p-8 space-y-5 h-full"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -1222,7 +1222,7 @@ const Planning = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.2 }}
-        className="flex-1 flex flex-col min-h-0"
+        className={isMobile ? "flex flex-col" : "flex-1 flex flex-col min-h-0"}
       >
         {planningType === "exploitation" ? renderExploitationView() : renderCommercialView()}
       </motion.div>
