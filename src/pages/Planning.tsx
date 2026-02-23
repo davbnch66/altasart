@@ -864,7 +864,7 @@ const Planning = () => {
                 return (
                   <div
                     key={day.toISOString()}
-                    className={`border-r last:border-r-0 p-1.5 space-y-1 min-h-[80px] cursor-pointer hover:bg-muted/20 transition-colors ${isToday(day) ? "bg-primary/5" : ""}`}
+                    className={`border-r last:border-r-0 p-1.5 space-y-1 min-h-[80px] cursor-pointer hover:bg-muted/20 transition-colors overflow-visible ${isToday(day) ? "bg-primary/5" : ""}`}
                     onClick={() => { setView("day"); setCurrentDate(day); }}
                   >
                     {dayVisites.map((v: any) => (
@@ -893,12 +893,12 @@ const Planning = () => {
                       return (
                         <div
                           key={evt.id}
-                          className={`px-2 py-1.5 text-[10px] text-white font-medium cursor-pointer hover:opacity-90 transition-opacity ${
+                          className={`px-2 py-1.5 text-[10px] text-white font-medium cursor-pointer hover:opacity-90 transition-opacity relative z-10 ${
                             isMultiDay
-                              ? isFirst ? "rounded-l-md rounded-r-none -mr-[7px]"
-                              : isLast ? "rounded-r-md rounded-l-none -ml-[7px]"
-                              : "rounded-none -mx-[7px]"
-                              : "rounded-md"
+                              ? isFirst ? "rounded-l-md rounded-r-none -mr-[8px]"
+                              : isLast ? "rounded-r-md rounded-l-none -ml-[8px]"
+                              : "rounded-none -mx-[8px]"
+                              : "rounded-md shadow-sm"
                           }`}
                           style={{ backgroundColor: bgColor }}
                           onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
