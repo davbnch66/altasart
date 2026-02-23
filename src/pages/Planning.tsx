@@ -545,8 +545,8 @@ const Planning = () => {
             );
           })}
 
-          {/* Unassigned row */}
-          {exploitationMode !== "operation" && events.some((e: any) => !e.resource_id) && (
+          {/* Unassigned events row */}
+          {events.some((e: any) => !e.resource_id) && (
             <div className="grid border-t" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
               <div className="px-3 py-2.5 border-r bg-muted/30 flex items-center gap-2">
                 <span className="text-xs font-semibold text-muted-foreground">Non assigné</span>
