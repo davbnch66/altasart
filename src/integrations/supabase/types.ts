@@ -1731,51 +1731,151 @@ export type Database = {
       }
       planning_events: {
         Row: {
+          all_day: boolean
+          client_id: string | null
           color: string | null
           company_id: string
           created_at: string
           created_by: string | null
+          delivery_access: string | null
+          delivery_address: string | null
+          delivery_city: string | null
+          delivery_comments: string | null
+          delivery_elevator: boolean | null
+          delivery_floor: string | null
+          delivery_monte_meubles: boolean | null
+          delivery_parking_request: boolean | null
+          delivery_passage_fenetre: boolean | null
+          delivery_portage: number | null
+          delivery_postal_code: string | null
+          delivery_transbordement: boolean | null
           description: string | null
           dossier_id: string | null
           end_time: string
           event_type: string
           id: string
+          instructions: string | null
+          internal_notes: string | null
+          loading_access: string | null
+          loading_address: string | null
+          loading_city: string | null
+          loading_comments: string | null
+          loading_elevator: boolean | null
+          loading_floor: string | null
+          loading_monte_meubles: boolean | null
+          loading_parking_request: boolean | null
+          loading_passage_fenetre: boolean | null
+          loading_portage: number | null
+          loading_postal_code: string | null
+          loading_transbordement: boolean | null
+          priority: string
           resource_id: string | null
           start_time: string
           title: string
           updated_at: string
+          volume: number | null
+          weight: number | null
         }
         Insert: {
+          all_day?: boolean
+          client_id?: string | null
           color?: string | null
           company_id: string
           created_at?: string
           created_by?: string | null
+          delivery_access?: string | null
+          delivery_address?: string | null
+          delivery_city?: string | null
+          delivery_comments?: string | null
+          delivery_elevator?: boolean | null
+          delivery_floor?: string | null
+          delivery_monte_meubles?: boolean | null
+          delivery_parking_request?: boolean | null
+          delivery_passage_fenetre?: boolean | null
+          delivery_portage?: number | null
+          delivery_postal_code?: string | null
+          delivery_transbordement?: boolean | null
           description?: string | null
           dossier_id?: string | null
           end_time: string
           event_type?: string
           id?: string
+          instructions?: string | null
+          internal_notes?: string | null
+          loading_access?: string | null
+          loading_address?: string | null
+          loading_city?: string | null
+          loading_comments?: string | null
+          loading_elevator?: boolean | null
+          loading_floor?: string | null
+          loading_monte_meubles?: boolean | null
+          loading_parking_request?: boolean | null
+          loading_passage_fenetre?: boolean | null
+          loading_portage?: number | null
+          loading_postal_code?: string | null
+          loading_transbordement?: boolean | null
+          priority?: string
           resource_id?: string | null
           start_time: string
           title: string
           updated_at?: string
+          volume?: number | null
+          weight?: number | null
         }
         Update: {
+          all_day?: boolean
+          client_id?: string | null
           color?: string | null
           company_id?: string
           created_at?: string
           created_by?: string | null
+          delivery_access?: string | null
+          delivery_address?: string | null
+          delivery_city?: string | null
+          delivery_comments?: string | null
+          delivery_elevator?: boolean | null
+          delivery_floor?: string | null
+          delivery_monte_meubles?: boolean | null
+          delivery_parking_request?: boolean | null
+          delivery_passage_fenetre?: boolean | null
+          delivery_portage?: number | null
+          delivery_postal_code?: string | null
+          delivery_transbordement?: boolean | null
           description?: string | null
           dossier_id?: string | null
           end_time?: string
           event_type?: string
           id?: string
+          instructions?: string | null
+          internal_notes?: string | null
+          loading_access?: string | null
+          loading_address?: string | null
+          loading_city?: string | null
+          loading_comments?: string | null
+          loading_elevator?: boolean | null
+          loading_floor?: string | null
+          loading_monte_meubles?: boolean | null
+          loading_parking_request?: boolean | null
+          loading_passage_fenetre?: boolean | null
+          loading_portage?: number | null
+          loading_postal_code?: string | null
+          loading_transbordement?: boolean | null
+          priority?: string
           resource_id?: string | null
           start_time?: string
           title?: string
           updated_at?: string
+          volume?: number | null
+          weight?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "planning_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "planning_events_company_id_fkey"
             columns: ["company_id"]
