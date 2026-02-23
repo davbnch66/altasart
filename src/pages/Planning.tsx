@@ -185,6 +185,22 @@ const Planning = () => {
     enabled: companyIds.length > 0 && operations.length > 0 && planningType === "exploitation",
   });
 
+  // Fetch event_resources to link events to multiple resources
+  const { data: evtResources = [] } = useQuery({
+    queryKey: ["planning-event-resources", companyIds, rangeStart.toISOString()],
+    queryFn: async () => {
+      if (companyIds.length === 0 || events.length === 0) return [];
+      const evtIds = events.map((e: any) => e.id);
+      const { data, error } = await supabase
+        .from("event_resources")
+        .select("event_id, resource_id")
+        .in("event_id", evtIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: companyIds.length > 0 && events.length > 0 && planningType === "exploitation",
+  });
+
   const { data: visites = [] } = useQuery({
     queryKey: ["planning-visites", companyIds, rangeStart.toISOString(), rangeEnd.toISOString()],
     queryFn: async () => {
@@ -281,19 +297,24 @@ const Planning = () => {
   };
 
   const getEventsForResource = (resourceId: string, day: Date) => {
+    const resEvtIds = evtResources
+      .filter((er: any) => er.resource_id === resourceId)
+      .map((er: any) => er.event_id);
     return events.filter((e: any) => {
       const eStart = startOfDay(new Date(e.start_time));
       const eEnd = startOfDay(new Date(e.end_time));
       const matchDay = eStart <= day && eEnd >= day;
-      return matchDay && e.resource_id === resourceId;
+      return matchDay && (resEvtIds.includes(e.id) || e.resource_id === resourceId);
     });
   };
 
   const getUnassignedEventsForDay = (day: Date) => {
+    // Events that have no resource via junction table AND no legacy resource_id
+    const assignedEvtIds = new Set(evtResources.map((er: any) => er.event_id));
     return events.filter((e: any) => {
       const eStart = startOfDay(new Date(e.start_time));
       const eEnd = startOfDay(new Date(e.end_time));
-      return eStart <= day && eEnd >= day && !e.resource_id;
+      return eStart <= day && eEnd >= day && !e.resource_id && !assignedEvtIds.has(e.id);
     });
   };
 
@@ -505,7 +526,13 @@ const Planning = () => {
               .filter((or: any) => or.resource_id === resource.id)
               .map((or: any) => or.operation_id);
             const resourceOps = operations.filter((op: any) => resOpIds.includes(op.id));
-            const resourceEvents = events.filter((e: any) => e.resource_id === resource.id);
+            // Use junction table for events (fallback to legacy resource_id)
+            const resEvtIds = evtResources
+              .filter((er: any) => er.resource_id === resource.id)
+              .map((er: any) => er.event_id);
+            const resourceEvents = events.filter((e: any) => 
+              resEvtIds.includes(e.id) || e.resource_id === resource.id
+            );
             const renderedOpIds = new Set<string>();
             const renderedEvtIds = new Set<string>();
 
