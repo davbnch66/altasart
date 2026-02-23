@@ -591,7 +591,7 @@ export const PlanningEventDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0" onInteractOutside={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b" style={{ borderBottomColor: eventColor }}>
           <DialogHeader>
