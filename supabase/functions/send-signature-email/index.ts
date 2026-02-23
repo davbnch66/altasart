@@ -6,9 +6,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function escapeHtml(unsafe: string): string {
+  return String(unsafe)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function applyTemplate(template: string, vars: Record<string, string>): string {
   return Object.entries(vars).reduce(
-    (str, [key, val]) => str.replaceAll(`{{${key}}}`, val ?? ""),
+    (str, [key, val]) => str.replaceAll(`{{${key}}}`, escapeHtml(val ?? "")),
     template
   );
 }
@@ -140,7 +149,7 @@ serve(async (req) => {
       <h1 style="color:#ffffff;margin:0;font-size:22px;">${companyName || "Votre prestataire"}</h1>
     </div>
     <div style="padding:32px;">
-      <div style="white-space:pre-wrap;color:#333;font-size:15px;line-height:1.7;">${cleanedBody.replace(/\n/g, "<br>")}</div>
+      <div style="white-space:pre-wrap;color:#333;font-size:15px;line-height:1.7;">${escapeHtml(cleanedBody).replace(/\n/g, "<br>")}</div>
       <div style="text-align:center;margin:32px 0;">
         <a href="${signatureUrl}" style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:700;">
           ✓ Voir et accepter le devis

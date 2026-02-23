@@ -7,9 +7,18 @@ const corsHeaders = {
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 
+function escapeHtml(unsafe: string): string {
+  return String(unsafe)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function applyTemplate(template: string, vars: Record<string, string>): string {
   return Object.entries(vars).reduce(
-    (str, [key, val]) => str.replaceAll(`{{${key}}}`, val ?? ""),
+    (str, [key, val]) => str.replaceAll(`{{${key}}}`, escapeHtml(val ?? "")),
     template
   );
 }
@@ -195,14 +204,14 @@ Deno.serve(async (req) => {
       </div>
       <div style="padding: 32px;">
         <p style="color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
-          Bonjour ${contactName},
+          Bonjour ${escapeHtml(contactName)},
         </p>
         <p style="color: #374151; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
           Nous revenons vers vous concernant notre ${relanceLabel} relance pour le devis suivant :
         </p>
         ${customMessage ? `
         <div style="background: #f3f4f6; border-left: 4px solid #6366f1; border-radius: 4px; padding: 16px; margin: 0 0 24px;">
-          <p style="color: #374151; margin: 0; font-size: 14px; line-height: 1.6;">${customMessage}</p>
+          <p style="color: #374151; margin: 0; font-size: 14px; line-height: 1.6;">${escapeHtml(customMessage || "")}</p>
         </div>
         ` : ""}
         <div style="border: 1px solid #e5e7eb; border-radius: 10px; padding: 24px; margin: 0 0 24px;">

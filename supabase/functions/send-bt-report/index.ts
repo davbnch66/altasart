@@ -87,10 +87,19 @@ serve(async (req) => {
 
     const finalSubject = subject || `Rapport de fin de chantier — ${(op as any)?.type || "BT"} #${(op as any)?.operation_number || ""}`;
 
+    function escapeHtml(unsafe: string): string {
+      return String(unsafe)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     const htmlBody = `
 <div style="font-family:sans-serif;color:#333;font-size:15px;line-height:1.7;">
-  <p>Bonjour ${clientName},</p>
-  <p>Le rapport de fin de chantier pour l'opération <strong>${(op as any)?.type || ""} #${(op as any)?.operation_number || ""}</strong>${dossier?.code ? ` (Dossier ${dossier.code})` : ""} est prêt.</p>
+  <p>Bonjour ${escapeHtml(clientName)},</p>
+  <p>Le rapport de fin de chantier pour l'opération <strong>${escapeHtml((op as any)?.type || "")} #${escapeHtml(String((op as any)?.operation_number || ""))}</strong>${dossier?.code ? ` (Dossier ${escapeHtml(dossier.code)})` : ""} est prêt.</p>
   <p>Ce rapport inclut les détails de l'intervention, les signatures de début et fin de chantier ainsi que les photos réalisées sur site.</p>
   <p style="margin:24px 0;">
     <a href="${downloadUrl}" style="display:inline-block;padding:12px 28px;background-color:#2563eb;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:600;">
@@ -98,7 +107,7 @@ serve(async (req) => {
     </a>
   </p>
   <p style="font-size:13px;color:#666;">Cliquez sur le bouton ci-dessus pour télécharger le rapport.</p>
-  <p>Cordialement,<br><strong>${senderCompany}</strong></p>
+  <p>Cordialement,<br><strong>${escapeHtml(senderCompany)}</strong></p>
 </div>`;
 
     const emailPayload: Record<string, unknown> = {

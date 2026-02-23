@@ -6,9 +6,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function escapeHtml(unsafe: string): string {
+  return String(unsafe)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function applyTemplate(template: string, vars: Record<string, string>): string {
   return Object.entries(vars).reduce(
-    (str, [key, val]) => str.replaceAll(`{{${key}}}`, val ?? ""),
+    (str, [key, val]) => str.replaceAll(`{{${key}}}`, escapeHtml(val ?? "")),
     template
   );
 }
@@ -191,7 +200,7 @@ serve(async (req) => {
     }
 
     const htmlBody = finalBody
-      ? `<div style="font-family:sans-serif;white-space:pre-wrap;color:#333;font-size:15px;line-height:1.7;">${String(finalBody).replace(/\n/g, "<br>")}</div>`
+      ? `<div style="font-family:sans-serif;white-space:pre-wrap;color:#333;font-size:15px;line-height:1.7;">${escapeHtml(String(finalBody)).replace(/\n/g, "<br>")}</div>`
       : "<p></p>";
 
     const isTestMode = Deno.env.get("RESEND_TEST_MODE") === "true";
