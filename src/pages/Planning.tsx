@@ -490,9 +490,9 @@ const Planning = () => {
                             key={op.id}
                             className={`px-2 py-1 text-[10px] font-medium leading-tight cursor-pointer hover:opacity-90 transition-opacity ${color} ${
                               isMultiDay
-                                ? isFirst ? "rounded-l rounded-r-none -mr-1" 
-                                : isLast ? "rounded-r rounded-l-none -ml-1"
-                                : "rounded-none -mx-1"
+                                ? isFirst ? "rounded-l rounded-r-none -mr-[5px]" 
+                                : isLast ? "rounded-r rounded-l-none -ml-[5px]"
+                                : "rounded-none -mx-[5px]"
                                 : "rounded"
                             }`}
                             onClick={(e) => { e.stopPropagation(); setEditingOpId(op.id); setOpDialogOpen(true); }}
@@ -530,9 +530,9 @@ const Planning = () => {
                             key={evt.id}
                             className={`px-2 py-1 text-[10px] text-white font-medium leading-tight cursor-pointer hover:opacity-90 transition-opacity ${
                               isMultiDay
-                                ? isFirst ? "rounded-l rounded-r-none -mr-1"
-                                : isLast ? "rounded-r rounded-l-none -ml-1"
-                                : "rounded-none -mx-1"
+                                ? isFirst ? "rounded-l rounded-r-none -mr-[5px]"
+                                : isLast ? "rounded-r rounded-l-none -ml-[5px]"
+                                : "rounded-none -mx-[5px]"
                                 : "rounded"
                             }`}
                             style={{ backgroundColor: bgColor }}
@@ -587,9 +587,9 @@ const Planning = () => {
                           key={evt.id}
                           className={`px-2 py-1 text-[10px] text-white font-medium leading-tight cursor-pointer hover:opacity-80 ${
                             isMultiDay
-                              ? isFirst ? "rounded-l rounded-r-none -mr-1"
-                              : isLast ? "rounded-r rounded-l-none -ml-1"
-                              : "rounded-none -mx-1"
+                              ? isFirst ? "rounded-l rounded-r-none -mr-[5px]"
+                              : isLast ? "rounded-r rounded-l-none -ml-[5px]"
+                              : "rounded-none -mx-[5px]"
                               : "rounded"
                           }`}
                           style={{ backgroundColor: bgColor }}
@@ -704,9 +704,9 @@ const Planning = () => {
                           key={evt.id}
                           className={`px-2 py-1.5 text-[10px] text-white font-medium cursor-pointer hover:opacity-90 transition-opacity ${
                             isMultiDay
-                              ? isFirst ? "rounded-l-md rounded-r-none -mr-1.5"
-                              : isLast ? "rounded-r-md rounded-l-none -ml-1.5"
-                              : "rounded-none -mx-1.5"
+                              ? isFirst ? "rounded-l-md rounded-r-none -mr-[7px]"
+                              : isLast ? "rounded-r-md rounded-l-none -ml-[7px]"
+                              : "rounded-none -mx-[7px]"
                               : "rounded-md"
                           }`}
                           style={{ backgroundColor: bgColor }}
