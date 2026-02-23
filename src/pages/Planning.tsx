@@ -515,25 +515,37 @@ const Planning = () => {
                       })}
                       {/* Planning events */}
                       {cellEvents.map((evt: any) => {
-                        const evtColor = EVENT_BG_COLORS[resource.colorIdx];
+                        const bgColor = evt.color || "#6b7280";
                         const client = (evt.dossiers as any)?.clients?.name;
                         const dossierCode = (evt.dossiers as any)?.code;
-                        const startDay = startOfDay(new Date(evt.start_time));
-                        const isStart = isSameDay(startDay, day);
+                        const evtStart = startOfDay(new Date(evt.start_time));
+                        const evtEnd = startOfDay(new Date(evt.end_time));
+                        const isMultiDay = evtStart.getTime() !== evtEnd.getTime();
+                        const isFirst = isSameDay(evtStart, day);
+                        const isLast = isSameDay(evtEnd, day);
+                        const dayNum = Math.round((startOfDay(day).getTime() - evtStart.getTime()) / 86400000) + 1;
+                        const totalDays = Math.round((evtEnd.getTime() - evtStart.getTime()) / 86400000) + 1;
                         return (
                           <div
                             key={evt.id}
-                            className={`rounded px-2 py-1 text-[10px] leading-tight cursor-pointer hover:opacity-90 transition-opacity ${evtColor} ${
-                              !isStart ? "opacity-70" : ""
+                            className={`px-2 py-1 text-[10px] text-white font-medium leading-tight cursor-pointer hover:opacity-90 transition-opacity ${
+                              isMultiDay
+                                ? isFirst ? "rounded-l rounded-r-none -mr-1"
+                                : isLast ? "rounded-r rounded-l-none -ml-1"
+                                : "rounded-none -mx-1"
+                                : "rounded"
                             }`}
+                            style={{ backgroundColor: bgColor }}
                             onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
                           >
-                            <p className="font-bold truncate">{evt.title}</p>
-                            {client && <p className="opacity-85 truncate">{client}{dossierCode ? ` · ${dossierCode}` : ""}</p>}
-                            {isStart && (
-                              <p className="opacity-75 truncate">
-                                {format(new Date(evt.start_time), "HH:mm")} – {format(new Date(evt.end_time), "HH:mm")}
-                              </p>
+                            {isFirst ? (
+                              <>
+                                <p className="font-bold truncate">{evt.title}</p>
+                                {client && <p className="opacity-85 truncate">{client}{dossierCode ? ` · ${dossierCode}` : ""}</p>}
+                                {isMultiDay && <p className="opacity-70 truncate">J{dayNum}/{totalDays}</p>}
+                              </>
+                            ) : (
+                              <p className="opacity-70 truncate text-center">J{dayNum}/{totalDays}</p>
                             )}
                           </div>
                         );
@@ -561,24 +573,26 @@ const Planning = () => {
                     onTouchEnd={(e) => { e.preventDefault(); openCreate(day); }}
                   >
                     {cellEvents.map((evt: any) => {
-                      const startDay = startOfDay(new Date(evt.start_time));
-                      const endDay = startOfDay(new Date(evt.end_time));
-                      const isMultiDay = startDay.getTime() !== endDay.getTime();
-                      const isFirst = isSameDay(startDay, day);
-                      const isLast = isSameDay(endDay, day);
-                      const dayNum = Math.round((startOfDay(day).getTime() - startDay.getTime()) / 86400000) + 1;
-                      const totalDays = Math.round((endDay.getTime() - startDay.getTime()) / 86400000) + 1;
+                      const bgColor = evt.color || "#6b7280";
+                      const evtStart = startOfDay(new Date(evt.start_time));
+                      const evtEnd = startOfDay(new Date(evt.end_time));
+                      const isMultiDay = evtStart.getTime() !== evtEnd.getTime();
+                      const isFirst = isSameDay(evtStart, day);
+                      const isLast = isSameDay(evtEnd, day);
+                      const dayNum = Math.round((startOfDay(day).getTime() - evtStart.getTime()) / 86400000) + 1;
+                      const totalDays = Math.round((evtEnd.getTime() - evtStart.getTime()) / 86400000) + 1;
                       const client = (evt.dossiers as any)?.clients?.name;
                       return (
                         <div
                           key={evt.id}
-                          className={`px-2 py-1 text-[10px] bg-muted text-muted-foreground leading-tight cursor-pointer hover:opacity-80 ${
+                          className={`px-2 py-1 text-[10px] text-white font-medium leading-tight cursor-pointer hover:opacity-80 ${
                             isMultiDay
                               ? isFirst ? "rounded-l rounded-r-none -mr-1"
                               : isLast ? "rounded-r rounded-l-none -ml-1"
                               : "rounded-none -mx-1"
                               : "rounded"
                           }`}
+                          style={{ backgroundColor: bgColor }}
                           onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
                         >
                           {isFirst ? (
@@ -676,14 +690,37 @@ const Planning = () => {
                       </div>
                     ))}
                     {dayEvents.map((evt: any) => {
-                      const color = companyColors[(evt.companies as any)?.color] || "bg-primary text-primary-foreground";
+                      const bgColor = evt.color || "#6b7280";
+                      const client = (evt.dossiers as any)?.clients?.name;
+                      const evtStart = startOfDay(new Date(evt.start_time));
+                      const evtEnd = startOfDay(new Date(evt.end_time));
+                      const isMultiDay = evtStart.getTime() !== evtEnd.getTime();
+                      const isFirst = isSameDay(evtStart, day);
+                      const isLast = isSameDay(evtEnd, day);
+                      const dayNum = Math.round((startOfDay(day).getTime() - evtStart.getTime()) / 86400000) + 1;
+                      const totalDays = Math.round((evtEnd.getTime() - evtStart.getTime()) / 86400000) + 1;
                       return (
                         <div
                           key={evt.id}
-                          className={`rounded-md px-2 py-1.5 text-[10px] cursor-pointer hover:opacity-90 transition-opacity ${color}`}
+                          className={`px-2 py-1.5 text-[10px] text-white font-medium cursor-pointer hover:opacity-90 transition-opacity ${
+                            isMultiDay
+                              ? isFirst ? "rounded-l-md rounded-r-none -mr-1.5"
+                              : isLast ? "rounded-r-md rounded-l-none -ml-1.5"
+                              : "rounded-none -mx-1.5"
+                              : "rounded-md"
+                          }`}
+                          style={{ backgroundColor: bgColor }}
                           onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
                         >
-                          <p className="font-bold truncate">{evt.title}</p>
+                          {isFirst ? (
+                            <>
+                              <p className="font-bold truncate">{evt.title}</p>
+                              {client && <p className="opacity-85 truncate">{client}</p>}
+                              {isMultiDay && <p className="opacity-70 truncate">J{dayNum}/{totalDays}</p>}
+                            </>
+                          ) : (
+                            <p className="opacity-70 truncate text-center">J{dayNum}/{totalDays}</p>
+                          )}
                         </div>
                       );
                     })}
@@ -778,9 +815,10 @@ const Planning = () => {
                 </div>
               ))}
               {dayEvents.slice(0, isCommercial ? 1 : 3).map((evt: any) => {
-                const color = companyColors[(evt.companies as any)?.color] || "bg-primary text-primary-foreground";
+                const bgColor = evt.color || "#6b7280";
                 return (
-                  <div key={evt.id} className={`rounded px-1 py-0.5 text-[9px] truncate mb-0.5 font-medium ${color}`}
+                  <div key={evt.id} className="rounded px-1 py-0.5 text-[9px] truncate mb-0.5 font-medium text-white"
+                    style={{ backgroundColor: bgColor }}
                     onClick={(e) => { e.stopPropagation(); openEdit(evt); }}>
                     {format(new Date(evt.start_time), "HH:mm")} {evt.title}
                   </div>
