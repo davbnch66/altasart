@@ -605,6 +605,7 @@ export const PlanningEventDialog = ({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Titre de l'événement *"
+            autoComplete="off"
             className="mt-3 text-base font-medium border-0 border-b rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary"
           />
         </div>
