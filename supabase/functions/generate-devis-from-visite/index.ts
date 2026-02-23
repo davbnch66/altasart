@@ -31,8 +31,97 @@ serve(async (req) => {
 
     const body = await req.json();
     const visite_id = body.visite_id;
+    const mode = body.mode; // "lines_only" = generate from objet only, no visite needed
 
-    // Input validation
+    // lines_only mode: generate devis lines from objet description without a visite
+    if (mode === "lines_only") {
+      const objet = body.objet;
+      const existingLines = body.existingLines || [];
+      if (!objet || typeof objet !== "string") {
+        return new Response(JSON.stringify({ error: "objet requis en mode lines_only" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            {
+              role: "system",
+              content: `Tu es un expert en chiffrage de déménagement, manutention lourde et levage.
+Tu génères des lignes de devis réalistes avec description, quantité et prix unitaire HT.
+Base les tarifs sur les standards du marché français.
+Tu DOIS répondre UNIQUEMENT via l'outil generate_devis_lines.`,
+            },
+            {
+              role: "user",
+              content: `Génère des lignes de devis pour : "${objet}"${existingLines.length > 0 ? `\n\nLignes existantes (ne pas dupliquer) :\n${existingLines.join("\n")}` : ""}`,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "generate_devis_lines",
+                description: "Génère les lignes d'un devis",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    lines: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          description: { type: "string" },
+                          quantity: { type: "number" },
+                          unit_price: { type: "number" },
+                        },
+                        required: ["description", "quantity", "unit_price"],
+                        additionalProperties: false,
+                      },
+                    },
+                  },
+                  required: ["lines"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          ],
+          tool_choice: { type: "function", function: { name: "generate_devis_lines" } },
+        }),
+      });
+
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error("AI error (lines_only):", aiResponse.status, errorText);
+        if (aiResponse.status === 429) {
+          return new Response(JSON.stringify({ error: "Trop de requêtes, réessayez." }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        throw new Error("Erreur du service IA");
+      }
+
+      const aiData = await aiResponse.json();
+      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+      if (!toolCall?.function?.arguments) throw new Error("Pas de données IA");
+      const result = JSON.parse(toolCall.function.arguments);
+
+      return new Response(JSON.stringify({ lines: result.lines || [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Standard mode: requires visite_id
     if (!visite_id || typeof visite_id !== "string") {
       return new Response(JSON.stringify({ error: "visite_id requis" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
