@@ -1738,6 +1738,7 @@ export type Database = {
           description: string | null
           dossier_id: string | null
           end_time: string
+          event_type: string
           id: string
           resource_id: string | null
           start_time: string
@@ -1752,6 +1753,7 @@ export type Database = {
           description?: string | null
           dossier_id?: string | null
           end_time: string
+          event_type?: string
           id?: string
           resource_id?: string | null
           start_time: string
@@ -1766,6 +1768,7 @@ export type Database = {
           description?: string | null
           dossier_id?: string | null
           end_time?: string
+          event_type?: string
           id?: string
           resource_id?: string | null
           start_time?: string

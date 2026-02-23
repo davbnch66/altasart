@@ -379,11 +379,14 @@ const Planning = () => {
     );
   };
 
-  const getEventsForDay = (day: Date) => {
+  const getEventsForDay = (day: Date, filterType?: "commercial" | "exploitation") => {
     return events.filter((e: any) => {
       const eStart = startOfDay(new Date(e.start_time));
       const eEnd = startOfDay(new Date(e.end_time));
-      return eStart <= day && eEnd >= day;
+      if (!(eStart <= day && eEnd >= day)) return false;
+      if (filterType === "commercial") return e.event_type === "visite";
+      if (filterType === "exploitation") return e.event_type !== "visite";
+      return true;
     });
   };
 
@@ -536,9 +539,9 @@ const Planning = () => {
           )}
 
           {/* Events rows in operation mode */}
-          {exploitationMode === "operation" && events.length > 0 && (() => {
+          {exploitationMode === "operation" && events.filter((e: any) => e.event_type !== "visite").length > 0 && (() => {
             const renderedEvtIds = new Set<string>();
-            return events.map((evt: any, evtIdx: number) => {
+            return events.filter((e: any) => e.event_type !== "visite").map((evt: any, evtIdx: number) => {
               const evtStart = startOfDay(new Date(evt.start_time));
               const evtEnd = startOfDay(new Date(evt.end_time));
               let firstIdx = -1;
@@ -608,7 +611,7 @@ const Planning = () => {
               .filter((er: any) => er.resource_id === resource.id)
               .map((er: any) => er.event_id);
             const resourceEvents = events.filter((e: any) => 
-              resEvtIds.includes(e.id) || e.resource_id === resource.id
+              (resEvtIds.includes(e.id) || e.resource_id === resource.id) && e.event_type !== "visite"
             );
             const renderedOpIds = new Set<string>();
             const renderedEvtIds = new Set<string>();
@@ -860,7 +863,7 @@ const Planning = () => {
               </div>
               {days.map((day) => {
                 const dayVisites = getVisitesForDay(day);
-                const singleDayEvents = getEventsForDay(day).filter((evt: any) => {
+                const singleDayEvents = getEventsForDay(day, "commercial").filter((evt: any) => {
                   const eStart = startOfDay(new Date(evt.start_time));
                   const eEnd = startOfDay(new Date(evt.end_time));
                   return eStart.getTime() === eEnd.getTime();
@@ -913,6 +916,7 @@ const Planning = () => {
                 const eStart = startOfDay(new Date(evt.start_time));
                 const eEnd = startOfDay(new Date(evt.end_time));
                 if (eStart.getTime() === eEnd.getTime()) return false;
+                if (evt.event_type !== "visite") return false;
                 return eStart <= weekEnd && eEnd >= weekStart;
               });
               if (multiDayEvts.length === 0) return null;
@@ -1012,7 +1016,7 @@ const Planning = () => {
       </div>
       <div className="grid grid-cols-7">
         {paddedMonthDays.map((day, i) => {
-          const dayEvents = getEventsForDay(day);
+          const dayEvents = getEventsForDay(day, isCommercial ? "commercial" : "exploitation");
           const dayOps = getOpsForDay(day);
           const dayVisites = isCommercial ? getVisitesForDay(day) : [];
           const isCurrentMonth = isSameMonth(day, currentDate);
