@@ -1256,27 +1256,38 @@ const Planning = () => {
           const dayVisites = isCommercial ? getVisitesForDay(day) : [];
           const isCurrentMonth = isSameMonth(day, currentDate);
           const totalItems = dayEvents.length + dayOps.length + dayVisites.length;
+          const cellKey = `month-${i}`;
           return (
             <div
               key={i}
               className={`border-r border-b last:border-r-0 min-h-[100px] p-1.5 cursor-pointer hover:bg-muted/20 transition-colors ${
                 isToday(day) ? "bg-primary/5 ring-1 ring-inset ring-primary/30" : ""
-              } ${!isCurrentMonth ? "opacity-30" : ""}`}
+              } ${!isCurrentMonth ? "opacity-30" : ""} ${dragOverCell === cellKey ? "bg-primary/15" : ""}`}
               onClick={(e) => { e.stopPropagation(); setView("day"); setCurrentDate(day); }}
               onTouchEnd={(e) => { e.preventDefault(); setView("day"); setCurrentDate(day); }}
+              onDragOver={(e) => handleDragOver(e, cellKey)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, day)}
               role="button"
               tabIndex={0}
             >
               <p className={`text-xs font-bold mb-1 ${isToday(day) ? "text-primary" : "text-foreground"}`}>{format(day, "d")}</p>
               {isCommercial && dayVisites.slice(0, 2).map((v: any) => (
-                <div key={v.id} className="rounded px-1 py-0.5 text-[9px] truncate mb-0.5 bg-info text-white font-medium">
+                <div key={v.id} draggable
+                  onDragStart={(e) => { e.stopPropagation(); handleDragStart(e, { kind: "visite", id: v.id, durationDays: 1, startTime: v.scheduled_date, endTime: v.scheduled_time }); }}
+                  className="rounded px-1 py-0.5 text-[9px] truncate mb-0.5 bg-info text-white font-medium cursor-grab">
                   🏠 {(v.clients as any)?.name || "Visite"}
                 </div>
               ))}
               {dayEvents.slice(0, isCommercial ? 1 : 3).map((evt: any) => {
                 const bgColor = evt.color || "#6b7280";
+                const eStart = startOfDay(new Date(evt.start_time));
+                const eEnd = startOfDay(new Date(evt.end_time));
+                const totalEvtDays = Math.round((eEnd.getTime() - eStart.getTime()) / 86400000) + 1;
                 return (
-                  <div key={evt.id} className="rounded px-1 py-0.5 text-[9px] truncate mb-0.5 font-medium text-white"
+                  <div key={evt.id} draggable
+                    onDragStart={(e) => { e.stopPropagation(); handleDragStart(e, { kind: "evt", id: evt.id, durationDays: totalEvtDays, startTime: evt.start_time, endTime: evt.end_time }); }}
+                    className="rounded px-1 py-0.5 text-[9px] truncate mb-0.5 font-medium text-white cursor-grab"
                     style={{ backgroundColor: bgColor }}
                     onClick={(e) => { e.stopPropagation(); openEdit(evt); }}>
                     {format(new Date(evt.start_time), "HH:mm")} {evt.title}
@@ -1285,8 +1296,13 @@ const Planning = () => {
               })}
               {!isCommercial && dayOps.slice(0, 2).map((op: any) => {
                 const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
+                const loadDay = op.loading_date ? startOfDay(new Date(op.loading_date)) : null;
+                const delivDay = op.delivery_date ? startOfDay(new Date(op.delivery_date)) : loadDay;
+                const totalDays = loadDay && delivDay ? Math.round((delivDay.getTime() - loadDay.getTime()) / 86400000) + 1 : 1;
                 return (
-                  <div key={op.id} className={`rounded px-1 py-0.5 text-[9px] truncate mb-0.5 font-medium ${color}`}>
+                  <div key={op.id} draggable
+                    onDragStart={(e) => { e.stopPropagation(); handleDragStart(e, { kind: "op", id: op.id, durationDays: totalDays }); }}
+                    className={`rounded px-1 py-0.5 text-[9px] truncate mb-0.5 font-medium cursor-grab ${color}`}>
                     Op.{op.operation_number} {(op.dossiers as any)?.clients?.name || ""}
                   </div>
                 );
