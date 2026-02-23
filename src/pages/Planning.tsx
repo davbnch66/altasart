@@ -860,11 +860,15 @@ const Planning = () => {
               </div>
               {days.map((day) => {
                 const dayVisites = getVisitesForDay(day);
-                const dayEvents = getEventsForDay(day);
+                const singleDayEvents = getEventsForDay(day).filter((evt: any) => {
+                  const eStart = startOfDay(new Date(evt.start_time));
+                  const eEnd = startOfDay(new Date(evt.end_time));
+                  return eStart.getTime() === eEnd.getTime();
+                });
                 return (
                   <div
                     key={day.toISOString()}
-                    className={`border-r last:border-r-0 p-1.5 space-y-1 min-h-[80px] cursor-pointer hover:bg-muted/20 transition-colors overflow-visible ${isToday(day) ? "bg-primary/5" : ""}`}
+                    className={`border-r last:border-r-0 p-1.5 space-y-1 min-h-[80px] cursor-pointer hover:bg-muted/20 transition-colors ${isToday(day) ? "bg-primary/5" : ""}`}
                     onClick={() => { setView("day"); setCurrentDate(day); }}
                   >
                     {dayVisites.map((v: any) => (
@@ -878,50 +882,75 @@ const Planning = () => {
                         {v.address && <p className="opacity-70 truncate flex items-center gap-0.5"><MapPin className="h-2 w-2 shrink-0" />{v.address}</p>}
                       </div>
                     ))}
-
-
-                    {dayEvents.map((evt: any) => {
+                    {singleDayEvents.map((evt: any) => {
                       const bgColor = evt.color || "#6b7280";
                       const client = (evt.dossiers as any)?.clients?.name;
-                      const evtStart = startOfDay(new Date(evt.start_time));
-                      const evtEnd = startOfDay(new Date(evt.end_time));
-                      const isMultiDay = evtStart.getTime() !== evtEnd.getTime();
-                      const isFirst = isSameDay(evtStart, day);
-                      const isLast = isSameDay(evtEnd, day);
-                      const dayNum = Math.round((startOfDay(day).getTime() - evtStart.getTime()) / 86400000) + 1;
-                      const totalDays = Math.round((evtEnd.getTime() - evtStart.getTime()) / 86400000) + 1;
                       return (
                         <div
                           key={evt.id}
-                          className={`px-2 py-1.5 text-[10px] text-white font-medium cursor-pointer hover:opacity-90 transition-opacity relative z-10 ${
-                            isMultiDay
-                              ? isFirst ? "rounded-l-md rounded-r-none -mr-[8px]"
-                              : isLast ? "rounded-r-md rounded-l-none -ml-[8px]"
-                              : "rounded-none -mx-[8px]"
-                              : "rounded-md shadow-sm"
-                          }`}
+                          className="rounded-md px-2 py-1.5 text-[10px] text-white font-medium cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
                           style={{ backgroundColor: bgColor }}
                           onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
                         >
-                          {isFirst ? (
-                            <>
-                              <p className="font-bold truncate">{evt.title}</p>
-                              {client && <p className="opacity-85 truncate">{client}</p>}
-                              {isMultiDay && <p className="opacity-70 truncate">J{dayNum}/{totalDays}</p>}
-                            </>
-                          ) : (
-                            <p className="opacity-70 truncate text-center">J{dayNum}/{totalDays}</p>
-                          )}
+                          <p className="font-bold truncate">{evt.title}</p>
+                          {client && <p className="opacity-85 truncate">{client}</p>}
                         </div>
                       );
                     })}
-                    {dayVisites.length === 0 && dayEvents.length === 0 && (
+                    {dayVisites.length === 0 && singleDayEvents.length === 0 && (
                       <p className="text-[10px] text-muted-foreground/40 text-center pt-2">—</p>
                     )}
                   </div>
                 );
               })}
             </div>
+
+            {/* Multi-day events as spanning blocks */}
+            {(() => {
+              const weekStart = startOfDay(days[0]);
+              const weekEnd = startOfDay(days[days.length - 1]);
+              const multiDayEvts = events.filter((evt: any) => {
+                const eStart = startOfDay(new Date(evt.start_time));
+                const eEnd = startOfDay(new Date(evt.end_time));
+                if (eStart.getTime() === eEnd.getTime()) return false;
+                return eStart <= weekEnd && eEnd >= weekStart;
+              });
+              if (multiDayEvts.length === 0) return null;
+              return (
+                <div className="grid" style={{ gridTemplateColumns: `120px ${colWidth}` }}>
+                  <div className="border-r" />
+                  {/* Use a sub-grid spanning all 7 day columns */}
+                  <div className="col-span-7 grid px-0" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
+                    {multiDayEvts.map((evt: any) => {
+                      const eStart = startOfDay(new Date(evt.start_time));
+                      const eEnd = startOfDay(new Date(evt.end_time));
+                      const clampedStart = eStart < weekStart ? weekStart : eStart;
+                      const clampedEnd = eEnd > weekEnd ? weekEnd : eEnd;
+                      const startCol = Math.round((clampedStart.getTime() - weekStart.getTime()) / 86400000) + 1;
+                      const endCol = Math.round((clampedEnd.getTime() - weekStart.getTime()) / 86400000) + 2;
+                      const totalDays = Math.round((eEnd.getTime() - eStart.getTime()) / 86400000) + 1;
+                      const bgColor = evt.color || "#6b7280";
+                      const client = (evt.dossiers as any)?.clients?.name;
+                      return (
+                        <div
+                          key={evt.id}
+                          className="rounded-md px-2 py-1.5 my-0.5 text-[10px] text-white font-medium cursor-pointer hover:opacity-90 transition-opacity shadow-sm truncate"
+                          style={{
+                            backgroundColor: bgColor,
+                            gridColumn: `${startCol} / ${endCol}`,
+                          }}
+                          onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
+                        >
+                          <span className="font-bold">{evt.title}</span>
+                          {client && <span className="ml-2 opacity-85">{client}</span>}
+                          <span className="ml-2 opacity-70">{totalDays}j</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
