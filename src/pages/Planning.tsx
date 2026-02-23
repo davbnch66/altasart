@@ -437,6 +437,67 @@ const Planning = () => {
             </>
           )}
 
+          {/* Events rows in operation mode */}
+          {exploitationMode === "operation" && events.length > 0 && (() => {
+            const renderedEvtIds = new Set<string>();
+            return events.map((evt: any, evtIdx: number) => {
+              const evtStart = startOfDay(new Date(evt.start_time));
+              const evtEnd = startOfDay(new Date(evt.end_time));
+              let firstIdx = -1;
+              let lastIdx = -1;
+              days.forEach((d, i) => {
+                const dayStart = startOfDay(d);
+                if (evtStart <= dayStart && evtEnd >= dayStart) {
+                  if (firstIdx === -1) firstIdx = i;
+                  lastIdx = i;
+                }
+              });
+              const span = firstIdx >= 0 ? lastIdx - firstIdx + 1 : 0;
+              if (span === 0) return null;
+              const bgColor = evt.color || "#6b7280";
+              const client = (evt.dossiers as any)?.clients?.name;
+              const totalDays = Math.round((evtEnd.getTime() - evtStart.getTime()) / 86400000) + 1;
+              const resourceName = (evt.resources as any)?.name;
+
+              return (
+                <div key={evt.id} className="grid border-b" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
+                  <div
+                    className="px-3 py-2.5 border-r bg-muted/10 flex items-center gap-2 cursor-pointer hover:bg-muted/30 transition-colors"
+                    onClick={() => openEdit(evt)}
+                  >
+                    <div className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0" style={{ backgroundColor: bgColor + "33", color: bgColor }}>
+                      <Globe className="h-3.5 w-3.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold truncate text-foreground">{evt.title}</p>
+                      <p className="text-[9px] text-muted-foreground truncate">{resourceName || "Non assigné"}</p>
+                    </div>
+                  </div>
+                  {days.map((day, dayIdx) => (
+                    <div
+                      key={day.toISOString()}
+                      className={`border-r last:border-r-0 min-h-[64px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""}`}
+                    >
+                      {dayIdx === firstIdx && span > 0 && (
+                        <div
+                          className="absolute inset-y-1 left-1 rounded-lg flex items-center px-3 cursor-pointer hover:opacity-90 transition-opacity shadow-sm text-white"
+                          style={{ backgroundColor: bgColor, width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)", zIndex: 5 }}
+                          onClick={() => openEdit(evt)}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 w-full text-[11px] font-medium overflow-hidden">
+                            <p className="font-bold truncate">{evt.title}</p>
+                            {client && <p className="opacity-85 truncate">{client}</p>}
+                            {totalDays > 1 && <span className="opacity-70 shrink-0">{totalDays}j</span>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              );
+            });
+          })()}
+
           {/* Resource rows (vehicule / personnel modes) */}
           {exploitationMode !== "operation" && filteredResourceRows.map((resource: any, rowIdx: number) => {
             // Pre-compute spans for ops and events on this resource
