@@ -190,6 +190,20 @@ export const PlanningEventDialog = ({
     return differenceInCalendarDays(endDate, startDate) + 1;
   }, [startDate, endDate]);
 
+  // ── Fetch event resources from junction table ──
+  const { data: eventResLinks = [] } = useQuery({
+    queryKey: ["event-resources-dialog", event?.id],
+    queryFn: async () => {
+      if (!event?.id) return [];
+      const { data } = await supabase
+        .from("event_resources")
+        .select("resource_id")
+        .eq("event_id", event.id);
+      return (data || []).map((r: any) => r.resource_id);
+    },
+    enabled: open && !!event?.id,
+  });
+
   // ── Populate on edit / reset on create ──
   useEffect(() => {
     if (!open) return;
@@ -203,7 +217,8 @@ export const PlanningEventDialog = ({
       setEndDate(eDate);
       setStartTime(format(sDate, "HH:mm"));
       setEndTime(format(eDate, "HH:mm"));
-      setResourceIds(event.resource_id ? [event.resource_id] : []);
+      // Use junction table data; fallback to legacy resource_id
+      setResourceIds(eventResLinks.length > 0 ? eventResLinks : event.resource_id ? [event.resource_id] : []);
       setDossierId(event.dossier_id || "__none__");
       setClientId("__none__");
       setSelectedCompanyId(event.company_id || companyId || "");
@@ -232,7 +247,7 @@ export const PlanningEventDialog = ({
       setAllDay(false);
       resetAddresses();
     }
-  }, [event, defaultDate, defaultResourceId, companyId, open]);
+  }, [event, defaultDate, defaultResourceId, companyId, open, eventResLinks]);
 
   const resetAddresses = () => {
     setLoadingAddress(""); setLoadingPostalCode(""); setLoadingCity("");
@@ -372,17 +387,31 @@ export const PlanningEventDialog = ({
         color: eventColor,
       };
 
+      let eventId: string;
+
       if (event) {
         const { error } = await supabase.from("planning_events").update(payload).eq("id", event.id);
         if (error) throw error;
+        eventId = event.id;
         toast.success("Événement modifié");
       } else {
-        const { error } = await supabase.from("planning_events").insert(payload);
+        const { data: inserted, error } = await supabase.from("planning_events").insert(payload).select("id").single();
         if (error) throw error;
+        eventId = inserted.id;
         toast.success("Événement créé");
       }
 
+      // Sync event_resources junction table
+      // Delete existing links
+      await supabase.from("event_resources").delete().eq("event_id", eventId);
+      // Insert new links
+      if (resourceIds.length > 0) {
+        const rows = resourceIds.map((rid) => ({ event_id: eventId, resource_id: rid }));
+        await supabase.from("event_resources").insert(rows);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["planning-events"] });
+      queryClient.invalidateQueries({ queryKey: ["planning-event-resources"] });
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e.message || "Erreur");
