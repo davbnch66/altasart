@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlanningEventDialog } from "@/components/planning/PlanningEventDialog";
+import { PlanningOperationDialog } from "@/components/planning/PlanningOperationDialog";
 import {
   format,
   startOfWeek,
@@ -86,6 +87,8 @@ const Planning = () => {
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [defaultDate, setDefaultDate] = useState<Date | undefined>();
   const [defaultResourceId, setDefaultResourceId] = useState<string | undefined>();
+  const [opDialogOpen, setOpDialogOpen] = useState(false);
+  const [editingOpId, setEditingOpId] = useState<string | null>(null);
 
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
@@ -367,7 +370,7 @@ const Planning = () => {
                   <div key={op.id} className="grid border-b cursor-pointer" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
                     <div
                       className="px-3 py-2.5 border-r bg-muted/10 flex items-center gap-2 hover:bg-muted/30 transition-colors"
-                      onClick={() => navigate(`/dossiers/${op.dossier_id}`)}
+                      onClick={() => { setEditingOpId(op.id); setOpDialogOpen(true); }}
                     >
                       <div className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 bg-warning/20 text-warning">
                         {opIdx + 1}
@@ -392,7 +395,7 @@ const Planning = () => {
                           {isOpDay && (
                             <div
                               className={`rounded px-2 py-1 text-[10px] font-medium leading-tight cursor-pointer hover:opacity-90 transition-opacity ${color}`}
-                              onClick={() => navigate(`/dossiers/${op.dossier_id}`)}
+                              onClick={() => { setEditingOpId(op.id); setOpDialogOpen(true); }}
                             >
                               <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
                               <p className="opacity-80 flex items-center gap-0.5 truncate">
@@ -456,7 +459,7 @@ const Planning = () => {
                           <div
                             key={op.id}
                             className={`rounded px-2 py-1 text-[10px] font-medium leading-tight cursor-pointer hover:opacity-90 transition-opacity ${color}`}
-                            onClick={(e) => { e.stopPropagation(); navigate(`/dossiers/${op.dossier_id}`); }}
+                            onClick={(e) => { e.stopPropagation(); setEditingOpId(op.id); setOpDialogOpen(true); }}
                           >
                             <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
                             <p className="opacity-80 flex items-center gap-0.5 truncate">
@@ -875,6 +878,11 @@ const Planning = () => {
         event={editingEvent}
         defaultDate={defaultDate}
         defaultResourceId={defaultResourceId}
+      />
+      <PlanningOperationDialog
+        open={opDialogOpen}
+        onOpenChange={(v) => { setOpDialogOpen(v); if (!v) setEditingOpId(null); }}
+        operationId={editingOpId}
       />
     </div>
   );
