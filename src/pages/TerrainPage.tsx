@@ -25,6 +25,7 @@ import { BTCommentField } from "@/components/terrain/BTCommentField";
 import { BTReportPreviewDialog } from "@/components/terrain/BTReportPreviewDialog";
 import { VehicleExpenseDialog } from "@/components/terrain/VehicleExpenseDialog";
 import { Receipt } from "lucide-react";
+import { PlanningOperationDialog } from "@/components/planning/PlanningOperationDialog";
 
 const todayStr = () => {
   const d = new Date();
@@ -292,6 +293,7 @@ export default function TerrainPage() {
   });
 
   const [reportBtId, setReportBtId] = useState<string | null>(null);
+  const [editBtId, setEditBtId] = useState<string | null>(null);
 
   const handlePhotosChange = useCallback((btId: string, photos: string[]) => {
     queryClient.setQueryData(["terrain-bts", companyIds, dateToUse, userId, mode], (old: any[]) =>
@@ -435,13 +437,14 @@ export default function TerrainPage() {
                    onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
                    onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)}
                    onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })}
+                   onEdit={() => setEditBtId(bt.id)}
                 />
               ))}
               {completedBTs.length > 0 && (
                 <>
                   <p className="text-xs text-muted-foreground font-medium pt-2">Terminés ({completedBTs.length})</p>
                   {completedBTs.map((bt: any) => (
-                     <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })} onSendReport={() => setReportBtId(bt.id)} onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })} onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })} onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })} />
+                     <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onEdit={() => setEditBtId(bt.id)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })} onSendReport={() => setReportBtId(bt.id)} onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })} onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })} onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })} />
                   ))}
                 </>
               )}
@@ -489,13 +492,14 @@ export default function TerrainPage() {
                     onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
                     onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)}
                     onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })}
+                    onEdit={() => setEditBtId(bt.id)}
                   />
                 ))}
                 {completedBTs.length > 0 && (
                   <>
                     <p className="text-xs text-muted-foreground font-medium pt-1">Terminés ({completedBTs.length})</p>
                     {completedBTs.map((bt: any) => (
-                      <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })} onSendReport={() => setReportBtId(bt.id)} onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })} onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })} onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })} />
+                      <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onEdit={() => setEditBtId(bt.id)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })} onSendReport={() => setReportBtId(bt.id)} onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })} onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })} onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })} />
                     ))}
                   </>
                 )}
@@ -542,6 +546,13 @@ export default function TerrainPage() {
           companyIds={companyIds}
         />
       )}
+
+      {/* Edit BT dialog */}
+      <PlanningOperationDialog
+        open={!!editBtId}
+        onOpenChange={(val) => { if (!val) { setEditBtId(null); queryClient.invalidateQueries({ queryKey: ["terrain-bts"] }); } }}
+        operationId={editBtId}
+      />
     </div>
   );
 }
@@ -557,11 +568,12 @@ function EmptyState({ icon: Icon, label }: { icon: React.ElementType; label: str
   );
 }
 
-function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSignStart, onSignEnd, onResetSignature, onNavigate, onPhotosChange, onSendReport }: {
+function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSignStart, onSignEnd, onResetSignature, onNavigate, onEdit, onPhotosChange, onSendReport }: {
   bt: any; completed?: boolean; showSignature?: boolean;
   onComplete?: () => void; onSignOperator?: () => void; onSignStart?: () => void; onSignEnd?: () => void;
   onResetSignature?: (type: "operator" | "start" | "end") => void;
   onNavigate: () => void;
+  onEdit?: () => void;
   onPhotosChange?: (photos: string[]) => void;
   onSendReport?: () => void;
 }) {
@@ -584,9 +596,16 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSi
             <p className="text-xs text-muted-foreground truncate">{bt.dossiers?.code} · {bt.dossiers?.title}</p>
           </div>
         </div>
-        <button onClick={onNavigate} className="shrink-0 p-1 hover:bg-muted rounded">
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          {onEdit && (
+            <button onClick={onEdit} className="p-1 hover:bg-muted rounded" title="Modifier le BT">
+              <Pen className="h-4 w-4 text-primary" />
+            </button>
+          )}
+          <button onClick={onNavigate} className="p-1 hover:bg-muted rounded">
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </button>
+        </div>
       </div>
 
       {/* Addresses */}
