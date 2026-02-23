@@ -142,8 +142,8 @@ const Planning = () => {
         .from("planning_events")
         .select("*, companies(color), resources(name), dossiers(title, code, clients(name))")
         .in("company_id", companyIds)
-        .gte("start_time", rangeStart.toISOString())
         .lt("start_time", addDays(rangeEnd, 1).toISOString())
+        .gte("end_time", rangeStart.toISOString())
         .order("start_time");
       if (error) throw error;
       return data || [];
