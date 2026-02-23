@@ -261,13 +261,22 @@ const Planning = () => {
     return resourceRows; // operation mode shows all
   }, [resourceRows, exploitationMode]);
 
+  // Check if a day falls within an operation's date range (loading_date to delivery_date)
+  const isOpOnDay = (op: any, day: Date) => {
+    if (!op.loading_date) return false;
+    const loadDay = startOfDay(new Date(op.loading_date));
+    const delivDay = op.delivery_date ? startOfDay(new Date(op.delivery_date)) : loadDay;
+    const d = startOfDay(day);
+    return d >= loadDay && d <= delivDay;
+  };
+
   // Get operations for a specific resource on a specific day
   const getOpsForResourceDay = (resourceId: string, day: Date) => {
     const opIds = opResources
       .filter((or: any) => or.resource_id === resourceId)
       .map((or: any) => or.operation_id);
     return operations.filter((op: any) =>
-      opIds.includes(op.id) && op.loading_date && isSameDay(new Date(op.loading_date), day)
+      opIds.includes(op.id) && isOpOnDay(op, day)
     );
   };
 
@@ -289,9 +298,7 @@ const Planning = () => {
   };
 
   const getOpsForDay = (day: Date) => {
-    return operations.filter((op: any) =>
-      op.loading_date && isSameDay(new Date(op.loading_date), day)
-    );
+    return operations.filter((op: any) => isOpOnDay(op, day));
   };
 
   const getVisitesForDay = (day: Date) => {
@@ -386,7 +393,7 @@ const Planning = () => {
                       </div>
                     </div>
                     {days.map((day) => {
-                      const isOpDay = op.loading_date && isSameDay(new Date(op.loading_date), day);
+                      const isOpDay = isOpOnDay(op, day);
                       return (
                         <div
                           key={day.toISOString()}
