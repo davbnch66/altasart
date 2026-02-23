@@ -300,11 +300,21 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
           </div>
 
           {generatedLink && (
-            <div className="rounded-lg bg-muted p-3 break-all">
-              <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+            <div className="rounded-lg bg-muted p-3">
+              <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
                 <Link className="h-3 w-3" /> Lien de signature
               </p>
-              <p className="text-xs font-mono">{generatedLink}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2"
+                asChild
+              >
+                <a href={generatedLink} target="_blank" rel="noopener noreferrer">
+                  <Link className="h-4 w-4" />
+                  Ouvrir le lien de signature
+                </a>
+              </Button>
             </div>
           )}
 
