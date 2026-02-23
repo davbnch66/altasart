@@ -1,14 +1,18 @@
 import { motion } from "framer-motion";
-import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList, Clock, ExternalLink } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useState, useMemo, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { PlanningEventDialog } from "@/components/planning/PlanningEventDialog";
 import { PlanningOperationDialog } from "@/components/planning/PlanningOperationDialog";
+import { toast } from "sonner";
 import {
   format,
   startOfWeek,
@@ -63,6 +67,7 @@ const companyColors: Record<string, string> = {
 
 const Planning = () => {
   const { current, setCurrent, companies, dbCompanies } = useCompany();
+  const queryClient = useQueryClient();
   const [view, setView] = useState<ViewMode>(() => {
     return (sessionStorage.getItem("planningView") as ViewMode) || "week";
   });
@@ -101,6 +106,10 @@ const Planning = () => {
   const [defaultResourceId, setDefaultResourceId] = useState<string | undefined>();
   const [opDialogOpen, setOpDialogOpen] = useState(false);
   const [editingOpId, setEditingOpId] = useState<string | null>(null);
+  const [editingVisite, setEditingVisite] = useState<any>(null);
+  const [visiteDate, setVisiteDate] = useState("");
+  const [visiteTime, setVisiteTime] = useState("");
+  const [savingVisite, setSavingVisite] = useState(false);
 
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
@@ -857,6 +866,29 @@ const Planning = () => {
       top: (topMinutes / 60) * HOUR_HEIGHT,
       height: (durationMinutes / 60) * HOUR_HEIGHT,
     };
+  };
+
+  const openVisiteEdit = (v: any) => {
+    setEditingVisite(v);
+    setVisiteDate(v.scheduled_date || "");
+    setVisiteTime(v.scheduled_time || "");
+  };
+
+  const saveVisiteTime = async () => {
+    if (!editingVisite) return;
+    setSavingVisite(true);
+    const { error } = await supabase
+      .from("visites")
+      .update({ scheduled_date: visiteDate || null, scheduled_time: visiteTime || null })
+      .eq("id", editingVisite.id);
+    setSavingVisite(false);
+    if (error) {
+      toast.error("Erreur lors de la mise à jour");
+      return;
+    }
+    toast.success("Horaire mis à jour");
+    setEditingVisite(null);
+    queryClient.invalidateQueries({ queryKey: ["planning-visites"] });
   };
 
   const getVisiteTopAndHeight = (v: any) => {
