@@ -364,8 +364,11 @@ const Planning = () => {
               {operations.map((op: any, opIdx: number) => {
                 const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
                 return (
-                  <div key={op.id} className="grid border-b" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
-                    <div className="px-3 py-2.5 border-r bg-muted/10 flex items-center gap-2">
+                  <div key={op.id} className="grid border-b cursor-pointer" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
+                    <div
+                      className="px-3 py-2.5 border-r bg-muted/10 flex items-center gap-2 hover:bg-muted/30 transition-colors"
+                      onClick={() => navigate(`/dossiers/${op.dossier_id}`)}
+                    >
                       <div className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 bg-warning/20 text-warning">
                         {opIdx + 1}
                       </div>
@@ -387,7 +390,10 @@ const Planning = () => {
                           className={`border-r last:border-r-0 p-1.5 min-h-[64px] ${isToday(day) ? "bg-primary/5" : ""}`}
                         >
                           {isOpDay && (
-                            <div className={`rounded px-2 py-1 text-[10px] font-medium leading-tight ${color}`}>
+                            <div
+                              className={`rounded px-2 py-1 text-[10px] font-medium leading-tight cursor-pointer hover:opacity-90 transition-opacity ${color}`}
+                              onClick={() => navigate(`/dossiers/${op.dossier_id}`)}
+                            >
                               <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
                               <p className="opacity-80 flex items-center gap-0.5 truncate">
                                 <MapPin className="h-2 w-2 shrink-0" />
@@ -447,7 +453,11 @@ const Planning = () => {
                       {cellOps.map((op: any) => {
                         const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
                         return (
-                          <div key={op.id} className={`rounded px-2 py-1 text-[10px] font-medium leading-tight ${color}`}>
+                          <div
+                            key={op.id}
+                            className={`rounded px-2 py-1 text-[10px] font-medium leading-tight cursor-pointer hover:opacity-90 transition-opacity ${color}`}
+                            onClick={(e) => { e.stopPropagation(); navigate(`/dossiers/${op.dossier_id}`); }}
+                          >
                             <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
                             <p className="opacity-80 flex items-center gap-0.5 truncate">
                               <MapPin className="h-2 w-2 shrink-0" />
