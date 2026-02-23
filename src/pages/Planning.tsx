@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useState, useMemo, useEffect } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -277,6 +277,57 @@ const Planning = () => {
     return resourceRows; // operation mode shows all
   }, [resourceRows, exploitationMode]);
 
+  // ── Conflict detection: find resources assigned to overlapping events/ops ──
+  const resourceConflicts = useMemo(() => {
+    // Build a list of all assignments: { resourceId, start, end, label, id }
+    type Assignment = { resourceId: string; start: Date; end: Date; label: string; id: string };
+    const assignments: Assignment[] = [];
+
+    // From events (junction table + legacy)
+    events.forEach((evt: any) => {
+      const s = new Date(evt.start_time);
+      const e = new Date(evt.end_time);
+      // Junction resources
+      const junctionRids = evtResources.filter((er: any) => er.event_id === evt.id).map((er: any) => er.resource_id);
+      const rids = new Set([...junctionRids, ...(evt.resource_id ? [evt.resource_id] : [])]);
+      rids.forEach((rid) => assignments.push({ resourceId: rid, start: s, end: e, label: evt.title, id: `evt-${evt.id}` }));
+    });
+
+    // From operations
+    operations.forEach((op: any) => {
+      if (!op.loading_date) return;
+      const s = startOfDay(new Date(op.loading_date));
+      const e = op.delivery_date ? new Date(new Date(op.delivery_date).getTime() + 86400000 - 1) : new Date(s.getTime() + 86400000 - 1);
+      const label = (op.dossiers as any)?.clients?.name || `Op ${op.operation_number}`;
+      const rids = opResources.filter((or: any) => or.operation_id === op.id).map((or: any) => or.resource_id);
+      rids.forEach((rid: string) => assignments.push({ resourceId: rid, start: s, end: e, label, id: `op-${op.id}` }));
+    });
+
+    // For each resource, check pairwise overlaps
+    const conflicts = new Map<string, { with: string; label: string }[]>();
+    const byResource = new Map<string, Assignment[]>();
+    assignments.forEach((a) => {
+      if (!byResource.has(a.resourceId)) byResource.set(a.resourceId, []);
+      byResource.get(a.resourceId)!.push(a);
+    });
+
+    byResource.forEach((items, rid) => {
+      if (items.length < 2) return;
+      for (let i = 0; i < items.length; i++) {
+        for (let j = i + 1; j < items.length; j++) {
+          // Check overlap
+          if (items[i].start < items[j].end && items[j].start < items[i].end) {
+            if (!conflicts.has(rid)) conflicts.set(rid, []);
+            conflicts.get(rid)!.push({ with: items[j].id, label: items[j].label });
+            conflicts.get(rid)!.push({ with: items[i].id, label: items[i].label });
+          }
+        }
+      }
+    });
+
+    return conflicts;
+  }, [events, operations, evtResources, opResources]);
+
   // Check if a day falls within an operation's date range (loading_date to delivery_date)
   const isOpOnDay = (op: any, day: Date) => {
     if (!op.loading_date) return false;
@@ -543,19 +594,25 @@ const Planning = () => {
                 style={{ gridTemplateColumns: `160px ${colWidth}` }}
               >
                 {/* Resource label */}
-                <div className={`px-3 py-2.5 border-r flex items-center gap-2.5 ${rowIdx % 2 === 0 ? "bg-muted/20" : "bg-muted/5"}`}>
+                <div className={`px-3 py-2.5 border-r flex items-center gap-2.5 ${rowIdx % 2 === 0 ? "bg-muted/20" : "bg-muted/5"} ${resourceConflicts.has(resource.id) ? "bg-destructive/10" : ""}`}>
                   <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
-                    resource.type === "employe" || resource.type === "equipe"
+                    resourceConflicts.has(resource.id)
+                      ? "bg-destructive/20 text-destructive"
+                      : resource.type === "employe" || resource.type === "equipe"
                       ? "bg-info/20 text-info"
                       : resource.type === "vehicule" || resource.type === "grue"
                       ? "bg-warning/20 text-warning"
                       : "bg-muted text-muted-foreground"
                   }`}>
-                    {rowIdx + 1}
+                    {resourceConflicts.has(resource.id) ? <AlertTriangle className="h-3.5 w-3.5" /> : rowIdx + 1}
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-semibold truncate text-foreground">{resource.name}</p>
-                    <p className="text-[9px] text-muted-foreground capitalize">{resource.type}</p>
+                    {resourceConflicts.has(resource.id) ? (
+                      <p className="text-[9px] text-destructive font-medium truncate">⚠ Conflit horaire</p>
+                    ) : (
+                      <p className="text-[9px] text-muted-foreground capitalize">{resource.type}</p>
+                    )}
                   </div>
                 </div>
 
