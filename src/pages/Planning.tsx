@@ -391,13 +391,16 @@ const Planning = () => {
     );
   };
 
+  // Exploitation-only event types (operations/logistics)
+  const EXPLOITATION_TYPES = ["intervention", "livraison", "demenagement", "manutention", "maintenance"];
+
   const getEventsForDay = (day: Date, filterType?: "commercial" | "exploitation") => {
     return events.filter((e: any) => {
       const eStart = startOfDay(new Date(e.start_time));
       const eEnd = startOfDay(new Date(e.end_time));
       if (!(eStart <= day && eEnd >= day)) return false;
-      if (filterType === "commercial") return e.event_type === "visite";
-      if (filterType === "exploitation") return e.event_type !== "visite";
+      if (filterType === "commercial") return !EXPLOITATION_TYPES.includes(e.event_type);
+      if (filterType === "exploitation") return EXPLOITATION_TYPES.includes(e.event_type);
       return true;
     });
   };
@@ -551,9 +554,9 @@ const Planning = () => {
           )}
 
           {/* Events rows in operation mode */}
-          {exploitationMode === "operation" && events.filter((e: any) => e.event_type !== "visite").length > 0 && (() => {
+          {exploitationMode === "operation" && events.filter((e: any) => EXPLOITATION_TYPES.includes(e.event_type)).length > 0 && (() => {
             const renderedEvtIds = new Set<string>();
-            return events.filter((e: any) => e.event_type !== "visite").map((evt: any, evtIdx: number) => {
+            return events.filter((e: any) => EXPLOITATION_TYPES.includes(e.event_type)).map((evt: any, evtIdx: number) => {
               const evtStart = startOfDay(new Date(evt.start_time));
               const evtEnd = startOfDay(new Date(evt.end_time));
               let firstIdx = -1;
@@ -623,7 +626,7 @@ const Planning = () => {
               .filter((er: any) => er.resource_id === resource.id)
               .map((er: any) => er.event_id);
             const resourceEvents = events.filter((e: any) => 
-              (resEvtIds.includes(e.id) || e.resource_id === resource.id) && e.event_type !== "visite"
+              (resEvtIds.includes(e.id) || e.resource_id === resource.id) && EXPLOITATION_TYPES.includes(e.event_type)
             );
             const renderedOpIds = new Set<string>();
             const renderedEvtIds = new Set<string>();
@@ -928,7 +931,7 @@ const Planning = () => {
                 const eStart = startOfDay(new Date(evt.start_time));
                 const eEnd = startOfDay(new Date(evt.end_time));
                 if (eStart.getTime() === eEnd.getTime()) return false;
-                if (evt.event_type !== "visite") return false;
+                if (EXPLOITATION_TYPES.includes(evt.event_type)) return false;
                 return eStart <= weekEnd && eEnd >= weekStart;
               });
               if (multiDayEvts.length === 0) return null;
