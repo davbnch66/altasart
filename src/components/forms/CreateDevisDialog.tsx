@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -14,8 +15,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, FileText, Euro, StickyNote } from "lucide-react";
 import { ContactSelect } from "@/components/client/ContactSelect";
+import { Separator } from "@/components/ui/separator";
 
 const schema = z.object({
   objet: z.string().trim().min(1, "L'objet est requis").max(500),
@@ -40,6 +43,7 @@ interface CreateDevisDialogProps {
 export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, preselectedDossierId, trigger }: CreateDevisDialogProps) => {
   const [open, setOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [creatingDossier, setCreatingDossier] = useState(false);
   const [newDossierTitle, setNewDossierTitle] = useState("");
@@ -52,7 +56,7 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
   const { data: clients = [] } = useQuery({
     queryKey: ["clients-for-select", selectedCompanyId],
     queryFn: async () => {
-      let query = supabase.from("clients").select("id, name").order("name");
+      let query = supabase.from("clients").select("id, name, address, city, postal_code, email, phone").order("name");
       if (selectedCompanyId) query = query.eq("company_id", selectedCompanyId);
       const { data } = await query;
       return data || [];
@@ -64,7 +68,17 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
     queryKey: ["dossiers-for-select", selectedClientId],
     queryFn: async () => {
       if (!selectedClientId) return [];
-      const { data } = await supabase.from("dossiers").select("id, title, code").eq("client_id", selectedClientId).order("title");
+      const { data } = await supabase.from("dossiers").select("id, title, code, address, volume, weight").eq("client_id", selectedClientId).order("title");
+      return data || [];
+    },
+    enabled: open && !!selectedClientId,
+  });
+
+  const { data: visites = [] } = useQuery({
+    queryKey: ["visites-for-select", selectedClientId],
+    queryFn: async () => {
+      if (!selectedClientId) return [];
+      const { data } = await supabase.from("visites").select("id, title, code").eq("client_id", selectedClientId).order("created_at", { ascending: false });
       return data || [];
     },
     enabled: open && !!selectedClientId,
@@ -79,6 +93,9 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
     resolver: zodResolver(schema),
     defaultValues: { company_id: defaultCompanyId, amount: 0, dossier_id: preselectedDossierId || "", valid_until: defaultValidUntilStr },
   });
+
+  const selectedClient = clients.find((c) => c.id === watch("client_id"));
+  const selectedDossier = dossiers.find((d) => d.id === watch("dossier_id"));
 
   const createDossierMutation = useMutation({
     mutationFn: async () => {
@@ -116,6 +133,7 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
         client_id: data.client_id,
         company_id: data.company_id,
         dossier_id: data.dossier_id,
+        created_by: user?.id || null,
       });
       if (error) throw error;
     },
@@ -145,7 +163,7 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); setSelectedClientId(preselectedClientId || ""); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), amount: 0, dossier_id: preselectedDossierId || ("" as any) }); setCreatingDossier(false); setSelectedContactId(""); } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); setSelectedClientId(preselectedClientId || ""); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), amount: 0, dossier_id: preselectedDossierId || ("" as any), valid_until: defaultValidUntilStr }); setCreatingDossier(false); setSelectedContactId(""); } }}>
       <DialogTrigger asChild>
         {trigger || (
           <Button className="flex items-center gap-2">
@@ -153,104 +171,164 @@ export const CreateDevisDialog = ({ preselectedClientId, preselectedCompanyId, p
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nouveau devis</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <Label>Société *</Label>
-              <Select value={watch("company_id")} onValueChange={handleCompanyChange}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-                <SelectContent>
-                  {dbCompanies.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.company_id && <p className="text-xs text-destructive mt-1">{errors.company_id.message}</p>}
-            </div>
-            <div className="col-span-2">
-              <Label>Client *</Label>
-              <Select value={watch("client_id")} onValueChange={handleClientChange}>
-                <SelectTrigger><SelectValue placeholder="Sélectionner un client" /></SelectTrigger>
-                <SelectContent>
-                  {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.client_id && <p className="text-xs text-destructive mt-1">{errors.client_id.message}</p>}
-            </div>
-            <div className="col-span-2">
-              <Label>Dossier *</Label>
-              {creatingDossier ? (
-                <div className="flex gap-2">
-                  <Input
-                    value={newDossierTitle}
-                    onChange={(e) => setNewDossierTitle(e.target.value)}
-                    placeholder="Titre du nouveau dossier"
-                    autoFocus
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); createDossierMutation.mutate(); } if (e.key === "Escape") setCreatingDossier(false); }}
-                  />
-                  <Button type="button" size="sm" onClick={() => createDossierMutation.mutate()} disabled={!newDossierTitle.trim() || createDossierMutation.isPending}>
-                    {createDossierMutation.isPending ? "..." : "Créer"}
-                  </Button>
-                  <Button type="button" size="sm" variant="ghost" onClick={() => setCreatingDossier(false)}>✕</Button>
+          <Tabs defaultValue="general" className="w-full">
+            <TabsList className="w-full grid grid-cols-3">
+              <TabsTrigger value="general" className="gap-1.5 text-xs"><FileText className="h-3.5 w-3.5" /> Général</TabsTrigger>
+              <TabsTrigger value="financier" className="gap-1.5 text-xs"><Euro className="h-3.5 w-3.5" /> Financier</TabsTrigger>
+              <TabsTrigger value="notes" className="gap-1.5 text-xs"><StickyNote className="h-3.5 w-3.5" /> Notes</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="general" className="space-y-4 mt-4">
+              {/* Société & Client */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Société *</Label>
+                  <Select value={watch("company_id")} onValueChange={handleCompanyChange}>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                    <SelectContent>
+                      {dbCompanies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.company_id && <p className="text-xs text-destructive mt-1">{errors.company_id.message}</p>}
                 </div>
-              ) : (
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Select value={watch("dossier_id") || ""} onValueChange={(v) => setValue("dossier_id", v)}>
-                      <SelectTrigger><SelectValue placeholder="Sélectionner un dossier" /></SelectTrigger>
-                      <SelectContent>
-                        {dossiers.map((d) => (
-                          <SelectItem key={d.id} value={d.id}>{d.code || d.title}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                <div>
+                  <Label>Client *</Label>
+                  <Select value={watch("client_id")} onValueChange={handleClientChange}>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner un client" /></SelectTrigger>
+                    <SelectContent>
+                      {clients.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.client_id && <p className="text-xs text-destructive mt-1">{errors.client_id.message}</p>}
+                </div>
+              </div>
+
+              {/* Client info summary */}
+              {selectedClient && (
+                <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-1">
+                  <p className="font-medium text-sm">{selectedClient.name}</p>
+                  {selectedClient.address && <p className="text-muted-foreground">{selectedClient.address}{selectedClient.postal_code ? `, ${selectedClient.postal_code}` : ""}{selectedClient.city ? ` ${selectedClient.city}` : ""}</p>}
+                  <div className="flex gap-4">
+                    {selectedClient.email && <p className="text-muted-foreground">✉ {selectedClient.email}</p>}
+                    {selectedClient.phone && <p className="text-muted-foreground">☎ {selectedClient.phone}</p>}
                   </div>
-                  {selectedClientId && (
-                    <Button type="button" size="icon" variant="outline" onClick={() => setCreatingDossier(true)} title="Créer un dossier">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  )}
                 </div>
               )}
-              {errors.dossier_id && <p className="text-xs text-destructive mt-1">{errors.dossier_id.message}</p>}
-              {!selectedClientId && <p className="text-xs text-muted-foreground mt-1">Sélectionnez d'abord un client</p>}
-            </div>
-            {selectedClientId && (
-              <div className="col-span-2">
+
+              {/* Dossier */}
+              <div>
+                <Label>Dossier *</Label>
+                {creatingDossier ? (
+                  <div className="flex gap-2">
+                    <Input
+                      value={newDossierTitle}
+                      onChange={(e) => setNewDossierTitle(e.target.value)}
+                      placeholder="Titre du nouveau dossier"
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); createDossierMutation.mutate(); } if (e.key === "Escape") setCreatingDossier(false); }}
+                    />
+                    <Button type="button" size="sm" onClick={() => createDossierMutation.mutate()} disabled={!newDossierTitle.trim() || createDossierMutation.isPending}>
+                      {createDossierMutation.isPending ? "..." : "Créer"}
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setCreatingDossier(false)}>✕</Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Select value={watch("dossier_id") || ""} onValueChange={(v) => setValue("dossier_id", v)}>
+                        <SelectTrigger><SelectValue placeholder="Sélectionner un dossier" /></SelectTrigger>
+                        <SelectContent>
+                          {dossiers.map((d) => (
+                            <SelectItem key={d.id} value={d.id}>{d.code ? `${d.code} — ` : ""}{d.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {selectedClientId && (
+                      <Button type="button" size="icon" variant="outline" onClick={() => setCreatingDossier(true)} title="Créer un dossier">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {errors.dossier_id && <p className="text-xs text-destructive mt-1">{errors.dossier_id.message}</p>}
+                {!selectedClientId && <p className="text-xs text-muted-foreground mt-1">Sélectionnez d'abord un client</p>}
+              </div>
+
+              {/* Dossier info */}
+              {selectedDossier && (
+                <div className="rounded-lg border bg-muted/30 p-3 text-xs space-y-1">
+                  <p className="font-medium text-sm">{selectedDossier.code ? `${selectedDossier.code} — ` : ""}{selectedDossier.title}</p>
+                  {selectedDossier.address && <p className="text-muted-foreground">📍 {selectedDossier.address}</p>}
+                  <div className="flex gap-4">
+                    {selectedDossier.volume ? <p className="text-muted-foreground">📦 {selectedDossier.volume} m³</p> : null}
+                    {selectedDossier.weight ? <p className="text-muted-foreground">⚖️ {selectedDossier.weight} kg</p> : null}
+                  </div>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Contact destinataire */}
+              {selectedClientId && (
                 <ContactSelect
                   clientId={selectedClientId}
                   value={selectedContactId}
                   onChange={setSelectedContactId}
                   label="Contact destinataire"
                 />
+              )}
+
+              {/* Objet & Code */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2">
+                  <Label htmlFor="objet">Objet *</Label>
+                  <Input id="objet" {...register("objet")} placeholder="Objet du devis" />
+                  {errors.objet && <p className="text-xs text-destructive mt-1">{errors.objet.message}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="code">Code / Réf.</Label>
+                  <Input id="code" {...register("code")} placeholder="DEV-2026-XXX" />
+                </div>
               </div>
-            )}
-            <div className="col-span-2">
-              <Label htmlFor="objet">Objet *</Label>
-              <Input id="objet" {...register("objet")} placeholder="Objet du devis" />
-              {errors.objet && <p className="text-xs text-destructive mt-1">{errors.objet.message}</p>}
-            </div>
-            <div>
-              <Label htmlFor="amount">Montant (€) *</Label>
-              <Input id="amount" type="number" step="0.01" {...register("amount")} />
-              {errors.amount && <p className="text-xs text-destructive mt-1">{errors.amount.message}</p>}
-            </div>
-            <div className="col-span-2">
-              <Label htmlFor="valid_until">Valide jusqu'au</Label>
-              <Input id="valid_until" type="date" {...register("valid_until")} />
-            </div>
-            <div className="col-span-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea id="notes" {...register("notes")} rows={2} placeholder="Notes..." />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
+            </TabsContent>
+
+            <TabsContent value="financier" className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="amount">Montant HT (€) *</Label>
+                  <Input id="amount" type="number" step="0.01" {...register("amount")} />
+                  {errors.amount && <p className="text-xs text-destructive mt-1">{errors.amount.message}</p>}
+                </div>
+                <div>
+                  <Label htmlFor="valid_until">Valide jusqu'au</Label>
+                  <Input id="valid_until" type="date" {...register("valid_until")} />
+                </div>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+                <p className="text-muted-foreground">Les lignes de devis détaillées pourront être ajoutées après la création, depuis la fiche du devis.</p>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="notes" className="space-y-4 mt-4">
+              <div>
+                <Label htmlFor="notes">Notes internes</Label>
+                <Textarea id="notes" {...register("notes")} rows={4} placeholder="Notes internes, commentaires, précisions..." />
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <Separator />
+          <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? "Création..." : "Créer le devis"}
