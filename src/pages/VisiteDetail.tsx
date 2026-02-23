@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { ArrowLeft, MapPin, Calendar, Clock, User, FileText, FolderOpen, BookOpen, Save, Loader2, LayoutGrid, Package, Users, Truck, ShieldAlert, ClipboardList, Download, Camera, ChevronDown, Wrench, Info } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCompany } from "@/contexts/CompanyContext";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useState, useEffect, useRef } from "react";
@@ -76,6 +78,7 @@ const VisiteDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const { current, dbCompanies } = useCompany();
   const fromClient = (location.state as any)?.fromClient === true;
   const fromDossier = (location.state as any)?.fromDossier as string | undefined;
   const fromPlanning = (location.state as any)?.fromPlanning === true;
@@ -89,6 +92,27 @@ const VisiteDetail = () => {
   const [activeTab, setActiveTab] = useState("rdv");
   const isMobile = useIsMobile();
   const photoInputRef = useRef<HTMLInputElement>(null);
+
+  const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
+
+  // Fetch personnel resources for technician assignment
+  const { data: personnelResources = [] } = useQuery({
+    queryKey: ["personnel-resources", companyIds],
+    queryFn: async () => {
+      if (companyIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("resource_companies")
+        .select("resource_id, resources(id, name, type, status)")
+        .in("company_id", companyIds);
+      if (error) throw error;
+      const seen = new Set<string>();
+      return (data || [])
+        .map((rc: any) => rc.resources)
+        .filter((r: any) => r && (r.type === "employe" || r.type === "equipe") && !seen.has(r.id) && seen.add(r.id))
+        .sort((a: any, b: any) => a.name.localeCompare(b.name));
+    },
+    enabled: companyIds.length > 0,
+  });
 
   const { data: visite, isLoading } = useQuery({
     queryKey: ["visite-detail", id],
@@ -363,7 +387,7 @@ const VisiteDetail = () => {
                   </div>
                 </div>
               </div>
-              <div className="rounded-xl border bg-card p-5 space-y-4">
+               <div className="rounded-xl border bg-card p-5 space-y-4">
                 <h3 className="font-semibold text-primary flex items-center gap-2"><User className="h-4 w-4" /> Intervenants</h3>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -373,6 +397,20 @@ const VisiteDetail = () => {
                   <div>
                     <Label>Coordinateur</Label>
                     <Input value={editData.coordinator || ""} onChange={(e) => updateField("coordinator", e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Technicien assigné</Label>
+                    <Select value={editData.technician_id || "none"} onValueChange={(v) => updateField("technician_id", v === "none" ? null : v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Non assigné" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Non assigné</SelectItem>
+                        {personnelResources.map((r: any) => (
+                          <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label>Origine</Label>
