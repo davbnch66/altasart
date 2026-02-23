@@ -657,7 +657,7 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSi
           <div className="flex items-center justify-between text-xs">
             <span className={`flex items-center gap-1 ${hasOperatorSig ? "text-success" : "text-muted-foreground"}`}>
               <HardHat className="h-3 w-3" />
-              Opérateur : {hasOperatorSig ? `✓ ${bt.operator_signer_name || "Signé"}` : "En attente"}
+              Opérateur : {hasOperatorSig ? `✓ ${bt.operator_signer_name || "Signé"}${bt.operator_signed_at ? ` à ${formatTime(bt.operator_signed_at)}` : ""}` : "En attente"}
             </span>
             {hasOperatorSig && onResetSignature && (
               <button onClick={() => onResetSignature("operator")} className="text-muted-foreground hover:text-destructive p-0.5">
@@ -668,7 +668,7 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSi
           <div className="flex items-center justify-between text-xs">
             <span className={`flex items-center gap-1 ${hasStartSig ? "text-success" : "text-muted-foreground"}`}>
               <Pen className="h-3 w-3" />
-              Début : {hasStartSig ? `✓ ${bt.start_signer_name || "Signé"}` : "En attente"}
+              Début : {hasStartSig ? `✓ ${bt.start_signer_name || "Signé"}${bt.start_signed_at ? ` à ${formatTime(bt.start_signed_at)}` : ""}` : "En attente"}
             </span>
             {hasStartSig && onResetSignature && (
               <button onClick={() => onResetSignature("start")} className="text-muted-foreground hover:text-destructive p-0.5">
@@ -679,7 +679,7 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSi
           <div className="flex items-center justify-between text-xs">
             <span className={`flex items-center gap-1 ${hasEndSig ? "text-success" : "text-muted-foreground"}`}>
               <Pen className="h-3 w-3" />
-              Fin : {hasEndSig ? `✓ ${bt.end_signer_name || "Signé"}` : "En attente"}
+              Fin : {hasEndSig ? `✓ ${bt.end_signer_name || "Signé"}${bt.end_signed_at ? ` à ${formatTime(bt.end_signed_at)}` : ""}` : "En attente"}
             </span>
             {hasEndSig && onResetSignature && (
               <button onClick={() => onResetSignature("end")} className="text-muted-foreground hover:text-destructive p-0.5">
