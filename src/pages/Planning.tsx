@@ -836,75 +836,140 @@ const Planning = () => {
   };
 
   // ==================== COMMERCIAL VIEW ====================
+  const HOUR_START = 7;
+  const HOUR_END = 19;
+  const HOURS = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i);
+  const HOUR_HEIGHT = 60; // px per hour
+
+  const getEventTopAndHeight = (evt: any, day: Date) => {
+    const evtStart = new Date(evt.start_time);
+    const evtEnd = new Date(evt.end_time);
+    // Clamp to the day boundaries
+    const dayStart = new Date(day);
+    dayStart.setHours(HOUR_START, 0, 0, 0);
+    const dayEnd = new Date(day);
+    dayEnd.setHours(HOUR_END, 0, 0, 0);
+    const start = evtStart < dayStart ? dayStart : evtStart;
+    const end = evtEnd > dayEnd ? dayEnd : evtEnd;
+    const topMinutes = (start.getHours() - HOUR_START) * 60 + start.getMinutes();
+    const durationMinutes = Math.max((end.getTime() - start.getTime()) / 60000, 30); // min 30min display
+    return {
+      top: (topMinutes / 60) * HOUR_HEIGHT,
+      height: (durationMinutes / 60) * HOUR_HEIGHT,
+    };
+  };
+
+  const getVisiteTopAndHeight = (v: any) => {
+    if (!v.scheduled_time) return { top: 0, height: HOUR_HEIGHT };
+    const [hh, mm] = v.scheduled_time.split(":").map(Number);
+    const topMinutes = ((hh || 0) - HOUR_START) * 60 + (mm || 0);
+    return {
+      top: Math.max(0, (topMinutes / 60) * HOUR_HEIGHT),
+      height: HOUR_HEIGHT, // default 1h for visites
+    };
+  };
+
   const renderCommercialView = () => {
     if (view === "month") return renderMonthView(true);
     const days = displayDays;
     const colWidth = view === "day" ? "1fr" : `repeat(${days.length}, minmax(0, 1fr))`;
+    const totalHeight = HOURS.length * HOUR_HEIGHT;
 
     return (
       <div className="flex-1 flex flex-col gap-4 min-h-0">
-        {/* Visits calendar */}
-        <div className="rounded-xl border bg-card overflow-auto">
-          <div className={isMobile ? "min-w-[600px]" : ""}>
+        <div className="rounded-xl border bg-card overflow-auto flex-1">
+          <div className={isMobile ? "min-w-[700px]" : ""}>
             {/* Day headers */}
-            <div className="grid border-b sticky top-0 bg-card z-10 shadow-sm" style={{ gridTemplateColumns: `120px ${colWidth}` }}>
-              <div className="px-3 py-3 border-r bg-muted/50">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Visites</span>
-              </div>
+            <div className="grid border-b sticky top-0 bg-card z-20 shadow-sm" style={{ gridTemplateColumns: `60px ${colWidth}` }}>
+              <div className="px-1 py-3 border-r bg-muted/50" />
               {days.map((day) => (
                 <div
                   key={day.toISOString()}
-                  className={`px-2 py-3 text-center border-r last:border-r-0 cursor-pointer hover:bg-primary/15 transition-colors ${isToday(day) ? "bg-primary/10 border-b-2 border-b-primary" : "bg-muted/30"}`}
+                  className={`px-2 py-2 text-center border-r last:border-r-0 cursor-pointer hover:bg-primary/15 transition-colors ${isToday(day) ? "bg-primary/10 border-b-2 border-b-primary" : "bg-muted/30"}`}
                   onClick={() => { setView("day"); setCurrentDate(day); }}
                 >
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                     {format(day, "EEE", { locale: fr })}
                   </span>
-                  <p className={`text-xl font-black mt-0.5 leading-none ${isToday(day) ? "text-primary" : "text-foreground"}`}>
+                  <p className={`text-lg font-black leading-none mt-0.5 ${isToday(day) ? "text-primary" : "text-foreground"}`}>
                     {format(day, "d")}
                   </p>
-                  <span className="text-[10px] text-muted-foreground capitalize">{format(day, "MMM", { locale: fr })}</span>
+                  <span className="text-[9px] text-muted-foreground capitalize">{format(day, "MMM yyyy", { locale: fr })}</span>
                 </div>
               ))}
             </div>
 
-            {/* Visite cells */}
-            <div className="grid" style={{ gridTemplateColumns: `120px ${colWidth}` }}>
-              <div className="px-3 py-3 border-r bg-info/5 flex flex-col justify-center">
-                <span className="text-[10px] font-bold text-info uppercase tracking-wider">Calendrier</span>
+            {/* Time grid body */}
+            <div className="grid" style={{ gridTemplateColumns: `60px ${colWidth}` }}>
+              {/* Hour labels column */}
+              <div className="border-r relative" style={{ height: totalHeight }}>
+                {HOURS.map((h, i) => (
+                  <div
+                    key={h}
+                    className="absolute right-0 left-0 flex items-start justify-end border-t border-border/40 pr-2"
+                    style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+                  >
+                    <span className="text-[10px] font-medium text-muted-foreground -mt-0.5">{String(h).padStart(2, "0")}:00</span>
+                  </div>
+                ))}
               </div>
+
+              {/* Day columns with events */}
               {days.map((day) => {
                 const dayVisites = getVisitesForDay(day);
-                const singleDayEvents = getEventsForDay(day, "commercial").filter((evt: any) => {
-                  const eStart = startOfDay(new Date(evt.start_time));
-                  const eEnd = startOfDay(new Date(evt.end_time));
-                  return eStart.getTime() === eEnd.getTime();
-                });
+                const dayEvents = getEventsForDay(day, "commercial");
+
                 return (
                   <div
                     key={day.toISOString()}
-                    className={`border-r last:border-r-0 p-1.5 space-y-1 min-h-[80px] cursor-pointer hover:bg-muted/20 transition-colors ${isToday(day) ? "bg-primary/5" : ""}`}
+                    className={`border-r last:border-r-0 relative ${isToday(day) ? "bg-primary/[0.03]" : ""}`}
+                    style={{ height: totalHeight }}
                     onClick={() => { setView("day"); setCurrentDate(day); }}
                   >
-                    {dayVisites.map((v: any) => (
+                    {/* Hour grid lines */}
+                    {HOURS.map((h, i) => (
                       <div
-                        key={v.id}
-                        className="rounded-md px-2 py-1.5 bg-info text-white text-[10px] cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
-                        onClick={(e) => { e.stopPropagation(); navigate(`/visites/${v.id}`); }}
-                      >
-                        <p className="font-bold truncate">🏠 {(v.clients as any)?.name || "Visite"}</p>
-                        {v.scheduled_time && <p className="opacity-80">{v.scheduled_time}</p>}
-                        {v.address && <p className="opacity-70 truncate flex items-center gap-0.5"><MapPin className="h-2 w-2 shrink-0" />{v.address}</p>}
-                      </div>
+                        key={h}
+                        className="absolute left-0 right-0 border-t border-border/30"
+                        style={{ top: i * HOUR_HEIGHT }}
+                      />
                     ))}
-                    {singleDayEvents.map((evt: any) => {
-                      const bgColor = evt.color || "#6b7280";
+
+                    {/* Visites */}
+                    {dayVisites.map((v: any) => {
+                      const { top, height } = getVisiteTopAndHeight(v);
+                      return (
+                        <div
+                          key={v.id}
+                          className="absolute left-1 right-1 rounded-md px-2 py-1 bg-info text-white text-[10px] cursor-pointer hover:opacity-90 transition-opacity shadow-sm overflow-hidden z-10 border-l-[3px] border-l-[hsl(354,70%,54%)]"
+                          style={{ top, height: Math.max(height, 28) }}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/visites/${v.id}`); }}
+                        >
+                          <p className="font-bold truncate">{(v.clients as any)?.name || "Visite"}</p>
+                          {v.scheduled_time && <p className="opacity-80 text-[9px]">{v.scheduled_time}</p>}
+                          {v.address && <p className="opacity-70 truncate text-[9px] flex items-center gap-0.5"><MapPin className="h-2 w-2 shrink-0" />{v.address}</p>}
+                        </div>
+                      );
+                    })}
+
+                    {/* Events (congés, absences, etc.) */}
+                    {dayEvents.map((evt: any) => {
+                      const { top, height } = getEventTopAndHeight(evt, day);
+                      const bgColor = evt.color || "#ef4444";
                       const client = (evt.dossiers as any)?.clients?.name;
+                      // Multi-day events that span the full day
+                      const eStart = startOfDay(new Date(evt.start_time));
+                      const eEnd = startOfDay(new Date(evt.end_time));
+                      const isMultiDay = eStart.getTime() !== eEnd.getTime();
                       return (
                         <div
                           key={evt.id}
-                          className="rounded-md px-2 py-1.5 text-[10px] text-white font-medium cursor-pointer hover:opacity-90 transition-opacity shadow-sm"
-                          style={{ backgroundColor: bgColor }}
+                          className="absolute left-0.5 right-0.5 rounded-md px-2 py-1 text-white text-[10px] font-medium cursor-pointer hover:opacity-90 transition-opacity shadow-sm overflow-hidden z-10"
+                          style={{
+                            backgroundColor: bgColor,
+                            top: isMultiDay ? 0 : top,
+                            height: isMultiDay ? totalHeight : Math.max(height, 28),
+                          }}
                           onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
                         >
                           <p className="font-bold truncate">{evt.title}</p>
@@ -912,66 +977,15 @@ const Planning = () => {
                         </div>
                       );
                     })}
-                    {dayVisites.length === 0 && singleDayEvents.length === 0 && (
-                      <p className="text-[10px] text-muted-foreground/40 text-center pt-2">—</p>
-                    )}
                   </div>
                 );
               })}
             </div>
-
-            {/* Multi-day events as spanning blocks */}
-            {(() => {
-              const weekStart = startOfDay(days[0]);
-              const weekEnd = startOfDay(days[days.length - 1]);
-              const multiDayEvts = events.filter((evt: any) => {
-                const eStart = startOfDay(new Date(evt.start_time));
-                const eEnd = startOfDay(new Date(evt.end_time));
-                if (eStart.getTime() === eEnd.getTime()) return false;
-                if (evt.event_type !== "visite") return false;
-                return eStart <= weekEnd && eEnd >= weekStart;
-              });
-              if (multiDayEvts.length === 0) return null;
-              return (
-                <div className="grid" style={{ gridTemplateColumns: `120px ${colWidth}` }}>
-                  <div className="border-r" />
-                  {/* Use a sub-grid spanning all 7 day columns */}
-                  <div className="col-span-7 grid px-0" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}>
-                    {multiDayEvts.map((evt: any) => {
-                      const eStart = startOfDay(new Date(evt.start_time));
-                      const eEnd = startOfDay(new Date(evt.end_time));
-                      const clampedStart = eStart < weekStart ? weekStart : eStart;
-                      const clampedEnd = eEnd > weekEnd ? weekEnd : eEnd;
-                      const startCol = Math.round((clampedStart.getTime() - weekStart.getTime()) / 86400000) + 1;
-                      const endCol = Math.round((clampedEnd.getTime() - weekStart.getTime()) / 86400000) + 2;
-                      const totalDays = Math.round((eEnd.getTime() - eStart.getTime()) / 86400000) + 1;
-                      const bgColor = evt.color || "#6b7280";
-                      const client = (evt.dossiers as any)?.clients?.name;
-                      return (
-                        <div
-                          key={evt.id}
-                          className="rounded-md px-2 py-1.5 my-0.5 text-[10px] text-white font-medium cursor-pointer hover:opacity-90 transition-opacity shadow-sm truncate"
-                          style={{
-                            backgroundColor: bgColor,
-                            gridColumn: `${startCol} / ${endCol}`,
-                          }}
-                          onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
-                        >
-                          <span className="font-bold">{evt.title}</span>
-                          {client && <span className="ml-2 opacity-85">{client}</span>}
-                          <span className="ml-2 opacity-70">{totalDays}j</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
           </div>
         </div>
 
         {/* Devis pipeline */}
-        <div className="rounded-xl border bg-card p-4 flex-1 overflow-auto">
+        <div className="rounded-xl border bg-card p-4 overflow-auto">
           <h3 className="text-sm font-bold text-foreground flex items-center gap-2 mb-3">
             <Briefcase className="h-4 w-4 text-primary" />
             Pipeline Devis en cours
