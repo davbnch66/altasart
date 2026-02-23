@@ -683,7 +683,7 @@ export const PlanningEventDialog = ({
                       eventColor === c.value ? "border-foreground scale-110 ring-2 ring-offset-2 ring-offset-background" : "border-transparent"
                     )}
                     style={{ backgroundColor: c.value }}
-                    onClick={() => setEventColor(c.value)}
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setEventColor(c.value); }}
                     title={c.label}
                   />
                 ))}
