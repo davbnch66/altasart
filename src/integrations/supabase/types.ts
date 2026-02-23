@@ -3043,6 +3043,7 @@ export type Database = {
           instructions: string | null
           loading_date: string | null
           nature: string | null
+          needs_voirie: boolean
           notes: string | null
           on_hold: boolean | null
           operation_type: string | null
@@ -3074,6 +3075,7 @@ export type Database = {
           title: string
           updated_at: string
           visit_type: string | null
+          voirie_address: string | null
           volume: number | null
           zone: string | null
         }
@@ -3113,6 +3115,7 @@ export type Database = {
           instructions?: string | null
           loading_date?: string | null
           nature?: string | null
+          needs_voirie?: boolean
           notes?: string | null
           on_hold?: boolean | null
           operation_type?: string | null
@@ -3144,6 +3147,7 @@ export type Database = {
           title: string
           updated_at?: string
           visit_type?: string | null
+          voirie_address?: string | null
           volume?: number | null
           zone?: string | null
         }
@@ -3183,6 +3187,7 @@ export type Database = {
           instructions?: string | null
           loading_date?: string | null
           nature?: string | null
+          needs_voirie?: boolean
           notes?: string | null
           on_hold?: boolean | null
           operation_type?: string | null
@@ -3214,6 +3219,7 @@ export type Database = {
           title?: string
           updated_at?: string
           visit_type?: string | null
+          voirie_address?: string | null
           volume?: number | null
           zone?: string | null
         }

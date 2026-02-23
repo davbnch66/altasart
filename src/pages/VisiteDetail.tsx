@@ -546,6 +546,45 @@ const VisiteDetail = () => {
             <VisiteVehiculesTab visiteId={visite.id} companyId={visite.company_id} />
           </Section>
 
+          <Section title="Démarches voirie" icon={ShieldAlert}>
+            <div className="rounded-xl border bg-card p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="needs-voirie"
+                  checked={!!editData.needs_voirie}
+                  onCheckedChange={(checked) => {
+                    updateField("needs_voirie", !!checked);
+                    if (checked && !editData.voirie_address) {
+                      updateField("voirie_address", editData.address || visite.address || "");
+                    }
+                  }}
+                />
+                <Label htmlFor="needs-voirie" className="cursor-pointer text-sm font-medium">
+                  Démarches voirie nécessaires (arrêté, autorisation stationnement…)
+                </Label>
+              </div>
+              {editData.needs_voirie && (
+                <div className="space-y-2 pl-7">
+                  <Label>Adresse concernée</Label>
+                  <AddressAutocomplete
+                    value={editData.voirie_address || ""}
+                    onChange={(v) => updateField("voirie_address", v)}
+                    placeholder="Adresse pour la démarche voirie"
+                  />
+                  {editData.address && editData.voirie_address !== editData.address && (
+                    <button
+                      type="button"
+                      className="text-xs text-primary hover:underline"
+                      onClick={() => updateField("voirie_address", editData.address)}
+                    >
+                      ↩ Utiliser l'adresse du chantier
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </Section>
+
           <Section title="Méthodologie IA" icon={ClipboardList}>
             <VisiteMethodologieTab visiteId={visite.id} companyId={visite.company_id} />
           </Section>
