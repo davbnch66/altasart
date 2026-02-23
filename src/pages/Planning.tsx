@@ -394,6 +394,13 @@ const Planning = () => {
                     </div>
                     {days.map((day) => {
                       const isOpDay = isOpOnDay(op, day);
+                      const loadDay = op.loading_date ? startOfDay(new Date(op.loading_date)) : null;
+                      const delivDay = op.delivery_date ? startOfDay(new Date(op.delivery_date)) : loadDay;
+                      const isMultiDay = loadDay && delivDay && loadDay.getTime() !== delivDay.getTime();
+                      const isFirst = loadDay && isSameDay(day, loadDay);
+                      const isLast = delivDay && isSameDay(day, delivDay);
+                      const dayNum = loadDay ? Math.round((startOfDay(day).getTime() - loadDay.getTime()) / 86400000) + 1 : 1;
+                      const totalDays = loadDay && delivDay ? Math.round((delivDay.getTime() - loadDay.getTime()) / 86400000) + 1 : 1;
                       return (
                         <div
                           key={day.toISOString()}
@@ -401,15 +408,28 @@ const Planning = () => {
                         >
                           {isOpDay && (
                             <div
-                              className={`rounded px-2 py-1 text-[10px] font-medium leading-tight cursor-pointer hover:opacity-90 transition-opacity ${color}`}
+                              className={`px-2 py-1 text-[10px] font-medium leading-tight cursor-pointer hover:opacity-90 transition-opacity ${color} ${
+                                isMultiDay
+                                  ? isFirst ? "rounded-l rounded-r-none -mr-1.5" 
+                                  : isLast ? "rounded-r rounded-l-none -ml-1.5"
+                                  : "rounded-none -mx-1.5"
+                                  : "rounded"
+                              }`}
                               onClick={() => { setEditingOpId(op.id); setOpDialogOpen(true); }}
                             >
-                              <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
-                              <p className="opacity-80 flex items-center gap-0.5 truncate">
-                                <MapPin className="h-2 w-2 shrink-0" />
-                                {op.loading_city || "—"} → {op.delivery_city || "—"}
-                              </p>
-                              {op.volume != null && <p className="opacity-70 truncate">{op.volume} m³</p>}
+                              {isFirst ? (
+                                <>
+                                  <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
+                                  <p className="opacity-80 flex items-center gap-0.5 truncate">
+                                    <MapPin className="h-2 w-2 shrink-0" />
+                                    {op.loading_city || "—"} → {op.delivery_city || "—"}
+                                  </p>
+                                  {isMultiDay && <p className="opacity-70 truncate">J{dayNum}/{totalDays}</p>}
+                                  {!isMultiDay && op.volume != null && <p className="opacity-70 truncate">{op.volume} m³</p>}
+                                </>
+                              ) : (
+                                <p className="opacity-70 truncate text-center">J{dayNum}/{totalDays}</p>
+                              )}
                             </div>
                           )}
                         </div>
@@ -462,17 +482,37 @@ const Planning = () => {
                       {/* Operations assigned to this resource */}
                       {cellOps.map((op: any) => {
                         const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
+                        const loadDay = op.loading_date ? startOfDay(new Date(op.loading_date)) : null;
+                        const delivDay = op.delivery_date ? startOfDay(new Date(op.delivery_date)) : loadDay;
+                        const isMultiDay = loadDay && delivDay && loadDay.getTime() !== delivDay.getTime();
+                        const isFirst = loadDay && isSameDay(day, loadDay);
+                        const isLast = delivDay && isSameDay(day, delivDay);
+                        const dayNum = loadDay ? Math.round((startOfDay(day).getTime() - loadDay.getTime()) / 86400000) + 1 : 1;
+                        const totalDays = loadDay && delivDay ? Math.round((delivDay.getTime() - loadDay.getTime()) / 86400000) + 1 : 1;
                         return (
                           <div
                             key={op.id}
-                            className={`rounded px-2 py-1 text-[10px] font-medium leading-tight cursor-pointer hover:opacity-90 transition-opacity ${color}`}
+                            className={`px-2 py-1 text-[10px] font-medium leading-tight cursor-pointer hover:opacity-90 transition-opacity ${color} ${
+                              isMultiDay
+                                ? isFirst ? "rounded-l rounded-r-none -mr-1" 
+                                : isLast ? "rounded-r rounded-l-none -ml-1"
+                                : "rounded-none -mx-1"
+                                : "rounded"
+                            }`}
                             onClick={(e) => { e.stopPropagation(); setEditingOpId(op.id); setOpDialogOpen(true); }}
                           >
-                            <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
-                            <p className="opacity-80 flex items-center gap-0.5 truncate">
-                              <MapPin className="h-2 w-2 shrink-0" />
-                              {op.loading_city || "—"} → {op.delivery_city || "—"}
-                            </p>
+                            {isFirst ? (
+                              <>
+                                <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
+                                <p className="opacity-80 flex items-center gap-0.5 truncate">
+                                  <MapPin className="h-2 w-2 shrink-0" />
+                                  {op.loading_city || "—"} → {op.delivery_city || "—"}
+                                </p>
+                                {isMultiDay && <p className="opacity-70 truncate">J{dayNum}/{totalDays}</p>}
+                              </>
+                            ) : (
+                              <p className="opacity-70 truncate text-center">J{dayNum}/{totalDays}</p>
+                            )}
                             {op.lv_bt_number && <p className="opacity-70 truncate">N° {op.lv_bt_number}</p>}
                           </div>
                         );
