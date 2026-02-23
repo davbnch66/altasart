@@ -407,6 +407,17 @@ const Planning = () => {
   };
   const openEdit = (evt: any) => { setEditingEvent(evt); setDialogOpen(true); };
 
+  // ── Conflict summary for banner ──
+  const conflictSummary = useMemo(() => {
+    const entries: { resourceName: string; items: string[] }[] = [];
+    resourceConflicts.forEach((conflicts, rid) => {
+      const res = resources.find((r: any) => r.id === rid);
+      const uniqueLabels = [...new Set(conflicts.map((c) => c.label))];
+      entries.push({ resourceName: res?.name || "Ressource", items: uniqueLabels });
+    });
+    return entries;
+  }, [resourceConflicts, resources]);
+
   // ==================== EXPLOITATION VIEW ====================
   const renderExploitationView = () => {
     if (view === "month") return renderMonthView(false);
@@ -414,7 +425,22 @@ const Planning = () => {
     const colWidth = view === "day" ? "1fr" : `repeat(${days.length}, minmax(0, 1fr))`;
 
     return (
-      <div className="flex-1 rounded-xl border bg-card overflow-auto">
+      <div className="flex-1 flex flex-col gap-2">
+        {/* Conflict banner */}
+        {conflictSummary.length > 0 && (
+          <div className="rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+            <div className="space-y-1 min-w-0">
+              <p className="text-sm font-semibold text-destructive">Conflits de planification détectés</p>
+              {conflictSummary.map((c, i) => (
+                <p key={i} className="text-xs text-destructive/80">
+                  <strong>{c.resourceName}</strong> — chevauchement entre : {c.items.join(", ")}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="flex-1 rounded-xl border bg-card overflow-auto">
         <div className={isMobile ? "min-w-[700px]" : ""}>
           {/* Day headers */}
           <div className="grid border-b sticky top-0 bg-card z-10 shadow-sm" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
@@ -789,6 +815,7 @@ const Planning = () => {
             </div>
           )}
         </div>
+      </div>
       </div>
     );
   };
