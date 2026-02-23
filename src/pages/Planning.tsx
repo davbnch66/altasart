@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList, Clock, ExternalLink } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback, DragEvent } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -110,6 +110,70 @@ const Planning = () => {
   const [visiteDate, setVisiteDate] = useState("");
   const [visiteTime, setVisiteTime] = useState("");
   const [savingVisite, setSavingVisite] = useState(false);
+
+  // ── Drag & Drop state ──
+  type DragItem = { kind: "op" | "evt"; id: string; durationDays: number; startTime?: string; endTime?: string };
+  const [dragOverCell, setDragOverCell] = useState<string | null>(null);
+
+  const handleDragStart = useCallback((e: DragEvent<HTMLDivElement>, item: DragItem) => {
+    e.dataTransfer.setData("application/json", JSON.stringify(item));
+    e.dataTransfer.effectAllowed = "move";
+    if (e.currentTarget) {
+      e.currentTarget.style.opacity = "0.5";
+      setTimeout(() => { e.currentTarget.style.opacity = "1"; }, 0);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>, cellKey: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverCell(cellKey);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverCell(null);
+  }, []);
+
+  const handleDrop = useCallback(async (e: DragEvent<HTMLDivElement>, targetDay: Date) => {
+    e.preventDefault();
+    setDragOverCell(null);
+    try {
+      const raw = e.dataTransfer.getData("application/json");
+      if (!raw) return;
+      const item: DragItem = JSON.parse(raw);
+      const newDate = format(targetDay, "yyyy-MM-dd");
+
+      if (item.kind === "op") {
+        const updateData: any = { loading_date: newDate };
+        if (item.durationDays > 1) {
+          updateData.delivery_date = format(addDays(targetDay, item.durationDays - 1), "yyyy-MM-dd");
+        }
+        const { error } = await supabase.from("operations").update(updateData).eq("id", item.id);
+        if (error) throw error;
+        toast.success("Opération déplacée");
+      } else {
+        // Shift preserving time-of-day and duration
+        const oldStart = new Date(item.startTime!);
+        const oldEnd = new Date(item.endTime!);
+        const durationMs = oldEnd.getTime() - oldStart.getTime();
+        const newStart = new Date(targetDay);
+        newStart.setHours(oldStart.getHours(), oldStart.getMinutes(), oldStart.getSeconds());
+        const newEnd = new Date(newStart.getTime() + durationMs);
+        const { error } = await supabase.from("planning_events").update({
+          start_time: newStart.toISOString(),
+          end_time: newEnd.toISOString(),
+        }).eq("id", item.id);
+        if (error) throw error;
+        toast.success("Événement déplacé");
+      }
+      queryClient.invalidateQueries({ queryKey: ["planning-events"] });
+      queryClient.invalidateQueries({ queryKey: ["planning-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["planning-op-resources"] });
+      queryClient.invalidateQueries({ queryKey: ["planning-event-resources"] });
+    } catch (err: any) {
+      toast.error("Erreur: " + (err.message || "Impossible de déplacer"));
+    }
+  }, [queryClient]);
 
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
@@ -529,14 +593,21 @@ const Planning = () => {
                         </p>
                       </div>
                     </div>
-                    {days.map((day, dayIdx) => (
+                    {days.map((day, dayIdx) => {
+                      const cellKey = `op-${op.id}-${dayIdx}`;
+                      return (
                       <div
                         key={day.toISOString()}
-                        className={`border-r last:border-r-0 min-h-[64px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""}`}
+                        className={`border-r last:border-r-0 min-h-[64px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
+                        onDragOver={(e) => handleDragOver(e, cellKey)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, day)}
                       >
                         {dayIdx === firstIdx && span > 0 && (
                           <div
-                            className={`absolute inset-y-1 left-1 rounded-lg ${color} flex items-center px-3 cursor-pointer hover:opacity-90 transition-opacity shadow-sm`}
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, { kind: "op", id: op.id, durationDays: totalDays })}
+                            className={`absolute inset-y-1 left-1 rounded-lg ${color} flex items-center px-3 cursor-grab hover:opacity-90 transition-opacity shadow-sm`}
                             style={{ width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)", zIndex: 5 }}
                             onClick={() => { setEditingOpId(op.id); setOpDialogOpen(true); }}
                           >
@@ -552,7 +623,8 @@ const Planning = () => {
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -595,14 +667,21 @@ const Planning = () => {
                       <p className="text-[9px] text-muted-foreground truncate">{resourceName || "Non assigné"}</p>
                     </div>
                   </div>
-                  {days.map((day, dayIdx) => (
+                  {days.map((day, dayIdx) => {
+                    const cellKey = `evt-row-${evt.id}-${dayIdx}`;
+                    return (
                     <div
                       key={day.toISOString()}
-                      className={`border-r last:border-r-0 min-h-[64px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""}`}
+                      className={`border-r last:border-r-0 min-h-[64px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
+                      onDragOver={(e) => handleDragOver(e, cellKey)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, day)}
                     >
                       {dayIdx === firstIdx && span > 0 && (
                         <div
-                          className="absolute inset-y-1 left-1 rounded-lg flex items-center px-3 cursor-pointer hover:opacity-90 transition-opacity shadow-sm text-white"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, { kind: "evt", id: evt.id, durationDays: totalDays, startTime: evt.start_time, endTime: evt.end_time })}
+                          className="absolute inset-y-1 left-1 rounded-lg flex items-center px-3 cursor-grab hover:opacity-90 transition-opacity shadow-sm text-white"
                           style={{ backgroundColor: bgColor, width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)", zIndex: 5 }}
                           onClick={() => openEdit(evt)}
                         >
@@ -614,7 +693,8 @@ const Planning = () => {
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               );
             });
@@ -722,7 +802,9 @@ const Planning = () => {
                       cellItems.push(
                         <div
                           key={item.id}
-                          className={`absolute left-1 rounded-lg ${color} flex items-center px-3 cursor-pointer hover:opacity-90 transition-opacity shadow-sm`}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, { kind: "op", id: op.id, durationDays: totalDays })}
+                          className={`absolute left-1 rounded-lg ${color} flex items-center px-3 cursor-grab hover:opacity-90 transition-opacity shadow-sm`}
                           style={{ width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)", zIndex: 5, top: `${4 + lane * 28}px`, height: "24px" }}
                           onClick={(e) => { e.stopPropagation(); setEditingOpId(op.id); setOpDialogOpen(true); }}
                         >
@@ -746,7 +828,9 @@ const Planning = () => {
                       cellItems.push(
                         <div
                           key={item.id}
-                          className="absolute left-1 rounded-lg flex items-center px-3 cursor-pointer hover:opacity-90 transition-opacity shadow-sm text-white"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, { kind: "evt", id: evt.id, durationDays: totalDays, startTime: evt.start_time, endTime: evt.end_time })}
+                          className="absolute left-1 rounded-lg flex items-center px-3 cursor-grab hover:opacity-90 transition-opacity shadow-sm text-white"
                           style={{ backgroundColor: bgColor, width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)", zIndex: 5, top: `${4 + lane * 28}px`, height: "24px" }}
                           onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
                         >
@@ -760,13 +844,17 @@ const Planning = () => {
                     }
                   });
 
+                  const cellKey = `res-${resource.id}-${dayIdx}`;
                   return (
                     <div
                       key={day.toISOString()}
                       className={`border-r last:border-r-0 relative overflow-visible cursor-pointer transition-colors ${
                         isToday(day) ? "bg-primary/5" : rowIdx % 2 === 0 ? "bg-muted/10" : ""
-                      } hover:bg-muted/30`}
+                      } hover:bg-muted/30 ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
                       style={{ minHeight: `${rowMinHeight}px` }}
+                      onDragOver={(e) => handleDragOver(e, cellKey)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, day)}
                       onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
                       onTouchEnd={(e) => { e.preventDefault(); openCreate(day, resource.id); }}
                     >
@@ -790,10 +878,14 @@ const Planning = () => {
                 </div>
                 {days.map((day, dayIdx) => {
                   const cellEvents = getUnassignedEventsForDay(day);
-                  return (
+                    const cellKey = `unassigned-${dayIdx}`;
+                    return (
                     <div
                       key={day.toISOString()}
-                      className={`border-r last:border-r-0 min-h-[48px] relative overflow-visible cursor-pointer hover:bg-muted/20 ${isToday(day) ? "bg-primary/5" : ""}`}
+                      className={`border-r last:border-r-0 min-h-[48px] relative overflow-visible cursor-pointer hover:bg-muted/20 ${isToday(day) ? "bg-primary/5" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
+                      onDragOver={(e) => handleDragOver(e, cellKey)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, day)}
                       onClick={(e) => { e.stopPropagation(); openCreate(day); }}
                       onTouchEnd={(e) => { e.preventDefault(); openCreate(day); }}
                     >
@@ -804,7 +896,6 @@ const Planning = () => {
                         const isFirst = isSameDay(evtStart, day);
                         if (!isFirst) return null;
                         renderedEventIds.add(evt.id);
-                        // Calculate span within visible days
                         let spanEnd = dayIdx;
                         for (let i = dayIdx; i < days.length; i++) {
                           if (evtEnd >= startOfDay(days[i])) spanEnd = i;
@@ -817,7 +908,9 @@ const Planning = () => {
                         return (
                           <div
                             key={evt.id}
-                            className="absolute left-1 rounded-lg flex items-center px-3 cursor-pointer hover:opacity-90 transition-opacity shadow-sm text-white"
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, { kind: "evt", id: evt.id, durationDays: totalDays, startTime: evt.start_time, endTime: evt.end_time })}
+                            className="absolute left-1 rounded-lg flex items-center px-3 cursor-grab hover:opacity-90 transition-opacity shadow-sm text-white"
                             style={{
                               backgroundColor: bgColor,
                               width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)",
