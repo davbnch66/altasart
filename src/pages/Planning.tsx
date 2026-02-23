@@ -63,13 +63,17 @@ const companyColors: Record<string, string> = {
 
 const Planning = () => {
   const { current, setCurrent, companies, dbCompanies } = useCompany();
-  const [view, setView] = useState<ViewMode>("week");
+  const [view, setView] = useState<ViewMode>(() => {
+    return (sessionStorage.getItem("planningView") as ViewMode) || "week";
+  });
   const [currentDate, setCurrentDate] = useState(new Date());
   const navigate = useNavigate();
   const [planningType, setPlanningType] = useState<PlanningType>(() => {
     return (sessionStorage.getItem("planningTab") as PlanningType) || "exploitation";
   });
-  const [selectedCommercial, setSelectedCommercial] = useState<string>("global");
+  const [selectedCommercial, setSelectedCommercial] = useState<string>(() => {
+    return sessionStorage.getItem("planningCommercial") || "global";
+  });
   const [exploitationMode, setExploitationMode] = useState<ExploitationMode>(() => {
     return (sessionStorage.getItem("exploitationMode") as ExploitationMode) || "vehicule";
   });
@@ -82,6 +86,14 @@ const Planning = () => {
   useEffect(() => {
     sessionStorage.setItem("planningTab", planningType);
   }, [planningType]);
+
+  useEffect(() => {
+    sessionStorage.setItem("planningCommercial", selectedCommercial);
+  }, [selectedCommercial]);
+
+  useEffect(() => {
+    sessionStorage.setItem("planningView", view);
+  }, [view]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
