@@ -622,34 +622,58 @@ const Planning = () => {
 
           {/* Resource rows (vehicule / personnel modes) */}
           {exploitationMode !== "operation" && filteredResourceRows.map((resource: any, rowIdx: number) => {
-            // Pre-compute spans for ops and events on this resource
+            // Pre-compute ops and events for this resource
             const resOpIds = opResources
               .filter((or: any) => or.resource_id === resource.id)
               .map((or: any) => or.operation_id);
             const resourceOps = operations.filter((op: any) => resOpIds.includes(op.id));
-            // Use junction table for events (fallback to legacy resource_id)
             const resEvtIds = evtResources
               .filter((er: any) => er.resource_id === resource.id)
               .map((er: any) => er.event_id);
             const resourceEvents = events.filter((e: any) => 
               (resEvtIds.includes(e.id) || e.resource_id === resource.id) && e.event_type !== "visite"
             );
-            const renderedOpIds = new Set<string>();
-            const renderedEvtIds = new Set<string>();
 
-            // Pre-compute max stack count across all days for dynamic row height
-            let maxStack = 1;
-            days.forEach((day) => {
-              let count = 0;
-              resourceOps.forEach((op: any) => { if (isOpOnDay(op, day)) count++; });
-              resourceEvents.forEach((evt: any) => {
-                const evtStart = startOfDay(new Date(evt.start_time));
-                const evtEnd = startOfDay(new Date(evt.end_time));
-                if (evtStart <= day && evtEnd >= day) count++;
+            // Build lane items with day index ranges
+            type LaneItem = { id: string; kind: "op" | "evt"; firstIdx: number; lastIdx: number; data: any };
+            const laneItems: LaneItem[] = [];
+
+            resourceOps.forEach((op: any) => {
+              let firstIdx = -1, lastIdx = -1;
+              days.forEach((d, i) => {
+                if (isOpOnDay(op, d)) { if (firstIdx === -1) firstIdx = i; lastIdx = i; }
               });
-              if (count > maxStack) maxStack = count;
+              if (firstIdx >= 0) laneItems.push({ id: `op-${op.id}`, kind: "op", firstIdx, lastIdx, data: op });
             });
-            const rowMinHeight = Math.max(64, 8 + maxStack * 28);
+
+            resourceEvents.forEach((evt: any) => {
+              const evtStart = startOfDay(new Date(evt.start_time));
+              const evtEnd = startOfDay(new Date(evt.end_time));
+              let firstIdx = -1, lastIdx = -1;
+              days.forEach((d, i) => {
+                if (evtStart <= d && evtEnd >= d) { if (firstIdx === -1) firstIdx = i; lastIdx = i; }
+              });
+              if (firstIdx >= 0) laneItems.push({ id: `evt-${evt.id}`, kind: "evt", firstIdx, lastIdx, data: evt });
+            });
+
+            // Assign lanes: greedy algorithm - for each item, find the lowest lane not occupied on its day range
+            const itemLanes = new Map<string, number>();
+            // Sort by firstIdx so earlier items get lower lanes
+            laneItems.sort((a, b) => a.firstIdx - b.firstIdx || a.lastIdx - b.lastIdx);
+            // lanes[lane] = max lastIdx occupied
+            const lanesEnd: number[] = [];
+            laneItems.forEach((item) => {
+              let assignedLane = -1;
+              for (let l = 0; l < lanesEnd.length; l++) {
+                if (lanesEnd[l] < item.firstIdx) { assignedLane = l; break; }
+              }
+              if (assignedLane === -1) { assignedLane = lanesEnd.length; lanesEnd.push(-1); }
+              lanesEnd[assignedLane] = item.lastIdx;
+              itemLanes.set(item.id, assignedLane);
+            });
+
+            const maxLanes = Math.max(1, lanesEnd.length);
+            const rowMinHeight = Math.max(64, 8 + maxLanes * 28);
 
             return (
               <div
@@ -680,82 +704,60 @@ const Planning = () => {
                   </div>
                 </div>
 
-                {/* Day cells */}
+                {/* Day cells - render items only on their first visible day */}
                 {days.map((day, dayIdx) => {
-                  // Count items to stack them
-                  let stackIdx = 0;
-                  const items: React.ReactNode[] = [];
+                  const cellItems: React.ReactNode[] = [];
 
-                  // Operations
-                  resourceOps.forEach((op: any) => {
-                    if (!isOpOnDay(op, day)) return;
-                    const loadDay = op.loading_date ? startOfDay(new Date(op.loading_date)) : null;
-                    const delivDay = op.delivery_date ? startOfDay(new Date(op.delivery_date)) : loadDay;
-                    const isFirst = loadDay && isSameDay(day, loadDay);
-                    if (!isFirst && renderedOpIds.has(op.id)) return;
-                    if (!isFirst) return; // only render on first day
-                    renderedOpIds.add(op.id);
-                    let spanEnd = dayIdx;
-                    for (let i = dayIdx; i < days.length; i++) {
-                      if (isOpOnDay(op, days[i])) spanEnd = i;
-                      else break;
-                    }
-                    const span = spanEnd - dayIdx + 1;
-                    const totalDays = loadDay && delivDay ? Math.round((delivDay.getTime() - loadDay.getTime()) / 86400000) + 1 : 1;
-                    const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
-                    const myIdx = stackIdx++;
-                    items.push(
-                      <div
-                        key={`op-${op.id}`}
-                        className={`absolute left-1 rounded-lg ${color} flex items-center px-3 cursor-pointer hover:opacity-90 transition-opacity shadow-sm`}
-                        style={{ width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)", zIndex: 5, top: `${4 + myIdx * 28}px`, height: "24px" }}
-                        onClick={(e) => { e.stopPropagation(); setEditingOpId(op.id); setOpDialogOpen(true); }}
-                      >
-                        <div className="flex items-center gap-3 min-w-0 w-full text-[11px] font-medium overflow-hidden">
-                          <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
-                          <p className="opacity-80 flex items-center gap-0.5 truncate shrink-0">
-                            <MapPin className="h-2.5 w-2.5 shrink-0" />
-                            {op.loading_city || "—"} → {op.delivery_city || "—"}
-                          </p>
-                          {totalDays > 1 && <span className="opacity-70 shrink-0">{totalDays}j</span>}
-                        </div>
-                      </div>
-                    );
-                  });
+                  laneItems.forEach((item) => {
+                    if (item.firstIdx !== dayIdx) return;
+                    const lane = itemLanes.get(item.id) || 0;
+                    const span = item.lastIdx - item.firstIdx + 1;
 
-                  // Events
-                  resourceEvents.forEach((evt: any) => {
-                    const evtStart = startOfDay(new Date(evt.start_time));
-                    const evtEnd = startOfDay(new Date(evt.end_time));
-                    if (evtStart > day || evtEnd < day) return;
-                    const isFirst = isSameDay(evtStart, day);
-                    if (!isFirst && renderedEvtIds.has(evt.id)) return;
-                    if (!isFirst) return;
-                    renderedEvtIds.add(evt.id);
-                    let spanEnd = dayIdx;
-                    for (let i = dayIdx; i < days.length; i++) {
-                      if (evtEnd >= startOfDay(days[i])) spanEnd = i;
-                      else break;
-                    }
-                    const span = spanEnd - dayIdx + 1;
-                    const bgColor = evt.color || "#6b7280";
-                    const client = (evt.dossiers as any)?.clients?.name;
-                    const totalDays = Math.round((evtEnd.getTime() - evtStart.getTime()) / 86400000) + 1;
-                    const myIdx = stackIdx++;
-                    items.push(
-                      <div
-                        key={`evt-${evt.id}`}
-                        className="absolute left-1 rounded-lg flex items-center px-3 cursor-pointer hover:opacity-90 transition-opacity shadow-sm text-white"
-                        style={{ backgroundColor: bgColor, width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)", zIndex: 5, top: `${4 + myIdx * 28}px`, height: "24px" }}
-                        onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
-                      >
-                        <div className="flex items-center gap-3 min-w-0 w-full text-[11px] font-medium overflow-hidden">
-                          <p className="font-bold truncate">{evt.title}</p>
-                          {client && <p className="opacity-85 truncate">{client}</p>}
-                          {totalDays > 1 && <span className="opacity-70 shrink-0">{totalDays}j</span>}
+                    if (item.kind === "op") {
+                      const op = item.data;
+                      const loadDay = op.loading_date ? startOfDay(new Date(op.loading_date)) : null;
+                      const delivDay = op.delivery_date ? startOfDay(new Date(op.delivery_date)) : loadDay;
+                      const totalDays = loadDay && delivDay ? Math.round((delivDay.getTime() - loadDay.getTime()) / 86400000) + 1 : 1;
+                      const color = companyColors[(op.companies as any)?.color] || "bg-primary text-primary-foreground";
+                      cellItems.push(
+                        <div
+                          key={item.id}
+                          className={`absolute left-1 rounded-lg ${color} flex items-center px-3 cursor-pointer hover:opacity-90 transition-opacity shadow-sm`}
+                          style={{ width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)", zIndex: 5, top: `${4 + lane * 28}px`, height: "24px" }}
+                          onClick={(e) => { e.stopPropagation(); setEditingOpId(op.id); setOpDialogOpen(true); }}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 w-full text-[11px] font-medium overflow-hidden">
+                            <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
+                            <p className="opacity-80 flex items-center gap-0.5 truncate shrink-0">
+                              <MapPin className="h-2.5 w-2.5 shrink-0" />
+                              {op.loading_city || "—"} → {op.delivery_city || "—"}
+                            </p>
+                            {totalDays > 1 && <span className="opacity-70 shrink-0">{totalDays}j</span>}
+                          </div>
                         </div>
-                      </div>
-                    );
+                      );
+                    } else {
+                      const evt = item.data;
+                      const bgColor = evt.color || "#6b7280";
+                      const client = (evt.dossiers as any)?.clients?.name;
+                      const evtStart = startOfDay(new Date(evt.start_time));
+                      const evtEnd = startOfDay(new Date(evt.end_time));
+                      const totalDays = Math.round((evtEnd.getTime() - evtStart.getTime()) / 86400000) + 1;
+                      cellItems.push(
+                        <div
+                          key={item.id}
+                          className="absolute left-1 rounded-lg flex items-center px-3 cursor-pointer hover:opacity-90 transition-opacity shadow-sm text-white"
+                          style={{ backgroundColor: bgColor, width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)", zIndex: 5, top: `${4 + lane * 28}px`, height: "24px" }}
+                          onClick={(e) => { e.stopPropagation(); openEdit(evt); }}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 w-full text-[11px] font-medium overflow-hidden">
+                            <p className="font-bold truncate">{evt.title}</p>
+                            {client && <p className="opacity-85 truncate">{client}</p>}
+                            {totalDays > 1 && <span className="opacity-70 shrink-0">{totalDays}j</span>}
+                          </div>
+                        </div>
+                      );
+                    }
                   });
 
                   return (
@@ -768,7 +770,7 @@ const Planning = () => {
                       onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
                       onTouchEnd={(e) => { e.preventDefault(); openCreate(day, resource.id); }}
                     >
-                      {items}
+                      {cellItems}
                     </div>
                   );
                 })}
