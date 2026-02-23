@@ -396,7 +396,7 @@ const Planning = () => {
       const eStart = startOfDay(new Date(e.start_time));
       const eEnd = startOfDay(new Date(e.end_time));
       if (!(eStart <= day && eEnd >= day)) return false;
-      if (filterType === "commercial") return e.event_type === "visite";
+      if (filterType === "commercial") return ["visite", "congé", "absence", "conge"].includes(e.event_type);
       if (filterType === "exploitation") return e.event_type !== "visite";
       return true;
     });
