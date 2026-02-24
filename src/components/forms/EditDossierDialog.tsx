@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileText, MapPin, ClipboardList, Warehouse } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { MaterielListDisplay } from "@/components/MaterielListDisplay";
 
 const DEPOT_ADDRESS = { address: "12 rue Jean Monnet", postal_code: "95190", city: "Goussainville" };
 const executionOptions = ["Route", "Maritime", "Aérien", "Ferroviaire", "Mixte"];
@@ -266,13 +267,9 @@ export const EditDossierDialog = ({ dossier, open, onOpenChange }: EditDossierDi
                   <div className="col-span-2 border-t pt-3 mt-1">
                     <Label className="text-sm font-semibold">Détails techniques</Label>
                   </div>
-                  <div>
-                    <Label htmlFor="edit-volume">Volume (m³)</Label>
-                    <Input id="edit-volume" type="number" step="0.01" {...register("volume")} />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-weight">Poids (t)</Label>
-                    <Input id="edit-weight" type="number" step="0.01" {...register("weight")} />
+                  <div className="col-span-2">
+                    <Label className="text-xs font-medium mb-1.5 block">Liste matériel (depuis la visite)</Label>
+                    <MaterielListDisplay dossierId={dossier.id} />
                   </div>
                   <div>
                     <Label htmlFor="edit-distance">Distance (km)</Label>

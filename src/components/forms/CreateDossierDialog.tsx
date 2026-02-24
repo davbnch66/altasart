@@ -283,13 +283,8 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
                   <div className="col-span-2 border-t pt-3 mt-1">
                     <Label className="text-sm font-semibold">Détails techniques</Label>
                   </div>
-                  <div>
-                    <Label htmlFor="volume">Volume (m³)</Label>
-                    <Input id="volume" type="number" step="0.01" {...register("volume")} />
-                  </div>
-                  <div>
-                    <Label htmlFor="weight">Poids (t)</Label>
-                    <Input id="weight" type="number" step="0.01" {...register("weight")} />
+                  <div className="col-span-2 rounded-lg border border-dashed bg-muted/30 p-3">
+                    <p className="text-[10px] text-muted-foreground italic">📦 La liste de matériel sera récupérée automatiquement depuis la visite liée au dossier.</p>
                   </div>
                   <div>
                     <Label htmlFor="distance">Distance (km)</Label>
