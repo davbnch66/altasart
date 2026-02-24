@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Warehouse, X, Loader2, ExternalLink } from "lucide-react";
+import { Warehouse, X, Loader2, ExternalLink, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigate } from "react-router-dom";
@@ -223,6 +223,29 @@ export const PlanningOperationDialog = ({ open, onOpenChange, operationId }: Pro
     instructions: f.instructions?.trim() || null,
   });
 
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteOp = async () => {
+    if (!operationId) return;
+    if (!confirmDel) { setConfirmDel(true); return; }
+    setDeleting(true);
+    try {
+      await supabase.from("operation_resources").delete().eq("operation_id", operationId);
+      const { error } = await supabase.from("operations").delete().eq("id", operationId);
+      if (error) throw error;
+      toast.success("Opération supprimée");
+      queryClient.invalidateQueries({ queryKey: ["planning-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e.message || "Erreur de suppression");
+    } finally {
+      setDeleting(false);
+      setConfirmDel(false);
+    }
+  };
+
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!operationId) return;
@@ -393,11 +416,16 @@ export const PlanningOperationDialog = ({ open, onOpenChange, operationId }: Pro
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-3 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
-          <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
-            {updateMutation.isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Enregistrement…</> : "Enregistrer"}
+        <div className="flex justify-between gap-2 pt-3 border-t">
+          <Button variant="destructive" size="sm" className="gap-1" onClick={handleDeleteOp} disabled={updateMutation.isPending || deleting}>
+            <Trash2 className="h-3.5 w-3.5" /> {confirmDel ? "Confirmer ?" : "Supprimer"}
           </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
+            <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Enregistrement…</> : "Enregistrer"}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
