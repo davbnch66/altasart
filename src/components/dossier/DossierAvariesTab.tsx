@@ -72,6 +72,7 @@ export const DossierAvariesTab = ({ dossierId, companyId, clientId }: Props) => 
       setShowForm(false);
       setTitle(""); setDescription(""); setResponsibility(""); setAmount(0);
       queryClient.invalidateQueries({ queryKey: ["dossier-avaries", dossierId] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-avaries-count"] });
     },
     onError: () => toast.error("Erreur"),
   });
@@ -81,7 +82,10 @@ export const DossierAvariesTab = ({ dossierId, companyId, clientId }: Props) => 
       const { error } = await supabase.from("avaries").update({ status }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dossier-avaries", dossierId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dossier-avaries", dossierId] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-avaries-count"] });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -92,6 +96,7 @@ export const DossierAvariesTab = ({ dossierId, companyId, clientId }: Props) => 
     onSuccess: () => {
       toast.success("Avarie supprimée");
       queryClient.invalidateQueries({ queryKey: ["dossier-avaries", dossierId] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-avaries-count"] });
     },
   });
 

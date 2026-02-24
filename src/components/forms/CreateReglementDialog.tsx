@@ -87,6 +87,7 @@ export const CreateReglementDialog = ({ preselectedFactureId, preselectedCompany
       queryClient.invalidateQueries({ queryKey: ["reglements"] });
       queryClient.invalidateQueries({ queryKey: ["facture-reglements"] });
       queryClient.invalidateQueries({ queryKey: ["facture-detail"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-reglements-count"] });
       reset();
       setOpen(false);
     },

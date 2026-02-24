@@ -192,6 +192,8 @@ const Finance = () => {
       toast.success("Facture supprimée");
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       queryClient.invalidateQueries({ queryKey: ["client-factures"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-factures"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-reglements-count"] });
       setDeleteFacture(null);
     },
     onError: () => toast.error("Erreur lors de la suppression"),
@@ -206,6 +208,7 @@ const Finance = () => {
       toast.success("Règlement supprimé");
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       queryClient.invalidateQueries({ queryKey: ["reglements"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-reglements-count"] });
       setDeleteReglement(null);
     },
     onError: () => toast.error("Erreur lors de la suppression"),
