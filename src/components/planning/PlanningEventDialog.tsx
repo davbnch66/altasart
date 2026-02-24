@@ -483,19 +483,28 @@ export const PlanningEventDialog = ({
     }
   };
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   const handleDelete = async () => {
     if (!event) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
     setSaving(true);
     try {
+      await supabase.from("event_resources").delete().eq("event_id", event.id);
       const { error } = await supabase.from("planning_events").delete().eq("id", event.id);
       if (error) throw error;
       toast.success("Événement supprimé");
       queryClient.invalidateQueries({ queryKey: ["planning-events"] });
+      queryClient.invalidateQueries({ queryKey: ["planning-event-resources"] });
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e.message || "Erreur");
     } finally {
       setSaving(false);
+      setConfirmDelete(false);
     }
   };
 
@@ -984,7 +993,7 @@ export const PlanningEventDialog = ({
           <div className="flex gap-2 w-full">
             {event && (
               <Button variant="destructive" size="sm" onClick={handleDelete} disabled={saving} className="mr-auto gap-1">
-                <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                <Trash2 className="h-3.5 w-3.5" /> {confirmDelete ? "Confirmer ?" : "Supprimer"}
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Annuler</Button>
