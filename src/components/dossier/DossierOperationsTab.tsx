@@ -340,6 +340,7 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
     onSuccess: () => {
       toast.success("Opération ajoutée");
       queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-operations-count"] });
       setCreateOpen(false);
       setForm(emptyForm());
     },
@@ -355,6 +356,7 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
     onSuccess: () => {
       toast.success("Opération mise à jour");
       queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-operations-count"] });
       setEditOpen(false);
       setEditingOpId(null);
       setForm(emptyForm());
@@ -370,6 +372,7 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
     onSuccess: () => {
       toast.success("Opération supprimée");
       queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-operations-count"] });
     },
   });
 
