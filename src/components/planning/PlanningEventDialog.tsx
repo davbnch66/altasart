@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Calendar as CalendarIcon, Clock, Loader2, MapPin, Palette, Tag, Users, Truck, User, Link2, AlertTriangle, FileText, Trash2, Plus, X, Warehouse, Building2 } from "lucide-react";
+import { MaterielListDisplay } from "@/components/MaterielListDisplay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -851,17 +852,8 @@ export const PlanningEventDialog = ({
 
           {/* ── Tab: Adresses ── */}
           <TabsContent value="adresses" className="px-6 py-4 space-y-4 mt-0">
-            {/* Volume / Weight */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Volume (m³)</Label>
-                <Input type="number" value={volume} onChange={(e) => setVolume(e.target.value)} className="h-9 text-xs" placeholder="0" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Poids (tonnes)</Label>
-                <Input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="h-9 text-xs" placeholder="0" />
-              </div>
-            </div>
+            {/* Liste matériel (depuis la visite liée au dossier) */}
+            <MaterielListDisplay dossierId={dossierId !== "__none__" ? dossierId : undefined} />
 
             {/* Chargement / Livraison side by side */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

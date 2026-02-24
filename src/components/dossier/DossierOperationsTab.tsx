@@ -13,6 +13,7 @@ import {
 import { Plus, Trash2, Check, Users, X, Pencil, MessageSquare, Warehouse } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { MaterielListDisplay } from "@/components/MaterielListDisplay";
 
 interface Props {
   dossierId: string;
@@ -174,12 +175,13 @@ const AddressBlock = ({
 
 /* ──────── Full Operation Form (Safari GT layout) ──────── */
 const OperationFormContent = ({
-  form, setForm, fillDepot, isMobile,
+  form, setForm, fillDepot, isMobile, dossierId,
 }: {
   form: OpForm;
   setForm: (f: OpForm) => void;
   fillDepot: (prefix: "loading" | "delivery") => void;
   isMobile: boolean;
+  dossierId?: string;
 }) => {
   const up = (k: string, v: any) => setForm({ ...form, [k]: v });
 
@@ -197,15 +199,10 @@ const OperationFormContent = ({
           <Label className="text-[10px] text-muted-foreground">N° LV/BT</Label>
           <Input value={form.lv_bt_number} onChange={(e) => up("lv_bt_number", e.target.value)} className="h-7 text-xs" />
         </div>
-        <div>
-          <Label className="text-[10px] text-muted-foreground">Volume (m³)</Label>
-          <Input type="number" value={form.volume} onChange={(e) => up("volume", e.target.value)} className="h-7 text-xs" />
-        </div>
-        <div>
-          <Label className="text-[10px] text-muted-foreground">Poids (t)</Label>
-          <Input type="number" value={form.weight} onChange={(e) => up("weight", e.target.value)} className="h-7 text-xs" />
-        </div>
       </div>
+
+      {/* Liste matériel (depuis la visite liée au dossier) */}
+      <MaterielListDisplay dossierId={dossierId} compact />
 
       {/* ── Chargement / Livraison side by side ── */}
       <div className={`grid gap-3 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
@@ -506,7 +503,7 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
             <DialogTitle>Nouvelle opération</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1 space-y-4">
-            <OperationFormContent form={form} setForm={setForm} fillDepot={fillDepot} isMobile={isMobile} />
+            <OperationFormContent form={form} setForm={setForm} fillDepot={fillDepot} isMobile={isMobile} dossierId={dossierId} />
             {/* Placeholder for resources - only available after creation */}
             <div className={`grid gap-3 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
               <div className="rounded-lg border border-dashed bg-muted/30 p-3 space-y-1">
@@ -535,7 +532,7 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
             <DialogTitle>Modifier Op. {editingOpNum}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-1 space-y-4">
-            <OperationFormContent form={form} setForm={setForm} fillDepot={fillDepot} isMobile={isMobile} />
+            <OperationFormContent form={form} setForm={setForm} fillDepot={fillDepot} isMobile={isMobile} dossierId={dossierId} />
 
             {/* ── Ressources affectées (Véhicules + Personnel) ── */}
             {editingOpId && (() => {

@@ -17,6 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { MaterielListDisplay } from "@/components/MaterielListDisplay";
 
 const DEPOT_ADDRESS = { address: "12 rue Jean Monnet", postal_code: "95190", city: "Goussainville" };
 
@@ -50,6 +51,7 @@ export const ScheduleChantierDialog = ({ open, onOpenChange, devis, dossier }: P
   const [deliveryFloor, setDeliveryFloor] = useState("");
   const [deliveryElevator, setDeliveryElevator] = useState(false);
 
+  // volume/weight kept for DB insert but auto-calculated from materiel list
   const [volume, setVolume] = useState("");
   const [weight, setWeight] = useState("");
   const [notes, setNotes] = useState("");
@@ -287,17 +289,8 @@ export const ScheduleChantierDialog = ({ open, onOpenChange, devis, dossier }: P
             </div>
           </div>
 
-          {/* Volume / Poids */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Volume (m³)</Label>
-              <Input type="number" value={volume} onChange={(e) => setVolume(e.target.value)} className="h-8 text-xs mt-1" />
-            </div>
-            <div>
-              <Label className="text-xs">Poids (t)</Label>
-              <Input type="number" value={weight} onChange={(e) => setWeight(e.target.value)} className="h-8 text-xs mt-1" />
-            </div>
-          </div>
+          {/* Liste matériel (depuis la visite) */}
+          <MaterielListDisplay visiteId={devis.visite_id} dossierId={dossier?.id} />
 
           {/* Notes */}
           <div>
