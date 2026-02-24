@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DevisLinesManager } from "@/components/DevisLinesManager";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, Pencil, FileText, Check, X, Send } from "lucide-react";
+import { ArrowLeft, Download, Pencil, FileText, Check, X, Send, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
 import { DevisApplyTemplateDialog } from "@/components/devis/ApplyTemplateDialog";
 import { SendSignatureDialog } from "@/components/devis/SendSignatureDialog";
 import { DevisRelancesSection } from "@/components/devis/DevisRelancesSection";
+import { ScheduleChantierDialog } from "@/components/devis/ScheduleChantierDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 
@@ -122,6 +123,7 @@ const DevisDetail = () => {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [sendingSignature, setSendingSignature] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
   const isMobile = useIsMobile();
   const fromClient = (location.state as any)?.fromClient === true;
   const fromDossier = (location.state as any)?.fromDossier as string | undefined;
@@ -131,7 +133,7 @@ const DevisDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("devis")
-        .select("*, clients(id, name, email, phone, address, city, postal_code), companies(short_name, name, color), dossiers(id, code, title)")
+        .select("*, clients(id, name, email, phone, address, city, postal_code), companies(short_name, name, color), dossiers(id, code, title, stage, loading_address, loading_postal_code, loading_city, loading_floor, loading_elevator, delivery_address, delivery_postal_code, delivery_city, delivery_floor, delivery_elevator, volume, weight)")
         .eq("id", id!)
         .single();
       if (error) throw error;
@@ -221,6 +223,18 @@ const DevisDetail = () => {
             <Pencil className="h-4 w-4" />
             {!isMobile && <span className="ml-1">Modifier</span>}
           </Button>
+          {devis.status === "accepte" && dossier && (
+            <Button size={isMobile ? "icon" : "sm"} onClick={() => setScheduling(true)}>
+              <CalendarPlus className="h-4 w-4" />
+              {!isMobile && <span className="ml-1">Programmer</span>}
+            </Button>
+          )}
+          {devis.status === "accepte" && !dossier && (
+            <Button size={isMobile ? "icon" : "sm"} variant="outline" disabled title="Liez d'abord un dossier à ce devis">
+              <CalendarPlus className="h-4 w-4" />
+              {!isMobile && <span className="ml-1">Programmer</span>}
+            </Button>
+          )}
         </div>
       </motion.div>
 
@@ -348,6 +362,9 @@ const DevisDetail = () => {
       )}
       {sendingSignature && (
         <SendSignatureDialog devis={devis} open={sendingSignature} onOpenChange={(v) => !v && setSendingSignature(false)} />
+      )}
+      {scheduling && dossier && (
+        <ScheduleChantierDialog devis={devis} dossier={dossier} open={scheduling} onOpenChange={(v) => !v && setScheduling(false)} />
       )}
     </div>
   );
