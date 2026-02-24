@@ -90,6 +90,38 @@ const DossierDetail = () => {
     enabled: !!id,
   });
 
+  const { data: operations = [] } = useQuery({
+    queryKey: ["dossier-operations-count", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("operations").select("id").eq("dossier_id", id!);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
+  const { data: reglements = [] } = useQuery({
+    queryKey: ["dossier-reglements-count", id],
+    queryFn: async () => {
+      const factureIds = factures.map(f => f.id);
+      if (factureIds.length === 0) return [];
+      const { data, error } = await supabase.from("reglements").select("id").in("facture_id", factureIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id && factures.length > 0,
+  });
+
+  const { data: avaries = [] } = useQuery({
+    queryKey: ["dossier-avaries-count", id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("avaries").select("id").eq("dossier_id", id!);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
   const { data: visites = [] } = useQuery({
     queryKey: ["dossier-visites", id],
     queryFn: async () => {
@@ -128,11 +160,11 @@ const DossierDetail = () => {
   const tabItems = [
     { key: "visites", label: "Visites", count: visites.length, icon: Eye },
     { key: "devis", label: "Devis", count: devis.length, icon: FileText },
-    { key: "operations", label: "Opérations", count: null, icon: Cog },
+    { key: "operations", label: "Opérations", count: operations.length, icon: Cog },
     { key: "factures", label: "Factures", count: factures.length, icon: Receipt },
-    { key: "reglements", label: "Règlements", count: null, icon: CreditCard },
+    { key: "reglements", label: "Règlements", count: reglements.length, icon: CreditCard },
     { key: "costs", label: "Rentabilité", count: null, icon: PiggyBank },
-    { key: "avaries", label: "Avaries", count: null, icon: AlertTriangle },
+    { key: "avaries", label: "Avaries", count: avaries.length, icon: AlertTriangle },
     { key: "situation", label: "Situation", count: null, icon: BarChart3 },
   ];
 
