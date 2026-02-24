@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { ArrowLeft, MapPin, Calendar, Clock, User, FileText, FolderOpen, BookOpen, Save, Loader2, LayoutGrid, Package, Users, Truck, ShieldAlert, ClipboardList, Download, Camera, ChevronDown, Wrench, Info } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Clock, User, FileText, FolderOpen, BookOpen, Save, Loader2, LayoutGrid, Package, Users, Truck, ShieldAlert, ClipboardList, Download, Camera, ChevronDown, Wrench, Info, Mail } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCompany } from "@/contexts/CompanyContext";
 import { format } from "date-fns";
@@ -564,21 +564,69 @@ const VisiteDetail = () => {
                 </Label>
               </div>
               {editData.needs_voirie && (
-                <div className="space-y-2 pl-7">
-                  <Label>Adresse concernée</Label>
-                  <AddressAutocomplete
-                    value={editData.voirie_address || ""}
-                    onChange={(v) => updateField("voirie_address", v)}
-                    placeholder="Adresse pour la démarche voirie"
-                  />
-                  {editData.address && editData.voirie_address !== editData.address && (
-                    <button
-                      type="button"
-                      className="text-xs text-primary hover:underline"
-                      onClick={() => updateField("voirie_address", editData.address)}
-                    >
-                      ↩ Utiliser l'adresse du chantier
-                    </button>
+                <div className="space-y-3 pl-7">
+                  <div className="space-y-2">
+                    <Label>Adresse concernée</Label>
+                    <AddressAutocomplete
+                      value={editData.voirie_address || ""}
+                      onChange={(v) => updateField("voirie_address", v)}
+                      placeholder="Adresse pour la démarche voirie"
+                    />
+                    {editData.address && editData.voirie_address !== editData.address && (
+                      <button
+                        type="button"
+                        className="text-xs text-primary hover:underline"
+                        onClick={() => updateField("voirie_address", editData.address)}
+                      >
+                        ↩ Utiliser l'adresse du chantier
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Bouton envoi demande voirie Paris */}
+                  {(editData.voirie_address || "").toLowerCase().includes("paris") && (
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3">
+                      <p className="text-sm font-medium text-primary flex items-center gap-2">
+                        <Mail className="h-4 w-4" />
+                        Demande de plan voirie — Paris
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Envoyer un email formel à la DVD de Paris pour demander un plan au 1/200ème et une autorisation d'emprise voirie.
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="gap-2"
+                        onClick={async () => {
+                          const addr = editData.voirie_address || "";
+                          const visiteCode = visite.code || visite.id.slice(0, 8);
+                          const clientName = visite.clients?.name || "notre client";
+                          
+                          const subject = `Demande de plan au 1/200ème – Emprise voirie – ${addr}`;
+                          const body = `Madame, Monsieur,\n\nDans le cadre d'une intervention de levage et manutention lourde prévue pour le compte de ${clientName}, nous avons l'honneur de solliciter auprès de vos services :\n\n1. La communication d'un plan au 1/200ème de la voirie située à l'adresse suivante :\n   ${addr}\n\n2. Les informations relatives aux conditions d'occupation temporaire de la voie publique (emprise voirie) nécessaires à la mise en place de nos engins de levage.\n\nCette demande s'inscrit dans le cadre de la visite technique référence ${visiteCode}.\n\nNous vous serions reconnaissants de bien vouloir nous transmettre ces éléments dans les meilleurs délais afin de nous permettre d'établir notre plan d'installation et de constituer le dossier de demande d'autorisation.\n\nNous restons à votre entière disposition pour tout renseignement complémentaire.\n\nVeuillez agréer, Madame, Monsieur, l'expression de nos salutations distinguées.`;
+                          
+                          try {
+                            const { error } = await supabase.functions.invoke("send-visite-email", {
+                              body: {
+                                to: "dvd-pvp.dvd@paris.fr",
+                                subject,
+                                body,
+                                visiteId: visite.id,
+                                companyId: visite.company_id,
+                                clientName,
+                              },
+                            });
+                            if (error) throw error;
+                            toast.success("Demande de plan voirie envoyée à la DVD Paris");
+                          } catch (e: any) {
+                            toast.error(e.message || "Erreur lors de l'envoi");
+                          }
+                        }}
+                      >
+                        <Mail className="h-4 w-4" />
+                        Envoyer la demande à la DVD Paris
+                      </Button>
+                    </div>
                   )}
                 </div>
               )}
