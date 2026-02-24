@@ -183,6 +183,7 @@ export const ScheduleChantierDialog = ({ open, onOpenChange, devis, dossier }: P
 
       toast.success("Chantier programmé (opération + planning)");
       queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-operations-count"] });
       queryClient.invalidateQueries({ queryKey: ["planning-events"] });
       queryClient.invalidateQueries({ queryKey: ["devis-detail"] });
       onOpenChange(false);

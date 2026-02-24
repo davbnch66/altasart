@@ -237,6 +237,7 @@ export const PlanningOperationDialog = ({ open, onOpenChange, operationId }: Pro
       toast.success("Opération supprimée");
       queryClient.invalidateQueries({ queryKey: ["planning-operations"] });
       queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-operations-count"] });
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e.message || "Erreur de suppression");
@@ -256,6 +257,7 @@ export const PlanningOperationDialog = ({ open, onOpenChange, operationId }: Pro
       toast.success("Opération mise à jour");
       queryClient.invalidateQueries({ queryKey: ["planning-operations"] });
       queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-operations-count"] });
       onOpenChange(false);
     },
     onError: () => toast.error("Erreur lors de la mise à jour"),
