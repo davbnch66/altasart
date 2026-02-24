@@ -1,10 +1,10 @@
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, FolderOpen, Pencil, FileText, DollarSign, Eye, User, Building2, ChevronRight, Cog, BarChart3,
-  CreditCard, AlertTriangle, Receipt, PiggyBank,
+  CreditCard, AlertTriangle, Receipt, PiggyBank, Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useState } from "react";
+import { toast } from "sonner";
 import { EditDossierDialog } from "@/components/forms/EditDossierDialog";
 import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
 import { CreateVisiteDialog } from "@/components/forms/CreateVisiteDialog";
@@ -52,6 +53,10 @@ const DossierDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [editing, setEditing] = useState(false);
+  const [deletingFactureId, setDeletingFactureId] = useState<string | null>(null);
+  const [deletingDevisId, setDeletingDevisId] = useState<string | null>(null);
+  const [deletingVisiteId, setDeletingVisiteId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const fromClient = (location.state as any)?.fromClient === true;
   const fromPipeline = (location.state as any)?.fromPipeline === true;
@@ -130,6 +135,58 @@ const DossierDetail = () => {
       return data || [];
     },
     enabled: !!id,
+  });
+
+  const deleteFactureMutation = useMutation({
+    mutationFn: async (factureId: string) => {
+      // Delete related reglements first (FK constraint)
+      const { error: regError } = await supabase.from("reglements").delete().eq("facture_id", factureId);
+      if (regError) throw regError;
+      // Unlink operations referencing this facture
+      await supabase.from("operations").update({ facture_id: null }).eq("facture_id", factureId);
+      const { error } = await supabase.from("factures").delete().eq("id", factureId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Facture supprimée");
+      queryClient.invalidateQueries({ queryKey: ["dossier-factures"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-reglements-count"] });
+      queryClient.invalidateQueries({ queryKey: ["finance"] });
+      setDeletingFactureId(null);
+    },
+    onError: () => toast.error("Erreur lors de la suppression"),
+  });
+
+  const deleteDevisMutation = useMutation({
+    mutationFn: async (devisId: string) => {
+      // Delete related lines, relances, signatures first
+      await supabase.from("devis_lines").delete().eq("devis_id", devisId);
+      await supabase.from("devis_relances").delete().eq("devis_id", devisId);
+      await supabase.from("devis_signatures").delete().eq("devis_id", devisId);
+      const { error } = await supabase.from("devis").delete().eq("id", devisId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Devis supprimé");
+      queryClient.invalidateQueries({ queryKey: ["dossier-devis"] });
+      queryClient.invalidateQueries({ queryKey: ["devis"] });
+      setDeletingDevisId(null);
+    },
+    onError: () => toast.error("Erreur lors de la suppression"),
+  });
+
+  const deleteVisiteMutation = useMutation({
+    mutationFn: async (visiteId: string) => {
+      const { error } = await supabase.from("visites").delete().eq("id", visiteId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Visite supprimée");
+      queryClient.invalidateQueries({ queryKey: ["dossier-visites"] });
+      queryClient.invalidateQueries({ queryKey: ["visites"] });
+      setDeletingVisiteId(null);
+    },
+    onError: () => toast.error("Erreur lors de la suppression"),
   });
 
   if (isLoading) {
@@ -290,6 +347,9 @@ const DossierDetail = () => {
                     <p className="text-[11px] text-muted-foreground">{v.scheduled_date ? formatDate(v.scheduled_date) : "Non planifiée"}</p>
                   </div>
                   <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsVisite[v.status] || v.status}</span>
+                  <Button variant={deletingVisiteId === v.id ? "destructive" : "ghost"} size="icon" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); if (deletingVisiteId === v.id) { deleteVisiteMutation.mutate(v.id); } else { setDeletingVisiteId(v.id); } }}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                   {isMobile && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
                 </div>
               ))}
@@ -313,7 +373,11 @@ const DossierDetail = () => {
                     <p className="text-[11px] text-muted-foreground">{formatDate(d.created_at)}</p>
                   </div>
                   <DevisStatusSelect devisId={d.id} currentStatus={d.status} size="xs" />
-                  {isMobile ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" /> : <span className="text-sm font-semibold shrink-0">{formatAmount(d.amount)}</span>}
+                  {!isMobile && <span className="text-sm font-semibold shrink-0">{formatAmount(d.amount)}</span>}
+                  <Button variant={deletingDevisId === d.id ? "destructive" : "ghost"} size="icon" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); if (deletingDevisId === d.id) { deleteDevisMutation.mutate(d.id); } else { setDeletingDevisId(d.id); } }}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                  {isMobile && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
                 </div>
               ))}
               </div>
@@ -340,7 +404,11 @@ const DossierDetail = () => {
                       <p className="text-[11px] text-muted-foreground">Éch.: {formatDate(f.due_date)}</p>
                     </div>
                     <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsFacture[f.status] || f.status}</span>
-                    {isMobile ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" /> : <span className="text-sm font-semibold shrink-0">{formatAmount(f.amount)}</span>}
+                    {!isMobile && <span className="text-sm font-semibold shrink-0">{formatAmount(f.amount)}</span>}
+                    <Button variant={deletingFactureId === f.id ? "destructive" : "ghost"} size="icon" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); if (deletingFactureId === f.id) { deleteFactureMutation.mutate(f.id); } else { setDeletingFactureId(f.id); } }}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                    {isMobile && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
                   </div>
                 ))}
               </div>
