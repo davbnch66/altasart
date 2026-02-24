@@ -184,6 +184,7 @@ const ClientDetail = () => {
       toast.success("Devis supprimé");
       queryClient.invalidateQueries({ queryKey: ["client-devis"] });
       queryClient.invalidateQueries({ queryKey: ["devis"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-devis"] });
       setDeletingDevis(null);
     },
     onError: () => toast.error("Erreur lors de la suppression"),

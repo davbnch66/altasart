@@ -101,6 +101,7 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
       queryClient.invalidateQueries({ queryKey: ["finance-factures"] });
       queryClient.invalidateQueries({ queryKey: ["facture-detail"] });
       queryClient.invalidateQueries({ queryKey: ["client-factures"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-factures"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       onOpenChange(false);
     },

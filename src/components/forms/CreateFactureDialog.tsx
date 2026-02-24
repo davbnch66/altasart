@@ -111,6 +111,8 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       queryClient.invalidateQueries({ queryKey: ["finance-factures"] });
       queryClient.invalidateQueries({ queryKey: ["client-factures"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-factures"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-reglements-count"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       reset();
       setOpen(false);

@@ -69,6 +69,7 @@ export const EditReglementDialog = ({ reglement, open, onOpenChange }: EditRegle
       toast.success("Règlement modifié");
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       queryClient.invalidateQueries({ queryKey: ["reglements"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-reglements-count"] });
       onOpenChange(false);
     },
     onError: () => toast.error("Erreur lors de la modification"),
