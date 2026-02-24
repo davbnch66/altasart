@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,23 +38,44 @@ export const ScheduleChantierDialog = ({ open, onOpenChange, devis, dossier }: P
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("17:00");
 
-  // Loading
-  const [loadingAddress, setLoadingAddress] = useState(dossier?.loading_address || "");
-  const [loadingPostalCode, setLoadingPostalCode] = useState(dossier?.loading_postal_code || "");
-  const [loadingCity, setLoadingCity] = useState(dossier?.loading_city || "");
-  const [loadingFloor, setLoadingFloor] = useState(dossier?.loading_floor || "");
-  const [loadingElevator, setLoadingElevator] = useState(dossier?.loading_elevator || false);
+  const [loadingAddress, setLoadingAddress] = useState("");
+  const [loadingPostalCode, setLoadingPostalCode] = useState("");
+  const [loadingCity, setLoadingCity] = useState("");
+  const [loadingFloor, setLoadingFloor] = useState("");
+  const [loadingElevator, setLoadingElevator] = useState(false);
 
-  // Delivery
-  const [deliveryAddress, setDeliveryAddress] = useState(dossier?.delivery_address || "");
-  const [deliveryPostalCode, setDeliveryPostalCode] = useState(dossier?.delivery_postal_code || "");
-  const [deliveryCity, setDeliveryCity] = useState(dossier?.delivery_city || "");
-  const [deliveryFloor, setDeliveryFloor] = useState(dossier?.delivery_floor || "");
-  const [deliveryElevator, setDeliveryElevator] = useState(dossier?.delivery_elevator || false);
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryPostalCode, setDeliveryPostalCode] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryFloor, setDeliveryFloor] = useState("");
+  const [deliveryElevator, setDeliveryElevator] = useState(false);
 
-  const [volume, setVolume] = useState(String(dossier?.volume || ""));
-  const [weight, setWeight] = useState(String(dossier?.weight || ""));
+  const [volume, setVolume] = useState("");
+  const [weight, setWeight] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Pre-fill from dossier when dialog opens
+  useEffect(() => {
+    if (open && dossier) {
+      setLoadingAddress(dossier.loading_address || "");
+      setLoadingPostalCode(dossier.loading_postal_code || "");
+      setLoadingCity(dossier.loading_city || "");
+      setLoadingFloor(dossier.loading_floor || "");
+      setLoadingElevator(dossier.loading_elevator || false);
+      setDeliveryAddress(dossier.delivery_address || "");
+      setDeliveryPostalCode(dossier.delivery_postal_code || "");
+      setDeliveryCity(dossier.delivery_city || "");
+      setDeliveryFloor(dossier.delivery_floor || "");
+      setDeliveryElevator(dossier.delivery_elevator || false);
+      setVolume(dossier.volume ? String(dossier.volume) : "");
+      setWeight(dossier.weight ? String(dossier.weight) : "");
+      setNotes("");
+      setStartDate(undefined);
+      setEndDate(undefined);
+      setStartTime("08:00");
+      setEndTime("17:00");
+    }
+  }, [open, dossier]);
 
   const fillDepot = (prefix: "loading" | "delivery") => {
     if (prefix === "loading") {
