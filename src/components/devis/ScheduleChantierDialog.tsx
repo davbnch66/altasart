@@ -54,28 +54,35 @@ export const ScheduleChantierDialog = ({ open, onOpenChange, devis, dossier }: P
   const [weight, setWeight] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Pre-fill from dossier when dialog opens
+  // Pre-fill from dossier (fallback to client address if dossier has none)
   useEffect(() => {
     if (open && dossier) {
-      setLoadingAddress(dossier.loading_address || "");
-      setLoadingPostalCode(dossier.loading_postal_code || "");
-      setLoadingCity(dossier.loading_city || "");
+      const client = devis.clients as any;
+      const hasLoadingAddr = !!dossier.loading_address;
+      const hasDeliveryAddr = !!dossier.delivery_address;
+      const clientAddr = client?.address || "";
+      const clientPC = client?.postal_code || "";
+      const clientCity = client?.city || "";
+
+      setLoadingAddress(hasLoadingAddr ? dossier.loading_address : clientAddr);
+      setLoadingPostalCode(hasLoadingAddr ? (dossier.loading_postal_code || "") : clientPC);
+      setLoadingCity(hasLoadingAddr ? (dossier.loading_city || "") : clientCity);
       setLoadingFloor(dossier.loading_floor || "");
       setLoadingElevator(dossier.loading_elevator || false);
-      setDeliveryAddress(dossier.delivery_address || "");
-      setDeliveryPostalCode(dossier.delivery_postal_code || "");
-      setDeliveryCity(dossier.delivery_city || "");
+      setDeliveryAddress(hasDeliveryAddr ? dossier.delivery_address : clientAddr);
+      setDeliveryPostalCode(hasDeliveryAddr ? (dossier.delivery_postal_code || "") : clientPC);
+      setDeliveryCity(hasDeliveryAddr ? (dossier.delivery_city || "") : clientCity);
       setDeliveryFloor(dossier.delivery_floor || "");
       setDeliveryElevator(dossier.delivery_elevator || false);
-      setVolume(dossier.volume ? String(dossier.volume) : "");
-      setWeight(dossier.weight ? String(dossier.weight) : "");
+      setVolume(dossier.volume && dossier.volume > 0 ? String(dossier.volume) : "");
+      setWeight(dossier.weight && dossier.weight > 0 ? String(dossier.weight) : "");
       setNotes("");
       setStartDate(undefined);
       setEndDate(undefined);
       setStartTime("08:00");
       setEndTime("17:00");
     }
-  }, [open, dossier]);
+  }, [open, dossier, devis]);
 
   const fillDepot = (prefix: "loading" | "delivery") => {
     if (prefix === "loading") {
