@@ -3314,6 +3314,7 @@ export type Database = {
         | "payee"
         | "en_retard"
         | "annulee"
+        | "partielle"
       inbound_email_status: "pending" | "processing" | "processed" | "error"
       message_channel: "email" | "whatsapp" | "phone" | "internal"
       notification_type:
@@ -3493,7 +3494,14 @@ export const Constants = {
         "extract_materiel",
         "link_dossier",
       ],
-      facture_status: ["brouillon", "envoyee", "payee", "en_retard", "annulee"],
+      facture_status: [
+        "brouillon",
+        "envoyee",
+        "payee",
+        "en_retard",
+        "annulee",
+        "partielle",
+      ],
       inbound_email_status: ["pending", "processing", "processed", "error"],
       message_channel: ["email", "whatsapp", "phone", "internal"],
       notification_type: [
