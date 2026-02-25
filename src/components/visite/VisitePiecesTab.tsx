@@ -420,11 +420,31 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                   <input
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) uploadPhoto(piece.id, file);
-                      e.target.value = "";
+                      if (file) {
+                        uploadPhoto(piece.id, file);
+                      }
+                      // Reset after a short delay to avoid cancelling on mobile
+                      setTimeout(() => { if (e.target) e.target.value = ""; }, 500);
+                    }}
+                  />
+                </label>
+                <label className="cursor-pointer inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                  <Camera className="h-3 w-3" />
+                  Galerie
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        uploadPhoto(piece.id, file);
+                      }
+                      setTimeout(() => { if (e.target) e.target.value = ""; }, 500);
                     }}
                   />
                 </label>
@@ -441,7 +461,7 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                         const url = URL.createObjectURL(file);
                         setAnnotating({ src: url, pieceId: piece.id, preUploadFile: file });
                       }
-                      e.target.value = "";
+                      setTimeout(() => { if (e.target) e.target.value = ""; }, 500);
                     }}
                   />
                 </label>
