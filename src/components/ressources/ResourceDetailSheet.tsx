@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { PdfCanvasViewer } from "@/components/visite/PdfCanvasViewer";
+import { ARPhotoOverlay } from "@/components/ar/ARPhotoOverlay";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -672,7 +673,10 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
           {/* ===== MODÈLE 3D ===== */}
           {isEquipment && getModelPath(resource.name) && (
             <TabsContent value="3d" className="p-4 pb-8 space-y-4">
-              <h3 className="font-semibold text-sm">Modèle 3D</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-sm">Modèle 3D</h3>
+                <ARButton resourceName={resource.name} />
+              </div>
               <Model3DViewer resourceName={resource.name} className="h-[400px]" />
             </TabsContent>
           )}
@@ -1794,6 +1798,28 @@ function ResourceExpensesList({ resourceId, companyIds }: { resourceId: string; 
           </div>
         </div>
       )}
+    </>
+  );
+}
+
+// ===== AR Button =====
+function ARButton({ resourceName }: { resourceName: string }) {
+  const [showAR, setShowAR] = useState(false);
+  const modelKey = resourceName.toLowerCase().includes("k1000") ? "k1000"
+    : resourceName.toLowerCase().includes("k1003") ? "k1003"
+    : resourceName.toLowerCase().includes("mk73") && resourceName.toLowerCase().includes("patin") ? "mk73-patin"
+    : resourceName.toLowerCase().includes("mk73") ? "mk73-ouverte"
+    : resourceName.toLowerCase().includes("cbdg") ? "cbdg"
+    : undefined;
+
+  if (!modelKey) return null;
+
+  return (
+    <>
+      <Button size="sm" variant="outline" onClick={() => setShowAR(true)} className="gap-1.5">
+        <Camera className="h-3.5 w-3.5" />Projeter sur photo
+      </Button>
+      <ARPhotoOverlay open={showAR} onClose={() => setShowAR(false)} initialModel={modelKey} />
     </>
   );
 }

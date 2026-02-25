@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2, Image, Loader2, MapPin, GripVertical, ChevronUp, ChevronDown, WifiOff, PenTool, X } from "lucide-react";
+import { Plus, Trash2, Image, Loader2, MapPin, GripVertical, ChevronUp, ChevronDown, WifiOff, PenTool, X, Camera } from "lucide-react";
 import { toast } from "sonner";
+import { ARPhotoOverlay } from "@/components/ar/ARPhotoOverlay";
 import { useSortableList } from "@/hooks/useSortableList";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { addToQueue } from "@/lib/offlineQueue";
@@ -33,6 +34,7 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
     offlineId?: string;
     preUploadFile?: File;
   } | null>(null);
+  const [showAR, setShowAR] = useState(false);
 
   // Load offline photos for this visite
   useEffect(() => {
@@ -271,6 +273,9 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
       {/* Add new piece */}
       <Card className="p-4 space-y-3">
         <h3 className="font-semibold text-primary flex items-center gap-2"><Plus className="h-4 w-4" /> Ajouter une pièce / zone</h3>
+        <Button size="sm" variant="outline" onClick={() => setShowAR(true)} className="gap-1.5">
+          <Camera className="h-3.5 w-3.5" />Projection AR
+        </Button>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div>
             <Label>Nom *</Label>
@@ -476,6 +481,8 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
           </button>
         </div>
       )}
+      {/* AR Overlay */}
+      <ARPhotoOverlay open={showAR} onClose={() => setShowAR(false)} />
     </div>
   );
 };
