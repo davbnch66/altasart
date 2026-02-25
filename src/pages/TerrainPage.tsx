@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 import {
   HardHat, CalendarDays, ClipboardCheck, CheckCircle2, Circle,
   MapPin, Clock, ChevronRight, Phone, FileText, Send, Eye,
-  Package, AlertTriangle, Check, ChevronLeft, Pen, Truck, Loader2, RotateCcw
+  Package, AlertTriangle, Check, ChevronLeft, Pen, Truck, Loader2, RotateCcw, Camera
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ import { BTReportPreviewDialog } from "@/components/terrain/BTReportPreviewDialo
 import { VehicleExpenseDialog } from "@/components/terrain/VehicleExpenseDialog";
 import { Receipt } from "lucide-react";
 import { PlanningOperationDialog } from "@/components/planning/PlanningOperationDialog";
+import { ARPhotoOverlay } from "@/components/ar/ARPhotoOverlay";
 
 const todayStr = () => {
   const d = new Date();
@@ -294,6 +295,7 @@ export default function TerrainPage() {
 
   const [reportBtId, setReportBtId] = useState<string | null>(null);
   const [editBtId, setEditBtId] = useState<string | null>(null);
+  const [showAR, setShowAR] = useState(false);
 
   const handlePhotosChange = useCallback((btId: string, photos: string[]) => {
     queryClient.setQueryData(["terrain-bts", companyIds, dateToUse, userId, mode], (old: any[]) =>
@@ -337,7 +339,10 @@ export default function TerrainPage() {
         <div className="flex items-center gap-2">
           {modeIcons[mode]}
           <h1 className="text-lg font-bold">Espace Terrain</h1>
-          <Badge variant="secondary" className="text-[10px] ml-auto">{modeLabels[mode]}</Badge>
+          <Button variant="outline" size="sm" onClick={() => setShowAR(true)} className="gap-1 ml-auto mr-1">
+            <Camera className="h-3.5 w-3.5" />AR
+          </Button>
+          <Badge variant="secondary" className="text-[10px]">{modeLabels[mode]}</Badge>
         </div>
 
         {/* Date navigation for admin */}
@@ -553,6 +558,9 @@ export default function TerrainPage() {
         onOpenChange={(val) => { if (!val) { setEditBtId(null); queryClient.invalidateQueries({ queryKey: ["terrain-bts"] }); } }}
         operationId={editBtId}
       />
+
+      {/* AR Overlay */}
+      <ARPhotoOverlay open={showAR} onClose={() => setShowAR(false)} />
     </div>
   );
 }
