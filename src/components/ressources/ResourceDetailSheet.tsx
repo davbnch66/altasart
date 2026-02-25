@@ -18,6 +18,7 @@ import {
   Camera, Sparkles, Eye, Download, IdCard, X, Loader2, Receipt
 } from "lucide-react";
 import { VehicleExpenseDialog } from "@/components/terrain/VehicleExpenseDialog";
+import { Model3DViewer, getModelPath } from "@/components/ressources/Model3DViewer";
 import { format, differenceInDays } from "date-fns";
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -402,6 +403,11 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                 <Receipt className="h-4 w-4 mr-2" />Dépenses
               </TabsTrigger>
             )}
+            {isEquipment && getModelPath(resource.name) && (
+              <TabsTrigger value="3d" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm whitespace-nowrap">
+                <Eye className="h-4 w-4 mr-2" />3D
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* ===== TECHNIQUE ===== */}
@@ -660,6 +666,14 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                 />
               </div>
               <ResourceExpensesList resourceId={resource.id} companyIds={resource.companyIds || companies.map((c: any) => c.id)} />
+            </TabsContent>
+           )}
+
+          {/* ===== MODÈLE 3D ===== */}
+          {isEquipment && getModelPath(resource.name) && (
+            <TabsContent value="3d" className="p-4 pb-8 space-y-4">
+              <h3 className="font-semibold text-sm">Modèle 3D</h3>
+              <Model3DViewer resourceName={resource.name} className="h-[400px]" />
             </TabsContent>
           )}
         </Tabs>
