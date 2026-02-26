@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Plus, HardHat, Truck, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 const RESOURCE_TYPES = [
   { value: "employe", label: "Employé" },
@@ -188,13 +187,13 @@ export function CreateResourceDialog({ open, onOpenChange, companyId, allCompani
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0">
-        <DialogHeader className="px-6 pt-6 pb-2">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
           <DialogTitle>Nouvelle ressource</DialogTitle>
         </DialogHeader>
-        <ScrollArea className="max-h-[calc(90vh-120px)] px-6">
+        <div className="flex-1 overflow-y-auto px-6 min-h-0">
           <Tabs defaultValue="general" className="w-full">
-            <TabsList className="w-full flex mb-4">
+            <TabsList className="w-full flex mb-4 sticky top-0 z-10 bg-background">
               <TabsTrigger value="general" className="flex-1">Général</TabsTrigger>
               {isPersonnel && <TabsTrigger value="personnel" className="flex-1">Personnel</TabsTrigger>}
               {isEquipment && <TabsTrigger value="equipment" className="flex-1">Équipement</TabsTrigger>}
@@ -496,9 +495,9 @@ export function CreateResourceDialog({ open, onOpenChange, companyId, allCompani
               </div>
             </TabsContent>
           </Tabs>
-        </ScrollArea>
+        </div>
 
-        <div className="px-6 pb-6 pt-2 border-t">
+        <div className="px-6 pb-6 pt-2 border-t shrink-0">
           <Button
             className="w-full"
             onClick={() => create.mutate()}
