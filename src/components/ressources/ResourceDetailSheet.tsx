@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, Suspense } from "react";
 import { PdfCanvasViewer } from "@/components/visite/PdfCanvasViewer";
 import { ARPhotoOverlay } from "@/components/ar/ARPhotoOverlay";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { VehicleExpenseDialog } from "@/components/terrain/VehicleExpenseDialog";
 import { Model3DViewer, getModelPath } from "@/components/ressources/Model3DViewer";
+import { Canvas } from "@react-three/fiber";
+import { OrbitControls, useGLTF, Center, Stage } from "@react-three/drei";
 import { format, differenceInDays } from "date-fns";
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -118,9 +120,10 @@ interface Props {
 
 export function ResourceDetailSheet({ resource, open, onClose, companies }: Props) {
   const qc = useQueryClient();
-  const Icon = TYPE_ICONS[resource?.type] ?? User;
-  const isEquipment = ["grue", "vehicule", "equipement"].includes(resource?.type);
-  const isPersonnel = resource?.type === "employe";
+  const [localType, setLocalType] = useState(resource?.type);
+  const Icon = TYPE_ICONS[localType] ?? User;
+  const isEquipment = ["grue", "vehicule", "equipement"].includes(localType);
+  const isPersonnel = localType === "employe";
 
   const [newIntervention, setNewIntervention] = useState({
     type: isPersonnel ? "formation" : "entretien",
@@ -183,6 +186,20 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
       toast.success("Statut mis à jour");
     },
     onError: () => toast.error("Erreur lors de la mise à jour du statut"),
+  });
+
+  const updateType = useMutation({
+    mutationFn: async (type: string) => {
+      const { error } = await supabase.from("resources").update({ type } as any).eq("id", resource.id);
+      if (error) throw error;
+    },
+    onSuccess: (_data, type) => {
+      setLocalType(type);
+      qc.invalidateQueries({ queryKey: ["resources"] });
+      qc.invalidateQueries({ queryKey: ["fleet-resources"] });
+      toast.success("Type mis à jour");
+    },
+    onError: () => toast.error("Erreur lors de la mise à jour du type"),
   });
 
   const [eqForm, setEqForm] = useState<any>(null);
@@ -316,7 +333,18 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
               <div className="flex-1 min-w-0">
                 <SheetTitle className="text-xl">{resource.name}</SheetTitle>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className="text-sm text-muted-foreground capitalize">{resource.type}</span>
+                  <Select value={localType} onValueChange={(v) => updateType.mutate(v)}>
+                    <SelectTrigger className="h-7 w-auto text-xs border rounded-full px-2.5 gap-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="employe">Employé</SelectItem>
+                      <SelectItem value="grue">Grue</SelectItem>
+                      <SelectItem value="vehicule">Véhicule</SelectItem>
+                      <SelectItem value="equipement">Équipement</SelectItem>
+                      <SelectItem value="equipe">Équipe</SelectItem>
+                    </SelectContent>
+                  </Select>
                   {resource.companyIds?.map((cid: string) => {
                     const c = companies.find((x: any) => x.id === cid);
                     return c ? <span key={cid} className="text-xs bg-muted px-2 py-0.5 rounded">{c.shortName}</span> : null;
@@ -404,7 +432,7 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
                 <Receipt className="h-4 w-4 mr-2" />Dépenses
               </TabsTrigger>
             )}
-            {isEquipment && getModelPath(resource.name) && (
+            {isEquipment && (
               <TabsTrigger value="3d" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm whitespace-nowrap">
                 <Eye className="h-4 w-4 mr-2" />3D
               </TabsTrigger>
@@ -671,18 +699,135 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
            )}
 
           {/* ===== MODÈLE 3D ===== */}
-          {isEquipment && getModelPath(resource.name) && (
+          {isEquipment && (
             <TabsContent value="3d" className="p-4 pb-8 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-sm">Modèle 3D</h3>
-                <ARButton resourceName={resource.name} />
-              </div>
-              <Model3DViewer resourceName={resource.name} className="h-[400px]" />
+              <Custom3DTab
+                resourceId={resource.id}
+                resourceName={resource.name}
+                companyId={resource.companyIds?.[0] ?? ""}
+                documents={documents as any[]}
+                onRefresh={() => qc.invalidateQueries({ queryKey: ["resource-documents", resource.id] })}
+              />
             </TabsContent>
           )}
         </Tabs>
       </SheetContent>
     </Sheet>
+  );
+}
+
+// ===== Custom 3D Tab with upload =====
+function Custom3DTab({ resourceId, resourceName, companyId, documents, onRefresh }: { resourceId: string; resourceName: string; companyId: string; documents: any[]; onRefresh: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [customModelUrl, setCustomModelUrl] = useState<string | null>(null);
+
+  const hasBuiltinModel = !!getModelPath(resourceName);
+  const customDoc = documents.find((d: any) => d.document_type === "model_3d");
+
+  // Load custom model blob URL
+  useEffect(() => {
+    if (!customDoc) { setCustomModelUrl(null); return; }
+    let objectUrl: string;
+    supabase.storage.from("resource-documents").download(customDoc.storage_path).then(({ data }) => {
+      if (data) { objectUrl = URL.createObjectURL(data); setCustomModelUrl(objectUrl); }
+    });
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [customDoc?.id]);
+
+  const uploadModel = async (file: File) => {
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "glb";
+      const path = `models/${resourceId}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("resource-documents").upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      // Remove old record if exists
+      if (customDoc) {
+        await supabase.from("resource_documents").delete().eq("id", customDoc.id);
+      }
+      await supabase.from("resource_documents").insert({
+        resource_id: resourceId,
+        company_id: companyId,
+        document_type: "model_3d",
+        name: file.name,
+        file_name: file.name,
+        storage_path: path,
+      });
+      onRefresh();
+      toast.success("Modèle 3D importé");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const deleteModel = async () => {
+    if (!customDoc) return;
+    await supabase.storage.from("resource-documents").remove([customDoc.storage_path]);
+    await supabase.from("resource_documents").delete().eq("id", customDoc.id);
+    onRefresh();
+    toast.success("Modèle supprimé");
+  };
+
+  const showBuiltin = hasBuiltinModel && !customModelUrl;
+  const showCustom = !!customModelUrl;
+
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-sm">Modèle 3D</h3>
+        <div className="flex items-center gap-2">
+          {hasBuiltinModel && <ARButton resourceName={resourceName} />}
+          <input ref={fileRef} type="file" accept=".glb,.gltf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadModel(f); e.target.value = ""; }} />
+          <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Upload className="h-4 w-4 mr-1" />}
+            Importer .glb
+          </Button>
+          {customDoc && (
+            <Button size="sm" variant="ghost" className="text-destructive" onClick={deleteModel}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {showBuiltin && <Model3DViewer resourceName={resourceName} className="h-[400px]" />}
+
+      {showCustom && (
+        <div className="rounded-xl border bg-card overflow-hidden relative h-[400px]">
+          <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-muted/50"><div className="text-sm text-muted-foreground animate-pulse">Chargement du modèle 3D…</div></div>}>
+            <Canvas camera={{ position: [8, 5, 8], fov: 45 }} style={{ width: "100%", height: "100%" }}>
+              <OrbitControls enablePan enableZoom enableRotate maxPolarAngle={Math.PI / 2} minDistance={2} maxDistance={50} />
+              <CustomModelScene url={customModelUrl!} />
+            </Canvas>
+          </Suspense>
+          <div className="absolute bottom-2 right-2 bg-background/80 backdrop-blur-sm rounded-lg px-2.5 py-1 text-[10px] text-muted-foreground border">
+            🖱️ Tourner · Molette: zoom
+          </div>
+        </div>
+      )}
+
+      {!showBuiltin && !showCustom && (
+        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground text-sm gap-3">
+          <Eye className="h-10 w-10 opacity-20" />
+          <p>Aucun modèle 3D disponible</p>
+          <p className="text-xs">Importez un fichier .glb pour visualiser cet engin en 3D</p>
+        </div>
+      )}
+    </>
+  );
+}
+
+function CustomModelScene({ url }: { url: string }) {
+  const { scene } = useGLTF(url);
+  return (
+    <Stage environment="city" intensity={0.5} adjustCamera>
+      <Center>
+        <primitive object={scene} />
+      </Center>
+    </Stage>
   );
 }
 
