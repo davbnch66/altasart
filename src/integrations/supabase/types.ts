@@ -720,6 +720,53 @@ export type Database = {
           },
         ]
       }
+      document_templates: {
+        Row: {
+          company_id: string
+          created_at: string
+          document_type: string
+          file_name: string
+          id: string
+          is_default: boolean
+          name: string
+          storage_path: string
+          updated_at: string
+          variables: Json
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          document_type?: string
+          file_name: string
+          id?: string
+          is_default?: boolean
+          name: string
+          storage_path: string
+          updated_at?: string
+          variables?: Json
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          document_type?: string
+          file_name?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          storage_path?: string
+          updated_at?: string
+          variables?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_templates_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dossier_costs: {
         Row: {
           amount: number

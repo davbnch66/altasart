@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
+import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(n);
@@ -131,6 +132,13 @@ const FactureDetail = () => {
             <Download className="h-4 w-4" />
             {!isMobile && <span className="ml-1">PDF</span>}
           </Button>
+          <DownloadWordButton
+            companyId={facture.company_id}
+            documentType="facture"
+            documentId={facture.id}
+            fileName={`Facture_${facture.code || facture.id.slice(0, 8)}.docx`}
+            size={isMobile ? "sm" : "sm"}
+          />
           <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4" />
             {!isMobile && <span className="ml-1">Modifier</span>}
