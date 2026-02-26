@@ -329,14 +329,31 @@ const DevisDetail = () => {
         </div>
       </motion.div>
 
-      {/* Client + Société */}
-      <div className={`grid gap-3 ${isMobile ? "" : "lg:grid-cols-2 gap-4"}`}>
+      {/* Client + Société + Dossier */}
+      <div className={`grid gap-3 ${isMobile ? "" : "lg:grid-cols-3 gap-4"}`}>
         <div className={`rounded-xl border bg-card space-y-1.5 ${isMobile ? "p-3" : "p-5 space-y-2"}`}>
           <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Client</h3>
-          <p className={`font-medium ${isMobile ? "text-sm" : ""}`}>{client?.name || "—"}</p>
+          <p className={`font-medium ${isMobile ? "text-sm" : ""}`}>
+            {client?.id ? <button onClick={() => navigate(`/clients/${client.id}`)} className="hover:underline text-left">{client.name}</button> : "—"}
+          </p>
           {client?.email && <p className="text-xs text-muted-foreground truncate">{client.email}</p>}
           {client?.phone && <p className="text-xs text-muted-foreground">{client.phone}</p>}
           {client?.address && <p className="text-xs text-muted-foreground truncate">{client.address}{client.postal_code ? `, ${client.postal_code}` : ""}{client.city ? ` ${client.city}` : ""}</p>}
+        </div>
+        <div className={`rounded-xl border bg-card space-y-1.5 ${isMobile ? "p-3" : "p-5 space-y-2"}`}>
+          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Dossier</h3>
+          {dossier ? (
+            <>
+              <p className={`font-medium ${isMobile ? "text-sm" : ""}`}>
+                <button onClick={() => navigate(`/dossiers/${dossier.id}`)} className="hover:underline text-left">
+                  {dossier.code ? `${dossier.code} — ` : ""}{dossier.title}
+                </button>
+              </p>
+              {dossier.stage && <p className="text-xs text-muted-foreground capitalize">Étape : {dossier.stage.replace(/_/g, " ")}</p>}
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">Aucun dossier rattaché</p>
+          )}
         </div>
         <div className={`rounded-xl border bg-card space-y-1.5 ${isMobile ? "p-3" : "p-5 space-y-2"}`}>
           <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Société</h3>
