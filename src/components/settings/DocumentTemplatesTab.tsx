@@ -150,8 +150,12 @@ export function DocumentTemplatesTab() {
   const handleGenerateSample = async () => {
     setGeneratingTemplate(true);
     try {
-      await downloadSampleTemplate(selectedType);
-      toast.success(`Modèle Word "${typeLabel}" téléchargé`);
+      // Use current company short_name for logo embedding
+      const companyShortName = current !== "global"
+        ? dbCompanies.find((c) => c.id === current)?.shortName
+        : dbCompanies[0]?.shortName;
+      await downloadSampleTemplate(selectedType, companyShortName);
+      toast.success(`Modèle Word "${typeLabel}" téléchargé avec logo`);
     } catch (err) {
       console.error(err);
       toast.error("Erreur lors de la génération");
