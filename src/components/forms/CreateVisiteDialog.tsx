@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, FileText, Calendar, MapPin, StickyNote } from "lucide-react";
+import { Plus, FileText, Calendar, MapPin, StickyNote, FolderOpen } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { ContactSelect } from "@/components/client/ContactSelect";
 
@@ -33,6 +33,7 @@ const schema = z.object({
   visit_type: z.string().optional(),
   advisor: z.string().optional(),
   notes: z.string().optional(),
+  dossier_id: z.string().uuid().optional().or(z.literal("")),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -49,6 +50,8 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
   const [selectedContactId, setSelectedContactId] = useState("");
+  const [creatingDossier, setCreatingDossier] = useState(false);
+  const [newDossierTitle, setNewDossierTitle] = useState("");
 
   const defaultCompanyId = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || "");
   const [selectedCompanyId, setSelectedCompanyId] = useState(defaultCompanyId);
@@ -66,9 +69,46 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
     enabled: open && !!selectedCompanyId,
   });
 
+
+  const [selectedClientIdState, setSelectedClientIdState] = useState(preselectedClientId || "");
+
+  const { data: dossiers = [], refetch: refetchDossiers } = useQuery({
+    queryKey: ["dossiers-for-visite", selectedClientIdState],
+    queryFn: async () => {
+      if (!selectedClientIdState) return [];
+      const { data } = await supabase.from("dossiers").select("id, title, code").eq("client_id", selectedClientIdState).order("title");
+      return data || [];
+    },
+    enabled: open && !!selectedClientIdState,
+  });
+
+  const createDossierMutation = useMutation({
+    mutationFn: async () => {
+      if (!newDossierTitle.trim() || !selectedClientIdState || !selectedCompanyId) return;
+      const { data, error } = await supabase.from("dossiers").insert({
+        title: newDossierTitle.trim(),
+        client_id: selectedClientIdState,
+        company_id: selectedCompanyId,
+      }).select("id").single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      if (data) {
+        toast.success("Dossier créé");
+        setValue("dossier_id", data.id);
+        refetchDossiers();
+        queryClient.invalidateQueries({ queryKey: ["dossiers"] });
+      }
+      setCreatingDossier(false);
+      setNewDossierTitle("");
+    },
+    onError: () => toast.error("Erreur lors de la création du dossier"),
+  });
+
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { company_id: defaultCompanyId, client_id: preselectedClientId || ("" as any) },
+    defaultValues: { company_id: defaultCompanyId, client_id: preselectedClientId || ("" as any), dossier_id: preselectedDossierId || "" },
   });
 
   const watchClientId = watch("client_id");
@@ -76,6 +116,8 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
   useEffect(() => {
     if (watchClientId && watchClientId !== prevClientRef.current) {
       prevClientRef.current = watchClientId;
+      setSelectedClientIdState(watchClientId);
+      setValue("dossier_id", "");
       const selectedClient = clients.find(c => c.id === watchClientId);
       if (selectedClient) {
         if (selectedClient.address) setValue("address", selectedClient.address);
@@ -98,7 +140,7 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
         visit_type: data.visit_type || null,
         advisor: data.advisor || null,
         notes: data.notes || null,
-        dossier_id: preselectedDossierId || null,
+        dossier_id: (data.dossier_id && data.dossier_id.length > 0) ? data.dossier_id : (preselectedDossierId || null),
         status: "planifiee",
       });
       if (error) throw error;
@@ -120,10 +162,12 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
     setValue("company_id", v);
     setSelectedCompanyId(v);
     setValue("client_id", "" as any);
+    setSelectedClientIdState("");
+    setValue("dossier_id", "");
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), title: "" }); setSelectedContactId(""); } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { const cid = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || ""); setSelectedCompanyId(cid); setSelectedClientIdState(preselectedClientId || ""); reset({ company_id: cid, client_id: preselectedClientId || ("" as any), title: "", dossier_id: preselectedDossierId || "" }); setSelectedContactId(""); setCreatingDossier(false); } }}>
       <DialogTrigger asChild>
         {trigger || (
           <Button className="flex items-center gap-2">
@@ -176,6 +220,44 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
                     </Select>
                     {errors.client_id && <p className="text-xs text-destructive mt-1">{errors.client_id.message}</p>}
                   </div>
+                  {/* Dossier */}
+                  {selectedClientIdState && (
+                    <div className="col-span-2">
+                      <Label className="flex items-center gap-1.5"><FolderOpen className="h-3.5 w-3.5" /> Dossier</Label>
+                      {creatingDossier ? (
+                        <div className="flex gap-2 mt-1">
+                          <Input
+                            value={newDossierTitle}
+                            onChange={(e) => setNewDossierTitle(e.target.value)}
+                            placeholder="Titre du nouveau dossier"
+                            autoFocus
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); createDossierMutation.mutate(); } if (e.key === "Escape") setCreatingDossier(false); }}
+                          />
+                          <Button type="button" size="sm" onClick={() => createDossierMutation.mutate()} disabled={!newDossierTitle.trim() || createDossierMutation.isPending}>
+                            {createDossierMutation.isPending ? "..." : "Créer"}
+                          </Button>
+                          <Button type="button" size="sm" variant="ghost" onClick={() => setCreatingDossier(false)}>✕</Button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2 mt-1">
+                          <div className="flex-1">
+                            <Select value={watch("dossier_id") || ""} onValueChange={(v) => setValue("dossier_id", v)}>
+                              <SelectTrigger><SelectValue placeholder="Aucun dossier (optionnel)" /></SelectTrigger>
+                              <SelectContent>
+                                {dossiers.map((d) => (
+                                  <SelectItem key={d.id} value={d.id}>{d.code ? `${d.code} — ` : ""}{d.title}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button type="button" size="icon" variant="outline" onClick={() => setCreatingDossier(true)} title="Créer un dossier">
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">💡 Rattachez la visite à un dossier existant ou créez-en un nouveau.</p>
+                    </div>
+                  )}
                   {watch("client_id") && (
                     <div className="col-span-2">
                       <ContactSelect clientId={watch("client_id")} value={selectedContactId} onChange={setSelectedContactId} label="Contact sur site" />
