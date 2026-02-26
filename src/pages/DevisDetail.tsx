@@ -3,13 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DevisLinesManager } from "@/components/DevisLinesManager";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, Pencil, FileText, Check, X, Send, CalendarPlus, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, Pencil, FileText, Check, X, Send, CalendarPlus, Loader2, FolderOpen, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { EditDevisDialog } from "@/components/forms/EditDevisDialog";
 import { generateDevisPdf } from "@/lib/generateDevisPdf";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
@@ -22,6 +22,8 @@ import { DevisRelancesSection } from "@/components/devis/DevisRelancesSection";
 import { ScheduleChantierDialog } from "@/components/devis/ScheduleChantierDialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 const statusLabels: Record<string, string> = {
   brouillon: "Brouillon",
@@ -157,6 +159,25 @@ const DevisDetail = () => {
     enabled: !!id,
   });
 
+  // Fetch client dossiers for linking
+  const { data: clientDossiers = [] } = useQuery({
+    queryKey: ["client-dossiers", devis?.client_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("dossiers")
+        .select("id, code, title, stage")
+        .eq("client_id", devis!.client_id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!devis?.client_id,
+  });
+
+  const [linkingDossier, setLinkingDossier] = useState(false);
+  const [creatingNewDossier, setCreatingNewDossier] = useState(false);
+  const [newDossierTitle, setNewDossierTitle] = useState("");
+
   const updateField = useMutation({
     mutationFn: async (updates: Record<string, any>) => {
       const { error } = await supabase.from("devis").update(updates).eq("id", id!);
@@ -169,6 +190,38 @@ const DevisDetail = () => {
     },
     onError: () => toast.error("Erreur lors de la mise à jour"),
   });
+
+  const linkDossier = async (dossierId: string) => {
+    await supabase.from("devis").update({ dossier_id: dossierId }).eq("id", id!);
+    queryClient.invalidateQueries({ queryKey: ["devis-detail", id] });
+    queryClient.invalidateQueries({ queryKey: ["devis"] });
+    setLinkingDossier(false);
+    toast.success("Dossier rattaché");
+  };
+
+  const createAndLinkDossier = async () => {
+    if (!newDossierTitle.trim() || !devis) return;
+    try {
+      const { data: newD, error } = await supabase.from("dossiers").insert({
+        title: newDossierTitle.trim(),
+        client_id: devis.client_id,
+        company_id: devis.company_id,
+        stage: "prospect" as any,
+        amount: devis.amount,
+        origin: "devis",
+      }).select("id").single();
+      if (error) throw error;
+      await supabase.from("devis").update({ dossier_id: newD.id }).eq("id", id!);
+      queryClient.invalidateQueries({ queryKey: ["devis-detail", id] });
+      queryClient.invalidateQueries({ queryKey: ["client-dossiers", devis.client_id] });
+      setCreatingNewDossier(false);
+      setLinkingDossier(false);
+      setNewDossierTitle("");
+      toast.success("Dossier créé et rattaché");
+    } catch (e: any) {
+      toast.error("Erreur : " + (e.message || "Impossible de créer le dossier"));
+    }
+  };
 
   if (isLoading) {
     return (
@@ -350,9 +403,52 @@ const DevisDetail = () => {
                 </button>
               </p>
               {dossier.stage && <p className="text-xs text-muted-foreground capitalize">Étape : {dossier.stage.replace(/_/g, " ")}</p>}
+              <button onClick={() => setLinkingDossier(true)} className="text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">Changer</button>
             </>
+          ) : linkingDossier ? (
+            <div className="space-y-2">
+              {!creatingNewDossier ? (
+                <>
+                  {clientDossiers.length > 0 && (
+                    <Select onValueChange={(v) => linkDossier(v)}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Choisir un dossier existant" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clientDossiers.map((d) => (
+                          <SelectItem key={d.id} value={d.id} className="text-xs">
+                            {d.code ? `${d.code} — ` : ""}{d.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <button onClick={() => { setCreatingNewDossier(true); setNewDossierTitle(devis.objet); }} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                    <Plus className="h-3 w-3" /> Créer un nouveau dossier
+                  </button>
+                  <button onClick={() => setLinkingDossier(false)} className="text-[10px] text-muted-foreground hover:underline">Annuler</button>
+                </>
+              ) : (
+                <div className="space-y-1.5">
+                  <Input
+                    value={newDossierTitle}
+                    onChange={(e) => setNewDossierTitle(e.target.value)}
+                    placeholder="Titre du dossier"
+                    className="h-8 text-xs"
+                    autoFocus
+                    onKeyDown={(e) => { if (e.key === "Enter") createAndLinkDossier(); if (e.key === "Escape") setCreatingNewDossier(false); }}
+                  />
+                  <div className="flex gap-1">
+                    <Button size="sm" className="h-7 text-xs" onClick={createAndLinkDossier} disabled={!newDossierTitle.trim()}>Créer</Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setCreatingNewDossier(false)}>Annuler</Button>
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
-            <p className="text-xs text-muted-foreground italic">Aucun dossier rattaché</p>
+            <button onClick={() => setLinkingDossier(true)} className="flex items-center gap-1.5 text-xs text-primary hover:underline">
+              <FolderOpen className="h-3.5 w-3.5" /> Rattacher à un dossier
+            </button>
           )}
         </div>
         <div className={`rounded-xl border bg-card space-y-1.5 ${isMobile ? "p-3" : "p-5 space-y-2"}`}>
