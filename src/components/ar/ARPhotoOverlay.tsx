@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { Camera, Download, Image, RotateCcw, Move, Maximize2, X, Video, Hand } from "lucide-react";
+import { Camera, Download, Image, RotateCcw, Maximize2, X, Video, Hand, Move, Save } from "lucide-react";
 import { toast } from "sonner";
 import { ARLiveCamera } from "./ARLiveCamera";
 import * as THREE from "three";
@@ -23,8 +23,10 @@ interface ARPhotoOverlayProps {
   open: boolean;
   onClose: () => void;
   initialPhotoUrl?: string;
+  initialPhotoFile?: File;
   initialModel?: string;
   onExport?: (blob: Blob) => void;
+  onSaveOriginal?: (file: File) => void;
 }
 
 function DraggableModel({ url, scale, position, rotation, onPositionChange, onRotationChange, onScaleChange, dragMode }: {
@@ -51,7 +53,6 @@ function DraggableModel({ url, scale, position, rotation, onPositionChange, onRo
     dragging.current = true;
     lastPointer.current = { x: e.clientX, y: e.clientY };
     gl.domElement.style.cursor = "grabbing";
-    // Disable orbit controls while dragging
     gl.domElement.setPointerCapture(e.pointerId);
   };
 
@@ -62,7 +63,6 @@ function DraggableModel({ url, scale, position, rotation, onPositionChange, onRo
     lastPointer.current = { x: e.clientX, y: e.clientY };
 
     if (dragMode === "move") {
-      // Project movement onto ground plane
       const sensitivity = 0.05;
       onPositionChange([
         position[0] + dx * sensitivity,
@@ -143,7 +143,7 @@ function SceneContent({ modelUrl, modelScale, modelPosition, modelRotation, onPo
   );
 }
 
-export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, onExport }: ARPhotoOverlayProps) {
+export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialPhotoFile, initialModel, onExport, onSaveOriginal }: ARPhotoOverlayProps) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(initialPhotoUrl || null);
   const [selectedModel, setSelectedModel] = useState(initialModel || AVAILABLE_MODELS[0].key);
   const [modelScale, setModelScale] = useState(1);
@@ -151,6 +151,7 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
   const [modelPosition, setModelPosition] = useState<[number, number, number]>([0, 0, 0]);
   const [exporting, setExporting] = useState(false);
   const [dragMode, setDragMode] = useState<"move" | "rotate" | "scale">("move");
+  const [showCrane, setShowCrane] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -160,13 +161,18 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
 
   useEffect(() => {
     if (open) {
-      setPhotoUrl(initialPhotoUrl || null);
+      if (initialPhotoFile) {
+        setPhotoUrl(URL.createObjectURL(initialPhotoFile));
+      } else {
+        setPhotoUrl(initialPhotoUrl || null);
+      }
       setSelectedModel(initialModel || AVAILABLE_MODELS[0].key);
       setModelScale(1);
       setModelRotation(0);
       setModelPosition([0, 0, 0]);
+      setShowCrane(!initialPhotoFile); // If opened from AR button, show crane; if from photo capture, start without
     }
-  }, [open, initialPhotoUrl, initialModel]);
+  }, [open, initialPhotoUrl, initialPhotoFile, initialModel]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -206,7 +212,7 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
         if (!blob) return;
         if (onExport) {
           onExport(blob);
-          toast.success("Image exportée");
+          toast.success("Photo avec grue sauvegardée");
         } else {
           const link = document.createElement("a");
           link.href = URL.createObjectURL(blob);
@@ -216,13 +222,14 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
           toast.success("Image téléchargée");
         }
         setExporting(false);
+        onClose();
       }, "image/png");
     } catch (err) {
       console.error(err);
       toast.error("Erreur lors de l'export");
       setExporting(false);
     }
-  }, [photoUrl, onExport]);
+  }, [photoUrl, onExport, onClose]);
 
   const handleReset = () => {
     setModelScale(1);
@@ -242,50 +249,75 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
       <DialogContent className="max-w-[95vw] w-full h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
         {/* Toolbar */}
         <div className="flex items-center gap-2 p-3 border-b bg-background/95 backdrop-blur-sm flex-wrap">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handlePhotoUpload}
-          />
-          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="gap-1.5">
-            <Image className="h-3.5 w-3.5" />
-            {photoUrl ? "Changer photo" : "Charger photo"}
-          </Button>
+          {/* Save original button (without crane) */}
+          {onSaveOriginal && initialPhotoFile && (
+            <Button variant="outline" size="sm" onClick={() => { onSaveOriginal(initialPhotoFile); onClose(); }} className="gap-1.5">
+              <Save className="h-3.5 w-3.5" />
+              Sans grue
+            </Button>
+          )}
 
-          <Button variant="outline" size="sm" onClick={() => setShowLiveCamera(true)} className="gap-1.5">
-            <Video className="h-3.5 w-3.5" />Caméra live
-          </Button>
+          {/* Toggle crane */}
+          {!showCrane ? (
+            <Button variant="default" size="sm" onClick={() => setShowCrane(true)} className="gap-1.5">
+              <Image className="h-3.5 w-3.5" />
+              Ajouter une grue
+            </Button>
+          ) : (
+            <>
+              {!initialPhotoFile && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handlePhotoUpload}
+                  />
+                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="gap-1.5">
+                    <Image className="h-3.5 w-3.5" />
+                    {photoUrl ? "Changer photo" : "Charger photo"}
+                  </Button>
+                </>
+              )}
 
-          <Select value={selectedModel} onValueChange={setSelectedModel}>
-            <SelectTrigger className="w-40 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {AVAILABLE_MODELS.map((m) => (
-                <SelectItem key={m.key} value={m.key}>{m.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <Button variant="outline" size="sm" onClick={() => setShowLiveCamera(true)} className="gap-1.5">
+                <Video className="h-3.5 w-3.5" />Caméra live
+              </Button>
 
-          <Button variant="ghost" size="sm" onClick={handleReset} className="gap-1">
-            <RotateCcw className="h-3.5 w-3.5" />Reset
-          </Button>
+              <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger className="w-40 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {AVAILABLE_MODELS.map((m) => (
+                    <SelectItem key={m.key} value={m.key}>{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button variant="ghost" size="sm" onClick={handleReset} className="gap-1">
+                <RotateCcw className="h-3.5 w-3.5" />Reset
+              </Button>
+            </>
+          )}
 
           <div className="ml-auto flex items-center gap-2">
-            <Button size="sm" onClick={handleExport} disabled={exporting} className="gap-1.5">
-              <Download className="h-3.5 w-3.5" />
-              {exporting ? "Export…" : "Exporter"}
-            </Button>
+            {showCrane && (
+              <Button size="sm" onClick={handleExport} disabled={exporting} className="gap-1.5">
+                <Download className="h-3.5 w-3.5" />
+                {exporting ? "Export…" : "Sauvegarder avec grue"}
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        {/* Drag mode selector + fine controls */}
+        {/* Drag mode selector - only when crane visible */}
+        {showCrane && (
         <div className="flex items-center gap-3 px-4 py-2 border-b bg-muted/30 text-xs flex-wrap">
           <div className="flex items-center gap-1 bg-background rounded-lg p-0.5 border">
             {dragModes.map((m) => (
@@ -305,7 +337,7 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
           </div>
           <span className="text-[10px] text-muted-foreground hidden sm:inline">
             <Hand className="h-3 w-3 inline mr-1" />
-            Glissez le modèle directement · Molette = zoom caméra
+            Glissez le modèle · Molette = zoom
           </span>
           <div className="flex items-center gap-2 min-w-24 ml-auto">
             <Label className="text-[11px] w-12">Échelle</Label>
@@ -332,6 +364,7 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
             <span className="text-muted-foreground w-8 text-right">{Math.round((modelRotation * 180) / Math.PI)}°</span>
           </div>
         </div>
+        )}
 
         {/* Viewport */}
         <div ref={containerRef} className="flex-1 relative overflow-hidden">
@@ -343,6 +376,7 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
             />
           )}
 
+          {showCrane && (
           <Suspense
             fallback={
               <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
@@ -368,12 +402,13 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
               />
             </Canvas>
           </Suspense>
+          )}
 
-          {!photoUrl && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          {!photoUrl && !showCrane && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-muted/20">
               <div className="text-center space-y-2 opacity-50">
                 <Camera className="h-12 w-12 mx-auto text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Chargez une photo pour la superposition AR</p>
+                <p className="text-sm text-muted-foreground">Aucune photo chargée</p>
               </div>
             </div>
           )}
