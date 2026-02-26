@@ -308,6 +308,7 @@ export default function Ressources() {
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         companyId={companyIds[0] ?? ""}
+        allCompanies={dbCompanies.map((c) => ({ id: c.id, shortName: c.shortName }))}
       />
     </div>
   );

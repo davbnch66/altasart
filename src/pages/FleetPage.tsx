@@ -299,6 +299,7 @@ const FleetPage = () => {
         onOpenChange={setShowCreateDialog}
         companyId={companyIds[0] ?? ""}
         defaultType="grue"
+        allCompanies={dbCompanies.map((c: any) => ({ id: c.id, shortName: c.short_name || c.name }))}
       />
     </div>
   );
