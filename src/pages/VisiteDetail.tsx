@@ -35,6 +35,7 @@ import { VisiteDevisHistory } from "@/components/visite/VisiteDevisHistory";
 import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
 import { PdfPreviewDialog } from "@/components/visite/PdfPreviewDialog";
 import { ARPhotoOverlay } from "@/components/ar/ARPhotoOverlay";
+import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
 
 const statusLabels: Record<string, string> = {
   planifiee: "Planifiée",
@@ -290,6 +291,12 @@ const VisiteDetail = () => {
             {exporting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Download className="h-4 w-4 mr-1" />}
             Rapport PDF
           </Button>
+          <DownloadWordButton
+            companyId={visite.company_id}
+            documentType="visite"
+            documentId={visite.id}
+            fileName={`Visite_${(visite as any).code || visite.id.slice(0, 8)}.docx`}
+          />
           <ApplyTemplateDialog visiteId={visite.id} companyId={visite.company_id} />
           <GenerateDevisDialog visiteId={visite.id} companyId={visite.company_id} dossierId={visite.dossier_id} />
           <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending}>

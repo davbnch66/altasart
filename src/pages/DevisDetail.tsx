@@ -20,6 +20,7 @@ import { DevisApplyTemplateDialog } from "@/components/devis/ApplyTemplateDialog
 import { SendSignatureDialog } from "@/components/devis/SendSignatureDialog";
 import { DevisRelancesSection } from "@/components/devis/DevisRelancesSection";
 import { ScheduleChantierDialog } from "@/components/devis/ScheduleChantierDialog";
+import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -281,6 +282,13 @@ const DevisDetail = () => {
             <Download className="h-4 w-4" />
             {!isMobile && <span className="ml-1">PDF</span>}
           </Button>
+          <DownloadWordButton
+            companyId={devis.company_id}
+            documentType="devis"
+            documentId={devis.id}
+            fileName={`Devis_${devis.code || devis.id.slice(0, 8)}.docx`}
+            size={isMobile ? "sm" : "sm"}
+          />
           <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => setSendingSignature(true)}>
             <Send className="h-4 w-4" />
             {!isMobile && <span className="ml-1">Envoyer</span>}

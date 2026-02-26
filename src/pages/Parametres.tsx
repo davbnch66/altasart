@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield, ChevronDown, ChevronUp } from "lucide-react";
+import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield, ChevronDown, ChevronUp, FileText } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { EmailTemplatesTab } from "@/components/settings/EmailTemplatesTab";
+import { DocumentTemplatesTab } from "@/components/settings/DocumentTemplatesTab";
 import { ROLE_LABELS, ROLE_DESCRIPTIONS, type AppRole } from "@/hooks/useMyRole";
 
 const roleLabels = ROLE_LABELS;
@@ -360,6 +361,7 @@ const Parametres = () => {
           <TabsTrigger value="companies" className="text-xs gap-1.5"><Building2 className="h-3.5 w-3.5" /> Sociétés</TabsTrigger>
           <TabsTrigger value="team" className="text-xs gap-1.5"><Users className="h-3.5 w-3.5" /> Équipe</TabsTrigger>
           <TabsTrigger value="emails" className="text-xs gap-1.5"><Mail className="h-3.5 w-3.5" /> Emails</TabsTrigger>
+          <TabsTrigger value="documents" className="text-xs gap-1.5"><FileText className="h-3.5 w-3.5" /> Documents</TabsTrigger>
           <TabsTrigger value="roles" className="text-xs gap-1.5"><Shield className="h-3.5 w-3.5" /> Rôles</TabsTrigger>
         </TabsList>
 
@@ -530,6 +532,13 @@ const Parametres = () => {
         <TabsContent value="emails">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <EmailTemplatesTab />
+          </motion.div>
+        </TabsContent>
+
+        {/* Document Templates Tab */}
+        <TabsContent value="documents">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <DocumentTemplatesTab />
           </motion.div>
         </TabsContent>
 

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, Send, Download, Eye, ChevronDown, Mail } from "lucide-react";
+import { Loader2, Send, Download, Eye, ChevronDown, Mail, FileText } from "lucide-react";
+import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
 import { generateBTReportPdf } from "@/lib/generateBTReportPdf";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -304,8 +305,15 @@ export function BTReportPreviewDialog({ open, onOpenChange, btId, companyIds }: 
               </Button>
               <Button variant="secondary" size="sm" onClick={handleDownload}>
                 <Download className="h-3.5 w-3.5 mr-1" />
-                Télécharger
+                PDF
               </Button>
+              <DownloadWordButton
+                companyId={companyIds[0] || ""}
+                documentType="bt_report"
+                documentId={btId}
+                fileName={`Rapport-BT-${btId.slice(0, 8)}.docx`}
+                variant="secondary"
+              />
               <Button
                 size="sm"
                 className="flex-1"
