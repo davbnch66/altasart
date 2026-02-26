@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { ArrowLeft, MapPin, Calendar, Clock, User, FileText, FolderOpen, BookOpen, Save, Loader2, LayoutGrid, Package, Users, Truck, ShieldAlert, ClipboardList, Download, Camera, ChevronDown, Wrench, Info, Mail } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Clock, User, FileText, FolderOpen, BookOpen, Save, Loader2, LayoutGrid, Package, Users, Truck, ShieldAlert, ClipboardList, Download, Camera, ChevronDown, Wrench, Info, Mail, ImageIcon } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCompany } from "@/contexts/CompanyContext";
 import { format } from "date-fns";
@@ -93,6 +93,7 @@ const VisiteDetail = () => {
   const [activeTab, setActiveTab] = useState("rdv");
   const isMobile = useIsMobile();
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [capturedPhotoFile, setCapturedPhotoFile] = useState<File | null>(null);
   const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
 
@@ -702,6 +703,18 @@ const VisiteDetail = () => {
           setTimeout(() => { if (e.target) e.target.value = ""; }, 500);
         }}
       />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          setCapturedPhotoFile(file);
+          setTimeout(() => { if (e.target) e.target.value = ""; }, 500);
+        }}
+      />
 
       {/* AR overlay after photo capture */}
       <ARPhotoOverlay
@@ -793,6 +806,13 @@ const VisiteDetail = () => {
             >
               <Camera className="h-5 w-5" />
               <span>Photo</span>
+            </button>
+            <button
+              onClick={() => galleryInputRef.current?.click()}
+              className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+            >
+              <ImageIcon className="h-5 w-5" />
+              <span>Galerie</span>
             </button>
             <button
               onClick={() => setActiveTab("moyens")}
