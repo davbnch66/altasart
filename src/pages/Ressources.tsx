@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tables } from "@/integrations/supabase/types";
 import { ResourceDetailSheet } from "@/components/ressources/ResourceDetailSheet";
+import { CreateResourceDialog } from "@/components/ressources/CreateResourceDialog";
 import { differenceInDays } from "date-fns";
 
 type Resource = Tables<"resources">;
@@ -41,6 +42,7 @@ export default function Ressources() {
   const [activeTab, setActiveTab] = useState<"all" | "employe" | "grue" | "vehicule" | "equipement" | "equipe">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "disponible">("all");
   const [selectedResource, setSelectedResource] = useState<any>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   const dbCompanies = companies.filter((c) => c.id !== "global");
   const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
@@ -142,7 +144,7 @@ export default function Ressources() {
           <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Ressources</h1>
           {!isMobile && <p className="text-muted-foreground mt-1">Personnel et équipements — cliquez pour gérer</p>}
         </div>
-        <Button size={isMobile ? "sm" : "default"}>
+        <Button size={isMobile ? "sm" : "default"} onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4 mr-1" />
           {!isMobile && "Ajouter"}
         </Button>
@@ -301,6 +303,12 @@ export default function Ressources() {
           companies={companies}
         />
       )}
+
+      <CreateResourceDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        companyId={companyIds[0] ?? ""}
+      />
     </div>
   );
 }

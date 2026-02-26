@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Truck, Wrench, Search, AlertTriangle, ShieldCheck, Calendar, Package, Camera } from "lucide-react";
+import { Truck, Wrench, Search, AlertTriangle, ShieldCheck, Calendar, Package, Camera, Plus } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ResourceDetailSheet } from "@/components/ressources/ResourceDetailSheet";
+import { CreateResourceDialog } from "@/components/ressources/CreateResourceDialog";
 import { differenceInDays, format } from "date-fns";
 
 const typeLabels: Record<string, string> = {
@@ -55,6 +57,7 @@ const FleetPage = () => {
   const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [selectedResource, setSelectedResource] = useState<any>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [typeFilter, setTypeFilter] = useState<"all" | "grue" | "vehicule" | "equipement">("all");
 
   const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
@@ -155,6 +158,10 @@ const FleetPage = () => {
             </p>
           )}
         </div>
+        <Button size={isMobile ? "sm" : "default"} onClick={() => setShowCreateDialog(true)}>
+          <Plus className="h-4 w-4 mr-1" />
+          {!isMobile && "Ajouter"}
+        </Button>
       </motion.div>
 
       {/* Filters */}
@@ -286,6 +293,13 @@ const FleetPage = () => {
           companies={companies}
         />
       )}
+
+      <CreateResourceDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        companyId={companyIds[0] ?? ""}
+        defaultType="grue"
+      />
     </div>
   );
 };
