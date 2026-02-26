@@ -56,6 +56,9 @@ serve(async (req) => {
     const companyId = body.companyId;
     const devisId = body.devisId;
     const visiteId = body.visiteId;
+    const appBaseUrl = typeof body.appBaseUrl === "string" && body.appBaseUrl.trim().length > 0
+      ? body.appBaseUrl.replace(/\/+$/, "")
+      : "https://altasart.lovable.app";
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
@@ -152,7 +155,7 @@ serve(async (req) => {
             .maybeSingle();
 
           if (existingSig?.token) {
-            vars.signature_url = `https://altasart.lovable.app/sign/${existingSig.token}`;
+            vars.signature_url = `${appBaseUrl}/sign/${existingSig.token}`;
             console.log("Using existing signature token:", existingSig.token);
           } else {
             // Create a new signature token
@@ -164,7 +167,7 @@ serve(async (req) => {
             if (sigError) {
               console.error("Failed to create signature:", sigError);
             } else if (newSig?.token) {
-              vars.signature_url = `https://altasart.lovable.app/sign/${newSig.token}`;
+              vars.signature_url = `${appBaseUrl}/sign/${newSig.token}`;
               console.log("Created new signature token:", newSig.token);
             }
           }

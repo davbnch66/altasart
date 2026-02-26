@@ -47,15 +47,17 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { templateType, companyId, devisId, visiteId, dossierRelance } = body;
+    const { templateType, companyId, devisId, visiteId, dossierRelance, appBaseUrl } = body;
 
     if (!templateType || !companyId) {
       return new Response(JSON.stringify({ error: "templateType et companyId requis" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const resolvedAppBaseUrl = typeof appBaseUrl === "string" && appBaseUrl.trim().length > 0
+      ? appBaseUrl.replace(/\/+$/, "")
+      : "https://altasart.lovable.app";
 
-    // Fetch template from DB
     const { data: tpl } = await serviceSupabase
       .from("email_templates")
       .select("subject, body")
@@ -153,7 +155,7 @@ serve(async (req) => {
             signatureToken = newSig?.token || null;
           }
           if (signatureToken) {
-            vars.signature_url = `https://altasart.lovable.app/sign/${signatureToken}`;
+            vars.signature_url = `${resolvedAppBaseUrl}/sign/${signatureToken}`;
           }
         }
 
