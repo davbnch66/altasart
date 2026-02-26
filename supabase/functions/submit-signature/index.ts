@@ -11,10 +11,17 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { token, signerName, signerEmail } = await req.json();
+    const { token, signerName, signerEmail, signatureDataUrl } = await req.json();
 
     if (!token || !signerName?.trim()) {
       return new Response(JSON.stringify({ error: "Token et nom requis" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!signatureDataUrl) {
+      return new Response(JSON.stringify({ error: "La signature manuscrite est requise" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -25,7 +32,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Fetch signature record with devis info
+    // Fetch signature record
     const { data: sig, error: sigFetchErr } = await supabase
       .from("devis_signatures")
       .select("id, status, expires_at, devis_id, company_id")
@@ -53,7 +60,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Update signature record
+    // Update signature record with signature image
     const { error: updateSigErr } = await supabase
       .from("devis_signatures")
       .update({
@@ -61,15 +68,16 @@ Deno.serve(async (req) => {
         signer_name: signerName.trim(),
         signer_email: signerEmail?.trim() || null,
         signed_at: new Date().toISOString(),
+        signature_data_url: signatureDataUrl,
       })
       .eq("token", token);
 
     if (updateSigErr) throw updateSigErr;
 
-    // Fetch devis details for notification
+    // Fetch devis details for notification + email
     const { data: devisData } = await supabase
       .from("devis")
-      .select("code, objet, company_id, created_by, client_id, clients(name)")
+      .select("id, code, objet, company_id, created_by, client_id, clients(name, email), companies(name, short_name, email)")
       .eq("id", sig.devis_id)
       .single();
 
@@ -90,7 +98,6 @@ Deno.serve(async (req) => {
       const devisCode = devisData.code || "";
       const companyId = devisData.company_id;
 
-      // Get all members of this company
       const { data: members } = await supabase
         .from("company_memberships")
         .select("profile_id")
@@ -102,11 +109,70 @@ Deno.serve(async (req) => {
           company_id: companyId,
           type: "devis_accepted" as const,
           title: `Devis ${devisCode} accepté !`,
-          body: `${clientName} a accepté le devis "${devisData.objet || devisCode}".`,
+          body: `${clientName} a accepté et signé le devis "${devisData.objet || devisCode}".`,
           link: `/devis/${sig.devis_id}`,
         }));
 
         await supabase.from("notifications").insert(notifications);
+      }
+
+      // Send signed PDF email via Resend
+      try {
+        const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+        const SMTP_USER = Deno.env.get("SMTP_USER");
+        
+        if (RESEND_API_KEY || SMTP_USER) {
+          const companyData = devisData as any;
+          const companyEmail = companyData.companies?.email;
+          const companyName = companyData.companies?.name || companyData.companies?.short_name || "L'entreprise";
+          const recipientEmail = signerEmail?.trim() || (companyData.clients?.email);
+          
+          // Build list of email recipients
+          const toEmails: string[] = [];
+          if (recipientEmail) toEmails.push(recipientEmail);
+          
+          // CC company
+          const ccEmails: string[] = [];
+          if (companyEmail) ccEmails.push(companyEmail);
+          
+          if (toEmails.length > 0 && RESEND_API_KEY) {
+            const sanitizedSignerName = signerName.trim().replace(/[<>&"']/g, '');
+            const sanitizedDevisCode = (devisCode || '').replace(/[<>&"']/g, '');
+            const sanitizedObjet = (devisData.objet || '').replace(/[<>&"']/g, '');
+            const sanitizedCompanyName = companyName.replace(/[<>&"']/g, '');
+
+            const emailHtml = `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #C85020;">Devis ${sanitizedDevisCode} — Signé ✓</h2>
+                <p>Bonjour,</p>
+                <p>Le devis <strong>${sanitizedDevisCode}</strong> concernant « ${sanitizedObjet} » a été accepté et signé électroniquement par <strong>${sanitizedSignerName}</strong>.</p>
+                <p>La signature manuscrite est intégrée au devis. Vous pouvez retrouver ce devis dans votre espace.</p>
+                <br/>
+                <p style="color: #666; font-size: 12px;">— ${sanitizedCompanyName}</p>
+              </div>
+            `;
+
+            const fromEmail = SMTP_USER || "noreply@altasart.com";
+
+            await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${RESEND_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                from: `${companyName} <${fromEmail}>`,
+                to: toEmails,
+                cc: ccEmails.length > 0 ? ccEmails : undefined,
+                subject: `Devis ${devisCode} signé — ${devisData.objet || ''}`,
+                html: emailHtml,
+              }),
+            });
+          }
+        }
+      } catch (emailErr) {
+        // Email is best-effort, don't fail the signature
+        console.error("Email send error:", emailErr);
       }
     }
 

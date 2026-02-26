@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
     const { data: sig, error } = await supabase
       .from("devis_signatures")
       .select(`
-        id, token, status, expires_at, signed_at, signer_name,
+        id, token, status, expires_at, signed_at, signer_name, signature_data_url,
         devis:devis_id (
           id, code, objet, amount, notes, valid_until,
           clients:client_id (name, email, address, city, postal_code),
