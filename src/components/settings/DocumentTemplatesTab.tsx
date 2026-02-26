@@ -11,9 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Upload, FileText, Trash2, Star, Copy, Info, Loader2, Download } from "lucide-react";
+import { Upload, FileText, Trash2, Star, Copy, Info, Loader2, Download, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { downloadSampleTemplate } from "@/lib/generateSampleDocxTemplates";
 
 export function DocumentTemplatesTab() {
   const isMobile = useIsMobile();
@@ -29,6 +30,7 @@ export function DocumentTemplatesTab() {
   const [uploadCompany, setUploadCompany] = useState(companyIds[0] || "");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [generatingTemplate, setGeneratingTemplate] = useState(false);
 
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["document-templates", companyIds],
@@ -145,6 +147,19 @@ export function DocumentTemplatesTab() {
     toast.success(`{{${key}}} copié`);
   };
 
+  const handleGenerateSample = async () => {
+    setGeneratingTemplate(true);
+    try {
+      await downloadSampleTemplate(selectedType);
+      toast.success(`Modèle Word "${typeLabel}" téléchargé`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erreur lors de la génération");
+    } finally {
+      setGeneratingTemplate(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -160,8 +175,12 @@ export function DocumentTemplatesTab() {
             <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setVariablesOpen(true)}>
               <Info className="h-3.5 w-3.5" /> Variables
             </Button>
+            <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={handleGenerateSample} disabled={generatingTemplate}>
+              {generatingTemplate ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+              Générer modèle
+            </Button>
             <Button size="sm" className="text-xs gap-1.5" onClick={() => setUploadOpen(true)}>
-              <Upload className="h-3.5 w-3.5" /> Importer un modèle
+              <Upload className="h-3.5 w-3.5" /> Importer
             </Button>
           </div>
         </div>
