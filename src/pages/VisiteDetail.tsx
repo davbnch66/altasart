@@ -698,9 +698,21 @@ const VisiteDetail = () => {
           const file = e.target.files?.[0];
           if (!file) return;
           try {
-            const { data: piecesData } = await supabase.from("visite_pieces").select("id").eq("visite_id", visite.id).order("sort_order").limit(1);
-            const pieceId = piecesData?.[0]?.id || null;
-            const path = `${visite.id}/${pieceId || "general"}/${Date.now()}_${file.name}`;
+            // Get or create a default piece
+            let { data: piecesData } = await supabase.from("visite_pieces").select("id").eq("visite_id", visite.id).order("sort_order").limit(1);
+            let pieceId = piecesData?.[0]?.id;
+            if (!pieceId) {
+              const { data: newPiece, error: pieceErr } = await supabase.from("visite_pieces").insert({
+                visite_id: visite.id,
+                company_id: visite.company_id,
+                name: "Général",
+                sort_order: 0,
+              }).select("id").single();
+              if (pieceErr) throw pieceErr;
+              pieceId = newPiece.id;
+              queryClient.invalidateQueries({ queryKey: ["visite-pieces", visite.id] });
+            }
+            const path = `${visite.id}/${pieceId}/${Date.now()}_${file.name}`;
             const { error: uploadErr } = await supabase.storage.from("visite-photos").upload(path, file);
             if (uploadErr) throw uploadErr;
             await supabase.from("visite_photos").insert({
@@ -712,10 +724,12 @@ const VisiteDetail = () => {
             });
             toast.success("Photo ajoutée");
             queryClient.invalidateQueries({ queryKey: ["visite-photos", visite.id] });
+            // Switch to site tab to show the photo
+            setActiveTab("site");
           } catch (err: any) {
             toast.error(err.message || "Erreur upload");
           }
-          e.target.value = "";
+          setTimeout(() => { if (e.target) e.target.value = ""; }, 500);
         }}
       />
 
