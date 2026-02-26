@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DevisLinesManager } from "@/components/DevisLinesManager";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, Pencil, FileText, Check, X, Send, CalendarPlus } from "lucide-react";
+import { ArrowLeft, Download, Pencil, FileText, Check, X, Send, CalendarPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -124,6 +124,7 @@ const DevisDetail = () => {
   const [editing, setEditing] = useState(false);
   const [sendingSignature, setSendingSignature] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const [creatingDossier, setCreatingDossier] = useState(false);
   const isMobile = useIsMobile();
   const fromClient = (location.state as any)?.fromClient === true;
   const fromDossier = (location.state as any)?.fromDossier as string | undefined;
@@ -230,8 +231,33 @@ const DevisDetail = () => {
             </Button>
           )}
           {devis.status === "accepte" && !dossier && (
-            <Button size={isMobile ? "icon" : "sm"} variant="outline" disabled title="Liez d'abord un dossier à ce devis">
-              <CalendarPlus className="h-4 w-4" />
+            <Button size={isMobile ? "icon" : "sm"} disabled={creatingDossier} onClick={async () => {
+              setCreatingDossier(true);
+              try {
+                const client = devis.clients as any;
+                const { data: newDossier, error } = await supabase.from("dossiers").insert({
+                  title: devis.objet,
+                  client_id: devis.client_id,
+                  company_id: devis.company_id,
+                  stage: "accepte" as any,
+                  amount: devis.amount,
+                  address: client?.address || null,
+                  origin: "devis",
+                }).select("id, code, title, stage, loading_address, loading_postal_code, loading_city, loading_floor, loading_elevator, delivery_address, delivery_postal_code, delivery_city, delivery_floor, delivery_elevator, volume, weight").single();
+                if (error) throw error;
+                // Link devis to dossier
+                await supabase.from("devis").update({ dossier_id: newDossier.id }).eq("id", devis.id);
+                await queryClient.invalidateQueries({ queryKey: ["devis-detail", id] });
+                toast.success("Dossier créé et lié automatiquement");
+                // Open scheduling dialog after a short delay for the query to refetch
+                setTimeout(() => setScheduling(true), 300);
+              } catch (e: any) {
+                toast.error("Erreur : " + (e.message || "Impossible de créer le dossier"));
+              } finally {
+                setCreatingDossier(false);
+              }
+            }}>
+              {creatingDossier ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
               {!isMobile && <span className="ml-1">Programmer</span>}
             </Button>
           )}
