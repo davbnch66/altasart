@@ -56,9 +56,23 @@ serve(async (req) => {
     const companyId = body.companyId;
     const devisId = body.devisId;
     const visiteId = body.visiteId;
-    const appBaseUrl = typeof body.appBaseUrl === "string" && body.appBaseUrl.trim().length > 0
-      ? body.appBaseUrl.replace(/\/+$/, "")
-      : "https://altasart.lovable.app";
+    const resolveSafeAppBaseUrl = (candidate: unknown): string => {
+      const fallback = "https://altasart.lovable.app";
+      if (typeof candidate !== "string" || !candidate.trim()) return fallback;
+
+      try {
+        const parsed = new URL(candidate.trim());
+        const isAllowedHost = parsed.hostname === "altasart.lovable.app";
+        const isHttps = parsed.protocol === "https:";
+
+        if (!isAllowedHost || !isHttps) return fallback;
+        return `${parsed.protocol}//${parsed.host}`.replace(/\/+$/, "");
+      } catch {
+        return fallback;
+      }
+    };
+
+    const appBaseUrl = resolveSafeAppBaseUrl(body.appBaseUrl);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
