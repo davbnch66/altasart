@@ -312,6 +312,12 @@ const DevisDetail = () => {
                 if (error) throw error;
                 // Link devis to dossier
                 await supabase.from("devis").update({ dossier_id: newDossier.id }).eq("id", devis.id);
+                // Also link the associated visite to the new dossier
+                if (devis.visite_id) {
+                  await supabase.from("visites").update({ dossier_id: newDossier.id }).eq("id", devis.visite_id);
+                  queryClient.invalidateQueries({ queryKey: ["visites"] });
+                  queryClient.invalidateQueries({ queryKey: ["dossier-visites"] });
+                }
                 await queryClient.invalidateQueries({ queryKey: ["devis-detail", id] });
                 toast.success("Dossier créé et lié automatiquement");
                 // Open scheduling dialog after a short delay for the query to refetch
