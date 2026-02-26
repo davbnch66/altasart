@@ -31,6 +31,46 @@ function drawLogo(doc: jsPDF, logoResult: LogoResult | null, company: any, margi
   }
 }
 
+/** Draw signature stamp at the bottom-right of a page */
+function drawSignatureStamp(
+  doc: jsPDF,
+  signatureDataUrl: string | null,
+  signerName: string | null,
+  signedAt: string | null,
+  pageW: number,
+  marginR: number
+) {
+  if (!signatureDataUrl) return;
+
+  const stampX = pageW - marginR - 55;
+  const stampY = 250;
+
+  // Light border
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(stampX, stampY, 55, 28, 1.5, 1.5);
+
+  // "Lu et approuvé" label
+  doc.setFontSize(6);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(120, 120, 120);
+  doc.text("Lu et approuvé", stampX + 2, stampY + 3.5);
+
+  // Signature image — fit in ~50x16mm area
+  try {
+    doc.addImage(signatureDataUrl, "PNG", stampX + 2, stampY + 5, 40, 14);
+  } catch {
+    // fallback if image decode fails
+  }
+
+  // Signer name + date
+  doc.setFontSize(5.5);
+  doc.setTextColor(80, 80, 80);
+  const nameText = signerName || "";
+  const dateText = signedAt ? format(new Date(signedAt), "dd/MM/yyyy") : "";
+  doc.text(`${nameText}  ${dateText}`, stampX + 2, stampY + 26);
+}
+
 function drawFooter(doc: jsPDF, company: any, pageW: number, marginL: number, marginR: number) {
   const footerY = 280;
   doc.setDrawColor(brandR, brandG, brandB);
@@ -68,6 +108,27 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
     .select("*")
     .eq("devis_id", devisId)
     .order("sort_order", { ascending: true });
+
+  // Fetch signature data if the devis is signed
+  let signatureDataUrl: string | null = null;
+  let signerName: string | null = null;
+  let signedAt: string | null = null;
+
+  if (devis.status === "accepte") {
+    const { data: sigData } = await supabase
+      .from("devis_signatures")
+      .select("signature_data_url, signer_name, signed_at, status")
+      .eq("devis_id", devisId)
+      .eq("status", "signed")
+      .order("signed_at", { ascending: false })
+      .limit(1);
+
+    if (sigData && sigData.length > 0 && sigData[0].signature_data_url) {
+      signatureDataUrl = sigData[0].signature_data_url;
+      signerName = sigData[0].signer_name;
+      signedAt = sigData[0].signed_at;
+    }
+  }
 
   const devisLines = lines ?? [];
   const client = devis.clients as any;
@@ -123,7 +184,6 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
   y = 56;
   doc.setTextColor(0, 0, 0);
 
-  // Client box (right side)
   const clientBoxX = pageW / 2 + 5;
   const clientBoxW = colR - clientBoxX;
   doc.setDrawColor(220, 220, 220);
@@ -203,7 +263,6 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
   const colTotal = colR - 3;
 
   if (devisLines.length > 0) {
-    // Table header
     doc.setFillColor(brandR, brandG, brandB);
     doc.rect(marginL, y, contentW, 7, "F");
     doc.setFont("helvetica", "bold");
@@ -221,7 +280,8 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
 
     let rowAlt = false;
     for (const line of devisLines) {
-      if (y > 245) {
+      if (y > 240) {
+        drawSignatureStamp(doc, signatureDataUrl, signerName, signedAt, pageW, marginR);
         drawFooter(doc, company, pageW, marginL, marginR);
         doc.addPage();
         drawLogo(doc, logoResult, company, marginL);
@@ -260,7 +320,8 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
 
   // ===================== TOTALS TABLE =====================
   y += 6;
-  if (y > 230) {
+  if (y > 225) {
+    drawSignatureStamp(doc, signatureDataUrl, signerName, signedAt, pageW, marginR);
     drawFooter(doc, company, pageW, marginL, marginR);
     doc.addPage();
     drawLogo(doc, logoResult, company, marginL);
@@ -332,13 +393,16 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
   y += 3;
   doc.text("accompagne des conditions generales dument signe et tamponne.", marginL, y);
 
+  // ===================== SIGNATURE STAMP PAGE 1 =====================
+  drawSignatureStamp(doc, signatureDataUrl, signerName, signedAt, pageW, marginR);
+
   // ===================== FOOTER PAGE 1 =====================
   drawFooter(doc, company, pageW, marginL, marginR);
 
   // ===================== PAGE 2 - CONDITIONS GENERALES =====================
   doc.addPage();
   drawLogo(doc, logoResult, company, marginL);
-  generateConditionsPage(doc, company, devis, logoResult, pageW, marginL, marginR, contentW, colR);
+  generateConditionsPage(doc, company, devis, logoResult, pageW, marginL, marginR, contentW, colR, signatureDataUrl, signerName, signedAt);
 
   const fileName = `Devis_${devis.code || devis.id.slice(0, 8)}.pdf`;
 
@@ -348,16 +412,18 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
   doc.save(fileName);
 }
 
-function generateConditionsPage(doc: jsPDF, company: any, devis: any, logoResult: LogoResult | null, pageW: number, marginL: number, marginR: number, contentW: number, colR: number) {
+function generateConditionsPage(
+  doc: jsPDF, company: any, devis: any, logoResult: LogoResult | null,
+  pageW: number, marginL: number, marginR: number, contentW: number, colR: number,
+  signatureDataUrl: string | null, signerName: string | null, signedAt: string | null
+) {
   let y = 35;
 
-  // Devis ref top-right
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(120, 120, 120);
   doc.text(`DEVIS N° ${devis.code || "---"}`, colR, 16, { align: "right" });
 
-  // Title bar
   doc.setFillColor(brandR, brandG, brandB);
   doc.roundedRect(marginL, y, contentW, 8, 1, 1, "F");
   doc.setFontSize(11);
@@ -382,7 +448,8 @@ function generateConditionsPage(doc: jsPDF, company: any, devis: any, logoResult
   ];
 
   for (const cond of conditions) {
-    if (y > 260) {
+    if (y > 240) {
+      drawSignatureStamp(doc, signatureDataUrl, signerName, signedAt, pageW, marginR);
       drawFooter(doc, company, pageW, marginL, marginR);
       doc.addPage();
       drawLogo(doc, logoResult, company, marginL);
@@ -399,14 +466,16 @@ function generateConditionsPage(doc: jsPDF, company: any, devis: any, logoResult
     y += textLines.length * 3.2 + 4;
   }
 
-  // Signature area
+  // Signature area — if signed, show real signature; otherwise show empty box
   y += 8;
-  if (y > 245) {
+  if (y > 240) {
+    drawSignatureStamp(doc, signatureDataUrl, signerName, signedAt, pageW, marginR);
     drawFooter(doc, company, pageW, marginL, marginR);
     doc.addPage();
     drawLogo(doc, logoResult, company, marginL);
     y = 35;
   }
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(0, 0, 0);
@@ -415,9 +484,27 @@ function generateConditionsPage(doc: jsPDF, company: any, devis: any, logoResult
   doc.setFont("helvetica", "normal");
   doc.text("Lu et approuve", marginL + contentW - 35, y);
   y += 3;
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(marginL + contentW - 55, y, 55, 20, 1, 1);
 
+  if (signatureDataUrl) {
+    // Draw actual signature
+    doc.setDrawColor(brandR, brandG, brandB);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(marginL + contentW - 55, y, 55, 25, 1, 1);
+    try {
+      doc.addImage(signatureDataUrl, "PNG", marginL + contentW - 53, y + 1, 42, 16);
+    } catch { /* skip */ }
+    doc.setFontSize(6);
+    doc.setTextColor(60, 60, 60);
+    doc.text(signerName || "", marginL + contentW - 53, y + 20);
+    if (signedAt) {
+      doc.text(`Signé le ${format(new Date(signedAt), "dd/MM/yyyy")}`, marginL + contentW - 53, y + 23);
+    }
+  } else {
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(marginL + contentW - 55, y, 55, 20, 1, 1);
+  }
+
+  drawSignatureStamp(doc, signatureDataUrl, signerName, signedAt, pageW, marginR);
   drawFooter(doc, company, pageW, marginL, marginR);
 }

@@ -629,6 +629,7 @@ export type Database = {
           devis_id: string
           expires_at: string
           id: string
+          signature_data_url: string | null
           signed_at: string | null
           signer_email: string | null
           signer_name: string | null
@@ -641,6 +642,7 @@ export type Database = {
           devis_id: string
           expires_at?: string
           id?: string
+          signature_data_url?: string | null
           signed_at?: string | null
           signer_email?: string | null
           signer_name?: string | null
@@ -653,6 +655,7 @@ export type Database = {
           devis_id?: string
           expires_at?: string
           id?: string
+          signature_data_url?: string | null
           signed_at?: string | null
           signer_email?: string | null
           signer_name?: string | null

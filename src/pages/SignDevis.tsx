@@ -1,12 +1,12 @@
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, FileText, AlertTriangle, PenLine } from "lucide-react";
+import { CheckCircle, FileText, AlertTriangle, PenLine, Eraser } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { toast } from "sonner";
@@ -19,7 +19,6 @@ const formatDate = (dateStr: string | null) => {
   try { return format(new Date(dateStr), "dd MMMM yyyy", { locale: fr }); } catch { return "—"; }
 };
 
-// Build the edge function base URL from env
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
@@ -33,10 +32,116 @@ const edgeFetch = (fnName: string, options: RequestInit = {}) =>
     },
   });
 
+// ── Inline Signature Canvas ──
+const SignatureCanvas = ({ onSignatureChange }: { onSignatureChange: (dataUrl: string | null) => void }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [drawing, setDrawing] = useState(false);
+  const [hasDrawn, setHasDrawn] = useState(false);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * 2;
+    canvas.height = rect.height * 2;
+    ctx.scale(2, 2);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#1a1a2e";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, rect.width, rect.height);
+  }, []);
+
+  const getPos = (e: React.TouchEvent | React.MouseEvent) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    if ("touches" in e) {
+      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+    }
+    return { x: (e as React.MouseEvent).clientX - rect.left, y: (e as React.MouseEvent).clientY - rect.top };
+  };
+
+  const startDraw = (e: React.TouchEvent | React.MouseEvent) => {
+    e.preventDefault();
+    setDrawing(true);
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx) return;
+    const pos = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(pos.x, pos.y);
+  };
+
+  const draw = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!drawing) return;
+    e.preventDefault();
+    const ctx = canvasRef.current?.getContext("2d");
+    if (!ctx) return;
+    const pos = getPos(e);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+  };
+
+  const endDraw = useCallback(() => {
+    if (drawing) {
+      setDrawing(false);
+      setHasDrawn(true);
+      const canvas = canvasRef.current;
+      if (canvas) onSignatureChange(canvas.toDataURL("image/png"));
+    }
+  }, [drawing, onSignatureChange]);
+
+  const clear = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    setHasDrawn(false);
+    onSignatureChange(null);
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">Signez dans le cadre ci-dessous :</p>
+        {hasDrawn && (
+          <Button variant="ghost" size="sm" onClick={clear} className="h-7 text-xs gap-1">
+            <Eraser className="h-3 w-3" /> Effacer
+          </Button>
+        )}
+      </div>
+      <div className="rounded-xl border-2 border-dashed border-muted-foreground/30 overflow-hidden bg-white" style={{ height: 180 }}>
+        <canvas
+          ref={canvasRef}
+          className="w-full h-full touch-none cursor-crosshair"
+          onMouseDown={startDraw}
+          onMouseMove={draw}
+          onMouseUp={endDraw}
+          onMouseLeave={endDraw}
+          onTouchStart={startDraw}
+          onTouchMove={draw}
+          onTouchEnd={endDraw}
+        />
+      </div>
+      {!hasDrawn && (
+        <p className="text-xs text-center text-muted-foreground/60 italic">
+          Utilisez votre doigt ou votre souris pour signer
+        </p>
+      )}
+    </div>
+  );
+};
+
 const SignDevis = () => {
   const { token } = useParams<{ token: string }>();
   const [signerName, setSignerName] = useState("");
   const [signerEmail, setSignerEmail] = useState("");
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [signed, setSigned] = useState(false);
 
   const { data, isLoading, error } = useQuery({
@@ -53,6 +158,7 @@ const SignDevis = () => {
   const signMutation = useMutation({
     mutationFn: async () => {
       if (!signerName.trim()) throw new Error("Le nom est requis");
+      if (!signatureDataUrl) throw new Error("La signature manuscrite est requise");
 
       const res = await edgeFetch("submit-signature", {
         method: "POST",
@@ -60,6 +166,7 @@ const SignDevis = () => {
           token,
           signerName: signerName.trim(),
           signerEmail: signerEmail.trim() || null,
+          signatureDataUrl,
         }),
       });
       const json = await res.json();
@@ -110,6 +217,11 @@ const SignDevis = () => {
               ? `Ce devis a déjà été signé par ${sig.signer_name}.`
               : `Merci ${signerName}, votre acceptation a bien été enregistrée.`}
           </p>
+          {signed && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Le devis signé vous sera envoyé par email.
+            </p>
+          )}
           {alreadySigned && sig.signed_at && (
             <p className="text-sm text-muted-foreground">Le {formatDate(sig.signed_at)}</p>
           )}
@@ -209,7 +321,7 @@ const SignDevis = () => {
               />
             </div>
             <div>
-              <Label htmlFor="signer-email">Votre email (optionnel)</Label>
+              <Label htmlFor="signer-email">Votre email *</Label>
               <Input
                 id="signer-email"
                 type="email"
@@ -218,16 +330,20 @@ const SignDevis = () => {
                 placeholder="jean.dupont@exemple.fr"
                 className="mt-1"
               />
+              <p className="text-xs text-muted-foreground mt-1">Le devis signé vous sera envoyé à cette adresse</p>
             </div>
           </div>
+
+          {/* Signature manuscrite */}
+          <SignatureCanvas onSignatureChange={setSignatureDataUrl} />
 
           <Button
             className="w-full"
             size="lg"
-            disabled={!signerName.trim() || signMutation.isPending}
+            disabled={!signerName.trim() || !signatureDataUrl || signMutation.isPending}
             onClick={() => signMutation.mutate()}
           >
-            {signMutation.isPending ? "Enregistrement..." : "✓ J'accepte ce devis"}
+            {signMutation.isPending ? "Enregistrement..." : "✓ J'accepte et je signe ce devis"}
           </Button>
 
           <p className="text-xs text-muted-foreground text-center">
