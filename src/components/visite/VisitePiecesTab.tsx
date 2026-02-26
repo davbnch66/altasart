@@ -202,21 +202,34 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
   const [cacheBuster, setCacheBuster] = useState(() => Date.now());
 
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [urlsLoading, setUrlsLoading] = useState(false);
 
   // Fetch signed URLs for all photos
   useEffect(() => {
-    if (photos.length === 0) return;
+    if (photos.length === 0) { setSignedUrls({}); return; }
+    let cancelled = false;
+    setUrlsLoading(true);
     const fetchUrls = async () => {
       const urls: Record<string, string> = {};
-      for (const photo of photos) {
-        const { data } = await supabase.storage.from("visite-photos").createSignedUrl(photo.storage_path, 3600);
-        if (data?.signedUrl) {
-          urls[photo.storage_path] = data.signedUrl;
+      // Fetch in parallel for speed
+      const results = await Promise.allSettled(
+        photos.map(async (photo) => {
+          const { data } = await supabase.storage.from("visite-photos").createSignedUrl(photo.storage_path, 3600);
+          return { path: photo.storage_path, url: data?.signedUrl };
+        })
+      );
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value.url) {
+          urls[r.value.path] = r.value.url;
         }
       }
-      setSignedUrls(urls);
+      if (!cancelled) {
+        setSignedUrls(urls);
+        setUrlsLoading(false);
+      }
     };
     fetchUrls();
+    return () => { cancelled = true; };
   }, [photos, cacheBuster]);
 
   const getPhotoUrl = (path: string) => {
@@ -349,12 +362,19 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
 
               {/* Photos with captions */}
               <div className="space-y-2">
-                {piecePhotos(piece.id).map((photo: any) => (
+                {piecePhotos(piece.id).map((photo: any) => {
+                  const photoSrc = getPhotoUrl(photo.storage_path);
+                  if (!photoSrc) return (
+                    <div key={photo.id} className="w-full max-w-[200px] aspect-square rounded-lg border bg-muted/50 flex items-center justify-center">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  );
+                  return (
                   <div key={photo.id} className="space-y-1">
-                    <div className="relative group w-full max-w-[200px] aspect-square rounded-lg overflow-hidden border cursor-pointer" onClick={() => setLightboxSrc(getPhotoUrl(photo.storage_path))}>
-                      <img src={getPhotoUrl(photo.storage_path)} alt={photo.file_name || ""} className="w-full h-full object-cover" loading="lazy" />
+                    <div className="relative group w-full max-w-[200px] aspect-square rounded-lg overflow-hidden border cursor-pointer" onClick={() => setLightboxSrc(photoSrc)}>
+                      <img src={photoSrc} alt={photo.file_name || ""} className="w-full h-full object-cover" loading="lazy" />
                       <button
-                        onClick={(e) => { e.stopPropagation(); setAnnotating({ src: getPhotoUrl(photo.storage_path), photoId: photo.id, storagePath: photo.storage_path, pieceId: piece.id }); }}
+                        onClick={(e) => { e.stopPropagation(); setAnnotating({ src: photoSrc, photoId: photo.id, storagePath: photo.storage_path, pieceId: piece.id }); }}
                         className="absolute bottom-0.5 left-0.5 bg-primary text-primary-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Annoter"
                       >
@@ -374,7 +394,8 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                       className="text-xs h-7"
                     />
                   </div>
-                ))}
+                  );
+                })}
                 {/* Offline photos */}
                 {offlinePhotos.filter(p => p.pieceId === piece.id).map((op) => (
                   <div key={op.id} className="space-y-1">

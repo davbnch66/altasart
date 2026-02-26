@@ -1,12 +1,12 @@
 import { useState, useRef, useCallback, Suspense, useEffect } from "react";
-import { Canvas, useThree, useFrame } from "@react-three/fiber";
+import { Canvas, useThree, useFrame, ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, useGLTF, Center } from "@react-three/drei";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { Camera, Download, Image, RotateCcw, Move, Maximize2, X, Upload, Video } from "lucide-react";
+import { Camera, Download, Image, RotateCcw, Move, Maximize2, X, Video, Hand } from "lucide-react";
 import { toast } from "sonner";
 import { ARLiveCamera } from "./ARLiveCamera";
 import * as THREE from "three";
@@ -27,20 +27,83 @@ interface ARPhotoOverlayProps {
   onExport?: (blob: Blob) => void;
 }
 
-function DraggableModel({ url, scale, position, rotation }: {
+function DraggableModel({ url, scale, position, rotation, onPositionChange, onRotationChange, onScaleChange, dragMode }: {
   url: string;
   scale: number;
   position: [number, number, number];
   rotation: number;
+  onPositionChange: (pos: [number, number, number]) => void;
+  onRotationChange: (rot: number) => void;
+  onScaleChange: (s: number) => void;
+  dragMode: "move" | "rotate" | "scale";
 }) {
   const { scene } = useGLTF(url);
   const ref = useRef<THREE.Group>(null);
+  const dragging = useRef(false);
+  const lastPointer = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const { camera, gl, raycaster } = useThree();
+  const planeRef = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
 
-  // Clone scene to avoid issues with reuse
   const clonedScene = scene.clone(true);
 
+  const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    dragging.current = true;
+    lastPointer.current = { x: e.clientX, y: e.clientY };
+    gl.domElement.style.cursor = "grabbing";
+    // Disable orbit controls while dragging
+    gl.domElement.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = useCallback((e: PointerEvent) => {
+    if (!dragging.current) return;
+    const dx = e.clientX - lastPointer.current.x;
+    const dy = e.clientY - lastPointer.current.y;
+    lastPointer.current = { x: e.clientX, y: e.clientY };
+
+    if (dragMode === "move") {
+      // Project movement onto ground plane
+      const sensitivity = 0.05;
+      onPositionChange([
+        position[0] + dx * sensitivity,
+        position[1],
+        position[2] + dy * sensitivity,
+      ]);
+    } else if (dragMode === "rotate") {
+      onRotationChange(rotation + dx * 0.01);
+    } else if (dragMode === "scale") {
+      const delta = -dy * 0.01;
+      onScaleChange(Math.max(0.1, Math.min(10, scale + delta)));
+    }
+  }, [dragMode, position, rotation, scale, onPositionChange, onRotationChange, onScaleChange]);
+
+  const handlePointerUp = useCallback(() => {
+    dragging.current = false;
+    gl.domElement.style.cursor = "grab";
+  }, [gl]);
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+    canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointerup", handlePointerUp);
+    canvas.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      canvas.removeEventListener("pointermove", handlePointerMove);
+      canvas.removeEventListener("pointerup", handlePointerUp);
+      canvas.removeEventListener("pointercancel", handlePointerUp);
+    };
+  }, [gl, handlePointerMove, handlePointerUp]);
+
   return (
-    <group ref={ref} position={position} rotation={[0, rotation, 0]} scale={[scale, scale, scale]}>
+    <group
+      ref={ref}
+      position={position}
+      rotation={[0, rotation, 0]}
+      scale={[scale, scale, scale]}
+      onPointerDown={handlePointerDown}
+      onPointerOver={() => { gl.domElement.style.cursor = "grab"; }}
+      onPointerOut={() => { if (!dragging.current) gl.domElement.style.cursor = "auto"; }}
+    >
       <Center>
         <primitive object={clonedScene} />
       </Center>
@@ -48,25 +111,33 @@ function DraggableModel({ url, scale, position, rotation }: {
   );
 }
 
-function SceneContent({ modelUrl, modelScale, modelPosition, modelRotation }: {
+function SceneContent({ modelUrl, modelScale, modelPosition, modelRotation, onPositionChange, onRotationChange, onScaleChange, dragMode, orbitEnabled }: {
   modelUrl: string;
   modelScale: number;
   modelPosition: [number, number, number];
   modelRotation: number;
+  onPositionChange: (pos: [number, number, number]) => void;
+  onRotationChange: (rot: number) => void;
+  onScaleChange: (s: number) => void;
+  dragMode: "move" | "rotate" | "scale";
+  orbitEnabled: boolean;
 }) {
   return (
     <>
       <ambientLight intensity={0.8} />
       <directionalLight position={[10, 15, 10]} intensity={0.6} />
       <directionalLight position={[-5, 10, -5]} intensity={0.3} />
-      <OrbitControls enableRotate enableZoom enablePan />
+      <OrbitControls enableRotate={orbitEnabled} enableZoom enablePan={orbitEnabled} />
       <DraggableModel
         url={modelUrl}
         scale={modelScale}
         position={modelPosition}
         rotation={modelRotation}
+        onPositionChange={onPositionChange}
+        onRotationChange={onRotationChange}
+        onScaleChange={onScaleChange}
+        dragMode={dragMode}
       />
-      {/* Ground grid for reference */}
       <gridHelper args={[50, 50, "#888888", "#444444"]} position={[0, -0.01, 0]} />
     </>
   );
@@ -79,6 +150,7 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
   const [modelRotation, setModelRotation] = useState(0);
   const [modelPosition, setModelPosition] = useState<[number, number, number]>([0, 0, 0]);
   const [exporting, setExporting] = useState(false);
+  const [dragMode, setDragMode] = useState<"move" | "rotate" | "scale">("move");
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -86,7 +158,6 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
 
   const modelInfo = AVAILABLE_MODELS.find((m) => m.key === selectedModel) || AVAILABLE_MODELS[0];
 
-  // Reset state when reopening
   useEffect(() => {
     if (open) {
       setPhotoUrl(initialPhotoUrl || null);
@@ -108,21 +179,15 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
     if (!containerRef.current) return;
     setExporting(true);
     try {
-      // Find the canvas inside the container
       const canvas = containerRef.current.querySelector("canvas");
       if (!canvas) throw new Error("Canvas not found");
-
-      // Create composite image
       const compositeCanvas = document.createElement("canvas");
       const ctx = compositeCanvas.getContext("2d")!;
-
       const width = containerRef.current.clientWidth;
       const height = containerRef.current.clientHeight;
-      compositeCanvas.width = width * 2; // Higher resolution
+      compositeCanvas.width = width * 2;
       compositeCanvas.height = height * 2;
       ctx.scale(2, 2);
-
-      // Draw photo background
       if (photoUrl) {
         const img = new window.Image();
         img.crossOrigin = "anonymous";
@@ -136,17 +201,13 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
         ctx.fillStyle = "#1a1a2e";
         ctx.fillRect(0, 0, width, height);
       }
-
-      // Draw 3D canvas on top
       ctx.drawImage(canvas, 0, 0, width, height);
-
       compositeCanvas.toBlob((blob) => {
         if (!blob) return;
         if (onExport) {
           onExport(blob);
           toast.success("Image exportée");
         } else {
-          // Download
           const link = document.createElement("a");
           link.href = URL.createObjectURL(blob);
           link.download = `ar-projection-${Date.now()}.png`;
@@ -168,6 +229,12 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
     setModelRotation(0);
     setModelPosition([0, 0, 0]);
   };
+
+  const dragModes = [
+    { key: "move" as const, icon: Move, label: "Déplacer" },
+    { key: "rotate" as const, icon: RotateCcw, label: "Tourner" },
+    { key: "scale" as const, icon: Maximize2, label: "Taille" },
+  ];
 
   return (
     <>
@@ -218,10 +285,29 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
           </div>
         </div>
 
-        {/* Controls bar */}
-        <div className="flex items-center gap-4 px-4 py-2 border-b bg-muted/30 text-xs flex-wrap">
-          <div className="flex items-center gap-2 min-w-32">
-            <Maximize2 className="h-3 w-3 text-muted-foreground" />
+        {/* Drag mode selector + fine controls */}
+        <div className="flex items-center gap-3 px-4 py-2 border-b bg-muted/30 text-xs flex-wrap">
+          <div className="flex items-center gap-1 bg-background rounded-lg p-0.5 border">
+            {dragModes.map((m) => (
+              <button
+                key={m.key}
+                onClick={() => setDragMode(m.key)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-colors ${
+                  dragMode === m.key
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <m.icon className="h-3 w-3" />
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <span className="text-[10px] text-muted-foreground hidden sm:inline">
+            <Hand className="h-3 w-3 inline mr-1" />
+            Glissez le modèle directement · Molette = zoom caméra
+          </span>
+          <div className="flex items-center gap-2 min-w-24 ml-auto">
             <Label className="text-[11px] w-12">Échelle</Label>
             <Slider
               value={[modelScale]}
@@ -229,12 +315,11 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
               min={0.1}
               max={5}
               step={0.1}
-              className="w-24"
+              className="w-20"
             />
             <span className="text-muted-foreground w-8 text-right">{modelScale.toFixed(1)}</span>
           </div>
-          <div className="flex items-center gap-2 min-w-32">
-            <RotateCcw className="h-3 w-3 text-muted-foreground" />
+          <div className="flex items-center gap-2 min-w-24">
             <Label className="text-[11px] w-12">Rotation</Label>
             <Slider
               value={[modelRotation]}
@@ -242,38 +327,14 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
               min={-Math.PI}
               max={Math.PI}
               step={0.05}
-              className="w-24"
+              className="w-20"
             />
             <span className="text-muted-foreground w-8 text-right">{Math.round((modelRotation * 180) / Math.PI)}°</span>
-          </div>
-          <div className="flex items-center gap-2 min-w-32">
-            <Move className="h-3 w-3 text-muted-foreground" />
-            <Label className="text-[11px] w-12">Position</Label>
-            <div className="flex gap-1">
-              {["X", "Y", "Z"].map((axis, i) => (
-                <div key={axis} className="flex items-center gap-0.5">
-                  <span className="text-[10px] text-muted-foreground">{axis}</span>
-                  <Slider
-                    value={[modelPosition[i]]}
-                    onValueChange={([v]) => {
-                      const newPos = [...modelPosition] as [number, number, number];
-                      newPos[i] = v;
-                      setModelPosition(newPos);
-                    }}
-                    min={-20}
-                    max={20}
-                    step={0.5}
-                    className="w-16"
-                  />
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 
         {/* Viewport */}
         <div ref={containerRef} className="flex-1 relative overflow-hidden">
-          {/* Background photo */}
           {photoUrl && (
             <img
               src={photoUrl}
@@ -282,7 +343,6 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
             />
           )}
 
-          {/* 3D overlay */}
           <Suspense
             fallback={
               <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
@@ -300,6 +360,11 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialModel, o
                 modelScale={modelScale}
                 modelPosition={modelPosition}
                 modelRotation={modelRotation}
+                onPositionChange={setModelPosition}
+                onRotationChange={setModelRotation}
+                onScaleChange={setModelScale}
+                dragMode={dragMode}
+                orbitEnabled={true}
               />
             </Canvas>
           </Suspense>

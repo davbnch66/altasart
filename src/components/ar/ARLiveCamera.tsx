@@ -1,12 +1,12 @@
 import { useState, useRef, useCallback, useEffect, Suspense } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree, ThreeEvent } from "@react-three/fiber";
 import { useGLTF, Center } from "@react-three/drei";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { Camera, Download, RotateCcw, Maximize2, X, VideoOff } from "lucide-react";
+import { Camera, Download, RotateCcw, Maximize2, X, VideoOff, Move, Hand } from "lucide-react";
 import { toast } from "sonner";
 import * as THREE from "three";
 
@@ -24,11 +24,62 @@ interface ARLiveCameraProps {
   initialModel?: string;
 }
 
-function LiveModel({ url, scale, rotation }: { url: string; scale: number; rotation: number }) {
+function LiveModel({ url, scale, rotation, onScaleChange, onRotationChange, dragMode }: {
+  url: string;
+  scale: number;
+  rotation: number;
+  onScaleChange: (s: number) => void;
+  onRotationChange: (r: number) => void;
+  dragMode: "rotate" | "scale";
+}) {
   const { scene } = useGLTF(url);
   const cloned = scene.clone(true);
+  const { gl } = useThree();
+  const dragging = useRef(false);
+  const lastPointer = useRef({ x: 0, y: 0 });
+
+  const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    dragging.current = true;
+    lastPointer.current = { x: e.clientX, y: e.clientY };
+    gl.domElement.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = useCallback((e: PointerEvent) => {
+    if (!dragging.current) return;
+    const dx = e.clientX - lastPointer.current.x;
+    const dy = e.clientY - lastPointer.current.y;
+    lastPointer.current = { x: e.clientX, y: e.clientY };
+
+    if (dragMode === "rotate") {
+      onRotationChange(rotation + dx * 0.01);
+    } else {
+      onScaleChange(Math.max(0.1, Math.min(10, scale - dy * 0.01)));
+    }
+  }, [dragMode, rotation, scale, onRotationChange, onScaleChange]);
+
+  const handlePointerUp = useCallback(() => {
+    dragging.current = false;
+  }, []);
+
+  useEffect(() => {
+    const canvas = gl.domElement;
+    canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointerup", handlePointerUp);
+    canvas.addEventListener("pointercancel", handlePointerUp);
+    return () => {
+      canvas.removeEventListener("pointermove", handlePointerMove);
+      canvas.removeEventListener("pointerup", handlePointerUp);
+      canvas.removeEventListener("pointercancel", handlePointerUp);
+    };
+  }, [gl, handlePointerMove, handlePointerUp]);
+
   return (
-    <group rotation={[0, rotation, 0]} scale={[scale, scale, scale]}>
+    <group
+      rotation={[0, rotation, 0]}
+      scale={[scale, scale, scale]}
+      onPointerDown={handlePointerDown}
+    >
       <Center>
         <primitive object={cloned} />
       </Center>
@@ -43,6 +94,7 @@ export function ARLiveCamera({ open, onClose, initialModel }: ARLiveCameraProps)
   const [selectedModel, setSelectedModel] = useState(initialModel || AVAILABLE_MODELS[0].key);
   const [modelScale, setModelScale] = useState(1);
   const [modelRotation, setModelRotation] = useState(0);
+  const [dragMode, setDragMode] = useState<"rotate" | "scale">("rotate");
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
@@ -52,7 +104,6 @@ export function ARLiveCamera({ open, onClose, initialModel }: ARLiveCameraProps)
   useEffect(() => {
     if (!open) return;
     let mounted = true;
-
     const startCamera = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -70,7 +121,6 @@ export function ARLiveCamera({ open, onClose, initialModel }: ARLiveCameraProps)
       }
     };
     startCamera();
-
     return () => {
       mounted = false;
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -90,14 +140,9 @@ export function ARLiveCamera({ open, onClose, initialModel }: ARLiveCameraProps)
       canvas.width = w * 2;
       canvas.height = h * 2;
       ctx.scale(2, 2);
-
-      // Draw video frame
       ctx.drawImage(videoRef.current, 0, 0, w, h);
-
-      // Draw 3D canvas
       const threeCanvas = containerRef.current.querySelector("canvas");
       if (threeCanvas) ctx.drawImage(threeCanvas, 0, 0, w, h);
-
       canvas.toBlob((blob) => {
         if (!blob) return;
         const link = document.createElement("a");
@@ -128,13 +173,28 @@ export function ARLiveCamera({ open, onClose, initialModel }: ARLiveCameraProps)
             </SelectContent>
           </Select>
 
+          <div className="flex items-center gap-1 bg-background rounded-lg p-0.5 border">
+            <button
+              onClick={() => setDragMode("rotate")}
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                dragMode === "rotate" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <RotateCcw className="h-3 w-3" />Tourner
+            </button>
+            <button
+              onClick={() => setDragMode("scale")}
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                dragMode === "scale" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <Maximize2 className="h-3 w-3" />Taille
+            </button>
+          </div>
+
           <div className="flex items-center gap-2 min-w-24">
             <Maximize2 className="h-3 w-3 text-muted-foreground" />
             <Slider value={[modelScale]} onValueChange={([v]) => setModelScale(v)} min={0.1} max={5} step={0.1} className="w-20" />
-          </div>
-          <div className="flex items-center gap-2 min-w-24">
-            <RotateCcw className="h-3 w-3 text-muted-foreground" />
-            <Slider value={[modelRotation]} onValueChange={([v]) => setModelRotation(v)} min={-Math.PI} max={Math.PI} step={0.05} className="w-20" />
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -149,7 +209,6 @@ export function ARLiveCamera({ open, onClose, initialModel }: ARLiveCameraProps)
 
         {/* Viewport */}
         <div ref={containerRef} className="flex-1 relative overflow-hidden bg-black">
-          {/* Camera feed */}
           <video
             ref={videoRef}
             className="absolute inset-0 w-full h-full object-cover"
@@ -168,7 +227,6 @@ export function ARLiveCamera({ open, onClose, initialModel }: ARLiveCameraProps)
             </div>
           )}
 
-          {/* 3D overlay */}
           {cameraReady && (
             <Suspense fallback={null}>
               <Canvas
@@ -178,10 +236,22 @@ export function ARLiveCamera({ open, onClose, initialModel }: ARLiveCameraProps)
               >
                 <ambientLight intensity={0.8} />
                 <directionalLight position={[10, 15, 10]} intensity={0.6} />
-                <LiveModel url={modelInfo.path} scale={modelScale} rotation={modelRotation} />
+                <LiveModel
+                  url={modelInfo.path}
+                  scale={modelScale}
+                  rotation={modelRotation}
+                  onScaleChange={setModelScale}
+                  onRotationChange={setModelRotation}
+                  dragMode={dragMode}
+                />
               </Canvas>
             </Suspense>
           )}
+
+          <div className="absolute bottom-3 left-3 bg-background/80 backdrop-blur-sm rounded-lg px-2.5 py-1.5 text-[10px] text-muted-foreground border">
+            <Hand className="h-3 w-3 inline mr-1" />
+            Glissez la grue pour la manipuler
+          </div>
         </div>
       </DialogContent>
     </Dialog>
