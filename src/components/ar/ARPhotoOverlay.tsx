@@ -111,7 +111,7 @@ function DraggableModel({ url, scale, position, rotation, onPositionChange, onRo
   );
 }
 
-function SceneContent({ modelUrl, modelScale, modelPosition, modelRotation, onPositionChange, onRotationChange, onScaleChange, dragMode, orbitEnabled }: {
+function SceneContent({ modelUrl, modelScale, modelPosition, modelRotation, onPositionChange, onRotationChange, onScaleChange, dragMode, orbitEnabled, showGrid }: {
   modelUrl: string;
   modelScale: number;
   modelPosition: [number, number, number];
@@ -121,6 +121,7 @@ function SceneContent({ modelUrl, modelScale, modelPosition, modelRotation, onPo
   onScaleChange: (s: number) => void;
   dragMode: "move" | "rotate" | "scale";
   orbitEnabled: boolean;
+  showGrid: boolean;
 }) {
   return (
     <>
@@ -138,7 +139,7 @@ function SceneContent({ modelUrl, modelScale, modelPosition, modelRotation, onPo
         onScaleChange={onScaleChange}
         dragMode={dragMode}
       />
-      <gridHelper args={[50, 50, "#888888", "#444444"]} position={[0, -0.01, 0]} />
+      {showGrid && <gridHelper args={[50, 50, "#888888", "#444444"]} position={[0, -0.01, 0]} />}
     </>
   );
 }
@@ -399,6 +400,7 @@ export function ARPhotoOverlay({ open, onClose, initialPhotoUrl, initialPhotoFil
                 onScaleChange={setModelScale}
                 dragMode={dragMode}
                 orbitEnabled={true}
+                showGrid={!photoUrl}
               />
             </Canvas>
           </Suspense>
