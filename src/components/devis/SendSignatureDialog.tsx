@@ -29,7 +29,17 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
   const [aiTone, setAiTone] = useState("cordial");
   const [generatingAi, setGeneratingAi] = useState(false);
 
-  const appBaseUrl = window.location.origin.replace(/\/+$/, "");
+  const appBaseUrl = (() => {
+    const origin = window.location.origin.replace(/\/+$/, "");
+    const hostname = window.location.hostname;
+
+    // Les liens envoyés aux clients doivent toujours pointer vers l'app publique
+    if (hostname.includes("lovableproject.com") || hostname.startsWith("id-preview--")) {
+      return "https://altasart.lovable.app";
+    }
+
+    return origin;
+  })();
 
   useEffect(() => {
     if (open) {

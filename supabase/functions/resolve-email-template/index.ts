@@ -54,9 +54,23 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const resolvedAppBaseUrl = typeof appBaseUrl === "string" && appBaseUrl.trim().length > 0
-      ? appBaseUrl.replace(/\/+$/, "")
-      : "https://altasart.lovable.app";
+    const resolveSafeAppBaseUrl = (candidate: unknown): string => {
+      const fallback = "https://altasart.lovable.app";
+      if (typeof candidate !== "string" || !candidate.trim()) return fallback;
+
+      try {
+        const parsed = new URL(candidate.trim());
+        const isAllowedHost = parsed.hostname === "altasart.lovable.app";
+        const isHttps = parsed.protocol === "https:";
+
+        if (!isAllowedHost || !isHttps) return fallback;
+        return `${parsed.protocol}//${parsed.host}`.replace(/\/+$/, "");
+      } catch {
+        return fallback;
+      }
+    };
+
+    const resolvedAppBaseUrl = resolveSafeAppBaseUrl(appBaseUrl);
 
     const { data: tpl } = await serviceSupabase
       .from("email_templates")
