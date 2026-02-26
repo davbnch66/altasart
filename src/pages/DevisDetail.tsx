@@ -193,8 +193,14 @@ const DevisDetail = () => {
 
   const linkDossier = async (dossierId: string) => {
     await supabase.from("devis").update({ dossier_id: dossierId }).eq("id", id!);
+    // Also link the associated visite to the same dossier
+    if (devis?.visite_id) {
+      await supabase.from("visites").update({ dossier_id: dossierId }).eq("id", devis.visite_id);
+      queryClient.invalidateQueries({ queryKey: ["visites"] });
+    }
     queryClient.invalidateQueries({ queryKey: ["devis-detail", id] });
     queryClient.invalidateQueries({ queryKey: ["devis"] });
+    queryClient.invalidateQueries({ queryKey: ["dossier-visites"] });
     setLinkingDossier(false);
     toast.success("Dossier rattaché");
   };
@@ -212,6 +218,12 @@ const DevisDetail = () => {
       }).select("id").single();
       if (error) throw error;
       await supabase.from("devis").update({ dossier_id: newD.id }).eq("id", id!);
+      // Also link the associated visite to the new dossier
+      if (devis.visite_id) {
+        await supabase.from("visites").update({ dossier_id: newD.id }).eq("id", devis.visite_id);
+        queryClient.invalidateQueries({ queryKey: ["visites"] });
+        queryClient.invalidateQueries({ queryKey: ["dossier-visites"] });
+      }
       queryClient.invalidateQueries({ queryKey: ["devis-detail", id] });
       queryClient.invalidateQueries({ queryKey: ["client-dossiers", devis.client_id] });
       setCreatingNewDossier(false);
