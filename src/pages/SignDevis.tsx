@@ -34,38 +34,54 @@ const edgeFetch = (fnName: string, options: RequestInit = {}) =>
 
 // ── Inline Signature Canvas ──
 const SignatureCanvas = ({ onSignatureChange }: { onSignatureChange: (dataUrl: string | null) => void }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [drawing, setDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
 
-  const initCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const parent = canvas.parentElement;
-    if (!parent) return;
-    const w = parent.clientWidth;
-    const h = parent.clientHeight;
-    if (w === 0 || h === 0) return;
-    canvas.width = w * 2;
-    canvas.height = h * 2;
-    canvas.style.width = w + "px";
-    canvas.style.height = h + "px";
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.scale(2, 2);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "#1a1a2e";
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, w, h);
-  }, []);
-
   useEffect(() => {
-    // Defer to ensure layout is computed
-    const raf = requestAnimationFrame(() => initCanvas());
-    return () => cancelAnimationFrame(raf);
-  }, [initCanvas]);
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+
+    const setup = () => {
+      const w = container.offsetWidth;
+      const h = container.offsetHeight;
+      if (w === 0 || h === 0) return;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = w + "px";
+      canvas.style.height = h + "px";
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#1a1a2e";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, w, h);
+    };
+
+    // Retry until dimensions are available
+    setup();
+    const t1 = requestAnimationFrame(setup);
+    const t2 = setTimeout(setup, 100);
+    const t3 = setTimeout(setup, 300);
+
+    const ro = new ResizeObserver(() => {
+      if (!hasDrawn) setup();
+    });
+    ro.observe(container);
+
+    return () => {
+      cancelAnimationFrame(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      ro.disconnect();
+    };
+  }, [hasDrawn]);
 
   const getPos = (e: React.TouchEvent | React.MouseEvent) => {
     const canvas = canvasRef.current!;
@@ -110,9 +126,11 @@ const SignatureCanvas = ({ onSignatureChange }: { onSignatureChange: (dataUrl: s
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.width / dpr;
+    const h = canvas.height / dpr;
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.fillRect(0, 0, w, h);
     setHasDrawn(false);
     onSignatureChange(null);
   };
@@ -120,18 +138,23 @@ const SignatureCanvas = ({ onSignatureChange }: { onSignatureChange: (dataUrl: s
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">Signez dans le cadre ci-dessous :</p>
+        <p className="text-xs text-muted-foreground flex items-center gap-1">
+          <PenLine className="h-3 w-3" /> Signez dans le cadre ci-dessous :
+        </p>
         {hasDrawn && (
           <Button variant="ghost" size="sm" onClick={clear} className="h-7 text-xs gap-1">
             <Eraser className="h-3 w-3" /> Effacer
           </Button>
         )}
       </div>
-      <div className="rounded-xl border-2 border-dashed border-muted-foreground/30 overflow-hidden bg-white" style={{ height: 180, position: "relative" }}>
+      <div
+        ref={containerRef}
+        className="rounded-xl border-2 border-dashed border-muted-foreground/30 bg-white overflow-hidden"
+        style={{ width: "100%", height: 180 }}
+      >
         <canvas
           ref={canvasRef}
-          className="touch-none cursor-crosshair block"
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+          className="touch-none cursor-crosshair block rounded-xl"
           onMouseDown={startDraw}
           onMouseMove={draw}
           onMouseUp={endDraw}
