@@ -35,21 +35,20 @@ export function CreateResourceDialog({ open, onOpenChange, companyId, defaultTyp
   const create = useMutation({
     mutationFn: async () => {
       if (!name.trim()) throw new Error("Nom requis");
+      const resourceId = crypto.randomUUID();
       // 1. Create the resource
-      const { data: resource, error } = await supabase
+      const { error } = await supabase
         .from("resources")
-        .insert({ name: name.trim(), type: type as any, notes: notes.trim() || null })
-        .select("id")
-        .single();
+        .insert({ id: resourceId, name: name.trim(), type: type as any, notes: notes.trim() || null });
       if (error) throw error;
 
       // 2. Link to company
       const { error: linkError } = await supabase
         .from("resource_companies")
-        .insert({ resource_id: resource.id, company_id: companyId });
+        .insert({ resource_id: resourceId, company_id: companyId });
       if (linkError) throw linkError;
 
-      return resource;
+      return { id: resourceId };
     },
     onSuccess: () => {
       toast.success("Ressource créée");
