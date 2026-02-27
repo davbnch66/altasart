@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { useState, useEffect, useRef } from "react";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { GenerateDevisContentButton } from "@/components/devis/GenerateDevisContentButton";
 
 import { EditDevisDialog } from "@/components/forms/EditDevisDialog";
 import { generateDevisPdf } from "@/lib/generateDevisPdf";
@@ -504,11 +505,18 @@ const DevisDetail = () => {
 
         {devis.use_custom_content ? (
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">Ce contenu sera affiché dans le PDF à la place des lignes de prix détaillées.</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">Ce contenu sera affiché dans le PDF à la place des lignes de prix détaillées.</p>
+              <GenerateDevisContentButton
+                devisId={devis.id}
+                onGenerated={(html) => {
+                  updateField.mutate({ custom_content: html });
+                }}
+              />
+            </div>
             <RichTextEditor
               value={devis.custom_content || ""}
               onChange={(html) => {
-                // Debounce save
                 if (customContentTimer.current) clearTimeout(customContentTimer.current);
                 customContentTimer.current = setTimeout(() => {
                   updateField.mutate({ custom_content: html });
