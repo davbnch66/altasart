@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ClipboardCheck, MapPin, Camera, Calendar, User, Search, ChevronRight, Plus } from "lucide-react";
+import { ClipboardCheck, MapPin, Camera, Calendar, User, Search, ChevronRight, Plus, ArrowUpDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -7,7 +7,8 @@ import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useState, useMemo } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CreateVisiteDialog } from "@/components/forms/CreateVisiteDialog";
@@ -31,6 +32,7 @@ const Visites = () => {
   const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("date_desc");
 
   const { data: visites = [], isLoading } = useQuery({
     queryKey: ["visites", current],
@@ -50,15 +52,42 @@ const Visites = () => {
     },
   });
 
-  const filtered = visites.filter((v: any) => {
-    const matchSearch = !search || 
-      v.title?.toLowerCase().includes(search.toLowerCase()) ||
-      v.code?.toLowerCase().includes(search.toLowerCase()) ||
-      (v.clients as any)?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      v.address?.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "all" || v.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
+  const filtered = useMemo(() => {
+    const base = visites.filter((v: any) => {
+      const matchSearch = !search || 
+        v.title?.toLowerCase().includes(search.toLowerCase()) ||
+        v.code?.toLowerCase().includes(search.toLowerCase()) ||
+        (v.clients as any)?.name?.toLowerCase().includes(search.toLowerCase()) ||
+        v.address?.toLowerCase().includes(search.toLowerCase());
+      const matchStatus = statusFilter === "all" || v.status === statusFilter;
+      return matchSearch && matchStatus;
+    });
+
+    return [...base].sort((a: any, b: any) => {
+      switch (sortBy) {
+        case "date_asc":
+          return (a.scheduled_date || "").localeCompare(b.scheduled_date || "");
+        case "date_desc":
+          return (b.scheduled_date || "").localeCompare(a.scheduled_date || "");
+        case "client_asc":
+          return ((a.clients as any)?.name || "").localeCompare((b.clients as any)?.name || "");
+        case "client_desc":
+          return ((b.clients as any)?.name || "").localeCompare((a.clients as any)?.name || "");
+        case "title_asc":
+          return (a.title || "").localeCompare(b.title || "");
+        case "title_desc":
+          return (b.title || "").localeCompare(a.title || "");
+        case "created_desc":
+          return (b.created_at || "").localeCompare(a.created_at || "");
+        case "created_asc":
+          return (a.created_at || "").localeCompare(b.created_at || "");
+        case "status":
+          return (a.status || "").localeCompare(b.status || "");
+        default:
+          return 0;
+      }
+    });
+  }, [visites, search, statusFilter, sortBy]);
 
   const counts = {
     all: visites.length,
@@ -106,15 +135,34 @@ const Visites = () => {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Rechercher client, adresse, code..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 h-9"
-        />
+      {/* Search + Sort */}
+      <div className={`flex gap-2 ${isMobile ? "flex-col" : "items-center"}`}>
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher client, adresse, code..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-9"
+          />
+        </div>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className={`h-9 ${isMobile ? "w-full" : "w-[200px]"} shrink-0`}>
+            <ArrowUpDown className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+            <SelectValue placeholder="Trier par..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="date_desc">Date ↓ (récent)</SelectItem>
+            <SelectItem value="date_asc">Date ↑ (ancien)</SelectItem>
+            <SelectItem value="client_asc">Client A→Z</SelectItem>
+            <SelectItem value="client_desc">Client Z→A</SelectItem>
+            <SelectItem value="title_asc">Titre A→Z</SelectItem>
+            <SelectItem value="title_desc">Titre Z→A</SelectItem>
+            <SelectItem value="created_desc">Réception ↓</SelectItem>
+            <SelectItem value="created_asc">Réception ↑</SelectItem>
+            <SelectItem value="status">Statut</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* List */}
