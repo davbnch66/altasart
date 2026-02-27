@@ -352,10 +352,11 @@ export async function generateVisitePdf(visiteId: string, options?: { photosPerR
 
               if (photosPerRow === 2) {
                 const col = i % 2;
-                const colW = contentW / 2 - 3;
-                const imgX = marginL + col * (colW + 6);
+                const maxColW = contentW / 2 - 3;
+                let colW = maxColW;
                 let imgH = colW / aspectRatio;
-                if (imgH > 90) imgH = 90;
+                if (imgH > 90) { imgH = 90; colW = imgH * aspectRatio; }
+                const imgX = marginL + col * (maxColW + 6);
 
                 if (col === 0) {
                   rowMaxH = 0;
@@ -376,9 +377,9 @@ export async function generateVisitePdf(visiteId: string, options?: { photosPerR
                   y += rowMaxH;
                 }
               } else {
-                const imgW = contentW;
+                let imgW = contentW;
                 let imgH = imgW / aspectRatio;
-                if (imgH > 180) imgH = 180;
+                if (imgH > 180) { imgH = 180; imgW = imgH * aspectRatio; }
 
                 y = checkPage(doc, y, imgH + 10, logo, company, pageW, marginL, marginR);
                 const imgX = marginL + (contentW - imgW) / 2;
