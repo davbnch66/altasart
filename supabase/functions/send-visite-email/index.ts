@@ -96,10 +96,10 @@ serve(async (req) => {
         );
       }
 
-      // Check size (max 10MB from storage)
-      if (fileData.size > 10_000_000) {
+      // Check size (max 25MB from storage — Resend supports up to 40MB)
+      if (fileData.size > 25_000_000) {
         return new Response(
-          JSON.stringify({ error: "Pièce jointe trop volumineuse (max 10MB)" }),
+          JSON.stringify({ error: "Pièce jointe trop volumineuse (max 25MB)" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -113,8 +113,8 @@ serve(async (req) => {
       pdfBase64 = btoa(binary);
     }
 
-    // Legacy base64 size check (kept for backward compat but raised limit)
-    if (pdfBase64 && typeof pdfBase64 === "string" && pdfBase64.length > 14_000_000) {
+    // Legacy base64 size check — only applies to direct pdfBase64 from client (not storage-fetched)
+    if (!storagePath && pdfBase64 && typeof pdfBase64 === "string" && pdfBase64.length > 14_000_000) {
       return new Response(
         JSON.stringify({ error: "Pièce jointe trop volumineuse (max ~10MB)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
