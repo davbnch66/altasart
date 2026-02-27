@@ -1,0 +1,1 @@
+ALTER TABLE public.devis ADD COLUMN IF NOT EXISTS content_mode text NOT NULL DEFAULT 'lines';
