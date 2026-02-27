@@ -296,27 +296,33 @@ const Planning = () => {
     enabled: companyIds.length > 0,
   });
 
-  // Fetch operations
+  // Fetch operations — include ops that overlap the visible range (loading_date <= rangeEnd AND (delivery_date >= rangeStart OR loading_date >= rangeStart))
   const { data: operations = [] } = useQuery({
-    queryKey: ["planning-operations", companyIds, rangeStart.toISOString()],
+    queryKey: ["planning-operations", companyIds, rangeStart.toISOString(), rangeEnd.toISOString()],
     queryFn: async () => {
       if (companyIds.length === 0) return [];
+      const rangeStartStr = format(rangeStart, "yyyy-MM-dd");
+      const rangeEndStr = format(addDays(rangeEnd, 1), "yyyy-MM-dd");
+      // Fetch ops whose loading_date is before end of range
       const { data, error } = await supabase
         .from("operations")
         .select("*, dossiers(title, code, clients(name)), companies(color)")
         .in("company_id", companyIds)
-        .gte("loading_date", format(rangeStart, "yyyy-MM-dd"))
-        .lt("loading_date", format(addDays(rangeEnd, 1), "yyyy-MM-dd"))
+        .lt("loading_date", rangeEndStr)
         .order("loading_date");
       if (error) throw error;
-      return data || [];
+      // Client-side filter: keep ops that overlap the visible range
+      return (data || []).filter((op: any) => {
+        const delivDate = op.delivery_date || op.loading_date;
+        return delivDate >= rangeStartStr;
+      });
     },
     enabled: companyIds.length > 0,
   });
 
   // Fetch operation_resources to link operations to resources
   const { data: opResources = [] } = useQuery({
-    queryKey: ["planning-op-resources", companyIds, rangeStart.toISOString()],
+    queryKey: ["planning-op-resources", companyIds, rangeStart.toISOString(), rangeEnd.toISOString()],
     queryFn: async () => {
       if (companyIds.length === 0 || operations.length === 0) return [];
       const opIds = operations.map((op: any) => op.id);
@@ -332,7 +338,7 @@ const Planning = () => {
 
   // Fetch event_resources to link events to multiple resources
   const { data: evtResources = [] } = useQuery({
-    queryKey: ["planning-event-resources", companyIds, rangeStart.toISOString()],
+    queryKey: ["planning-event-resources", companyIds, rangeStart.toISOString(), rangeEnd.toISOString()],
     queryFn: async () => {
       if (companyIds.length === 0 || events.length === 0) return [];
       const evtIds = events.map((e: any) => e.id);
