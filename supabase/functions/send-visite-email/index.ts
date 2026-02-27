@@ -82,35 +82,22 @@ serve(async (req) => {
       );
     }
 
-    // If storagePath provided, download from storage and convert to base64
+    // If storagePath provided, create a signed URL so Resend can fetch the file directly
+    // This avoids loading the entire file into Edge Function memory
+    let storageSignedUrl: string | undefined;
     if (storagePath && !pdfBase64) {
-      const { data: fileData, error: dlErr } = await serviceSupabase.storage
+      const { data: signedData, error: signErr } = await serviceSupabase.storage
         .from("bt-reports")
-        .download(storagePath);
+        .createSignedUrl(storagePath, 600); // 10 min expiry
 
-      if (dlErr || !fileData) {
-        console.error("Storage download error:", dlErr);
+      if (signErr || !signedData?.signedUrl) {
+        console.error("Storage signed URL error:", signErr);
         return new Response(
           JSON.stringify({ error: "Impossible de récupérer la pièce jointe depuis le stockage." }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-
-      // Check size (max 25MB from storage — Resend supports up to 40MB)
-      if (fileData.size > 25_000_000) {
-        return new Response(
-          JSON.stringify({ error: "Pièce jointe trop volumineuse (max 25MB)" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const arrayBuffer = await fileData.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      let binary = "";
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      pdfBase64 = btoa(binary);
+      storageSignedUrl = signedData.signedUrl;
     }
 
     // Legacy base64 size check — only applies to direct pdfBase64 from client (not storage-fetched)
@@ -246,7 +233,15 @@ serve(async (req) => {
       html: htmlBody,
     };
 
-    if (pdfBase64) {
+    if (storageSignedUrl) {
+      // Use Resend's URL-based attachment — no memory needed
+      emailPayload.attachments = [
+        {
+          filename: String(fileName || "rapport.pdf").slice(0, 100),
+          path: storageSignedUrl,
+        },
+      ];
+    } else if (pdfBase64) {
       emailPayload.attachments = [
         {
           filename: String(fileName || "rapport.pdf").slice(0, 100),
