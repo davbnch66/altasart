@@ -657,7 +657,14 @@ const VisiteDetail = () => {
                 <p className="text-xs text-muted-foreground">Le texte saisi dans le champ Mémo devis sera disponible au moment de la création du devis.</p>
                 <GenerateVisiteMemoButton
                   visiteId={visite.id}
-                  onGenerated={(memo) => updateField("notes", memo)}
+                  onGenerated={async (memo) => {
+                    updateField("notes", memo);
+                    // Auto-save to DB immediately
+                    const { error } = await supabase.from("visites").update({ notes: memo }).eq("id", visite.id);
+                    if (!error) {
+                      queryClient.invalidateQueries({ queryKey: ["visite-detail", id] });
+                    }
+                  }}
                 />
               </div>
               <Textarea value={editData.notes || ""} onChange={(e) => updateField("notes", e.target.value)} rows={8} placeholder="Description détaillée pour le devis..." />
