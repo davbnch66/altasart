@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { FileText, Euro, StickyNote, Download, CalendarDays } from "lucide-react";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { GenerateDevisContentButton } from "@/components/devis/GenerateDevisContentButton";
 import { GenerateDevisMemoButton } from "@/components/devis/GenerateDevisMemoButton";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -210,7 +211,14 @@ export const EditDevisDialog = ({ devis, open, onOpenChange }: EditDevisDialogPr
                     />
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground mb-2">Si activé, ce texte sera affiché dans le PDF à la place des lignes de prix détaillées.</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs text-muted-foreground">Si activé, ce texte sera affiché dans le PDF à la place des lignes de prix détaillées.</p>
+                  <GenerateDevisContentButton
+                    devisId={devis.id}
+                    onGenerated={(html) => setValue("custom_content", html)}
+                    size="sm"
+                  />
+                </div>
                 <RichTextEditor
                   value={watch("custom_content") || ""}
                   onChange={(html) => setValue("custom_content", html)}
