@@ -93,18 +93,32 @@ export function SendEmailDialog({
     }
     setSending(true);
     try {
+      let storagePath: string | undefined;
       let pdfBase64: string | undefined;
+
       if (pdfBlobUrl) {
         const resp = await fetch(pdfBlobUrl);
         const blob = await resp.blob();
-        pdfBase64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve((reader.result as string).split(",")[1]);
-          reader.readAsDataURL(blob);
-        });
+
+        // If PDF > 4MB, upload to storage; otherwise send inline
+        if (blob.size > 4_000_000) {
+          const path = `email-attachments/${crypto.randomUUID()}.pdf`;
+          const { error: upErr } = await supabase.storage
+            .from("bt-reports")
+            .upload(path, blob, { contentType: "application/pdf", upsert: true });
+          if (upErr) throw new Error("Erreur upload pièce jointe: " + upErr.message);
+          storagePath = path;
+        } else {
+          pdfBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve((reader.result as string).split(",")[1]);
+            reader.readAsDataURL(blob);
+          });
+        }
       }
+
       const { data, error } = await supabase.functions.invoke("send-visite-email", {
-        body: { to, subject, body, pdfBase64, fileName, visiteId, companyId, clientName },
+        body: { to, subject, body, pdfBase64, storagePath, fileName, visiteId, companyId, clientName },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
