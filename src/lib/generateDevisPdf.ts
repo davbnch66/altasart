@@ -3,6 +3,64 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { loadCompanyLogo, LogoResult } from "./pdfLogoHelper";
 
+interface TextBlock {
+  type: "text" | "bullet" | "ordered";
+  text: string;
+  bold?: boolean;
+  index?: number;
+}
+
+/** Parse simple HTML into text blocks for PDF rendering */
+function htmlToPlainText(html: string): TextBlock[] {
+  const blocks: TextBlock[] = [];
+  const div = document.createElement("div");
+  div.innerHTML = html;
+
+  const walk = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = (node.textContent || "").trim();
+      if (text) {
+        const parentTag = (node.parentElement?.tagName || "").toLowerCase();
+        blocks.push({ type: "text", text, bold: parentTag === "b" || parentTag === "strong" });
+      }
+      return;
+    }
+    const el = node as HTMLElement;
+    const tag = el.tagName?.toLowerCase();
+
+    if (tag === "ul") {
+      el.querySelectorAll(":scope > li").forEach((li) => {
+        blocks.push({ type: "bullet", text: (li.textContent || "").trim() });
+      });
+      return;
+    }
+    if (tag === "ol") {
+      let idx = 1;
+      el.querySelectorAll(":scope > li").forEach((li) => {
+        blocks.push({ type: "ordered", text: (li.textContent || "").trim(), index: idx++ });
+      });
+      return;
+    }
+    if (tag === "br") {
+      blocks.push({ type: "text", text: "" });
+      return;
+    }
+    if (tag === "p" || tag === "div") {
+      const text = (el.textContent || "").trim();
+      if (text) {
+        const isBold = el.querySelector("b, strong") !== null;
+        blocks.push({ type: "text", text, bold: isBold });
+      }
+      return;
+    }
+    // Recurse for other tags
+    el.childNodes.forEach(walk);
+  };
+
+  div.childNodes.forEach(walk);
+  return blocks.length > 0 ? blocks : [{ type: "text", text: div.textContent || "" }];
+}
+
 /** Format number as "1 000,00" with regular spaces (jsPDF-safe) */
 function fmtEur(n: number): string {
   return n
@@ -249,37 +307,23 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
   y += 10;
 
   // ===================== TABLE =====================
-  doc.setFillColor(245, 245, 245);
-  doc.roundedRect(marginL, y, contentW, 7, 1, 1, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(9);
-  doc.setTextColor(0, 0, 0);
-  doc.text("DETAIL DU PRIX", marginL + 4, y + 5);
-  y += 10;
-
-  const colDesc = marginL + 3;
-  const colQty = marginL + contentW * 0.6;
-  const colPU = marginL + contentW * 0.78;
-  const colTotal = colR - 3;
-
-  if (devisLines.length > 0) {
-    doc.setFillColor(brandR, brandG, brandB);
-    doc.rect(marginL, y, contentW, 7, "F");
+  if (devis.use_custom_content && devis.custom_content) {
+    // Free-form custom content mode
+    doc.setFillColor(245, 245, 245);
+    doc.roundedRect(marginL, y, contentW, 7, 1, 1, "F");
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(255, 255, 255);
-    doc.text("Description", colDesc, y + 5);
-    doc.text("Qte", colQty, y + 5, { align: "center" });
-    doc.text("P.U. HT", colPU, y + 5, { align: "right" });
-    doc.text("Total HT", colTotal, y + 5, { align: "right" });
-    y += 9;
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text("DETAIL DE LA PRESTATION", marginL + 4, y + 5);
+    y += 12;
 
+    // Parse HTML to plain text with basic formatting
+    const plainText = htmlToPlainText(devis.custom_content);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(30, 30, 30);
     doc.setFontSize(8);
+    doc.setTextColor(30, 30, 30);
 
-    let rowAlt = false;
-    for (const line of devisLines) {
+    for (const block of plainText) {
       if (y > 240) {
         drawSignatureStamp(doc, signatureDataUrl, signerName, signedAt, pageW, marginR);
         drawFooter(doc, company, pageW, marginL, marginR);
@@ -288,34 +332,91 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
         y = 35;
       }
 
-      const descLines = doc.splitTextToSize(line.description, contentW * 0.55);
-      const rowH = Math.max(descLines.length * 4, 6);
-
-      if (rowAlt) {
-        doc.setFillColor(250, 250, 250);
-        doc.rect(marginL, y - 1, contentW, rowH + 2, "F");
+      if (block.type === "bullet") {
+        doc.text(`•  ${block.text}`, marginL + 6, y);
+        y += 4.5;
+      } else if (block.type === "ordered") {
+        doc.text(`${block.index}.  ${block.text}`, marginL + 6, y);
+        y += 4.5;
+      } else {
+        if (block.bold) doc.setFont("helvetica", "bold");
+        else doc.setFont("helvetica", "normal");
+        const wrapped = doc.splitTextToSize(block.text, contentW - 6);
+        doc.text(wrapped, marginL + 3, y);
+        y += wrapped.length * 4.5;
+        doc.setFont("helvetica", "normal");
       }
-      rowAlt = !rowAlt;
-
-      doc.setTextColor(30, 30, 30);
-      doc.text(descLines, colDesc, y + 3);
-      doc.text(String(line.quantity), colQty, y + 3, { align: "center" });
-      doc.text(`${fmtEur(Number(line.unit_price))} EUR`, colPU, y + 3, { align: "right" });
-      const lineTotal = line.total != null ? Number(line.total) : Number(line.quantity) * Number(line.unit_price);
-      doc.text(`${fmtEur(lineTotal)} EUR`, colTotal, y + 3, { align: "right" });
-
-      doc.setDrawColor(230, 230, 230);
-      doc.setLineWidth(0.2);
-      doc.line(marginL, y + rowH + 1, colR, y + rowH + 1);
-
-      y += rowH + 3;
     }
-  } else if (devis.notes) {
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    const noteLines = doc.splitTextToSize(devis.notes, contentW - 10);
-    doc.text(noteLines.slice(0, 8), colDesc, y);
-    y += Math.min(noteLines.length, 8) * 4;
+  } else {
+    // Standard lines mode
+    doc.setFillColor(245, 245, 245);
+    doc.roundedRect(marginL, y, contentW, 7, 1, 1, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(0, 0, 0);
+    doc.text("DETAIL DU PRIX", marginL + 4, y + 5);
+    y += 10;
+
+    const colDesc = marginL + 3;
+    const colQty = marginL + contentW * 0.6;
+    const colPU = marginL + contentW * 0.78;
+    const colTotal = colR - 3;
+
+    if (devisLines.length > 0) {
+      doc.setFillColor(brandR, brandG, brandB);
+      doc.rect(marginL, y, contentW, 7, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(255, 255, 255);
+      doc.text("Description", colDesc, y + 5);
+      doc.text("Qte", colQty, y + 5, { align: "center" });
+      doc.text("P.U. HT", colPU, y + 5, { align: "right" });
+      doc.text("Total HT", colTotal, y + 5, { align: "right" });
+      y += 9;
+
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(30, 30, 30);
+      doc.setFontSize(8);
+
+      let rowAlt = false;
+      for (const line of devisLines) {
+        if (y > 240) {
+          drawSignatureStamp(doc, signatureDataUrl, signerName, signedAt, pageW, marginR);
+          drawFooter(doc, company, pageW, marginL, marginR);
+          doc.addPage();
+          drawLogo(doc, logoResult, company, marginL);
+          y = 35;
+        }
+
+        const descLines = doc.splitTextToSize(line.description, contentW * 0.55);
+        const rowH = Math.max(descLines.length * 4, 6);
+
+        if (rowAlt) {
+          doc.setFillColor(250, 250, 250);
+          doc.rect(marginL, y - 1, contentW, rowH + 2, "F");
+        }
+        rowAlt = !rowAlt;
+
+        doc.setTextColor(30, 30, 30);
+        doc.text(descLines, colDesc, y + 3);
+        doc.text(String(line.quantity), colQty, y + 3, { align: "center" });
+        doc.text(`${fmtEur(Number(line.unit_price))} EUR`, colPU, y + 3, { align: "right" });
+        const lineTotal = line.total != null ? Number(line.total) : Number(line.quantity) * Number(line.unit_price);
+        doc.text(`${fmtEur(lineTotal)} EUR`, colTotal, y + 3, { align: "right" });
+
+        doc.setDrawColor(230, 230, 230);
+        doc.setLineWidth(0.2);
+        doc.line(marginL, y + rowH + 1, colR, y + rowH + 1);
+
+        y += rowH + 3;
+      }
+    } else if (devis.notes) {
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      const noteLines = doc.splitTextToSize(devis.notes, contentW - 10);
+      doc.text(noteLines.slice(0, 8), marginL + 3, y);
+      y += Math.min(noteLines.length, 8) * 4;
+    }
   }
 
   // ===================== TOTALS TABLE =====================

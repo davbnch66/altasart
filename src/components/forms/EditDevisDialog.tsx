@@ -17,7 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { FileText, Euro, StickyNote, Download, CalendarDays } from "lucide-react";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { GenerateDevisMemoButton } from "@/components/devis/GenerateDevisMemoButton";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -29,6 +31,8 @@ const schema = z.object({
   notes: z.string().trim().max(2000).optional(),
   valid_until: z.string().optional(),
   status: z.string(),
+  custom_content: z.string().optional(),
+  use_custom_content: z.boolean().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -68,6 +72,8 @@ export const EditDevisDialog = ({ devis, open, onOpenChange }: EditDevisDialogPr
         notes: devis.notes || "",
         valid_until: devis.valid_until || "",
         status: devis.status,
+        custom_content: devis.custom_content || "",
+        use_custom_content: devis.use_custom_content || false,
       });
     }
   }, [open, devis, reset]);
@@ -81,6 +87,8 @@ export const EditDevisDialog = ({ devis, open, onOpenChange }: EditDevisDialogPr
         notes: data.notes || null,
         valid_until: data.valid_until || null,
         status: data.status as any,
+        custom_content: data.custom_content || null,
+        use_custom_content: data.use_custom_content || false,
       };
       // Set accepted_at when moving to accepte
       if (data.status === "accepte" && devis.status !== "accepte") {
@@ -189,6 +197,25 @@ export const EditDevisDialog = ({ devis, open, onOpenChange }: EditDevisDialogPr
                   />
                 </div>
                 <Textarea id="edit-notes" {...register("notes")} rows={4} />
+              </div>
+              <Separator />
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label>Contenu libre du devis</Label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Utiliser le contenu libre</span>
+                    <Switch
+                      checked={watch("use_custom_content") || false}
+                      onCheckedChange={(v) => setValue("use_custom_content", v)}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mb-2">Si activé, ce texte sera affiché dans le PDF à la place des lignes de prix détaillées.</p>
+                <RichTextEditor
+                  value={watch("custom_content") || ""}
+                  onChange={(html) => setValue("custom_content", html)}
+                  minHeight="120px"
+                />
               </div>
             </TabsContent>
           </Tabs>
