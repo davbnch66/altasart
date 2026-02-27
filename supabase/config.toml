@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.analyze-expense-photo]
 verify_jwt = false
+
+[functions.generate-devis-memo]
+verify_jwt = false

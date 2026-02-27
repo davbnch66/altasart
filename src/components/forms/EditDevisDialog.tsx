@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Euro, StickyNote, Download, CalendarDays } from "lucide-react";
+import { GenerateDevisMemoButton } from "@/components/devis/GenerateDevisMemoButton";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -179,7 +180,14 @@ export const EditDevisDialog = ({ devis, open, onOpenChange }: EditDevisDialogPr
 
             <TabsContent value="notes" className="space-y-4 mt-4">
               <div>
-                <Label htmlFor="edit-notes">Notes internes</Label>
+                <div className="flex items-center justify-between mb-1">
+                  <Label htmlFor="edit-notes">Notes internes</Label>
+                  <GenerateDevisMemoButton
+                    devisId={devis.id}
+                    onGenerated={(memo) => setValue("notes", memo)}
+                    size="sm"
+                  />
+                </div>
                 <Textarea id="edit-notes" {...register("notes")} rows={4} />
               </div>
             </TabsContent>

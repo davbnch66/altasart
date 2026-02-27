@@ -21,6 +21,7 @@ import { SendSignatureDialog } from "@/components/devis/SendSignatureDialog";
 import { DevisRelancesSection } from "@/components/devis/DevisRelancesSection";
 import { ScheduleChantierDialog } from "@/components/devis/ScheduleChantierDialog";
 import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
+import { GenerateDevisMemoButton } from "@/components/devis/GenerateDevisMemoButton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -508,7 +509,14 @@ const DevisDetail = () => {
 
       {/* Notes — editable inline */}
       <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
-        <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Notes</h3>
+        <div className="flex items-center justify-between mb-1.5">
+          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Notes</h3>
+          <GenerateDevisMemoButton
+            devisId={devis.id}
+            onGenerated={(memo) => updateField.mutate({ notes: memo })}
+            size="sm"
+          />
+        </div>
         <div className="text-xs whitespace-pre-wrap">
           <InlineEdit
             value={devis.notes || ""}
