@@ -36,6 +36,7 @@ import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
 import { PdfPreviewDialog } from "@/components/visite/PdfPreviewDialog";
 import { ARPhotoOverlay } from "@/components/ar/ARPhotoOverlay";
 import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
+import { GenerateVisiteMemoButton } from "@/components/visite/GenerateVisiteMemoButton";
 
 const statusLabels: Record<string, string> = {
   planifiee: "Planifiée",
@@ -652,8 +653,14 @@ const VisiteDetail = () => {
         <TabsContent value="devis" className="space-y-3">
           <Section title="Mémo devis" icon={FileText} defaultOpen>
             <div className="rounded-xl border bg-card p-5 space-y-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs text-muted-foreground">Le texte saisi dans le champ Mémo devis sera disponible au moment de la création du devis.</p>
+                <GenerateVisiteMemoButton
+                  visiteId={visite.id}
+                  onGenerated={(memo) => updateField("notes", memo)}
+                />
+              </div>
               <Textarea value={editData.notes || ""} onChange={(e) => updateField("notes", e.target.value)} rows={8} placeholder="Description détaillée pour le devis..." />
-              <p className="text-xs text-muted-foreground">Le texte saisi dans le champ Mémo devis sera disponible au moment de la création du devis.</p>
             </div>
           </Section>
 
