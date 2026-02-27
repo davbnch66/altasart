@@ -360,11 +360,11 @@ const VisiteDetail = () => {
 
       {/* 4 Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-4 w-full">
-          <TabsTrigger value="rdv" className="text-xs gap-1"><Calendar className="h-3.5 w-3.5 hidden sm:block" />RDV</TabsTrigger>
-          <TabsTrigger value="site" className="text-xs gap-1"><LayoutGrid className="h-3.5 w-3.5 hidden sm:block" />Site</TabsTrigger>
-          <TabsTrigger value="moyens" className="text-xs gap-1"><Wrench className="h-3.5 w-3.5 hidden sm:block" />Moyens</TabsTrigger>
-          <TabsTrigger value="devis" className="text-xs gap-1"><FileText className="h-3.5 w-3.5 hidden sm:block" />Devis</TabsTrigger>
+        <TabsList className="grid grid-cols-4 w-full h-10">
+          <TabsTrigger value="rdv" className="text-xs gap-1.5 flex items-center justify-center"><Calendar className="h-3.5 w-3.5 hidden sm:inline-block" />RDV</TabsTrigger>
+          <TabsTrigger value="site" className="text-xs gap-1.5 flex items-center justify-center"><LayoutGrid className="h-3.5 w-3.5 hidden sm:inline-block" />Site</TabsTrigger>
+          <TabsTrigger value="moyens" className="text-xs gap-1.5 flex items-center justify-center"><Wrench className="h-3.5 w-3.5 hidden sm:inline-block" />Moyens</TabsTrigger>
+          <TabsTrigger value="devis" className="text-xs gap-1.5 flex items-center justify-center"><FileText className="h-3.5 w-3.5 hidden sm:inline-block" />Devis</TabsTrigger>
         </TabsList>
 
         {/* ============ TAB 1 : RENDEZ-VOUS ============ */}
