@@ -441,6 +441,7 @@ export type Database = {
           client_id: string
           code: string | null
           company_id: string
+          content_mode: string
           created_at: string
           created_by: string | null
           custom_content: string | null
@@ -461,6 +462,7 @@ export type Database = {
           client_id: string
           code?: string | null
           company_id: string
+          content_mode?: string
           created_at?: string
           created_by?: string | null
           custom_content?: string | null
@@ -481,6 +483,7 @@ export type Database = {
           client_id?: string
           code?: string | null
           company_id?: string
+          content_mode?: string
           created_at?: string
           created_by?: string | null
           custom_content?: string | null

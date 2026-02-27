@@ -307,8 +307,12 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
   y += 10;
 
   // ===================== TABLE =====================
-  if (devis.use_custom_content && devis.custom_content) {
-    // Free-form custom content mode
+  const contentMode = devis.content_mode || "lines";
+  const showCustom = (contentMode === "custom" || contentMode === "both") && devis.custom_content;
+  const showLines = contentMode === "lines" || contentMode === "both" || !devis.content_mode;
+
+  // --- Custom content section ---
+  if (showCustom) {
     doc.setFillColor(245, 245, 245);
     doc.roundedRect(marginL, y, contentW, 7, 1, 1, "F");
     doc.setFont("helvetica", "bold");
@@ -317,7 +321,6 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
     doc.text("DETAIL DE LA PRESTATION", marginL + 4, y + 5);
     y += 12;
 
-    // Parse HTML to plain text with basic formatting
     const plainText = htmlToPlainText(devis.custom_content);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
@@ -347,8 +350,12 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
         doc.setFont("helvetica", "normal");
       }
     }
-  } else {
-    // Standard lines mode
+
+    if (contentMode === "both") y += 6;
+  }
+
+  // --- Lines section ---
+  if (showLines) {
     doc.setFillColor(245, 245, 245);
     doc.roundedRect(marginL, y, contentW, 7, 1, 1, "F");
     doc.setFont("helvetica", "bold");
@@ -410,7 +417,7 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
 
         y += rowH + 3;
       }
-    } else if (devis.notes) {
+    } else if (devis.notes && contentMode !== "both") {
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       const noteLines = doc.splitTextToSize(devis.notes, contentW - 10);

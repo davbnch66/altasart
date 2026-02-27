@@ -33,7 +33,7 @@ const schema = z.object({
   valid_until: z.string().optional(),
   status: z.string(),
   custom_content: z.string().optional(),
-  use_custom_content: z.boolean().optional(),
+  content_mode: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -74,7 +74,7 @@ export const EditDevisDialog = ({ devis, open, onOpenChange }: EditDevisDialogPr
         valid_until: devis.valid_until || "",
         status: devis.status,
         custom_content: devis.custom_content || "",
-        use_custom_content: devis.use_custom_content || false,
+        content_mode: devis.content_mode || "lines",
       });
     }
   }, [open, devis, reset]);
@@ -89,7 +89,7 @@ export const EditDevisDialog = ({ devis, open, onOpenChange }: EditDevisDialogPr
         valid_until: data.valid_until || null,
         status: data.status as any,
         custom_content: data.custom_content || null,
-        use_custom_content: data.use_custom_content || false,
+        content_mode: data.content_mode || "lines",
       };
       // Set accepted_at when moving to accepte
       if (data.status === "accepte" && devis.status !== "accepte") {
@@ -202,17 +202,20 @@ export const EditDevisDialog = ({ devis, open, onOpenChange }: EditDevisDialogPr
               <Separator />
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label>Contenu libre du devis</Label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Utiliser le contenu libre</span>
-                    <Switch
-                      checked={watch("use_custom_content") || false}
-                      onCheckedChange={(v) => setValue("use_custom_content", v)}
-                    />
-                  </div>
+                  <Label>Mode de contenu</Label>
+                  <Select value={watch("content_mode") || "lines"} onValueChange={(v) => setValue("content_mode", v)}>
+                    <SelectTrigger className="w-[180px] h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lines">Lignes détaillées</SelectItem>
+                      <SelectItem value="custom">Contenu libre</SelectItem>
+                      <SelectItem value="both">Les deux</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs text-muted-foreground">Si activé, ce texte sera affiché dans le PDF à la place des lignes de prix détaillées.</p>
+                  <p className="text-xs text-muted-foreground">Le contenu libre sera affiché dans le PDF{watch("content_mode") === "both" ? " avant les lignes" : " à la place des lignes"}.</p>
                   <GenerateDevisContentButton
                     devisId={devis.id}
                     onGenerated={(html) => setValue("custom_content", html)}

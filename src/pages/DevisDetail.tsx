@@ -5,10 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import { ArrowLeft, Download, Pencil, FileText, Check, X, Send, CalendarPlus, Loader2, FolderOpen, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
+
 import { format } from "date-fns";
 import { useState, useEffect, useRef } from "react";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
@@ -489,24 +490,27 @@ const DevisDetail = () => {
         </div>
       </div>
 
-      {/* Toggle: Contenu libre vs Lignes détaillées */}
+      {/* Mode de contenu du devis */}
       <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Mode de contenu du devis</h3>
-          <div className="flex items-center gap-2">
-            <span className={`text-xs ${!devis.use_custom_content ? "font-semibold text-foreground" : "text-muted-foreground"}`}>Lignes détaillées</span>
-            <Switch
-              checked={devis.use_custom_content || false}
-              onCheckedChange={(checked) => updateField.mutate({ use_custom_content: checked })}
-            />
-            <span className={`text-xs ${devis.use_custom_content ? "font-semibold text-foreground" : "text-muted-foreground"}`}>Contenu libre</span>
-          </div>
+          <Select value={devis.content_mode || "lines"} onValueChange={(v) => updateField.mutate({ content_mode: v })}>
+            <SelectTrigger className="w-[200px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="lines">Lignes détaillées</SelectItem>
+              <SelectItem value="custom">Contenu libre</SelectItem>
+              <SelectItem value="both">Les deux</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        {devis.use_custom_content ? (
-          <div className="space-y-2">
+        {/* Custom content editor */}
+        {(devis.content_mode === "custom" || devis.content_mode === "both") && (
+          <div className="space-y-2 mb-4">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Ce contenu sera affiché dans le PDF à la place des lignes de prix détaillées.</p>
+              <p className="text-xs text-muted-foreground">Contenu libre — affiché dans le PDF{devis.content_mode === "both" ? " avant les lignes de prix" : ""}.</p>
               <GenerateDevisContentButton
                 devisId={devis.id}
                 onGenerated={(html) => {
@@ -525,8 +529,12 @@ const DevisDetail = () => {
               minHeight="200px"
             />
           </div>
-        ) : (
+        )}
+
+        {/* Lines editor */}
+        {(devis.content_mode === "lines" || devis.content_mode === "both" || !devis.content_mode) && (
           <>
+            {devis.content_mode === "both" && <Separator className="my-4" />}
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs text-muted-foreground">Lignes & Templates</p>
               <DevisApplyTemplateDialog onApply={async (templateLines) => {
