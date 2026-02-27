@@ -8,8 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+
 import { EditDevisDialog } from "@/components/forms/EditDevisDialog";
 import { generateDevisPdf } from "@/lib/generateDevisPdf";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
@@ -132,6 +135,7 @@ const DevisDetail = () => {
   const isMobile = useIsMobile();
   const fromClient = (location.state as any)?.fromClient === true;
   const fromDossier = (location.state as any)?.fromDossier as string | undefined;
+  const customContentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: devis, isLoading } = useQuery({
     queryKey: ["devis-detail", id],
@@ -484,28 +488,61 @@ const DevisDetail = () => {
         </div>
       </div>
 
-      {/* Lignes du devis */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Lignes & Templates</h3>
-        <DevisApplyTemplateDialog onApply={async (templateLines) => {
-          for (const line of templateLines) {
-            await supabase.from("devis_lines").insert({
-              devis_id: devis.id,
-              description: line.description,
-              quantity: line.quantity,
-              unit_price: line.unit_price,
-              sort_order: lines.length + templateLines.indexOf(line),
-            });
-          }
-          const totalTemplate = templateLines.reduce((s, l) => s + l.quantity * l.unit_price, 0);
-          const newTotal = lines.reduce((s, l) => s + (l.total ?? l.quantity * l.unit_price), 0) + totalTemplate;
-          await supabase.from("devis").update({ amount: newTotal }).eq("id", devis.id);
-          queryClient.invalidateQueries({ queryKey: ["devis-lines", id] });
-          queryClient.invalidateQueries({ queryKey: ["devis-detail", id] });
-          toast.success("Template appliqué");
-        }} />
+      {/* Toggle: Contenu libre vs Lignes détaillées */}
+      <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Mode de contenu du devis</h3>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs ${!devis.use_custom_content ? "font-semibold text-foreground" : "text-muted-foreground"}`}>Lignes détaillées</span>
+            <Switch
+              checked={devis.use_custom_content || false}
+              onCheckedChange={(checked) => updateField.mutate({ use_custom_content: checked })}
+            />
+            <span className={`text-xs ${devis.use_custom_content ? "font-semibold text-foreground" : "text-muted-foreground"}`}>Contenu libre</span>
+          </div>
+        </div>
+
+        {devis.use_custom_content ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">Ce contenu sera affiché dans le PDF à la place des lignes de prix détaillées.</p>
+            <RichTextEditor
+              value={devis.custom_content || ""}
+              onChange={(html) => {
+                // Debounce save
+                if (customContentTimer.current) clearTimeout(customContentTimer.current);
+                customContentTimer.current = setTimeout(() => {
+                  updateField.mutate({ custom_content: html });
+                }, 1000);
+              }}
+              minHeight="200px"
+            />
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-muted-foreground">Lignes & Templates</p>
+              <DevisApplyTemplateDialog onApply={async (templateLines) => {
+                for (const line of templateLines) {
+                  await supabase.from("devis_lines").insert({
+                    devis_id: devis.id,
+                    description: line.description,
+                    quantity: line.quantity,
+                    unit_price: line.unit_price,
+                    sort_order: lines.length + templateLines.indexOf(line),
+                  });
+                }
+                const totalTemplate = templateLines.reduce((s, l) => s + l.quantity * l.unit_price, 0);
+                const newTotal = lines.reduce((s, l) => s + (l.total ?? l.quantity * l.unit_price), 0) + totalTemplate;
+                await supabase.from("devis").update({ amount: newTotal }).eq("id", devis.id);
+                queryClient.invalidateQueries({ queryKey: ["devis-lines", id] });
+                queryClient.invalidateQueries({ queryKey: ["devis-detail", id] });
+                toast.success("Template appliqué");
+              }} />
+            </div>
+            <DevisLinesManager devisId={devis.id} lines={lines} totalAmount={devis.amount} devisObjet={devis.objet} companyId={devis.company_id} />
+          </>
+        )}
       </div>
-      <DevisLinesManager devisId={devis.id} lines={lines} totalAmount={devis.amount} devisObjet={devis.objet} companyId={devis.company_id} />
 
       {/* Notes — editable inline */}
       <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>

@@ -443,6 +443,7 @@ export type Database = {
           company_id: string
           created_at: string
           created_by: string | null
+          custom_content: string | null
           dossier_id: string | null
           id: string
           notes: string | null
@@ -450,6 +451,7 @@ export type Database = {
           sent_at: string | null
           status: Database["public"]["Enums"]["devis_status"]
           updated_at: string
+          use_custom_content: boolean
           valid_until: string | null
           visite_id: string | null
         }
@@ -461,6 +463,7 @@ export type Database = {
           company_id: string
           created_at?: string
           created_by?: string | null
+          custom_content?: string | null
           dossier_id?: string | null
           id?: string
           notes?: string | null
@@ -468,6 +471,7 @@ export type Database = {
           sent_at?: string | null
           status?: Database["public"]["Enums"]["devis_status"]
           updated_at?: string
+          use_custom_content?: boolean
           valid_until?: string | null
           visite_id?: string | null
         }
@@ -479,6 +483,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           created_by?: string | null
+          custom_content?: string | null
           dossier_id?: string | null
           id?: string
           notes?: string | null
@@ -486,6 +491,7 @@ export type Database = {
           sent_at?: string | null
           status?: Database["public"]["Enums"]["devis_status"]
           updated_at?: string
+          use_custom_content?: boolean
           valid_until?: string | null
           visite_id?: string | null
         }

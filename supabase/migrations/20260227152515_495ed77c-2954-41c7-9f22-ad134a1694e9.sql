@@ -1,0 +1,1 @@
+ALTER TABLE public.devis ADD COLUMN IF NOT EXISTS custom_content text, ADD COLUMN IF NOT EXISTS use_custom_content boolean NOT NULL DEFAULT false;
