@@ -60,13 +60,15 @@ serve(async (req) => {
 
     const body = await req.json();
     const to = body.to;
-    const pdfBase64 = body.pdfBase64;
     const fileName = body.fileName;
+
+    // Support both legacy pdfBase64 and new storagePath approach
+    let pdfBase64: string | undefined = body.pdfBase64;
+    const storagePath: string | undefined = body.storagePath;
 
     // Context for variable substitution
     const visiteId: string | undefined = body.visiteId;
     const companyId: string | undefined = body.companyId;
-    // Fallback values sent from client
     const fallbackSubject: string = body.subject || "Rapport de visite";
     const fallbackBody: string = body.body || "";
     const fallbackClientName: string = body.clientName || "";
@@ -80,7 +82,46 @@ serve(async (req) => {
       );
     }
 
-    // Fetch sender name from profile (logged-in user)
+    // If storagePath provided, download from storage and convert to base64
+    if (storagePath && !pdfBase64) {
+      const { data: fileData, error: dlErr } = await serviceSupabase.storage
+        .from("bt-reports")
+        .download(storagePath);
+
+      if (dlErr || !fileData) {
+        console.error("Storage download error:", dlErr);
+        return new Response(
+          JSON.stringify({ error: "Impossible de récupérer la pièce jointe depuis le stockage." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Check size (max 10MB from storage)
+      if (fileData.size > 10_000_000) {
+        return new Response(
+          JSON.stringify({ error: "Pièce jointe trop volumineuse (max 10MB)" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const arrayBuffer = await fileData.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      pdfBase64 = btoa(binary);
+    }
+
+    // Legacy base64 size check (kept for backward compat but raised limit)
+    if (pdfBase64 && typeof pdfBase64 === "string" && pdfBase64.length > 14_000_000) {
+      return new Response(
+        JSON.stringify({ error: "Pièce jointe trop volumineuse (max ~10MB)" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Fetch sender name from profile
     const { data: senderProfile } = await serviceSupabase
       .from("profiles")
       .select("full_name")
@@ -91,7 +132,6 @@ serve(async (req) => {
     const formatDate = (d: string | null | undefined) =>
       d ? new Intl.DateTimeFormat("fr-FR").format(new Date(d)) : "";
 
-    // Resolve contact name from client_contacts if visiteId provided
     let contactName = fallbackContactName || fallbackClientName;
     let clientName = fallbackClientName;
     let companyName = fallbackCompanyName;
@@ -131,7 +171,6 @@ serve(async (req) => {
           }
         }
 
-        // Fetch linked dossier if any
         if ((visite as any).dossier_id) {
           const { data: dossier } = await serviceSupabase
             .from("dossiers")
@@ -167,8 +206,7 @@ serve(async (req) => {
     let finalSubject = fallbackSubject;
     let finalBody = fallbackBody;
 
-    // Try to load rapport_visite template
-    const targetCompanyId = companyId || (visiteId ? undefined : undefined);
+    const targetCompanyId = companyId || undefined;
     if (targetCompanyId) {
       const { data: tpl } = await serviceSupabase
         .from("email_templates")
@@ -188,13 +226,6 @@ serve(async (req) => {
     if (!finalSubject || finalSubject.length > 500) {
       return new Response(
         JSON.stringify({ error: "Sujet requis (max 500 caractères)" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (pdfBase64 && typeof pdfBase64 === "string" && pdfBase64.length > 7_000_000) {
-      return new Response(
-        JSON.stringify({ error: "Pièce jointe trop volumineuse (max ~5MB)" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -238,6 +269,11 @@ serve(async (req) => {
     if (!resendResponse.ok) {
       console.error("Resend API error:", resendData);
       throw new Error("Erreur lors de l'envoi de l'email");
+    }
+
+    // Cleanup storage file after successful send
+    if (storagePath) {
+      await serviceSupabase.storage.from("bt-reports").remove([storagePath]);
     }
 
     return new Response(
