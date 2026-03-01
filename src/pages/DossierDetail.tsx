@@ -25,6 +25,7 @@ import { DossierAvariesTab } from "@/components/dossier/DossierAvariesTab";
 import { DetailBreadcrumb, BreadcrumbItem } from "@/components/DetailBreadcrumb";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
 import { DossierCostsTab } from "@/components/dossier/DossierCostsTab";
+import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 
 const stageLabels: Record<string, string> = {
   prospect: "Prospect", devis: "Devis envoyé", accepte: "Accepté", planifie: "Planifié",
@@ -405,7 +406,7 @@ const DossierDetail = () => {
                     </div>
                     <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsFacture[f.status] || f.status}</span>
                     {!isMobile && <span className="text-sm font-semibold shrink-0">{formatAmount(f.amount)}</span>}
-                    <Button variant={deletingFactureId === f.id ? "destructive" : "ghost"} size="icon" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); if (deletingFactureId === f.id) { deleteFactureMutation.mutate(f.id); } else { setDeletingFactureId(f.id); } }}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); setDeletingFactureId(f.id); }}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                     {isMobile && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
@@ -452,6 +453,15 @@ const DossierDetail = () => {
       )}
 
       {editing && <EditDossierDialog dossier={dossier} open={editing} onOpenChange={(v) => !v && setEditing(false)} />}
+
+      <DeleteConfirmDialog
+        open={!!deletingFactureId}
+        onOpenChange={(v) => !v && setDeletingFactureId(null)}
+        onConfirm={() => { if (deletingFactureId) deleteFactureMutation.mutate(deletingFactureId); }}
+        title="Supprimer la facture"
+        description="Voulez-vous vraiment supprimer cette facture ? Les règlements associés seront également supprimés. Cette action est irréversible."
+        isPending={deleteFactureMutation.isPending}
+      />
     </div>
   );
 };
