@@ -105,6 +105,7 @@ function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [selectedCompany, setSelectedCompany] = useState(adminCompanyIds[0] || "");
+  const [allCompanies, setAllCompanies] = useState(false);
   const [role, setRole] = useState<string>("readonly");
   const [loading, setLoading] = useState(false);
   const [useEmail, setUseEmail] = useState(true);
@@ -121,39 +122,44 @@ function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
 
   const createAccount = async () => {
     const hasIdentifier = useEmail ? email.trim().length > 0 : username.trim().length > 0;
-    if (!hasIdentifier || !password || !selectedCompany) { toast.error("Veuillez remplir tous les champs obligatoires."); return; }
+    if (!hasIdentifier || !password || (!allCompanies && !selectedCompany)) { toast.error("Veuillez remplir tous les champs obligatoires."); return; }
     if (password.length < 8) { toast.error("Le mot de passe doit contenir au moins 8 caractères."); return; }
     setLoading(true);
     try {
-      const body: any = { password, company_id: selectedCompany, role, full_name: fullName.trim() };
-      if (useEmail) {
-        body.email = email.trim().toLowerCase();
-      } else {
-        body.username = username.trim();
-      }
-
-      const { data, error } = await supabase.functions.invoke("create-user", { body });
-
-      if (error) {
-        let msg = "Erreur lors de la création du compte";
-        const jsonMatch = error.message?.match(/\{.*\}/s);
-        if (jsonMatch) {
-          try {
-            const parsed = JSON.parse(jsonMatch[0]);
-            if (parsed?.error) msg = parsed.error;
-          } catch {}
-        } else if (error.message) {
-          msg = error.message;
+      const targetCompanyIds = allCompanies ? adminCompanyIds : [selectedCompany];
+      
+      for (const companyId of targetCompanyIds) {
+        const body: any = { password, company_id: companyId, role, full_name: fullName.trim() };
+        if (useEmail) {
+          body.email = email.trim().toLowerCase();
+        } else {
+          body.username = username.trim();
         }
-        toast.error(msg);
-        return;
+
+        const { data, error } = await supabase.functions.invoke("create-user", { body });
+
+        if (error) {
+          let msg = "Erreur lors de la création du compte";
+          const jsonMatch = error.message?.match(/\{.*\}/s);
+          if (jsonMatch) {
+            try {
+              const parsed = JSON.parse(jsonMatch[0]);
+              if (parsed?.error) msg = parsed.error;
+            } catch {}
+          } else if (error.message) {
+            msg = error.message;
+          }
+          toast.error(msg);
+          return;
+        }
+
+        if (data?.error) { toast.error(data.error); return; }
       }
 
-      if (data?.error) { toast.error(data.error); return; }
-
-      toast.success(`Compte créé pour ${useEmail ? email : username}`);
+      const label = useEmail ? email : username;
+      const companyLabel = allCompanies ? `toutes les sociétés (${targetCompanyIds.length})` : adminCompanies.find((c: any) => c.id === selectedCompany)?.name;
+      toast.success(`Compte créé pour ${label} sur ${companyLabel}`);
       setEmail(""); setUsername(""); setFullName(""); setPassword("");
-      // Small delay to ensure DB propagation before refetch
       await new Promise((r) => setTimeout(r, 500));
       await queryClient.invalidateQueries({ queryKey: ["team-members-all"] });
     } catch (e: any) {
@@ -213,14 +219,29 @@ function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Société <span className="text-destructive">*</span></Label>
-          <Select value={selectedCompany} onValueChange={setSelectedCompany}>
-            <SelectTrigger className="text-sm h-9"><SelectValue placeholder="Choisir…" /></SelectTrigger>
-            <SelectContent>
-              {adminCompanies.map((c: any) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="space-y-2">
+            {adminCompanyIds.length > 1 && (
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allCompanies}
+                  onChange={(e) => setAllCompanies(e.target.checked)}
+                  className="rounded border-input"
+                />
+                <span className="font-medium">Toutes les sociétés ({adminCompanyIds.length})</span>
+              </label>
+            )}
+            {!allCompanies && (
+              <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+                <SelectTrigger className="text-sm h-9"><SelectValue placeholder="Choisir…" /></SelectTrigger>
+                <SelectContent>
+                  {adminCompanies.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Rôle</Label>
