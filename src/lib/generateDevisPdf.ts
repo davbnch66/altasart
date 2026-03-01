@@ -326,6 +326,11 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
     doc.setFontSize(8);
     doc.setTextColor(30, 30, 30);
 
+    const textIndent = marginL + 4;
+    const bulletIndent = marginL + 8;
+    const textMaxW = contentW - 8;
+    const bulletMaxW = contentW - 14;
+
     for (const block of plainText) {
       if (y > 240) {
         drawSignatureStamp(doc, signatureDataUrl, signerName, signedAt, pageW, marginR);
@@ -336,17 +341,25 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false): P
       }
 
       if (block.type === "bullet") {
-        doc.text(`•  ${block.text}`, marginL + 6, y);
-        y += 4.5;
+        const wrapped = doc.splitTextToSize(block.text, bulletMaxW);
+        doc.setFont("helvetica", "normal");
+        doc.text("•", textIndent, y);
+        doc.text(wrapped, bulletIndent, y);
+        y += wrapped.length * 4 + 1.5;
       } else if (block.type === "ordered") {
-        doc.text(`${block.index}.  ${block.text}`, marginL + 6, y);
-        y += 4.5;
+        const prefix = `${block.index}.`;
+        const wrapped = doc.splitTextToSize(block.text, bulletMaxW);
+        doc.setFont("helvetica", "normal");
+        doc.text(prefix, textIndent, y);
+        doc.text(wrapped, bulletIndent, y);
+        y += wrapped.length * 4 + 1.5;
       } else {
+        if (!block.text) { y += 2; continue; }
         if (block.bold) doc.setFont("helvetica", "bold");
         else doc.setFont("helvetica", "normal");
-        const wrapped = doc.splitTextToSize(block.text, contentW - 6);
-        doc.text(wrapped, marginL + 3, y);
-        y += wrapped.length * 4.5;
+        const wrapped = doc.splitTextToSize(block.text, textMaxW);
+        doc.text(wrapped, textIndent, y);
+        y += wrapped.length * 4 + 1.5;
         doc.setFont("helvetica", "normal");
       }
     }
