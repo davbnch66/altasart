@@ -534,6 +534,44 @@ const Parametres = () => {
                                   </div>
                                 );
                               })}
+                              {/* Add to missing companies button */}
+                              {canEditAny && (() => {
+                                const memberCompanyIds = group.memberships.map((m: any) => m.company_id);
+                                const missingCompanyIds = adminCompanyIds.filter((id: string) => !memberCompanyIds.includes(id));
+                                if (missingCompanyIds.length === 0) return null;
+                                return (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs gap-1.5 w-full mt-1"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      const highestRole = group.memberships.reduce((best: string, m: any) => {
+                                        const priority: Record<string, number> = { admin: 7, manager: 6, commercial: 5, exploitation: 4, comptable: 3, terrain: 2, readonly: 1 };
+                                        return (priority[m.role] || 0) > (priority[best] || 0) ? m.role : best;
+                                      }, "readonly");
+                                      try {
+                                        for (const companyId of missingCompanyIds) {
+                                          const { error } = await supabase.from("company_memberships").insert({
+                                            profile_id: group.profileId,
+                                            company_id: companyId,
+                                            role: highestRole as any,
+                                            invited_by: user?.id,
+                                          });
+                                          if (error) throw error;
+                                        }
+                                        toast.success(`Membre ajouté à ${missingCompanyIds.length} société(s) en tant que ${roleLabels[highestRole as AppRole]}`);
+                                        queryClient.invalidateQueries({ queryKey: ["team-members-all"] });
+                                      } catch (err: any) {
+                                        toast.error(err.message || "Erreur");
+                                      }
+                                    }}
+                                  >
+                                    <UserPlus className="h-3.5 w-3.5" />
+                                    Affecter aux {missingCompanyIds.length} société(s) manquante(s)
+                                  </Button>
+                                );
+                              })()}
                             </div>
                           </motion.div>
                         )}
