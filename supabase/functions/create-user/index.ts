@@ -81,6 +81,9 @@ Deno.serve(async (req) => {
           return new Response(JSON.stringify({ error: "Utilisateur introuvable malgré l'erreur de doublon" }), { status: 400, headers: corsHeaders });
         }
 
+        // Update password for existing user so the new password works
+        await adminClient.auth.admin.updateUserById(existingUser.id, { password });
+
         // Check if membership already exists
         const { data: existingMembership } = await adminClient
           .from("company_memberships")
@@ -90,7 +93,11 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (existingMembership) {
-          return new Response(JSON.stringify({ error: "Cet utilisateur est déjà membre de cette société" }), { status: 400, headers: corsHeaders });
+          // Membership exists — password was updated, return success
+          return new Response(JSON.stringify({ success: true, user_id: existingUser.id, updated_password: true }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
         }
 
         // Ensure profile exists
