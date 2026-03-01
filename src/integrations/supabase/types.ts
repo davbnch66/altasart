@@ -3135,6 +3135,11 @@ export type Database = {
           updated_at: string
           visit_type: string | null
           voirie_address: string | null
+          voirie_notes: string | null
+          voirie_obtained_at: string | null
+          voirie_requested_at: string | null
+          voirie_status: string
+          voirie_type: string | null
           volume: number | null
           zone: string | null
         }
@@ -3207,6 +3212,11 @@ export type Database = {
           updated_at?: string
           visit_type?: string | null
           voirie_address?: string | null
+          voirie_notes?: string | null
+          voirie_obtained_at?: string | null
+          voirie_requested_at?: string | null
+          voirie_status?: string
+          voirie_type?: string | null
           volume?: number | null
           zone?: string | null
         }
@@ -3279,6 +3289,11 @@ export type Database = {
           updated_at?: string
           visit_type?: string | null
           voirie_address?: string | null
+          voirie_notes?: string | null
+          voirie_obtained_at?: string | null
+          voirie_requested_at?: string | null
+          voirie_status?: string
+          voirie_type?: string | null
           volume?: number | null
           zone?: string | null
         }
