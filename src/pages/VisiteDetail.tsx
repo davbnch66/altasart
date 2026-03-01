@@ -564,8 +564,13 @@ const VisiteDetail = () => {
                   checked={!!editData.needs_voirie}
                   onCheckedChange={(checked) => {
                     updateField("needs_voirie", !!checked);
-                    if (checked && !editData.voirie_address) {
-                      updateField("voirie_address", editData.address || visite.address || "");
+                    if (checked) {
+                      updateField("voirie_status", "a_faire");
+                      if (!editData.voirie_address) {
+                        updateField("voirie_address", editData.address || visite.address || "");
+                      }
+                    } else {
+                      updateField("voirie_status", "non_requise");
                     }
                   }}
                 />

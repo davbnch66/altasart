@@ -28,6 +28,7 @@ import Auth from "@/pages/Auth";
 import SignDevis from "@/pages/SignDevis";
 import RentabiliteReport from "@/pages/RentabiliteReport";
 import TerrainPage from "@/pages/TerrainPage";
+import VoiriePage from "@/pages/VoiriePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -68,6 +69,7 @@ const ProtectedRoutes = () => {
           <Route path="/stockage" element={<StoragePage />} />
           <Route path="/rentabilite" element={<RentabiliteReport />} />
           <Route path="/terrain" element={<TerrainPage />} />
+          <Route path="/voirie" element={<VoiriePage />} />
           <Route path="/parametres" element={<Parametres />} />
         </Route>
         <Route path="*" element={<NotFound />} />

@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, Users, CalendarDays, FolderOpen, FileText,
   ClipboardCheck, Inbox, DollarSign, Wrench, Settings, Building2,
-  ChevronDown, Kanban, Truck, Warehouse, LogOut, BarChart3, HardHat,
+  ChevronDown, Kanban, Truck, Warehouse, LogOut, BarChart3, HardHat, ShieldAlert,
 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery } from "@tanstack/react-query";
@@ -26,6 +26,7 @@ const ALL_NAV_ITEMS = [
   { to: "/devis", icon: FileText, label: "Devis" },
   { to: "/visites", icon: ClipboardCheck, label: "Visites" },
   { to: "/terrain", icon: HardHat, label: "Terrain" },
+  { to: "/voirie", icon: ShieldAlert, label: "Voirie" },
   { to: "/inbox", icon: Inbox, label: "Inbox" },
   { to: "/finance", icon: DollarSign, label: "Finance" },
   { to: "/rentabilite", icon: BarChart3, label: "Rentabilité" },

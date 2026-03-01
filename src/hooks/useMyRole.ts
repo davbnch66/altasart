@@ -41,13 +41,13 @@ export const ROLE_DESCRIPTIONS: Record<AppRole, string> = {
 
 /** Navigation items accessible per role */
 export const ROLE_ALLOWED_ROUTES: Record<AppRole, string[]> = {
-  admin: ["/", "/clients", "/pipeline", "/planning", "/dossiers", "/devis", "/visites", "/terrain", "/inbox", "/finance", "/rentabilite", "/flotte", "/stockage", "/ressources", "/parametres"],
-  manager: ["/", "/clients", "/pipeline", "/planning", "/dossiers", "/devis", "/visites", "/terrain", "/inbox", "/finance", "/rentabilite", "/flotte", "/stockage", "/ressources", "/parametres"],
-  commercial: ["/", "/clients", "/pipeline", "/planning", "/dossiers", "/devis", "/visites", "/inbox", "/parametres"],
-  exploitation: ["/", "/planning", "/dossiers", "/visites", "/terrain", "/flotte", "/stockage", "/ressources", "/parametres"],
+  admin: ["/", "/clients", "/pipeline", "/planning", "/dossiers", "/devis", "/visites", "/terrain", "/voirie", "/inbox", "/finance", "/rentabilite", "/flotte", "/stockage", "/ressources", "/parametres"],
+  manager: ["/", "/clients", "/pipeline", "/planning", "/dossiers", "/devis", "/visites", "/terrain", "/voirie", "/inbox", "/finance", "/rentabilite", "/flotte", "/stockage", "/ressources", "/parametres"],
+  commercial: ["/", "/clients", "/pipeline", "/planning", "/dossiers", "/devis", "/visites", "/voirie", "/inbox", "/parametres"],
+  exploitation: ["/", "/planning", "/dossiers", "/visites", "/terrain", "/voirie", "/flotte", "/stockage", "/ressources", "/parametres"],
   comptable: ["/", "/dossiers", "/finance", "/rentabilite", "/parametres"],
   terrain: ["/terrain"],
-  readonly: ["/", "/clients", "/pipeline", "/planning", "/dossiers", "/devis", "/visites", "/inbox", "/finance", "/rentabilite", "/flotte", "/stockage", "/ressources", "/parametres"],
+  readonly: ["/", "/clients", "/pipeline", "/planning", "/dossiers", "/devis", "/visites", "/voirie", "/inbox", "/finance", "/rentabilite", "/flotte", "/stockage", "/ressources", "/parametres"],
 };
 
 export function useMyRole(): { role: AppRole; loading: boolean; allRoles: AppRole[] } {
