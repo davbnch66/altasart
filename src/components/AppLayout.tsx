@@ -25,6 +25,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/ressources": "Ressources",
   "/parametres": "Paramètres",
   "/terrain": "Espace Terrain",
+  "/voirie": "Voirie",
   "/rentabilite": "Rentabilité",
 };
 
