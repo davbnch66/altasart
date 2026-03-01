@@ -10,10 +10,11 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Check, Users, X, Pencil, MessageSquare, Warehouse } from "lucide-react";
+import { Plus, Trash2, Check, Users, X, Pencil, MessageSquare, Warehouse, FileText, HardHat, Pen, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MaterielListDisplay } from "@/components/MaterielListDisplay";
+import { BTReportPreviewDialog } from "@/components/terrain/BTReportPreviewDialog";
 
 interface Props {
   dossierId: string;
@@ -235,6 +236,7 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
   const [editingOpNum, setEditingOpNum] = useState(0);
   const [form, setForm] = useState<OpForm>(emptyForm());
   const [editingResources, setEditingResources] = useState<string | null>(null);
+  const [reportBtId, setReportBtId] = useState<string | null>(null);
 
   const { data: operations = [], isLoading } = useQuery({
     queryKey: ["dossier-operations", dossierId],
@@ -679,6 +681,16 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
                     {op.factures?.code && ` · Fact: ${op.factures.code}`}
                   </p>
                 </div>
+                {/* BT Report button - visible when at least one signature exists */}
+                {(op.operator_signature_url || op.start_signature_url || op.end_signature_url) && (
+                  <button
+                    onClick={() => setReportBtId(op.id)}
+                    className="p-1 rounded text-primary hover:bg-primary/10 transition-colors shrink-0"
+                    title="Rapport BT signé"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 <button onClick={() => openEdit(op)} className="p-1 rounded text-muted-foreground hover:text-primary transition-colors shrink-0" title="Modifier">
                   <Pencil className="h-3.5 w-3.5" />
                 </button>
@@ -693,6 +705,24 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
               </div>
+
+              {/* Signature status indicators */}
+              {(op.operator_signature_url || op.start_signature_url || op.end_signature_url) && (
+                <div className="ml-8 mt-1.5 flex flex-wrap gap-2 text-[10px]">
+                  <span className={`flex items-center gap-1 ${op.operator_signature_url ? "text-success" : "text-muted-foreground"}`}>
+                    <HardHat className="h-3 w-3" />
+                    Opérateur: {op.operator_signature_url ? `✓ ${op.operator_signer_name || "Signé"}` : "—"}
+                  </span>
+                  <span className={`flex items-center gap-1 ${op.start_signature_url ? "text-success" : "text-muted-foreground"}`}>
+                    <Pen className="h-3 w-3" />
+                    Début: {op.start_signature_url ? `✓ ${op.start_signer_name || "Signé"}` : "—"}
+                  </span>
+                  <span className={`flex items-center gap-1 ${op.end_signature_url ? "text-success" : "text-muted-foreground"}`}>
+                    <Pen className="h-3 w-3" />
+                    Fin: {op.end_signature_url ? `✓ ${op.end_signer_name || "Signé"}` : "—"}
+                  </span>
+                </div>
+              )}
 
               {(op.notes || op.instructions) && (
                 <div className="ml-8 mt-1.5 flex items-start gap-1.5 text-[11px] text-muted-foreground">
@@ -733,6 +763,16 @@ export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
           );
         })}
       </div>
+
+      {/* BT Report Preview Dialog */}
+      {reportBtId && (
+        <BTReportPreviewDialog
+          open={!!reportBtId}
+          onOpenChange={(v) => !v && setReportBtId(null)}
+          btId={reportBtId}
+          companyIds={[companyId]}
+        />
+      )}
     </div>
   );
 };
