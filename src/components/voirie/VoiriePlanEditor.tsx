@@ -542,14 +542,27 @@ const VoiriePlanEditor = ({
           >
             <Layer>
               {/* Background image (PDF rendered) */}
-              {bgImage && (
-                <KonvaImage
-                  image={bgImage}
-                  width={stageSize.width / scale}
-                  height={stageSize.height / scale}
-                  opacity={0.9}
-                />
-              )}
+              {bgImage && (() => {
+                const imgW = bgImage.naturalWidth || bgImage.width;
+                const imgH = bgImage.naturalHeight || bgImage.height;
+                const stageW = stageSize.width / scale;
+                const stageH = stageSize.height / scale;
+                const ratio = Math.min(stageW / imgW, stageH / imgH);
+                const drawW = imgW * ratio;
+                const drawH = imgH * ratio;
+                const offsetX = (stageW - drawW) / 2;
+                const offsetY = (stageH - drawH) / 2;
+                return (
+                  <KonvaImage
+                    image={bgImage}
+                    x={offsetX}
+                    y={offsetY}
+                    width={drawW}
+                    height={drawH}
+                    opacity={0.9}
+                  />
+                );
+              })()}
 
               {/* Grid lines when no background */}
               {!bgImage && (
