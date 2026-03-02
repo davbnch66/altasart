@@ -29,35 +29,36 @@ export interface PlanElement {
 }
 
 const ELEMENT_PALETTE = [
-  { type: "grue", label: "Grue", icon: "🏗️", category: "Engins" },
-  { type: "balisage_cone", label: "Cône", icon: "🔶", category: "Balisage" },
-  { type: "balisage_barriere", label: "Barrière", icon: "🚧", category: "Balisage" },
-  { type: "panneau_k8", label: "K8", icon: "⚠️", category: "Signalisation" },
-  { type: "panneau_travaux", label: "Travaux", icon: "🔨", category: "Signalisation" },
-  { type: "panneau_deviation", label: "Déviation", icon: "↪️", category: "Signalisation" },
-  { type: "panneau_rue_barree", label: "Rue barrée", icon: "⛔", category: "Signalisation" },
-  { type: "totem", label: "Totem ralentir", icon: "🔻", category: "Signalisation" },
-  { type: "homme_traffic", label: "Homme trafic", icon: "🧑‍🦺", category: "Personnel" },
-  { type: "pieton_deviation", label: "Dév. piéton", icon: "🚶", category: "Personnel" },
-  { type: "zone_emprise", label: "Zone emprise", icon: "▢", category: "Zones" },
-  { type: "fleche_deviation", label: "Flèche dév.", icon: "➡️", category: "Signalisation" },
-  { type: "custom_text", label: "Texte", icon: "T", category: "Autre" },
+  { type: "grue", label: "Grue", category: "Engins" },
+  { type: "balisage_cone", label: "Cône K5c", category: "Balisage" },
+  { type: "balisage_barriere", label: "Barrière K2", category: "Balisage" },
+  { type: "panneau_k8", label: "Panneau AK5", category: "Signalisation" },
+  { type: "panneau_travaux", label: "Panneau AK4", category: "Signalisation" },
+  { type: "panneau_deviation", label: "Panneau KD", category: "Signalisation" },
+  { type: "panneau_rue_barree", label: "B1 Route barrée", category: "Signalisation" },
+  { type: "totem", label: "B14 Lim. 30", category: "Signalisation" },
+  { type: "homme_traffic", label: "Alternateur", category: "Personnel" },
+  { type: "pieton_deviation", label: "Dév. piéton", category: "Personnel" },
+  { type: "zone_emprise", label: "Zone emprise", category: "Zones" },
+  { type: "fleche_deviation", label: "Flèche déviation", category: "Signalisation" },
+  { type: "custom_text", label: "Annotation", category: "Autre" },
 ] as const;
 
+// Professional CAD color scheme
 const ELEMENT_COLORS: Record<string, string> = {
-  grue: "#C8501E",
-  balisage_cone: "#FF6B35",
-  balisage_barriere: "#E63946",
-  panneau_k8: "#FFD700",
-  panneau_travaux: "#FFD700",
-  panneau_deviation: "#2196F3",
-  panneau_rue_barree: "#E63946",
-  totem: "#FF4081",
-  homme_traffic: "#F5A623",
-  pieton_deviation: "#4CAF50",
-  zone_emprise: "#4CAF50",
-  fleche_deviation: "#333333",
-  custom_text: "#333333",
+  grue: "#D4760A",
+  balisage_cone: "#E25A1C",
+  balisage_barriere: "#C41E3A",
+  panneau_k8: "#FFB800",
+  panneau_travaux: "#FFB800",
+  panneau_deviation: "#0066B3",
+  panneau_rue_barree: "#C41E3A",
+  totem: "#C41E3A",
+  homme_traffic: "#2E7D32",
+  pieton_deviation: "#0066B3",
+  zone_emprise: "#2E7D32",
+  fleche_deviation: "#1A1A1A",
+  custom_text: "#1A1A1A",
 };
 
 interface VoiriePlanEditorProps {
@@ -74,356 +75,687 @@ interface VoiriePlanEditorProps {
 
 const genId = () => `el-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
-// ── Professional drawing functions ──
+// ══════════════════════════════════════════════════════
+// ── PROFESSIONAL CAD-QUALITY DRAWING FUNCTIONS ──
+// ══════════════════════════════════════════════════════
+
+/** Draw a top-down crane with circular giration radius (like MethoCAD / Liebherr Crane Planner) */
 function drawCrane(ctx: CanvasRenderingContext2D, el: PlanElement, isSelected: boolean) {
   const r = el.radius || 80;
   const color = el.color || ELEMENT_COLORS.grue;
   
-  // Zone d'emprise (green outline)
+  // ── Circular giration radius (dashed) ──
   ctx.save();
-  ctx.strokeStyle = "#4CAF50";
-  ctx.lineWidth = 2;
-  ctx.setLineDash([6, 3]);
-  const empriseW = r * 2.2;
-  const empriseH = r * 0.8;
-  ctx.strokeRect(-empriseW / 2, -empriseH / 2, empriseW, empriseH);
-  ctx.fillStyle = "rgba(76,175,80,0.08)";
-  ctx.fillRect(-empriseW / 2, -empriseH / 2, empriseW, empriseH);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([8, 5]);
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.stroke();
+  // Fill giration zone
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.04;
+  ctx.fill();
+  ctx.globalAlpha = 1;
   ctx.setLineDash([]);
   ctx.restore();
 
-  // Crane body (orange rectangle)
-  const bodyW = r * 1.4;
-  const bodyH = r * 0.35;
+  // ── Counter-jib (short side) ──
+  const counterJibLen = r * 0.3;
+  const jibW = 4;
   ctx.fillStyle = color;
-  ctx.fillRect(-bodyW / 2, -bodyH / 2, bodyW, bodyH);
-  ctx.strokeStyle = "#8B3A10";
+  ctx.fillRect(-counterJibLen, -jibW / 2, counterJibLen, jibW);
+  // Counter-weight block
+  ctx.fillStyle = "#8B5E3C";
+  ctx.fillRect(-counterJibLen - 6, -8, 12, 16);
+  ctx.strokeStyle = "#5D3A1A";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(-counterJibLen - 6, -8, 12, 16);
+
+  // ── Main jib (long side) ──
+  const jibLen = r * 0.85;
+  ctx.fillStyle = color;
+  // Tapered jib
+  ctx.beginPath();
+  ctx.moveTo(0, -jibW / 2);
+  ctx.lineTo(jibLen, -2);
+  ctx.lineTo(jibLen, 2);
+  ctx.moveTo(0, jibW / 2);
+  ctx.closePath();
+  ctx.fill();
+  // Lattice pattern on jib
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.6;
+  ctx.globalAlpha = 0.5;
+  for (let i = 0; i < jibLen; i += 10) {
+    ctx.beginPath();
+    ctx.moveTo(i, -jibW / 2 + 1);
+    ctx.lineTo(i + 5, jibW / 2 - 1);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // ── Tower/mast (center) ──
+  const towerSize = 14;
+  ctx.fillStyle = color;
+  ctx.fillRect(-towerSize / 2, -towerSize / 2, towerSize, towerSize);
+  ctx.strokeStyle = "#8B5E3C";
   ctx.lineWidth = 1.5;
-  ctx.strokeRect(-bodyW / 2, -bodyH / 2, bodyW, bodyH);
-
-  // Cabin (darker rectangle at left)
-  const cabW = bodyW * 0.15;
-  ctx.fillStyle = "#8B3A10";
-  ctx.fillRect(-bodyW / 2, -bodyH / 2, cabW, bodyH);
-
-  // Arrow showing reach direction (black)
-  const arrowStartX = bodyW / 2;
-  const arrowLen = r * 0.6;
-  ctx.strokeStyle = "#000";
-  ctx.lineWidth = 3;
+  ctx.strokeRect(-towerSize / 2, -towerSize / 2, towerSize, towerSize);
+  // Cross inside tower
+  ctx.strokeStyle = "#8B5E3C";
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(-arrowLen, bodyH / 2 + 8);
-  ctx.lineTo(arrowLen, bodyH / 2 + 8);
+  ctx.moveTo(-towerSize / 2, -towerSize / 2);
+  ctx.lineTo(towerSize / 2, towerSize / 2);
+  ctx.moveTo(towerSize / 2, -towerSize / 2);
+  ctx.lineTo(-towerSize / 2, towerSize / 2);
   ctx.stroke();
-  // Arrow heads
-  ctx.fillStyle = "#000";
-  ctx.beginPath();
-  ctx.moveTo(arrowLen, bodyH / 2 + 8);
-  ctx.lineTo(arrowLen - 8, bodyH / 2 + 2);
-  ctx.lineTo(arrowLen - 8, bodyH / 2 + 14);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(-arrowLen, bodyH / 2 + 8);
-  ctx.lineTo(-arrowLen + 8, bodyH / 2 + 2);
-  ctx.lineTo(-arrowLen + 8, bodyH / 2 + 14);
-  ctx.closePath();
-  ctx.fill();
 
-  // Reach label
-  ctx.font = "bold 11px Arial, sans-serif";
-  ctx.fillStyle = "#000";
-  ctx.textAlign = "center";
+  // ── Radius dimension line ──
+  ctx.save();
+  ctx.strokeStyle = "#333";
+  ctx.lineWidth = 0.8;
+  ctx.setLineDash([3, 2]);
+  ctx.beginPath();
+  ctx.moveTo(towerSize / 2 + 2, 0);
+  ctx.lineTo(r - 2, 0);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // Arrow tips
+  const arrS = 4;
+  ctx.fillStyle = "#333";
+  ctx.beginPath();
+  ctx.moveTo(r - 2, 0);
+  ctx.lineTo(r - 2 - arrS, -arrS / 2);
+  ctx.lineTo(r - 2 - arrS, arrS / 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // ── Reach label ──
   const reachMeters = el.label?.match(/(\d+)/)?.[1] || Math.round(r / 5);
-  ctx.fillText(`${reachMeters}m`, 0, bodyH / 2 + 22);
-  ctx.textAlign = "start";
-
-  // Label above
-  ctx.font = "bold 11px Arial, sans-serif";
-  ctx.fillStyle = "#000";
+  ctx.font = "bold 10px 'Segoe UI', Arial, sans-serif";
+  ctx.fillStyle = "#333";
   ctx.textAlign = "center";
-  ctx.fillText(el.label || "Grue", 0, -bodyH / 2 - 6);
+  ctx.textBaseline = "bottom";
+  ctx.fillText(`${reachMeters}m`, r / 2 + towerSize / 4, -4);
+  ctx.textAlign = "start";
+  ctx.textBaseline = "alphabetic";
+
+  // ── Crane name label ──
+  ctx.font = "bold 11px 'Segoe UI', Arial, sans-serif";
+  ctx.fillStyle = "#1A1A1A";
+  ctx.textAlign = "center";
+  // White background for label
+  const labelText = el.label || "Grue";
+  const labelW = ctx.measureText(labelText).width + 8;
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  ctx.fillRect(-labelW / 2, -towerSize / 2 - 20, labelW, 15);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.8;
+  ctx.strokeRect(-labelW / 2, -towerSize / 2 - 20, labelW, 15);
+  ctx.fillStyle = "#1A1A1A";
+  ctx.fillText(labelText, 0, -towerSize / 2 - 8);
   ctx.textAlign = "start";
 
   if (isSelected) {
-    ctx.strokeStyle = "#2196F3";
+    ctx.strokeStyle = "#1565C0";
     ctx.lineWidth = 2;
-    ctx.setLineDash([4, 2]);
-    ctx.strokeRect(-empriseW / 2 - 4, -empriseH / 2 - 4, empriseW + 8, empriseH + 8);
+    ctx.setLineDash([5, 3]);
+    ctx.beginPath();
+    ctx.arc(0, 0, r + 6, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.setLineDash([]);
   }
 }
 
+/** Draw alternateur / homme trafic — professional top-down view */
 function drawHommeTraffic(ctx: CanvasRenderingContext2D, _el: PlanElement, isSelected: boolean) {
-  // Body
-  ctx.fillStyle = "#333";
-  ctx.fillRect(-3, -2, 6, 16);
-  // Arms
-  ctx.strokeStyle = "#333";
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(-8, 4); ctx.lineTo(8, 4); ctx.stroke();
+  const s = 16; // size
+  // Green circle with white person icon
+  ctx.beginPath();
+  ctx.arc(0, 0, s, 0, Math.PI * 2);
+  const grad = ctx.createRadialGradient(0, -3, 2, 0, 0, s);
+  grad.addColorStop(0, "#43A047");
+  grad.addColorStop(1, "#2E7D32");
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.strokeStyle = "#1B5E20";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Person silhouette (white)
+  ctx.fillStyle = "#fff";
   // Head
   ctx.beginPath();
-  ctx.arc(0, -6, 5, 0, Math.PI * 2);
-  ctx.fillStyle = "#F5C49C";
+  ctx.arc(0, -5, 3.5, 0, Math.PI * 2);
   ctx.fill();
-  // Hard hat (yellow)
-  ctx.fillStyle = "#FFD700";
+  // Body
   ctx.beginPath();
-  ctx.ellipse(0, -10, 7, 4, 0, Math.PI, 0);
+  ctx.moveTo(-4, -1);
+  ctx.lineTo(-6, 8);
+  ctx.lineTo(-3, 8);
+  ctx.lineTo(0, 2);
+  ctx.lineTo(3, 8);
+  ctx.lineTo(6, 8);
+  ctx.lineTo(4, -1);
+  ctx.closePath();
   ctx.fill();
-  ctx.fillRect(-7, -10, 14, 2);
-  // Legs
-  ctx.strokeStyle = "#333";
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(-2, 14); ctx.lineTo(-5, 22); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(2, 14); ctx.lineTo(5, 22); ctx.stroke();
-  // Hi-vis vest
-  ctx.fillStyle = "#FF6B00";
-  ctx.fillRect(-4, -1, 8, 8);
-  ctx.fillStyle = "#C8C8C8";
-  ctx.fillRect(-4, 3, 8, 1.5);
+  // Stop paddle (small red octagon on right)
+  ctx.fillStyle = "#C41E3A";
+  ctx.beginPath();
+  ctx.arc(9, -2, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 5px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("⬡", 9, 0);
+  ctx.textAlign = "start";
 
   // Label
-  ctx.font = "bold 10px Arial, sans-serif";
-  ctx.fillStyle = "#000";
+  ctx.font = "600 9px 'Segoe UI', Arial, sans-serif";
+  ctx.fillStyle = "#1A1A1A";
   ctx.textAlign = "center";
-  ctx.fillText("Homme traffic", 0, 34);
+  const lbl = "Alternateur";
+  const lblW = ctx.measureText(lbl).width + 6;
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.fillRect(-lblW / 2, s + 3, lblW, 12);
+  ctx.fillStyle = "#2E7D32";
+  ctx.fillText(lbl, 0, s + 12);
   ctx.textAlign = "start";
 
   if (isSelected) {
-    ctx.strokeStyle = "#2196F3";
+    ctx.strokeStyle = "#1565C0";
     ctx.lineWidth = 2;
-    ctx.strokeRect(-12, -16, 24, 54);
+    ctx.strokeRect(-s - 4, -s - 4, (s + 4) * 2, (s + 4) * 2 + 20);
   }
 }
 
+/** Draw a proper K5c traffic cone — technical top-view */
 function drawCone(ctx: CanvasRenderingContext2D, _el: PlanElement, isSelected: boolean) {
-  // Base
-  ctx.fillStyle = "#666";
-  ctx.fillRect(-8, 12, 16, 3);
-  // Cone body (orange triangle)
-  ctx.fillStyle = "#FF6B35";
+  const s = 10;
+  // Top-down view: orange square with white X
+  ctx.fillStyle = "#E25A1C";
+  ctx.fillRect(-s, -s, s * 2, s * 2);
+  ctx.strokeStyle = "#A03C10";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(-s, -s, s * 2, s * 2);
+  // White reflective stripes
+  ctx.strokeStyle = "rgba(255,255,255,0.85)";
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(0, -10);
-  ctx.lineTo(-7, 12);
-  ctx.lineTo(7, 12);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "#CC4400";
-  ctx.lineWidth = 0.8;
+  ctx.moveTo(-s + 2, -s + 2);
+  ctx.lineTo(s - 2, s - 2);
   ctx.stroke();
-  // White stripes
+  ctx.beginPath();
+  ctx.moveTo(s - 2, -s + 2);
+  ctx.lineTo(-s + 2, s - 2);
+  ctx.stroke();
+  // Center dot
   ctx.fillStyle = "#fff";
   ctx.beginPath();
-  ctx.moveTo(-2.5, -2);
-  ctx.lineTo(-4.5, 4);
-  ctx.lineTo(4.5, 4);
-  ctx.lineTo(2.5, -2);
-  ctx.closePath();
+  ctx.arc(0, 0, 2, 0, Math.PI * 2);
   ctx.fill();
 
   if (isSelected) {
-    ctx.strokeStyle = "#2196F3";
+    ctx.strokeStyle = "#1565C0";
     ctx.lineWidth = 2;
-    ctx.strokeRect(-10, -12, 20, 28);
+    ctx.strokeRect(-s - 3, -s - 3, (s + 3) * 2, (s + 3) * 2);
   }
 }
 
+/** Draw K2 barricade — professional plan view */
 function drawBarriere(ctx: CanvasRenderingContext2D, _el: PlanElement, isSelected: boolean) {
-  // Posts
-  ctx.fillStyle = "#666";
-  ctx.fillRect(-30, -2, 4, 20);
-  ctx.fillRect(26, -2, 4, 20);
-  // Bar with red/white stripes
-  const barW = 56;
-  const barH = 10;
-  const stripeW = 8;
-  for (let i = 0; i < barW; i += stripeW * 2) {
-    ctx.fillStyle = "#E63946";
-    ctx.fillRect(-28 + i, -2, Math.min(stripeW, barW - i), barH);
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(-28 + i + stripeW, -2, Math.min(stripeW, barW - i - stripeW), barH);
-  }
-  ctx.strokeStyle = "#999";
-  ctx.lineWidth = 0.5;
-  ctx.strokeRect(-28, -2, barW, barH);
-
-  if (isSelected) {
-    ctx.strokeStyle = "#2196F3";
-    ctx.lineWidth = 2;
-    ctx.strokeRect(-32, -6, 64, 28);
-  }
-}
-
-function drawPanneau(ctx: CanvasRenderingContext2D, el: PlanElement, isSelected: boolean, type: string) {
-  // Post
-  ctx.fillStyle = "#888";
-  ctx.fillRect(-1.5, 8, 3, 18);
-  
-  if (type === "panneau_k8" || type === "panneau_travaux") {
-    // Triangle warning sign
-    ctx.fillStyle = "#FFD700";
+  const w = 50;
+  const h = 6;
+  // Hatched red/white bar
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(-w / 2, -h / 2, w, h);
+  ctx.clip();
+  // White base
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(-w / 2, -h / 2, w, h);
+  // Red diagonal stripes
+  ctx.fillStyle = "#C41E3A";
+  for (let i = -w; i < w * 2; i += 10) {
     ctx.beginPath();
-    ctx.moveTo(0, -14);
-    ctx.lineTo(-13, 8);
-    ctx.lineTo(13, 8);
+    ctx.moveTo(i - w / 2, -h / 2);
+    ctx.lineTo(i - w / 2 + 5, -h / 2);
+    ctx.lineTo(i - w / 2 + 5 + h, h / 2);
+    ctx.lineTo(i - w / 2 + h, h / 2);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = "#E63946";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    // Exclamation or icon
-    ctx.fillStyle = "#000";
-    ctx.font = "bold 12px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText(type === "panneau_k8" ? "!" : "⚒", 0, 5);
-    ctx.textAlign = "start";
-  } else if (type === "panneau_rue_barree") {
-    // Round red sign with white bar
-    ctx.beginPath();
-    ctx.arc(0, -2, 14, 0, Math.PI * 2);
-    ctx.fillStyle = "#E63946";
-    ctx.fill();
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(-10, -4, 20, 4);
-    // Text below
-    ctx.font = "bold 7px Arial";
-    ctx.fillStyle = "#000";
-    ctx.textAlign = "center";
-    ctx.fillText("ROUTE", 0, 32);
-    ctx.fillText("BARRÉE", 0, 40);
-    ctx.textAlign = "start";
-  } else if (type === "panneau_deviation") {
-    // Blue square with arrow
-    ctx.fillStyle = "#2196F3";
-    const s = 12;
-    ctx.fillRect(-s, -s - 2, s * 2, s * 2);
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(-s, -s - 2, s * 2, s * 2);
-    // White arrow
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.moveTo(-5, 2);
-    ctx.lineTo(5, -6);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, -6);
-    ctx.lineTo(5, -6);
-    ctx.lineTo(5, -1);
-    ctx.stroke();
-  } else if (type === "totem") {
-    // Speed limit sign (like "30")
-    ctx.beginPath();
-    ctx.arc(0, -2, 14, 0, Math.PI * 2);
-    ctx.fillStyle = "#fff";
-    ctx.fill();
-    ctx.strokeStyle = "#E63946";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.fillStyle = "#000";
-    ctx.font = "bold 12px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText("30", 0, 3);
-    ctx.textAlign = "start";
   }
+  ctx.restore();
+  // Border
+  ctx.strokeStyle = "#8B0000";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(-w / 2, -h / 2, w, h);
+  // Support posts (small black squares)
+  ctx.fillStyle = "#333";
+  ctx.fillRect(-w / 2 - 2, h / 2, 4, 6);
+  ctx.fillRect(w / 2 - 2, h / 2, 4, 6);
 
   if (isSelected) {
-    ctx.strokeStyle = "#2196F3";
+    ctx.strokeStyle = "#1565C0";
     ctx.lineWidth = 2;
-    ctx.strokeRect(-16, -18, 32, 48);
+    ctx.strokeRect(-w / 2 - 4, -h / 2 - 3, w + 8, h + 12);
   }
 }
 
+/** French regulatory road sign — professional rendering */
+function drawPanneau(ctx: CanvasRenderingContext2D, el: PlanElement, isSelected: boolean, type: string) {
+  const postH = 20;
+  const signR = 14;
+
+  // Post
+  ctx.fillStyle = "#666";
+  ctx.fillRect(-1.5, signR, 3, postH);
+  
+  if (type === "panneau_k8" || type === "panneau_travaux") {
+    // AK5 / AK4: Triangle with red border on white
+    const ts = 16;
+    ctx.beginPath();
+    ctx.moveTo(0, -ts);
+    ctx.lineTo(-ts * 0.87, ts * 0.5);
+    ctx.lineTo(ts * 0.87, ts * 0.5);
+    ctx.closePath();
+    // White fill
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+    // Red border
+    ctx.strokeStyle = "#C41E3A";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    // Inner symbol
+    ctx.fillStyle = "#1A1A1A";
+    ctx.font = "bold 12px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    if (type === "panneau_k8") {
+      ctx.fillText("!", 0, 2);
+    } else {
+      // AK4 - worker icon
+      ctx.fillText("⛏", 0, 2);
+    }
+    ctx.textAlign = "start";
+    ctx.textBaseline = "alphabetic";
+  } else if (type === "panneau_rue_barree") {
+    // B1: Round red with white horizontal bar
+    ctx.beginPath();
+    ctx.arc(0, 0, signR, 0, Math.PI * 2);
+    ctx.fillStyle = "#C41E3A";
+    ctx.fill();
+    // White border
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // White horizontal bar
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(-signR + 3, -2.5, (signR - 3) * 2, 5);
+    // Label
+    ctx.font = "bold 7px 'Segoe UI', Arial";
+    ctx.fillStyle = "#1A1A1A";
+    ctx.textAlign = "center";
+    ctx.fillText("ROUTE", 0, signR + postH + 10);
+    ctx.fillText("BARRÉE", 0, signR + postH + 18);
+    ctx.textAlign = "start";
+  } else if (type === "panneau_deviation") {
+    // KD: Blue rectangle with white arrow
+    const sw = 20, sh = 16;
+    ctx.fillStyle = "#0066B3";
+    // Rounded corners
+    const cr = 3;
+    ctx.beginPath();
+    ctx.moveTo(-sw / 2 + cr, -sh / 2);
+    ctx.lineTo(sw / 2 - cr, -sh / 2);
+    ctx.quadraticCurveTo(sw / 2, -sh / 2, sw / 2, -sh / 2 + cr);
+    ctx.lineTo(sw / 2, sh / 2 - cr);
+    ctx.quadraticCurveTo(sw / 2, sh / 2, sw / 2 - cr, sh / 2);
+    ctx.lineTo(-sw / 2 + cr, sh / 2);
+    ctx.quadraticCurveTo(-sw / 2, sh / 2, -sw / 2, sh / 2 - cr);
+    ctx.lineTo(-sw / 2, -sh / 2 + cr);
+    ctx.quadraticCurveTo(-sw / 2, -sh / 2, -sw / 2 + cr, -sh / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // White arrow
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.moveTo(-6, 3);
+    ctx.lineTo(2, -5);
+    ctx.lineTo(8, -5);
+    ctx.lineTo(8, -8);
+    ctx.lineTo(12, -2);
+    ctx.lineTo(8, 4);
+    ctx.lineTo(8, 1);
+    ctx.lineTo(2, 1);
+    ctx.lineTo(-6, 3);
+    ctx.closePath();
+    ctx.fill();
+    // Label
+    ctx.font = "600 7px 'Segoe UI', Arial";
+    ctx.fillStyle = "#1A1A1A";
+    ctx.textAlign = "center";
+    ctx.fillText("DÉVIATION", 0, signR + postH + 10);
+    ctx.textAlign = "start";
+  } else if (type === "totem") {
+    // B14: Speed limit 30 — round white with red border
+    ctx.beginPath();
+    ctx.arc(0, 0, signR, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+    ctx.strokeStyle = "#C41E3A";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    ctx.fillStyle = "#1A1A1A";
+    ctx.font = "bold 14px 'Segoe UI', Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("30", 0, 0);
+    ctx.textAlign = "start";
+    ctx.textBaseline = "alphabetic";
+  }
+
+  if (isSelected) {
+    ctx.strokeStyle = "#1565C0";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 2]);
+    ctx.strokeRect(-signR - 3, -signR - 5, (signR + 3) * 2, signR * 2 + postH + 10);
+    ctx.setLineDash([]);
+  }
+}
+
+/** Zone emprise with professional cross-hatching */
 function drawZoneEmprise(ctx: CanvasRenderingContext2D, el: PlanElement, isSelected: boolean) {
   const w = el.width || 150;
   const h = el.height || 80;
   const color = el.color || ELEMENT_COLORS.zone_emprise;
-  ctx.fillStyle = color + "18";
+
+  // Fill with light green + hatching
+  ctx.fillStyle = color + "12";
   ctx.fillRect(0, 0, w, h);
+
+  // Cross-hatch pattern
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, w, h);
+  ctx.clip();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.5;
+  ctx.globalAlpha = 0.25;
+  const gap = 12;
+  for (let i = -h; i < w + h; i += gap) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0);
+    ctx.lineTo(i + h, h);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(i, h);
+    ctx.lineTo(i + h, 0);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+
+  // Border
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
-  ctx.setLineDash([8, 4]);
+  ctx.setLineDash([10, 4]);
   ctx.strokeRect(0, 0, w, h);
   ctx.setLineDash([]);
-  ctx.font = "bold 10px Arial, sans-serif";
+
+  // Label with background
+  const labelText = "ZONE D'EMPRISE";
+  ctx.font = "bold 9px 'Segoe UI', Arial, sans-serif";
+  const lw = ctx.measureText(labelText).width + 8;
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  ctx.fillRect(4, 4, lw, 14);
   ctx.fillStyle = color;
-  ctx.fillText("Zone d'emprise", 4, 14);
+  ctx.fillText(labelText, 8, 14);
 
   if (isSelected) {
-    ctx.strokeStyle = "#2196F3";
+    ctx.strokeStyle = "#1565C0";
     ctx.lineWidth = 2;
-    ctx.strokeRect(-2, -2, w + 4, h + 4);
+    ctx.setLineDash([4, 2]);
+    ctx.strokeRect(-3, -3, w + 6, h + 6);
+    ctx.setLineDash([]);
   }
 }
 
+/** Professional deviation arrow with dimension */
 function drawFlecheDeviation(ctx: CanvasRenderingContext2D, _el: PlanElement, isSelected: boolean) {
-  // Big black arrow
   const len = 60;
-  ctx.fillStyle = "#000";
-  // Arrow body
-  ctx.fillRect(0, -6, len - 12, 12);
+  const bodyH = 8;
+
+  // Arrow body with gradient
+  const grad = ctx.createLinearGradient(0, 0, len, 0);
+  grad.addColorStop(0, "#333");
+  grad.addColorStop(1, "#1A1A1A");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, -bodyH / 2, len - 14, bodyH);
+
   // Arrow head
   ctx.beginPath();
-  ctx.moveTo(len - 12, -14);
+  ctx.moveTo(len - 14, -bodyH - 2);
   ctx.lineTo(len, 0);
-  ctx.lineTo(len - 12, 14);
+  ctx.lineTo(len - 14, bodyH + 2);
   ctx.closePath();
   ctx.fill();
-  // Dimension text
-  ctx.font = "bold 10px Arial";
-  ctx.fillStyle = "#000";
+
+  // Dimension text above
+  ctx.font = "600 9px 'Segoe UI', Arial";
+  ctx.fillStyle = "#1A1A1A";
   ctx.textAlign = "center";
-  ctx.fillText("4m", len / 2, -12);
+  ctx.fillText("→ Déviation", len / 2, -bodyH - 4);
   ctx.textAlign = "start";
 
   if (isSelected) {
-    ctx.strokeStyle = "#2196F3";
+    ctx.strokeStyle = "#1565C0";
     ctx.lineWidth = 2;
-    ctx.strokeRect(-4, -18, len + 8, 36);
+    ctx.strokeRect(-3, -bodyH - 12, len + 6, bodyH * 2 + 20);
   }
 }
 
+/** Pedestrian deviation — blue mandatory sign */
 function drawPietonDeviation(ctx: CanvasRenderingContext2D, _el: PlanElement, isSelected: boolean) {
-  // Blue circle with pedestrian
+  const r = 14;
+  // Blue circle
+  const grad = ctx.createRadialGradient(0, -2, 2, 0, 0, r);
+  grad.addColorStop(0, "#1976D2");
+  grad.addColorStop(1, "#0D47A1");
   ctx.beginPath();
-  ctx.arc(0, 0, 14, 0, Math.PI * 2);
-  ctx.fillStyle = "#2196F3";
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
   ctx.fill();
   ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 1;
-  // Pedestrian icon (white)
-  ctx.beginPath(); ctx.arc(0, -6, 3, 0, Math.PI * 2); ctx.fillStyle = "#fff"; ctx.fill();
-  ctx.strokeStyle = "#fff";
   ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(0, 5); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-5, 4); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(5, 4); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(-4, 11); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(4, 11); ctx.stroke();
+  ctx.stroke();
+
+  // Pedestrian silhouette (white)
+  ctx.fillStyle = "#fff";
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 1.8;
+  // Head
+  ctx.beginPath();
+  ctx.arc(1, -6, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  // Body
+  ctx.beginPath();
+  ctx.moveTo(1, -3.5);
+  ctx.lineTo(1, 3);
+  ctx.stroke();
+  // Arms
+  ctx.beginPath();
+  ctx.moveTo(-3, -1);
+  ctx.lineTo(5, 0);
+  ctx.stroke();
+  // Legs (walking)
+  ctx.beginPath();
+  ctx.moveTo(1, 3);
+  ctx.lineTo(-2, 8);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(1, 3);
+  ctx.lineTo(4, 8);
+  ctx.stroke();
+
+  // Arrow below
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.moveTo(6, -7);
+  ctx.lineTo(10, -4);
+  ctx.lineTo(6, -1);
+  ctx.closePath();
+  ctx.fill();
+
+  // Label
+  ctx.font = "600 8px 'Segoe UI', Arial";
+  ctx.fillStyle = "#1A1A1A";
+  ctx.textAlign = "center";
+  const lbl = "Piétons";
+  const lblW = ctx.measureText(lbl).width + 6;
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  ctx.fillRect(-lblW / 2, r + 3, lblW, 12);
+  ctx.fillStyle = "#0D47A1";
+  ctx.fillText(lbl, 0, r + 12);
+  ctx.textAlign = "start";
 
   if (isSelected) {
-    ctx.strokeStyle = "#2196F3";
+    ctx.strokeStyle = "#1565C0";
     ctx.lineWidth = 2;
-    ctx.strokeRect(-18, -18, 36, 36);
+    ctx.strokeRect(-r - 3, -r - 3, (r + 3) * 2, (r + 3) * 2 + 18);
   }
 }
 
+/** Custom text annotation with leader line style */
 function drawCustomText(ctx: CanvasRenderingContext2D, el: PlanElement, isSelected: boolean) {
-  ctx.font = "bold 14px Arial, sans-serif";
-  ctx.fillStyle = el.color || "#000";
-  ctx.fillText(el.text || "Texte", 0, 0);
+  const text = el.text || "Annotation";
+  ctx.font = "600 12px 'Segoe UI', Arial, sans-serif";
+  const m = ctx.measureText(text);
+  const pad = 5;
+  // Background
+  ctx.fillStyle = "rgba(255,255,255,0.95)";
+  ctx.strokeStyle = el.color || "#1A1A1A";
+  ctx.lineWidth = 1;
+  ctx.fillRect(-pad, -14, m.width + pad * 2, 18);
+  ctx.strokeRect(-pad, -14, m.width + pad * 2, 18);
+  // Text
+  ctx.fillStyle = el.color || "#1A1A1A";
+  ctx.fillText(text, 0, 0);
+
   if (isSelected) {
-    const m = ctx.measureText(el.text || "Texte");
-    ctx.strokeStyle = "#2196F3";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(-2, -16, m.width + 4, 22);
+    ctx.strokeStyle = "#1565C0";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-pad - 3, -17, m.width + pad * 2 + 6, 24);
   }
+}
+
+// Palette preview — small icon renderings for the sidebar
+function drawPaletteIcon(ctx: CanvasRenderingContext2D, type: string, x: number, y: number, size: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  const s = size / 2;
+
+  switch (type) {
+    case "grue": {
+      ctx.strokeStyle = ELEMENT_COLORS.grue;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.arc(0, 0, s - 2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = ELEMENT_COLORS.grue;
+      ctx.fillRect(-3, -3, 6, 6);
+      ctx.fillRect(3, -1, s - 6, 2);
+      break;
+    }
+    case "balisage_cone": {
+      ctx.fillStyle = ELEMENT_COLORS.balisage_cone;
+      ctx.fillRect(-s / 2, -s / 2, s, s);
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-s / 2 + 1, -s / 2 + 1);
+      ctx.lineTo(s / 2 - 1, s / 2 - 1);
+      ctx.stroke();
+      break;
+    }
+    case "balisage_barriere": {
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(-s + 2, -2, (s - 2) * 2, 4);
+      ctx.fillStyle = ELEMENT_COLORS.balisage_barriere;
+      for (let i = -s + 2; i < s; i += 6) {
+        ctx.fillRect(i, -2, 3, 4);
+      }
+      break;
+    }
+    case "homme_traffic": {
+      ctx.beginPath();
+      ctx.arc(0, 0, s - 2, 0, Math.PI * 2);
+      ctx.fillStyle = ELEMENT_COLORS.homme_traffic;
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.arc(0, -2, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(-1.5, 0, 3, 4);
+      break;
+    }
+    case "zone_emprise": {
+      ctx.strokeStyle = ELEMENT_COLORS.zone_emprise;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 2]);
+      ctx.strokeRect(-s + 2, -s / 2 + 2, (s - 2) * 2, s - 4);
+      ctx.setLineDash([]);
+      break;
+    }
+    default: {
+      // Sign types
+      const color = ELEMENT_COLORS[type] || "#666";
+      if (type === "totem" || type === "panneau_rue_barree") {
+        ctx.beginPath();
+        ctx.arc(0, 0, s - 3, 0, Math.PI * 2);
+        ctx.fillStyle = type === "totem" ? "#fff" : color;
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        if (type === "totem") {
+          ctx.fillStyle = "#1A1A1A";
+          ctx.font = `bold ${s - 3}px Arial`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("30", 0, 0);
+          ctx.textAlign = "start";
+          ctx.textBaseline = "alphabetic";
+        }
+      } else if (type.includes("k8") || type.includes("travaux")) {
+        ctx.beginPath();
+        ctx.moveTo(0, -s + 2);
+        ctx.lineTo(-s + 3, s - 3);
+        ctx.lineTo(s - 3, s - 3);
+        ctx.closePath();
+        ctx.fillStyle = "#fff";
+        ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = color;
+        const bw = (s - 2) * 1.4, bh = (s - 2);
+        ctx.fillRect(-bw / 2, -bh / 2, bw, bh);
+      }
+      break;
+    }
+  }
+  ctx.restore();
 }
 
 // ── Main component ──
@@ -498,27 +830,34 @@ const VoiriePlanEditor = ({
         const ratio = Math.min(sw / imgW, sh / imgH);
         const drawW = imgW * ratio;
         const drawH = imgH * ratio;
-        const ox = (sw - drawW) / 2;
-        const oy = (sh - drawH) / 2;
-        ctx.filter = "contrast(1.25) saturate(1.05)";
-        ctx.drawImage(bgImage, ox, oy, drawW, drawH);
-        ctx.filter = "none";
+        ctx.drawImage(bgImage, (sw - drawW) / 2, (sh - drawH) / 2, drawW, drawH);
       } else {
-        // Grid
-        ctx.strokeStyle = "#e5e5e5";
-        ctx.lineWidth = 0.5;
+        // Professional grid
+        ctx.strokeStyle = "#E0E0E0";
+        ctx.lineWidth = 0.3;
         for (let x = 0; x < sw; x += 50) {
           ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, sh); ctx.stroke();
         }
         for (let y = 0; y < sh; y += 50) {
           ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(sw, y); ctx.stroke();
         }
+        // Sub-grid
+        ctx.strokeStyle = "#F0F0F0";
+        ctx.lineWidth = 0.15;
+        for (let x = 0; x < sw; x += 10) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, sh); ctx.stroke();
+        }
+        for (let y = 0; y < sh; y += 10) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(sw, y); ctx.stroke();
+        }
         ctx.fillStyle = "#999";
-        ctx.font = "14px sans-serif";
-        ctx.fillText("Chargez un plan PDF ou image de fond", sw / 2 - 150, sh / 2);
+        ctx.font = "13px 'Segoe UI', sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Chargez un plan PDF ou image de fond", sw / 2, sh / 2);
+        ctx.textAlign = "start";
       }
 
-      // Draw elements with professional rendering
+      // Draw elements
       for (const el of elements) {
         const isSelected = el.id === selectedId;
         ctx.save();
@@ -544,7 +883,7 @@ const VoiriePlanEditor = ({
         ctx.restore();
       }
 
-      // Legend
+      // ── Professional Legend ──
       if (elements.length > 0) {
         const types = [...new Set(elements.map((e) => e.type))];
         const legendItems = types.map((t) => ({
@@ -553,26 +892,47 @@ const VoiriePlanEditor = ({
           count: elements.filter((e) => e.type === t).length,
           color: ELEMENT_COLORS[t] || "#333",
         }));
-        const lx = 10;
-        const ly = sh - 10 - legendItems.length * 20 - 28;
-        ctx.fillStyle = "rgba(255,255,255,0.94)";
-        ctx.strokeStyle = "#ccc";
-        ctx.lineWidth = 1;
+        const lx = 8;
+        const itemH = 22;
+        const legendH = legendItems.length * itemH + 30;
+        const legendW = 180;
+        const ly = sh - 8 - legendH;
+
+        // Background with shadow
+        ctx.shadowColor = "rgba(0,0,0,0.08)";
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetY = 2;
+        ctx.fillStyle = "rgba(255,255,255,0.96)";
+        ctx.fillRect(lx, ly, legendW, legendH);
+        ctx.shadowColor = "transparent";
+
+        ctx.strokeStyle = "#BDBDBD";
+        ctx.lineWidth = 0.8;
+        ctx.strokeRect(lx, ly, legendW, legendH);
+
+        // Header
+        ctx.font = "bold 9px 'Segoe UI', Arial, sans-serif";
+        ctx.fillStyle = "#616161";
+        ctx.fillText("LÉGENDE", lx + 8, ly + 14);
+        ctx.strokeStyle = "#E0E0E0";
+        ctx.lineWidth = 0.5;
         ctx.beginPath();
-        ctx.rect(lx, ly, 170, legendItems.length * 20 + 28);
-        ctx.fill();
+        ctx.moveTo(lx + 4, ly + 20);
+        ctx.lineTo(lx + legendW - 4, ly + 20);
         ctx.stroke();
-        ctx.font = "bold 10px Arial, sans-serif";
-        ctx.fillStyle = "#444";
-        ctx.fillText("LÉGENDE", lx + 8, ly + 16);
+
         legendItems.forEach((item, i) => {
-          ctx.beginPath();
-          ctx.arc(lx + 16, ly + 32 + i * 20, 5, 0, Math.PI * 2);
+          const iy = ly + 26 + i * itemH;
+          // Color swatch
           ctx.fillStyle = item.color;
-          ctx.fill();
-          ctx.font = "11px Arial, sans-serif";
-          ctx.fillStyle = "#222";
-          ctx.fillText(`${item.label} (×${item.count})`, lx + 28, ly + 36 + i * 20);
+          ctx.fillRect(lx + 8, iy, 12, 12);
+          ctx.strokeStyle = "#999";
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(lx + 8, iy, 12, 12);
+          // Label
+          ctx.font = "10px 'Segoe UI', Arial, sans-serif";
+          ctx.fillStyle = "#333";
+          ctx.fillText(`${item.label} (×${item.count})`, lx + 26, iy + 10);
         });
       }
 
@@ -657,12 +1017,12 @@ const VoiriePlanEditor = ({
       x: cx + (Math.random() - 0.5) * 100,
       y: cy + (Math.random() - 0.5) * 100,
       rotation: 0,
-      label: type === "grue" ? "Grue" : undefined,
+      label: type === "grue" ? "Grue GME" : undefined,
       radius: type === "grue" ? 80 : undefined,
       width: type === "zone_emprise" ? 200 : undefined,
       height: type === "zone_emprise" ? 100 : undefined,
-      text: type === "custom_text" ? "Texte" : undefined,
-      color: ELEMENT_COLORS[type] || "#333",
+      text: type === "custom_text" ? "Annotation" : undefined,
+      color: ELEMENT_COLORS[type] || "#1A1A1A",
     };
     setElements((prev) => [...prev, newEl]);
     setSelectedId(newEl.id);
@@ -691,7 +1051,6 @@ const VoiriePlanEditor = ({
         const img = new window.Image();
         img.onload = () => {
           setBgImage(img);
-          // Store data URL for AI vision
           const tempCanvas = document.createElement("canvas");
           tempCanvas.width = img.naturalWidth || img.width;
           tempCanvas.height = img.naturalHeight || img.height;
@@ -710,7 +1069,6 @@ const VoiriePlanEditor = ({
       const arrayBuf = await file.arrayBuffer();
       const pdf = await pdfjs.getDocument({ data: arrayBuf }).promise;
       const page = await pdf.getPage(1);
-      // HIGH QUALITY: scale 4 for crisp rendering
       const viewport = page.getViewport({ scale: 4 });
       const canvas = document.createElement("canvas");
       canvas.width = viewport.width;
@@ -719,7 +1077,7 @@ const VoiriePlanEditor = ({
       await page.render({ canvasContext: ctx2, viewport }).promise;
       const dataUrl = canvas.toDataURL("image/png");
       
-      // Store a lower-res version for AI vision (to keep payload manageable)
+      // Lower-res for AI
       const aiViewport = page.getViewport({ scale: 1.5 });
       const aiCanvas = document.createElement("canvas");
       aiCanvas.width = aiViewport.width;
@@ -747,7 +1105,7 @@ const VoiriePlanEditor = ({
     return Array.from(types).map((type) => {
       const palette = ELEMENT_PALETTE.find((p) => p.type === type);
       return {
-        type, label: palette?.label || type, icon: palette?.icon || "?",
+        type, label: palette?.label || type,
         count: elements.filter((el) => el.type === type).length,
         color: ELEMENT_COLORS[type] || "#333",
       };
@@ -786,7 +1144,6 @@ const VoiriePlanEditor = ({
         stageWidth: canvasSize.width / scale,
         stageHeight: canvasSize.height / scale,
       };
-      // Send plan image for vision-based positioning
       if (bgDataUrlRef.current) {
         body.planImageBase64 = bgDataUrlRef.current;
       }
@@ -831,12 +1188,12 @@ const VoiriePlanEditor = ({
       if (legend.length > 0) {
         pdf.addPage();
         pdf.setFontSize(18);
-        pdf.text("Légende", 30, 40);
+        pdf.text("Légende du plan d'implantation", 30, 40);
         pdf.setFontSize(12);
         legend.forEach((item, i) => {
           pdf.setFillColor(item.color);
           pdf.circle(40, 70 + i * 25, 6, "F");
-          pdf.text(`${item.icon} ${item.label} (×${item.count})`, 55, 74 + i * 25);
+          pdf.text(`${item.label} (×${item.count})`, 55, 74 + i * 25);
         });
       }
       pdf.save(`plan-implantation-${title.replace(/\s+/g, "-")}.pdf`);
@@ -846,12 +1203,15 @@ const VoiriePlanEditor = ({
 
   const selectedEl = elements.find((el) => el.id === selectedId);
 
+  // Group palette by category
+  const categories = [...new Set(ELEMENT_PALETTE.map(p => p.category))];
+
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="flex items-center gap-2 p-2 border-b bg-card flex-wrap">
         <Input value={title} onChange={(e) => setTitle(e.target.value)}
-          className="h-8 text-sm w-48 max-w-[200px]" placeholder="Titre du plan" />
+          className="h-8 text-sm w-48 max-w-[200px] font-medium" placeholder="Titre du plan" />
         <div className="h-6 w-px bg-border" />
 
         {/* Upload PDF */}
@@ -875,7 +1235,7 @@ const VoiriePlanEditor = ({
         <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setScale((s) => Math.min(3, s + 0.2))} title="Zoom +">
           <ZoomIn className="h-3.5 w-3.5" />
         </Button>
-        <span className="text-[10px] text-muted-foreground w-10 text-center">{Math.round(scale * 100)}%</span>
+        <span className="text-[10px] text-muted-foreground w-10 text-center font-mono">{Math.round(scale * 100)}%</span>
         <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setScale((s) => Math.max(0.3, s - 0.2))} title="Zoom -">
           <ZoomOut className="h-3.5 w-3.5" />
         </Button>
@@ -885,7 +1245,7 @@ const VoiriePlanEditor = ({
         {/* AI fill */}
         <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={handleAiFill} disabled={aiLoading}>
           {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
-          IA
+          IA auto-plan
         </Button>
 
         {selectedId && (
@@ -914,17 +1274,42 @@ const VoiriePlanEditor = ({
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left palette */}
-        <div className={`border-r bg-card overflow-y-auto ${isMobile ? "w-12" : "w-44"} shrink-0`}>
-          <div className="p-1.5 space-y-1">
-            {!isMobile && <p className="text-[10px] font-semibold text-muted-foreground uppercase px-1 py-1">Éléments</p>}
-            {ELEMENT_PALETTE.map((item) => (
-              <button key={item.type} onClick={() => addElement(item.type)}
-                className="flex items-center gap-1.5 w-full rounded-md px-2 py-1.5 text-xs hover:bg-accent transition-colors text-left"
-                title={item.label}>
-                <span className="text-sm">{item.icon}</span>
-                {!isMobile && <span className="truncate">{item.label}</span>}
-              </button>
+        {/* Left palette — grouped by category with visual previews */}
+        <div className={`border-r bg-card overflow-y-auto ${isMobile ? "w-14" : "w-48"} shrink-0`}>
+          <div className="p-1.5 space-y-0.5">
+            {categories.map((cat) => (
+              <div key={cat}>
+                {!isMobile && (
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider px-2 pt-2 pb-1">{cat}</p>
+                )}
+                {ELEMENT_PALETTE.filter(p => p.category === cat).map((item) => (
+                  <button key={item.type} onClick={() => addElement(item.type)}
+                    className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-xs hover:bg-accent/60 transition-colors text-left group"
+                    title={item.label}>
+                    {/* Mini canvas preview */}
+                    <canvas
+                      ref={(cvs) => {
+                        if (!cvs) return;
+                        const c = cvs.getContext("2d");
+                        if (!c) return;
+                        const sz = isMobile ? 24 : 28;
+                        cvs.width = sz * 2;
+                        cvs.height = sz * 2;
+                        cvs.style.width = `${sz}px`;
+                        cvs.style.height = `${sz}px`;
+                        c.clearRect(0, 0, sz * 2, sz * 2);
+                        c.scale(2, 2);
+                        drawPaletteIcon(c, item.type, sz / 2, sz / 2, sz - 4);
+                      }}
+                      className="shrink-0 rounded"
+                      style={{ width: isMobile ? 24 : 28, height: isMobile ? 24 : 28 }}
+                    />
+                    {!isMobile && (
+                      <span className="truncate text-[11px] font-medium text-foreground/80 group-hover:text-foreground">{item.label}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
         </div>
@@ -941,32 +1326,39 @@ const VoiriePlanEditor = ({
 
           {!bgImage && elements.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-center text-muted-foreground">
+              <div className="text-center text-muted-foreground space-y-2">
+                <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
+                  <Plus className="h-8 w-8 text-muted-foreground/50" />
+                </div>
                 <p className="text-sm font-medium">Chargez un plan de voirie</p>
-                <p className="text-xs mt-1">PDF ou image (plan cadastral, plan de masse…)</p>
+                <p className="text-xs">PDF ou image (plan cadastral, plan de masse…)</p>
               </div>
             </div>
           )}
         </div>
 
-        {/* Right panel - selected element properties */}
+        {/* Right panel — selected element properties */}
         {selectedEl && !isMobile && (
-          <div className="w-52 border-l bg-card p-3 space-y-3 overflow-y-auto shrink-0">
+          <div className="w-56 border-l bg-card p-3 space-y-3 overflow-y-auto shrink-0">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold">Propriétés</p>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setSelectedId(null)}>✕</Button>
+              <p className="text-xs font-bold text-foreground">Propriétés</p>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setSelectedId(null)}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
             </div>
             <div>
-              <Badge className="text-[10px]">{ELEMENT_PALETTE.find((p) => p.type === selectedEl.type)?.label || selectedEl.type}</Badge>
+              <Badge variant="secondary" className="text-[10px]">
+                {ELEMENT_PALETTE.find((p) => p.type === selectedEl.type)?.label || selectedEl.type}
+              </Badge>
             </div>
             {selectedEl.type === "grue" && (
               <>
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Nom de la grue</label>
+                  <label className="text-[10px] text-muted-foreground font-medium">Nom de la grue</label>
                   <Input value={selectedEl.label || ""} onChange={(e) => updateElement(selectedEl.id, { label: e.target.value })} className="h-7 text-xs mt-0.5" />
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Rayon de giration (px)</label>
+                  <label className="text-[10px] text-muted-foreground font-medium">Rayon de giration (px)</label>
                   <Input type="number" value={selectedEl.radius || 80} onChange={(e) => updateElement(selectedEl.id, { radius: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
                 </div>
               </>
@@ -974,27 +1366,27 @@ const VoiriePlanEditor = ({
             {selectedEl.type === "zone_emprise" && (
               <>
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Largeur (px)</label>
+                  <label className="text-[10px] text-muted-foreground font-medium">Largeur (px)</label>
                   <Input type="number" value={selectedEl.width || 200} onChange={(e) => updateElement(selectedEl.id, { width: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
                 </div>
                 <div>
-                  <label className="text-[10px] text-muted-foreground">Hauteur (px)</label>
+                  <label className="text-[10px] text-muted-foreground font-medium">Hauteur (px)</label>
                   <Input type="number" value={selectedEl.height || 100} onChange={(e) => updateElement(selectedEl.id, { height: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
                 </div>
               </>
             )}
             {selectedEl.type === "custom_text" && (
               <div>
-                <label className="text-[10px] text-muted-foreground">Texte</label>
+                <label className="text-[10px] text-muted-foreground font-medium">Texte</label>
                 <Input value={selectedEl.text || ""} onChange={(e) => updateElement(selectedEl.id, { text: e.target.value })} className="h-7 text-xs mt-0.5" />
               </div>
             )}
             <div>
-              <label className="text-[10px] text-muted-foreground">Rotation (°)</label>
+              <label className="text-[10px] text-muted-foreground font-medium">Rotation (°)</label>
               <Input type="number" value={selectedEl.rotation || 0} onChange={(e) => updateElement(selectedEl.id, { rotation: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
             </div>
             <div>
-              <label className="text-[10px] text-muted-foreground">Position</label>
+              <label className="text-[10px] text-muted-foreground font-medium">Position</label>
               <div className="flex gap-1 mt-0.5">
                 <Input type="number" value={Math.round(selectedEl.x)} onChange={(e) => updateElement(selectedEl.id, { x: Number(e.target.value) })} className="h-7 text-xs" placeholder="X" />
                 <Input type="number" value={Math.round(selectedEl.y)} onChange={(e) => updateElement(selectedEl.id, { y: Number(e.target.value) })} className="h-7 text-xs" placeholder="Y" />
