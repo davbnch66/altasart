@@ -828,12 +828,11 @@ const VoiriePlanEditor = ({
 
   const clampOffset = useCallback((offset: { x: number; y: number }) => {
     const { stageWidth: sw, stageHeight: sh, x: planX, y: planY, width: planW, height: planH } = getPlanRect();
-    const margin = 120;
 
-    const minX = sw - (planX + planW) - margin;
-    const maxX = -planX + margin;
-    const minY = sh - (planY + planH) - margin;
-    const maxY = -planY + margin;
+    const minX = sw - (planX + planW);
+    const maxX = -planX;
+    const minY = sh - (planY + planH);
+    const maxY = -planY;
 
     return {
       x: minX > maxX ? 0 : Math.min(maxX, Math.max(minX, offset.x)),
@@ -1068,9 +1067,9 @@ const VoiriePlanEditor = ({
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
 
-    // Navigation verticale/horizontale au trackpad/souris
+    // Navigation verticale au trackpad/souris (évite les décalages latéraux parasites)
     setViewOffset((prev) => clampOffset({
-      x: prev.x - e.deltaX / scale,
+      x: prev.x,
       y: prev.y - e.deltaY / scale,
     }));
   };
