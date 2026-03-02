@@ -447,6 +447,7 @@ const VoiriePlanEditor = ({
   const [title, setTitle] = useState(address || "Plan d'implantation");
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [dragging, setDragging] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const pixelRatio = Math.min(3, typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1);
 
   // Resize canvas to container
   useEffect(() => {
@@ -479,12 +480,16 @@ const VoiriePlanEditor = ({
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(pixelRatio * scale, 0, 0, pixelRatio * scale, 0, 0);
       ctx.save();
-      ctx.scale(scale, scale);
 
       const sw = canvasSize.width / scale;
       const sh = canvasSize.height / scale;
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
 
       // Background image (aspect-ratio preserved)
       if (bgImage) {
@@ -495,9 +500,9 @@ const VoiriePlanEditor = ({
         const drawH = imgH * ratio;
         const ox = (sw - drawW) / 2;
         const oy = (sh - drawH) / 2;
-        ctx.globalAlpha = 0.95;
+        ctx.filter = "contrast(1.25) saturate(1.05)";
         ctx.drawImage(bgImage, ox, oy, drawW, drawH);
-        ctx.globalAlpha = 1;
+        ctx.filter = "none";
       } else {
         // Grid
         ctx.strokeStyle = "#e5e5e5";
@@ -579,7 +584,7 @@ const VoiriePlanEditor = ({
         toast.error("Erreur de rendu du plan. Rechargez la page.");
       }
     }
-  }, [elements, selectedId, bgImage, canvasSize, scale]);
+  }, [elements, selectedId, bgImage, canvasSize, scale, pixelRatio]);
 
   useEffect(() => {
     try { draw(); } catch (error) {
@@ -926,7 +931,7 @@ const VoiriePlanEditor = ({
 
         {/* Canvas */}
         <div className="flex-1 overflow-hidden bg-muted/30 relative" ref={containerRef}>
-          <canvas ref={canvasRef} width={canvasSize.width} height={canvasSize.height}
+          <canvas ref={canvasRef} width={Math.round(canvasSize.width * pixelRatio)} height={Math.round(canvasSize.height * pixelRatio)}
             className="cursor-crosshair"
             style={{ width: canvasSize.width, height: canvasSize.height }}
             onMouseDown={handlePointerDown} onMouseMove={handlePointerMove}
