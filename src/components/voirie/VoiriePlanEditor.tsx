@@ -1048,10 +1048,26 @@ const VoiriePlanEditor = ({
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    setViewOffset((prev) => ({
-      x: prev.x - e.deltaX / scale,
-      y: prev.y - e.deltaY / scale,
-    }));
+    // Ctrl+wheel or pinch = zoom, plain wheel = also zoom (standard map behavior)
+    const delta = -e.deltaY;
+    const zoomFactor = delta > 0 ? 1.1 : 0.9;
+    const newScale = Math.min(5, Math.max(0.2, scale * zoomFactor));
+
+    // Zoom centered on cursor position
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const cursorX = (e.clientX - rect.left) / scale;
+      const cursorY = (e.clientY - rect.top) / scale;
+      // Adjust offset so the point under the cursor stays in place
+      const scaleChange = newScale / scale;
+      setViewOffset((prev) => ({
+        x: cursorX - scaleChange * (cursorX - prev.x),
+        y: cursorY - scaleChange * (cursorY - prev.y),
+      }));
+    }
+
+    setScale(newScale);
   };
 
   const handlePointerUp = () => {
