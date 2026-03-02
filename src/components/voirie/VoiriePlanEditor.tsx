@@ -1,16 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Stage, Layer, Image as KonvaImage, Circle, Line, Text, Group, Rect, Arrow } from "react-konva";
-import Konva from "konva";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
-  Download, Save, Wand2, Trash2, RotateCcw, ZoomIn, ZoomOut,
-  Plus, MousePointer, Move, Loader2
+  Download, Save, Wand2, Trash2, ZoomIn, ZoomOut,
+  Plus, MousePointer, Loader2, X
 } from "lucide-react";
 
 // ── Element types ──
@@ -22,14 +19,11 @@ export interface PlanElement {
   x: number;
   y: number;
   rotation?: number;
-  // Grue specific
   radius?: number;
   label?: string;
-  // Zone emprise specific
   points?: number[];
   width?: number;
   height?: number;
-  // Text
   text?: string;
   color?: string;
 }
@@ -78,32 +72,34 @@ interface VoiriePlanEditorProps {
   onClose?: () => void;
 }
 
+const genId = () => `el-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
 const VoiriePlanEditor = ({
   planId, companyId, visiteId, dossierId, address,
   initialElements = [], pdfUrl, onSave, onClose,
 }: VoiriePlanEditorProps) => {
   const isMobile = useIsMobile();
-  const stageRef = useRef<Konva.Stage>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [elements, setElements] = useState<PlanElement[]>(initialElements);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [activeTool, setActiveTool] = useState<string>("select");
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
-  const [stageSize, setStageSize] = useState({ width: 800, height: 600 });
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const [scale, setScale] = useState(1);
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [title, setTitle] = useState(address || "Plan d'implantation");
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [dragging, setDragging] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
 
-  // Resize stage to container
+  // Resize canvas to container
   useEffect(() => {
     const resize = () => {
       if (containerRef.current) {
         const w = containerRef.current.offsetWidth;
-        const h = Math.max(400, window.innerHeight - 280);
-        setStageSize({ width: w, height: h });
+        const h = Math.max(400, containerRef.current.offsetHeight || (window.innerHeight - 280));
+        setCanvasSize({ width: w, height: h });
       }
     };
     resize();
@@ -111,7 +107,7 @@ const VoiriePlanEditor = ({
     return () => window.removeEventListener("resize", resize);
   }, []);
 
-  // Load background image from PDF rendered as image
+  // Load background image
   useEffect(() => {
     if (!pdfUrl) return;
     const img = new window.Image();
@@ -120,11 +116,274 @@ const VoiriePlanEditor = ({
     img.src = pdfUrl;
   }, [pdfUrl]);
 
-  const genId = () => `el-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  // ── Draw everything on canvas ──
+  const draw = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.scale(scale, scale);
+
+    const sw = canvasSize.width / scale;
+    const sh = canvasSize.height / scale;
+
+    // Background image (aspect-ratio preserved)
+    if (bgImage) {
+      const imgW = bgImage.naturalWidth || bgImage.width;
+      const imgH = bgImage.naturalHeight || bgImage.height;
+      const ratio = Math.min(sw / imgW, sh / imgH);
+      const drawW = imgW * ratio;
+      const drawH = imgH * ratio;
+      const ox = (sw - drawW) / 2;
+      const oy = (sh - drawH) / 2;
+      ctx.globalAlpha = 0.9;
+      ctx.drawImage(bgImage, ox, oy, drawW, drawH);
+      ctx.globalAlpha = 1;
+    } else {
+      // Grid
+      ctx.strokeStyle = "#e5e5e5";
+      ctx.lineWidth = 0.5;
+      for (let x = 0; x < sw; x += 50) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, sh); ctx.stroke();
+      }
+      for (let y = 0; y < sh; y += 50) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(sw, y); ctx.stroke();
+      }
+      ctx.fillStyle = "#999";
+      ctx.font = "14px sans-serif";
+      ctx.fillText("Chargez un plan PDF ou image de fond", sw / 2 - 150, sh / 2);
+    }
+
+    // Draw elements
+    for (const el of elements) {
+      const isSelected = el.id === selectedId;
+      const color = el.color || ELEMENT_COLORS[el.type] || "#333";
+
+      ctx.save();
+      ctx.translate(el.x, el.y);
+      if (el.rotation) ctx.rotate((el.rotation * Math.PI) / 180);
+
+      switch (el.type) {
+        case "grue": {
+          const r = el.radius || 60;
+          ctx.beginPath();
+          ctx.arc(0, 0, r, 0, Math.PI * 2);
+          ctx.setLineDash([6, 4]);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.5;
+          ctx.fillStyle = color + "15";
+          ctx.fill();
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.arc(0, 0, 12, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+          if (isSelected) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke(); }
+          ctx.font = "16px sans-serif";
+          ctx.fillText("🏗️", -8, 6);
+          ctx.font = "bold 11px sans-serif";
+          ctx.fillStyle = color;
+          ctx.fillText(el.label || "Grue", -15, 22);
+          break;
+        }
+        case "homme_traffic":
+        case "pieton_deviation": {
+          ctx.beginPath();
+          ctx.arc(0, 0, 14, 0, Math.PI * 2);
+          ctx.fillStyle = color + "33";
+          ctx.fill();
+          ctx.strokeStyle = isSelected ? "#fff" : color;
+          ctx.lineWidth = isSelected ? 2 : 1;
+          ctx.stroke();
+          ctx.font = "18px sans-serif";
+          ctx.fillText(el.type === "homme_traffic" ? "🧑‍🦺" : "🚶", -9, 7);
+          break;
+        }
+        case "balisage_cone": {
+          ctx.beginPath();
+          ctx.arc(0, 0, 8, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+          if (isSelected) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); }
+          ctx.font = "12px sans-serif";
+          ctx.fillText("🔶", -6, 5);
+          break;
+        }
+        case "balisage_barriere": {
+          ctx.fillStyle = color;
+          ctx.fillRect(-25, -4, 50, 8);
+          ctx.fillRect(-25, -8, 4, 16);
+          ctx.fillRect(21, -8, 4, 16);
+          if (isSelected) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(-26, -9, 52, 18); }
+          break;
+        }
+        case "zone_emprise": {
+          const w = el.width || 150;
+          const h = el.height || 80;
+          ctx.fillStyle = color + "20";
+          ctx.fillRect(0, 0, w, h);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([8, 4]);
+          ctx.strokeRect(0, 0, w, h);
+          ctx.setLineDash([]);
+          if (isSelected) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(-2, -2, w + 4, h + 4); }
+          ctx.font = "bold 10px sans-serif";
+          ctx.fillStyle = color;
+          ctx.fillText("Zone d'emprise", 4, 14);
+          break;
+        }
+        case "fleche_deviation": {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(60, 0); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(50, -8); ctx.lineTo(60, 0); ctx.lineTo(50, 8); ctx.fillStyle = color; ctx.fill();
+          if (isSelected) { ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); }
+          ctx.font = "9px sans-serif";
+          ctx.fillStyle = color;
+          ctx.fillText("Déviation", 0, 16);
+          break;
+        }
+        case "custom_text": {
+          if (isSelected) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.strokeRect(-2, -14, 100, 20); }
+          ctx.font = "bold 13px sans-serif";
+          ctx.fillStyle = color;
+          ctx.fillText(el.text || "Texte", 0, 0);
+          break;
+        }
+        default: {
+          // panneau_k8, panneau_travaux, panneau_deviation, panneau_rue_barree, totem
+          const iconMap: Record<string, string> = {
+            panneau_k8: "⚠️", panneau_travaux: "🔨", panneau_deviation: "↪️",
+            panneau_rue_barree: "⛔", totem: "🔻",
+          };
+          ctx.fillStyle = "#fff";
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          const r2 = 4;
+          ctx.roundRect(-14, -14, 28, 28, r2);
+          ctx.fill();
+          ctx.stroke();
+          if (isSelected) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(-16, -16, 32, 32); }
+          ctx.font = "16px sans-serif";
+          ctx.fillText(iconMap[el.type] || "?", -8, 6);
+          const paletteItem = ELEMENT_PALETTE.find((p) => p.type === el.type);
+          ctx.font = "9px sans-serif";
+          ctx.fillStyle = color;
+          ctx.textAlign = "center";
+          ctx.fillText(paletteItem?.label || "", 0, 26);
+          ctx.textAlign = "start";
+          break;
+        }
+      }
+      ctx.restore();
+    }
+
+    // Legend
+    if (elements.length > 0) {
+      const types = [...new Set(elements.map((e) => e.type))];
+      const legendItems = types.map((t) => ({
+        type: t,
+        label: ELEMENT_PALETTE.find((p) => p.type === t)?.label || t,
+        icon: ELEMENT_PALETTE.find((p) => p.type === t)?.icon || "?",
+        count: elements.filter((e) => e.type === t).length,
+        color: ELEMENT_COLORS[t] || "#333",
+      }));
+      const lx = 10;
+      const ly = sh - 10 - legendItems.length * 18 - 25;
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.strokeStyle = "#ccc";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(lx, ly, 160, legendItems.length * 18 + 25, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.font = "bold 9px sans-serif";
+      ctx.fillStyle = "#666";
+      ctx.fillText("LÉGENDE", lx + 8, ly + 14);
+      legendItems.forEach((item, i) => {
+        ctx.beginPath();
+        ctx.arc(lx + 14, ly + 27 + i * 18, 4, 0, Math.PI * 2);
+        ctx.fillStyle = item.color;
+        ctx.fill();
+        ctx.font = "9px sans-serif";
+        ctx.fillStyle = "#333";
+        ctx.fillText(`${item.icon} ${item.label} (×${item.count})`, lx + 24, ly + 31 + i * 18);
+      });
+    }
+
+    ctx.restore();
+  }, [elements, selectedId, bgImage, canvasSize, scale]);
+
+  useEffect(() => { draw(); }, [draw]);
+
+  // ── Mouse / Touch interaction ──
+  const getCanvasPos = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const clientX = "touches" in e ? e.touches[0]?.clientX || 0 : e.clientX;
+    const clientY = "touches" in e ? e.touches[0]?.clientY || 0 : e.clientY;
+    return {
+      x: (clientX - rect.left) / scale,
+      y: (clientY - rect.top) / scale,
+    };
+  };
+
+  const hitTest = (pos: { x: number; y: number }) => {
+    // Reverse order so top elements are hit first
+    for (let i = elements.length - 1; i >= 0; i--) {
+      const el = elements[i];
+      const dx = pos.x - el.x;
+      const dy = pos.y - el.y;
+      const hitRadius = el.type === "zone_emprise" 
+        ? Math.max(el.width || 150, el.height || 80) 
+        : el.type === "grue" ? (el.radius || 60) : 20;
+      if (el.type === "zone_emprise") {
+        if (dx >= 0 && dx <= (el.width || 150) && dy >= 0 && dy <= (el.height || 80)) return el;
+      } else if (Math.sqrt(dx * dx + dy * dy) < hitRadius) {
+        return el;
+      }
+    }
+    return null;
+  };
+
+  const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
+    const pos = getCanvasPos(e);
+    const hit = hitTest(pos);
+    if (hit) {
+      setSelectedId(hit.id);
+      setDragging({ id: hit.id, offsetX: pos.x - hit.x, offsetY: pos.y - hit.y });
+    } else {
+      setSelectedId(null);
+    }
+  };
+
+  const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!dragging) return;
+    const pos = getCanvasPos(e);
+    setElements((prev) =>
+      prev.map((el) =>
+        el.id === dragging.id
+          ? { ...el, x: pos.x - dragging.offsetX, y: pos.y - dragging.offsetY }
+          : el
+      )
+    );
+  };
+
+  const handlePointerUp = () => {
+    setDragging(null);
+  };
+
+  // ── Add element ──
   const addElement = useCallback((type: string) => {
-    const cx = stageSize.width / 2 / scale;
-    const cy = stageSize.height / 2 / scale;
+    const cx = canvasSize.width / 2 / scale;
+    const cy = canvasSize.height / 2 / scale;
     const newEl: PlanElement = {
       id: genId(),
       type: type as PlanElement["type"],
@@ -140,8 +399,7 @@ const VoiriePlanEditor = ({
     };
     setElements((prev) => [...prev, newEl]);
     setSelectedId(newEl.id);
-    setActiveTool("select");
-  }, [stageSize, scale]);
+  }, [canvasSize, scale]);
 
   const updateElement = useCallback((id: string, updates: Partial<PlanElement>) => {
     setElements((prev) => prev.map((el) => (el.id === id ? { ...el, ...updates } : el)));
@@ -153,13 +411,7 @@ const VoiriePlanEditor = ({
     setSelectedId(null);
   }, [selectedId]);
 
-  const handleStageClick = (e: any) => {
-    if (e.target === e.target.getStage()) {
-      setSelectedId(null);
-    }
-  };
-
-  // Handle PDF upload
+  // ── PDF upload ──
   const handlePdfUpload = async (file: File) => {
     if (!file.type.includes("pdf") && !file.type.includes("image")) {
       toast.error("Format non supporté. Utilisez PDF ou image.");
@@ -167,7 +419,6 @@ const VoiriePlanEditor = ({
     }
     setUploadingPdf(true);
     try {
-      // For images, load directly
       if (file.type.includes("image")) {
         const url = URL.createObjectURL(file);
         const img = new window.Image();
@@ -176,7 +427,6 @@ const VoiriePlanEditor = ({
         setUploadingPdf(false);
         return;
       }
-      // For PDF, render first page as image using pdfjs
       const pdfjs = await import("pdfjs-dist");
       pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
       const arrayBuf = await file.arrayBuffer();
@@ -186,14 +436,12 @@ const VoiriePlanEditor = ({
       const canvas = document.createElement("canvas");
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      const ctx = canvas.getContext("2d")!;
-      await page.render({ canvasContext: ctx, viewport }).promise;
+      const ctx2 = canvas.getContext("2d")!;
+      await page.render({ canvasContext: ctx2, viewport }).promise;
       const dataUrl = canvas.toDataURL("image/png");
       const img = new window.Image();
       img.onload = () => setBgImage(img);
       img.src = dataUrl;
-
-      // Also upload to storage
       const path = `${companyId}/${planId || genId()}.pdf`;
       await supabase.storage.from("voirie-plans").upload(path, file, { upsert: true });
     } catch (err) {
@@ -204,7 +452,21 @@ const VoiriePlanEditor = ({
     }
   };
 
-  // Save plan
+  // ── Save ──
+  const generateLegend = () => {
+    const types = new Set(elements.map((el) => el.type));
+    return Array.from(types).map((type) => {
+      const palette = ELEMENT_PALETTE.find((p) => p.type === type);
+      return {
+        type,
+        label: palette?.label || type,
+        icon: palette?.icon || "?",
+        count: elements.filter((el) => el.type === type).length,
+        color: ELEMENT_COLORS[type] || "#333",
+      };
+    });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -234,36 +496,12 @@ const VoiriePlanEditor = ({
     }
   };
 
-  // Generate legend from elements
-  const generateLegend = () => {
-    const types = new Set(elements.map((el) => el.type));
-    return Array.from(types).map((type) => {
-      const palette = ELEMENT_PALETTE.find((p) => p.type === type);
-      return {
-        type,
-        label: palette?.label || type,
-        icon: palette?.icon || "?",
-        count: elements.filter((el) => el.type === type).length,
-        color: ELEMENT_COLORS[type] || "#333",
-      };
-    });
-  };
-
-  // AI pre-fill
+  // ── AI pre-fill ──
   const handleAiFill = async () => {
     setAiLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("analyze-voirie-plan", {
-        body: {
-          address,
-          visiteId,
-          dossierId,
-          companyId,
-          existingElements: elements,
-          hasBackgroundPlan: !!bgImage,
-          stageWidth: stageSize.width,
-          stageHeight: stageSize.height,
-        },
+        body: { address, visiteId, dossierId, companyId, existingElements: elements, hasBackgroundPlan: !!bgImage, stageWidth: canvasSize.width, stageHeight: canvasSize.height },
       });
       if (error) throw error;
       if (data?.elements && Array.isArray(data.elements)) {
@@ -277,32 +515,32 @@ const VoiriePlanEditor = ({
     }
   };
 
-  // Export as PNG
+  // ── Export PNG ──
   const handleExportPng = () => {
-    if (!stageRef.current) return;
-    // Deselect before export
+    const canvas = canvasRef.current;
+    if (!canvas) return;
     setSelectedId(null);
     setTimeout(() => {
-      const uri = stageRef.current!.toDataURL({ pixelRatio: 2 });
+      draw();
       const link = document.createElement("a");
       link.download = `plan-implantation-${title.replace(/\s+/g, "-")}.png`;
-      link.href = uri;
+      link.href = canvas.toDataURL("image/png");
       link.click();
       toast.success("Plan exporté en PNG");
     }, 100);
   };
 
-  // Export as PDF (using jsPDF)
+  // ── Export PDF ──
   const handleExportPdf = async () => {
-    if (!stageRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
     setSelectedId(null);
     setTimeout(async () => {
+      draw();
       const { default: jsPDF } = await import("jspdf");
-      const uri = stageRef.current!.toDataURL({ pixelRatio: 2 });
-      const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [stageSize.width, stageSize.height] });
-      pdf.addImage(uri, "PNG", 0, 0, stageSize.width, stageSize.height);
-
-      // Add legend
+      const uri = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvasSize.width, canvasSize.height] });
+      pdf.addImage(uri, "PNG", 0, 0, canvasSize.width, canvasSize.height);
       const legend = generateLegend();
       if (legend.length > 0) {
         pdf.addPage();
@@ -315,124 +553,12 @@ const VoiriePlanEditor = ({
           pdf.text(`${item.icon} ${item.label} (×${item.count})`, 55, 74 + i * 25);
         });
       }
-
       pdf.save(`plan-implantation-${title.replace(/\s+/g, "-")}.pdf`);
       toast.success("Plan exporté en PDF");
     }, 100);
   };
 
   const selectedEl = elements.find((el) => el.id === selectedId);
-
-  // Render individual element on canvas
-  const renderElement = (el: PlanElement) => {
-    const isSelected = el.id === selectedId;
-    const color = el.color || ELEMENT_COLORS[el.type] || "#333";
-
-    const commonProps = {
-      draggable: activeTool === "select",
-      onClick: () => setSelectedId(el.id),
-      onTap: () => setSelectedId(el.id),
-      onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => {
-        updateElement(el.id, { x: e.target.x(), y: e.target.y() });
-      },
-    };
-
-    switch (el.type) {
-      case "grue":
-        return (
-          <Group key={el.id} x={el.x} y={el.y} {...commonProps}>
-            {/* Rotation radius */}
-            <Circle radius={el.radius || 60} stroke={color} strokeWidth={1.5} dash={[6, 4]} opacity={0.5} fill={`${color}15`} />
-            {/* Crane body */}
-            <Circle radius={12} fill={color} stroke={isSelected ? "#fff" : color} strokeWidth={isSelected ? 3 : 1} />
-            <Text text="🏗️" fontSize={16} offsetX={8} offsetY={8} />
-            {/* Label */}
-            <Text text={el.label || "Grue"} fontSize={11} fill={color} fontStyle="bold" offsetX={15} y={16} />
-          </Group>
-        );
-
-      case "homme_traffic":
-      case "pieton_deviation":
-        return (
-          <Group key={el.id} x={el.x} y={el.y} {...commonProps}>
-            <Circle radius={14} fill={color} opacity={0.2} stroke={isSelected ? "#fff" : color} strokeWidth={isSelected ? 2 : 1} />
-            <Text text={el.type === "homme_traffic" ? "🧑‍🦺" : "🚶"} fontSize={18} offsetX={9} offsetY={9} />
-          </Group>
-        );
-
-      case "balisage_cone":
-        return (
-          <Group key={el.id} x={el.x} y={el.y} {...commonProps}>
-            <Circle radius={8} fill={color} stroke={isSelected ? "#fff" : color} strokeWidth={isSelected ? 2 : 1} />
-            <Text text="🔶" fontSize={12} offsetX={6} offsetY={6} />
-          </Group>
-        );
-
-      case "balisage_barriere":
-        return (
-          <Group key={el.id} x={el.x} y={el.y} rotation={el.rotation || 0} {...commonProps}>
-            <Rect width={50} height={8} fill={color} offsetX={25} offsetY={4} stroke={isSelected ? "#fff" : undefined} strokeWidth={isSelected ? 2 : 0} cornerRadius={2} />
-            <Rect width={4} height={16} fill={color} x={-25} offsetY={8} />
-            <Rect width={4} height={16} fill={color} x={21} offsetY={8} />
-          </Group>
-        );
-
-      case "panneau_k8":
-      case "panneau_travaux":
-      case "panneau_deviation":
-      case "panneau_rue_barree":
-      case "totem":
-        const iconMap: Record<string, string> = {
-          panneau_k8: "⚠️", panneau_travaux: "🔨", panneau_deviation: "↪️",
-          panneau_rue_barree: "⛔", totem: "🔻",
-        };
-        return (
-          <Group key={el.id} x={el.x} y={el.y} {...commonProps}>
-            <Rect width={28} height={28} fill="#fff" stroke={color} strokeWidth={2} offsetX={14} offsetY={14} cornerRadius={4} shadowColor="#000" shadowBlur={3} shadowOpacity={0.15} />
-            {isSelected && <Rect width={32} height={32} stroke="#fff" strokeWidth={2} offsetX={16} offsetY={16} cornerRadius={5} />}
-            <Text text={iconMap[el.type] || "?"} fontSize={16} offsetX={8} offsetY={8} />
-            <Text text={ELEMENT_PALETTE.find((p) => p.type === el.type)?.label || ""} fontSize={9} fill={color} y={18} offsetX={15} width={50} align="center" />
-          </Group>
-        );
-
-      case "zone_emprise":
-        return (
-          <Group key={el.id} x={el.x} y={el.y} {...commonProps}>
-            <Rect
-              width={el.width || 150}
-              height={el.height || 80}
-              fill={`${color}20`}
-              stroke={color}
-              strokeWidth={2}
-              dash={[8, 4]}
-              cornerRadius={4}
-            />
-            {isSelected && <Rect width={(el.width || 150) + 4} height={(el.height || 80) + 4} stroke="#fff" strokeWidth={2} x={-2} y={-2} cornerRadius={5} />}
-            <Text text="Zone d'emprise" fontSize={10} fill={color} fontStyle="bold" x={4} y={4} />
-          </Group>
-        );
-
-      case "fleche_deviation":
-        return (
-          <Group key={el.id} x={el.x} y={el.y} rotation={el.rotation || 0} {...commonProps}>
-            <Arrow points={[0, 0, 60, 0]} stroke={color} strokeWidth={3} fill={color} pointerLength={10} pointerWidth={8} />
-            {isSelected && <Circle radius={6} stroke="#fff" strokeWidth={2} />}
-            <Text text="Déviation" fontSize={9} fill={color} y={8} />
-          </Group>
-        );
-
-      case "custom_text":
-        return (
-          <Group key={el.id} x={el.x} y={el.y} {...commonProps}>
-            {isSelected && <Rect width={100} height={20} stroke="#fff" strokeWidth={1} x={-2} y={-2} />}
-            <Text text={el.text || "Texte"} fontSize={13} fill={color} fontStyle="bold" />
-          </Group>
-        );
-
-      default:
-        return null;
-    }
-  };
 
   return (
     <div className="flex flex-col h-full">
@@ -444,7 +570,6 @@ const VoiriePlanEditor = ({
           className="h-8 text-sm w-48 max-w-[200px]"
           placeholder="Titre du plan"
         />
-
         <div className="h-6 w-px bg-border" />
 
         {/* Upload PDF */}
@@ -461,13 +586,6 @@ const VoiriePlanEditor = ({
             e.target.value = "";
           }} />
         </label>
-
-        <div className="h-6 w-px bg-border" />
-
-        {/* Tool buttons */}
-        <Button variant={activeTool === "select" ? "default" : "outline"} size="sm" className="h-8 w-8 p-0" onClick={() => setActiveTool("select")} title="Sélectionner">
-          <MousePointer className="h-3.5 w-3.5" />
-        </Button>
 
         <div className="h-6 w-px bg-border" />
 
@@ -508,6 +626,11 @@ const VoiriePlanEditor = ({
           {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
           Sauvegarder
         </Button>
+        {onClose && (
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -531,82 +654,20 @@ const VoiriePlanEditor = ({
 
         {/* Canvas */}
         <div className="flex-1 overflow-hidden bg-muted/30 relative" ref={containerRef}>
-          <Stage
-            ref={stageRef}
-            width={stageSize.width}
-            height={stageSize.height}
-            scaleX={scale}
-            scaleY={scale}
-            onClick={handleStageClick}
-            onTap={handleStageClick}
-          >
-            <Layer>
-              {/* Background image (PDF rendered) */}
-              {bgImage && (() => {
-                const imgW = bgImage.naturalWidth || bgImage.width;
-                const imgH = bgImage.naturalHeight || bgImage.height;
-                const stageW = stageSize.width / scale;
-                const stageH = stageSize.height / scale;
-                const ratio = Math.min(stageW / imgW, stageH / imgH);
-                const drawW = imgW * ratio;
-                const drawH = imgH * ratio;
-                const offsetX = (stageW - drawW) / 2;
-                const offsetY = (stageH - drawH) / 2;
-                return (
-                  <KonvaImage
-                    image={bgImage}
-                    x={offsetX}
-                    y={offsetY}
-                    width={drawW}
-                    height={drawH}
-                    opacity={0.9}
-                  />
-                );
-              })()}
-
-              {/* Grid lines when no background */}
-              {!bgImage && (
-                <>
-                  {Array.from({ length: Math.ceil(stageSize.width / scale / 50) }).map((_, i) => (
-                    <Line key={`gv-${i}`} points={[i * 50, 0, i * 50, stageSize.height / scale]} stroke="#e5e5e5" strokeWidth={0.5} />
-                  ))}
-                  {Array.from({ length: Math.ceil(stageSize.height / scale / 50) }).map((_, i) => (
-                    <Line key={`gh-${i}`} points={[0, i * 50, stageSize.width / scale, i * 50]} stroke="#e5e5e5" strokeWidth={0.5} />
-                  ))}
-                  <Text text="Chargez un plan PDF ou image de fond" fontSize={14} fill="#999" x={stageSize.width / scale / 2 - 130} y={stageSize.height / scale / 2} />
-                </>
-              )}
-
-              {/* Elements */}
-              {elements.map(renderElement)}
-            </Layer>
-
-            {/* Legend layer */}
-            <Layer>
-              {elements.length > 0 && (
-                <Group x={10} y={stageSize.height / scale - 10 - generateLegend().length * 18 - 20}>
-                  <Rect
-                    width={160}
-                    height={generateLegend().length * 18 + 25}
-                    fill="rgba(255,255,255,0.92)"
-                    stroke="#ccc"
-                    strokeWidth={1}
-                    cornerRadius={6}
-                    shadowColor="#000"
-                    shadowBlur={4}
-                    shadowOpacity={0.1}
-                  />
-                  <Text text="LÉGENDE" fontSize={9} fontStyle="bold" fill="#666" x={8} y={6} />
-                  {generateLegend().map((item, i) => (
-                    <Group key={item.type} y={22 + i * 18} x={8}>
-                      <Circle radius={4} fill={item.color} x={6} y={5} />
-                      <Text text={`${item.icon} ${item.label} (×${item.count})`} fontSize={9} fill="#333" x={16} y={0} />
-                    </Group>
-                  ))}
-                </Group>
-              )}
-            </Layer>
-          </Stage>
+          <canvas
+            ref={canvasRef}
+            width={canvasSize.width}
+            height={canvasSize.height}
+            className="cursor-crosshair"
+            style={{ width: canvasSize.width, height: canvasSize.height }}
+            onMouseDown={handlePointerDown}
+            onMouseMove={handlePointerMove}
+            onMouseUp={handlePointerUp}
+            onMouseLeave={handlePointerUp}
+            onTouchStart={handlePointerDown}
+            onTouchMove={handlePointerMove}
+            onTouchEnd={handlePointerUp}
+          />
 
           {/* No plan hint */}
           {!bgImage && elements.length === 0 && (
@@ -635,20 +696,11 @@ const VoiriePlanEditor = ({
               <>
                 <div>
                   <label className="text-[10px] text-muted-foreground">Nom de la grue</label>
-                  <Input
-                    value={selectedEl.label || ""}
-                    onChange={(e) => updateElement(selectedEl.id, { label: e.target.value })}
-                    className="h-7 text-xs mt-0.5"
-                  />
+                  <Input value={selectedEl.label || ""} onChange={(e) => updateElement(selectedEl.id, { label: e.target.value })} className="h-7 text-xs mt-0.5" />
                 </div>
                 <div>
                   <label className="text-[10px] text-muted-foreground">Rayon de giration (px)</label>
-                  <Input
-                    type="number"
-                    value={selectedEl.radius || 60}
-                    onChange={(e) => updateElement(selectedEl.id, { radius: Number(e.target.value) })}
-                    className="h-7 text-xs mt-0.5"
-                  />
+                  <Input type="number" value={selectedEl.radius || 60} onChange={(e) => updateElement(selectedEl.id, { radius: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
                 </div>
               </>
             )}
