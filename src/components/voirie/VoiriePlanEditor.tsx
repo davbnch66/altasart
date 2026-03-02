@@ -780,6 +780,8 @@ const VoiriePlanEditor = ({
   const [title, setTitle] = useState(address || "Plan d'implantation");
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [dragging, setDragging] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const [panning, setPanning] = useState<{ startX: number; startY: number; startOffsetX: number; startOffsetY: number } | null>(null);
+  const [viewOffset, setViewOffset] = useState({ x: 0, y: 0 });
   const pixelRatio = Math.min(3, typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1);
 
   // Resize canvas to container
@@ -836,6 +838,7 @@ const VoiriePlanEditor = ({
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.setTransform(pixelRatio * scale, 0, 0, pixelRatio * scale, 0, 0);
       ctx.save();
+      ctx.translate(viewOffset.x, viewOffset.y);
 
       const { stageWidth: sw, stageHeight: sh, x: planX, y: planY, width: planW, height: planH } = getPlanRect();
 
@@ -966,7 +969,7 @@ const VoiriePlanEditor = ({
         toast.error("Erreur de rendu du plan. Rechargez la page.");
       }
     }
-  }, [elements, selectedId, getPlanRect, pixelRatio]);
+  }, [elements, selectedId, getPlanRect, pixelRatio, scale, viewOffset]);
 
   useEffect(() => {
     try { draw(); } catch (error) {
@@ -982,8 +985,8 @@ const VoiriePlanEditor = ({
     const clientX = "touches" in e ? e.touches[0]?.clientX || 0 : e.clientX;
     const clientY = "touches" in e ? e.touches[0]?.clientY || 0 : e.clientY;
     return {
-      x: (clientX - rect.left) / scale,
-      y: (clientY - rect.top) / scale,
+      x: (clientX - rect.left) / scale - viewOffset.x,
+      y: (clientY - rect.top) / scale - viewOffset.y,
     };
   };
 
@@ -1010,29 +1013,56 @@ const VoiriePlanEditor = ({
     if (hit) {
       setSelectedId(hit.id);
       setDragging({ id: hit.id, offsetX: pos.x - hit.x, offsetY: pos.y - hit.y });
+      setPanning(null);
     } else {
       setSelectedId(null);
+      const clientX = "touches" in e ? e.touches[0]?.clientX || 0 : e.clientX;
+      const clientY = "touches" in e ? e.touches[0]?.clientY || 0 : e.clientY;
+      setPanning({ startX: clientX, startY: clientY, startOffsetX: viewOffset.x, startOffsetY: viewOffset.y });
     }
   };
 
   const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!dragging) return;
-    const pos = getCanvasPos(e);
-    setElements((prev) =>
-      prev.map((el) =>
-        el.id === dragging.id
-          ? { ...el, x: pos.x - dragging.offsetX, y: pos.y - dragging.offsetY }
-          : el
-      )
-    );
+    if (dragging) {
+      const pos = getCanvasPos(e);
+      setElements((prev) =>
+        prev.map((el) =>
+          el.id === dragging.id
+            ? { ...el, x: pos.x - dragging.offsetX, y: pos.y - dragging.offsetY }
+            : el
+        )
+      );
+      return;
+    }
+
+    if (panning) {
+      const clientX = "touches" in e ? e.touches[0]?.clientX || 0 : e.clientX;
+      const clientY = "touches" in e ? e.touches[0]?.clientY || 0 : e.clientY;
+      setViewOffset({
+        x: panning.startOffsetX + (clientX - panning.startX) / scale,
+        y: panning.startOffsetY + (clientY - panning.startY) / scale,
+      });
+      if ("touches" in e) e.preventDefault();
+    }
   };
 
-  const handlePointerUp = () => setDragging(null);
+  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    setViewOffset((prev) => ({
+      x: prev.x - e.deltaX / scale,
+      y: prev.y - e.deltaY / scale,
+    }));
+  };
+
+  const handlePointerUp = () => {
+    setDragging(null);
+    setPanning(null);
+  };
 
   // ── Add element ──
   const addElement = useCallback((type: string) => {
-    const cx = canvasSize.width / 2 / scale;
-    const cy = canvasSize.height / 2 / scale;
+    const cx = canvasSize.width / 2 / scale - viewOffset.x;
+    const cy = canvasSize.height / 2 / scale - viewOffset.y;
     const newEl: PlanElement = {
       id: genId(),
       type: type as PlanElement["type"],
@@ -1048,7 +1078,7 @@ const VoiriePlanEditor = ({
     };
     setElements((prev) => [...prev, newEl]);
     setSelectedId(newEl.id);
-  }, [canvasSize, scale]);
+  }, [canvasSize, scale, viewOffset]);
 
   const updateElement = useCallback((id: string, updates: Partial<PlanElement>) => {
     setElements((prev) => prev.map((el) => (el.id === id ? { ...el, ...updates } : el)));
@@ -1350,12 +1380,12 @@ const VoiriePlanEditor = ({
         {/* Canvas */}
         <div className="flex-1 overflow-hidden bg-muted/30 relative" ref={containerRef}>
           <canvas ref={canvasRef} width={Math.round(canvasSize.width * pixelRatio)} height={Math.round(canvasSize.height * pixelRatio)}
-            className={bgImage ? "cursor-crosshair" : "cursor-default"}
-            style={{ width: canvasSize.width, height: canvasSize.height }}
+            className={panning ? "cursor-grabbing" : bgImage ? "cursor-crosshair" : "cursor-default"}
+            style={{ width: canvasSize.width, height: canvasSize.height, touchAction: "none" }}
             onMouseDown={handlePointerDown} onMouseMove={handlePointerMove}
             onMouseUp={handlePointerUp} onMouseLeave={handlePointerUp}
             onTouchStart={handlePointerDown} onTouchMove={handlePointerMove}
-            onTouchEnd={handlePointerUp} />
+            onTouchEnd={handlePointerUp} onWheel={handleWheel} />
 
           {!bgImage && elements.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center p-4">
