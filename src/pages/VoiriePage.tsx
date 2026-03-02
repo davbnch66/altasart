@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -350,6 +350,9 @@ const VoiriePage = () => {
       <Dialog open={!!planEditorItem} onOpenChange={(v) => !v && setPlanEditorItem(null)}>
         <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()}>
           <DialogTitle className="sr-only">Plan d'implantation</DialogTitle>
+          <DialogDescription className="sr-only">
+            Éditeur interactif du plan de voirie avec éléments de signalisation.
+          </DialogDescription>
           {planEditorItem && (
             <PlanEditorErrorBoundary>
               <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
