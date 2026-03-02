@@ -1244,15 +1244,23 @@ const VoiriePlanEditor = ({
         <div className="h-6 w-px bg-border" />
 
         {/* Upload PDF */}
-        <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={() => fileInputRef.current?.click()} disabled={uploadingPdf}>
+        <Button variant="outline" size="sm" className="h-8 text-xs gap-1" disabled={uploadingPdf}
+          onClick={() => {
+            // Use setTimeout to escape dialog event handling
+            setTimeout(() => {
+              fileInputRef.current?.click();
+            }, 0);
+          }}>
           {uploadingPdf ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
           {bgImage ? "Changer le plan" : "Charger un plan"}
         </Button>
-        <input ref={fileInputRef} type="file" accept=".pdf,image/*" className="hidden" onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) handlePdfUpload(f);
-          e.target.value = "";
-        }} />
+        <input ref={fileInputRef} type="file" accept=".pdf,image/*"
+          style={{ position: "absolute", top: -9999, left: -9999, opacity: 0 }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handlePdfUpload(f);
+            e.target.value = "";
+          }} />
 
         <div className="h-6 w-px bg-border" />
 
