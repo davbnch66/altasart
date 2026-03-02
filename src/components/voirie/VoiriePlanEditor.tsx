@@ -845,29 +845,37 @@ const VoiriePlanEditor = ({
       if (bgImage) {
         ctx.drawImage(bgImage, planX, planY, planW, planH);
       } else {
-        // Professional grid
+        // Grille technique uniquement (le message d'état vide est géré en overlay React pour éviter toute superposition)
         ctx.strokeStyle = "#E0E0E0";
         ctx.lineWidth = 0.3;
         for (let x = 0; x < sw; x += 50) {
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, sh); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, sh);
+          ctx.stroke();
         }
         for (let y = 0; y < sh; y += 50) {
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(sw, y); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(sw, y);
+          ctx.stroke();
         }
-        // Sub-grid
+
+        // Sous-grille
         ctx.strokeStyle = "#F0F0F0";
         ctx.lineWidth = 0.15;
         for (let x = 0; x < sw; x += 10) {
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, sh); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, sh);
+          ctx.stroke();
         }
         for (let y = 0; y < sh; y += 10) {
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(sw, y); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(sw, y);
+          ctx.stroke();
         }
-        ctx.fillStyle = "#999";
-        ctx.font = "13px 'Segoe UI', sans-serif";
-        ctx.textAlign = "center";
-        ctx.fillText("Chargez un plan PDF ou image de fond", sw / 2, sh / 2);
-        ctx.textAlign = "start";
       }
 
       // Draw elements
@@ -1345,13 +1353,13 @@ const VoiriePlanEditor = ({
             onTouchEnd={handlePointerUp} />
 
           {!bgImage && elements.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-center text-muted-foreground space-y-2">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-4">
+              <div className="text-center text-muted-foreground space-y-2 max-w-xs">
                 <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
                   <Plus className="h-8 w-8 text-muted-foreground/50" />
                 </div>
-                <p className="text-sm font-medium">Chargez un plan de voirie</p>
-                <p className="text-xs">PDF ou image (plan cadastral, plan de masse…)</p>
+                <p className="text-sm font-medium leading-tight">Chargez un plan de voirie</p>
+                <p className="text-xs leading-relaxed">PDF ou image (plan cadastral, plan de masse…)</p>
               </div>
             </div>
           )}
