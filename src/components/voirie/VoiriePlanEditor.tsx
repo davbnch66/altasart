@@ -1350,7 +1350,7 @@ const VoiriePlanEditor = ({
         {/* Canvas */}
         <div className="flex-1 overflow-hidden bg-muted/30 relative" ref={containerRef}>
           <canvas ref={canvasRef} width={Math.round(canvasSize.width * pixelRatio)} height={Math.round(canvasSize.height * pixelRatio)}
-            className="cursor-crosshair"
+            className={bgImage ? "cursor-crosshair" : "cursor-default"}
             style={{ width: canvasSize.width, height: canvasSize.height }}
             onMouseDown={handlePointerDown} onMouseMove={handlePointerMove}
             onMouseUp={handlePointerUp} onMouseLeave={handlePointerUp}
@@ -1358,14 +1358,18 @@ const VoiriePlanEditor = ({
             onTouchEnd={handlePointerUp} />
 
           {!bgImage && elements.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-4">
-              <div className="text-center text-muted-foreground space-y-2 max-w-xs">
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="text-center text-muted-foreground space-y-2 max-w-xs rounded-lg p-2 transition-colors hover:bg-muted/60"
+              >
                 <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
                   <Plus className="h-8 w-8 text-muted-foreground/50" />
                 </div>
                 <p className="text-sm font-medium leading-tight">Chargez un plan de voirie</p>
                 <p className="text-xs leading-relaxed">PDF ou image (plan cadastral, plan de masse…)</p>
-              </div>
+              </button>
             </div>
           )}
         </div>
