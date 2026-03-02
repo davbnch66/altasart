@@ -826,6 +826,21 @@ const VoiriePlanEditor = ({
     return { x: drawX, y: drawY, width: drawW, height: drawH, stageWidth: sw, stageHeight: sh };
   }, [bgImage, canvasSize, scale]);
 
+  const clampOffset = useCallback((offset: { x: number; y: number }) => {
+    const { stageWidth: sw, stageHeight: sh, x: planX, y: planY, width: planW, height: planH } = getPlanRect();
+    const margin = 120;
+
+    const minX = sw - (planX + planW) - margin;
+    const maxX = -planX + margin;
+    const minY = sh - (planY + planH) - margin;
+    const maxY = -planY + margin;
+
+    return {
+      x: minX > maxX ? 0 : Math.min(maxX, Math.max(minX, offset.x)),
+      y: minY > maxY ? 0 : Math.min(maxY, Math.max(minY, offset.y)),
+    };
+  }, [getPlanRect]);
+
   // ── Draw everything on canvas ──
   const draw = useCallback(() => {
     try {
@@ -972,6 +987,10 @@ const VoiriePlanEditor = ({
   }, [elements, selectedId, getPlanRect, pixelRatio, scale, viewOffset]);
 
   useEffect(() => {
+    setViewOffset((prev) => clampOffset(prev));
+  }, [scale, canvasSize, bgImage, clampOffset]);
+
+  useEffect(() => {
     try { draw(); } catch (error) {
       console.error("[VoiriePlanEditor] draw effect crash", error);
     }
@@ -1038,36 +1057,22 @@ const VoiriePlanEditor = ({
     if (panning) {
       const clientX = "touches" in e ? e.touches[0]?.clientX || 0 : e.clientX;
       const clientY = "touches" in e ? e.touches[0]?.clientY || 0 : e.clientY;
-      setViewOffset({
+      setViewOffset(clampOffset({
         x: panning.startOffsetX + (clientX - panning.startX) / scale,
         y: panning.startOffsetY + (clientY - panning.startY) / scale,
-      });
+      }));
       if ("touches" in e) e.preventDefault();
     }
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    // Ctrl+wheel or pinch = zoom, plain wheel = also zoom (standard map behavior)
-    const delta = -e.deltaY;
-    const zoomFactor = delta > 0 ? 1.1 : 0.9;
-    const newScale = Math.min(5, Math.max(0.2, scale * zoomFactor));
 
-    // Zoom centered on cursor position
-    const canvas = canvasRef.current;
-    if (canvas) {
-      const rect = canvas.getBoundingClientRect();
-      const cursorX = (e.clientX - rect.left) / scale;
-      const cursorY = (e.clientY - rect.top) / scale;
-      // Adjust offset so the point under the cursor stays in place
-      const scaleChange = newScale / scale;
-      setViewOffset((prev) => ({
-        x: cursorX - scaleChange * (cursorX - prev.x),
-        y: cursorY - scaleChange * (cursorY - prev.y),
-      }));
-    }
-
-    setScale(newScale);
+    // Navigation verticale/horizontale au trackpad/souris
+    setViewOffset((prev) => clampOffset({
+      x: prev.x - e.deltaX / scale,
+      y: prev.y - e.deltaY / scale,
+    }));
   };
 
   const handlePointerUp = () => {
