@@ -9,7 +9,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { address, visiteId, dossierId, companyId, existingElements, hasBackgroundPlan, stageWidth, stageHeight, planImageBase64 } = await req.json();
+    const { address, visiteId, dossierId, companyId, existingElements, hasBackgroundPlan, stageWidth, stageHeight, planRect, planImageBase64 } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not set");
@@ -56,6 +56,7 @@ ${dossierData ? `- Dossier : ${dossierData.title || dossierData.code || ""}` : "
 ${cranes.length > 0 ? `- Grues disponibles : ${cranes.map((c: any) => `${c.name} (${c.brand || ""} ${c.model || ""}, portée: ${c.reach_meters || "?"}m)`).join(", ")}` : ""}
 
 Dimensions du canvas : ${stageWidth}x${stageHeight} pixels.
+Zone utile du plan (image réellement visible) : x=${planRect?.x ?? 0}, y=${planRect?.y ?? 0}, largeur=${planRect?.width ?? stageWidth}, hauteur=${planRect?.height ?? stageHeight}.
 ${existingElements?.length > 0 ? `Éléments déjà placés : ${JSON.stringify(existingElements)}` : "Aucun élément existant."}
 
 Règles de placement CRITIQUES :
@@ -69,7 +70,7 @@ Règles de placement CRITIQUES :
 8. Le panneau ROUTE BARRÉE est placé à l'entrée de la zone si la rue est fermée.
 9. Les TOTEMS (limitation 30) sont placés en approche du chantier.
 
-POSITIONNE les éléments en coordonnées PIXEL (x, y) en analysant l'image du plan. Place-les aux bons endroits visibles sur le plan (sur les rues, trottoirs, intersections que tu vois).`;
+POSITIONNE les éléments en coordonnées PIXEL (x, y) en analysant l'image du plan. Place-les uniquement dans la zone utile du plan (planRect), sur les rues/trottoirs/intersections visibles. INTERDIT: empiler les éléments au centre sans justification visuelle.`;
 
     // Build messages with vision if image is available
     const userContent: any[] = [];
@@ -92,7 +93,7 @@ POSITIONNE les éléments en coordonnées PIXEL (x, y) en analysant l'image du p
       });
       userContent.push({
         type: "text",
-        text: "Voici le plan de voirie. Analyse-le et positionne les éléments de chantier (grue, cônes, barrières, homme trafic, panneaux, zone d'emprise) aux bons endroits sur la chaussée visible dans l'image. Les coordonnées doivent correspondre aux positions réelles sur cette image.",
+        text: "Voici le plan de voirie. Analyse-le et place les éléments uniquement sur les zones roulables/abords visibles. Évite tout regroupement au centre. Les coordonnées doivent être en pixels absolus dans la zone utile du plan (planRect).",
       });
     } else {
       userContent.push({
@@ -172,7 +173,24 @@ POSITIONNE les éléments en coordonnées PIXEL (x, y) en analysant l'image du p
 
     const parsed = JSON.parse(toolCall.function.arguments);
 
-    return new Response(JSON.stringify({ elements: parsed.elements || [] }), {
+    const bounds = (planRect && Number.isFinite(planRect.x) && Number.isFinite(planRect.y) && Number.isFinite(planRect.width) && Number.isFinite(planRect.height))
+      ? planRect
+      : { x: 0, y: 0, width: stageWidth || 800, height: stageHeight || 600 };
+
+    const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
+    const elements = (parsed.elements || []).map((el: any) => {
+      const x = typeof el.x === "number" ? el.x : bounds.x + bounds.width / 2;
+      const y = typeof el.y === "number" ? el.y : bounds.y + bounds.height / 2;
+
+      return {
+        ...el,
+        x: clamp(x, bounds.x, bounds.x + bounds.width),
+        y: clamp(y, bounds.y, bounds.y + bounds.height),
+      };
+    });
+
+    return new Response(JSON.stringify({ elements }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

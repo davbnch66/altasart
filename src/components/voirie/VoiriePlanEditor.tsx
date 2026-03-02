@@ -804,6 +804,25 @@ const VoiriePlanEditor = ({
     img.src = pdfUrl;
   }, [pdfUrl]);
 
+  const getPlanRect = useCallback(() => {
+    const sw = canvasSize.width / scale;
+    const sh = canvasSize.height / scale;
+
+    if (!bgImage) {
+      return { x: 0, y: 0, width: sw, height: sh, stageWidth: sw, stageHeight: sh };
+    }
+
+    const imgW = bgImage.naturalWidth || bgImage.width;
+    const imgH = bgImage.naturalHeight || bgImage.height;
+    const ratio = Math.min(sw / imgW, sh / imgH);
+    const drawW = imgW * ratio;
+    const drawH = imgH * ratio;
+    const drawX = (sw - drawW) / 2;
+    const drawY = (sh - drawH) / 2;
+
+    return { x: drawX, y: drawY, width: drawW, height: drawH, stageWidth: sw, stageHeight: sh };
+  }, [bgImage, canvasSize, scale]);
+
   // ── Draw everything on canvas ──
   const draw = useCallback(() => {
     try {
@@ -817,20 +836,14 @@ const VoiriePlanEditor = ({
       ctx.setTransform(pixelRatio * scale, 0, 0, pixelRatio * scale, 0, 0);
       ctx.save();
 
-      const sw = canvasSize.width / scale;
-      const sh = canvasSize.height / scale;
+      const { stageWidth: sw, stageHeight: sh, x: planX, y: planY, width: planW, height: planH } = getPlanRect();
 
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
 
       // Background image (aspect-ratio preserved)
       if (bgImage) {
-        const imgW = bgImage.naturalWidth || bgImage.width;
-        const imgH = bgImage.naturalHeight || bgImage.height;
-        const ratio = Math.min(sw / imgW, sh / imgH);
-        const drawW = imgW * ratio;
-        const drawH = imgH * ratio;
-        ctx.drawImage(bgImage, (sw - drawW) / 2, (sh - drawH) / 2, drawW, drawH);
+        ctx.drawImage(bgImage, planX, planY, planW, planH);
       } else {
         // Professional grid
         ctx.strokeStyle = "#E0E0E0";
@@ -944,7 +957,7 @@ const VoiriePlanEditor = ({
         toast.error("Erreur de rendu du plan. Rechargez la page.");
       }
     }
-  }, [elements, selectedId, bgImage, canvasSize, scale, pixelRatio]);
+  }, [elements, selectedId, getPlanRect, pixelRatio]);
 
   useEffect(() => {
     try { draw(); } catch (error) {
@@ -1138,11 +1151,18 @@ const VoiriePlanEditor = ({
   const handleAiFill = async () => {
     setAiLoading(true);
     try {
+      const planRect = getPlanRect();
       const body: any = {
         address, visiteId, dossierId, companyId,
         existingElements: elements, hasBackgroundPlan: !!bgImage,
-        stageWidth: canvasSize.width / scale,
-        stageHeight: canvasSize.height / scale,
+        stageWidth: planRect.stageWidth,
+        stageHeight: planRect.stageHeight,
+        planRect: {
+          x: planRect.x,
+          y: planRect.y,
+          width: planRect.width,
+          height: planRect.height,
+        },
       };
       if (bgDataUrlRef.current) {
         body.planImageBase64 = bgDataUrlRef.current;
