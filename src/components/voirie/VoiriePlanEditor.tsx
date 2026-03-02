@@ -81,6 +81,7 @@ const VoiriePlanEditor = ({
   const isMobile = useIsMobile();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hasDrawErrorRef = useRef(false);
 
   const [elements, setElements] = useState<PlanElement[]>(initialElements);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -117,11 +118,32 @@ const VoiriePlanEditor = ({
   }, [pdfUrl]);
 
   // ── Draw everything on canvas ──
+  const drawRoundedRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
+    const radius = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+    if (typeof (ctx as any).roundRect === "function") {
+      ctx.beginPath();
+      (ctx as any).roundRect(x, y, w, h, radius);
+      return;
+    }
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + w - radius, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    ctx.lineTo(x + w, y + h - radius);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    ctx.lineTo(x + radius, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  };
+
   const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    try {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
@@ -266,7 +288,7 @@ const VoiriePlanEditor = ({
           ctx.lineWidth = 2;
           ctx.beginPath();
           const r2 = 4;
-          ctx.roundRect(-14, -14, 28, 28, r2);
+          drawRoundedRect(ctx, -14, -14, 28, 28, r2);
           ctx.fill();
           ctx.stroke();
           if (isSelected) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.strokeRect(-16, -16, 32, 32); }
@@ -299,8 +321,7 @@ const VoiriePlanEditor = ({
       ctx.fillStyle = "rgba(255,255,255,0.92)";
       ctx.strokeStyle = "#ccc";
       ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.roundRect(lx, ly, 160, legendItems.length * 18 + 25, 6);
+      drawRoundedRect(ctx, lx, ly, 160, legendItems.length * 18 + 25, 6);
       ctx.fill();
       ctx.stroke();
       ctx.font = "bold 9px sans-serif";
@@ -318,9 +339,22 @@ const VoiriePlanEditor = ({
     }
 
     ctx.restore();
+    } catch (error) {
+      console.error("[VoiriePlanEditor] draw crash", error);
+      if (!hasDrawErrorRef.current) {
+        hasDrawErrorRef.current = true;
+        toast.error("Erreur de rendu du plan. Rechargez la page.");
+      }
+    }
   }, [elements, selectedId, bgImage, canvasSize, scale]);
 
-  useEffect(() => { draw(); }, [draw]);
+  useEffect(() => {
+    try {
+      draw();
+    } catch (error) {
+      console.error("[VoiriePlanEditor] draw effect crash", error);
+    }
+  }, [draw]);
 
   // ── Mouse / Touch interaction ──
   const getCanvasPos = (e: React.MouseEvent | React.TouchEvent) => {
