@@ -9,12 +9,11 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { address, visiteId, dossierId, companyId, existingElements, hasBackgroundPlan, stageWidth, stageHeight } = await req.json();
+    const { address, visiteId, dossierId, companyId, existingElements, hasBackgroundPlan, stageWidth, stageHeight, planImageBase64 } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not set");
 
-    // Fetch context: visite data, dossier data, resources (cranes)
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const headers = { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey, "Content-Type": "application/json" };
@@ -35,12 +34,7 @@ serve(async (req) => {
       dossierData = data?.[0];
     }
 
-    // Get available cranes/resources for the company
     if (companyId) {
-      const resp = await fetch(`${supabaseUrl}/rest/v1/resources?select=id,name,type,brand,model,capacity_tons,reach_meters&type=eq.equipement&company_id=eq.${companyId}`, { headers });
-      const craneFetch = await fetch(`${supabaseUrl}/rest/v1/resources?select=id,name,type,brand,model&resource_type=eq.equipement`, { headers }).catch(() => null);
-      
-      // Also check fleet vehicles (grues)
       const fleetResp = await fetch(`${supabaseUrl}/rest/v1/fleet_vehicles?select=id,name,type,brand,model,capacity_tons,reach_meters&company_id=eq.${companyId}&type=eq.grue`, { headers });
       const fleetData = await fleetResp.json().catch(() => []);
       cranes = Array.isArray(fleetData) ? fleetData : [];
@@ -49,28 +43,63 @@ serve(async (req) => {
     const systemPrompt = `Tu es un expert en plans d'implantation de grues et signalisation de chantier en France.
 Tu dois générer les éléments à placer sur un plan de voirie pour un chantier de manutention/levage.
 
+IMPORTANT: Tu VOIS l'image du plan de voirie. Analyse-la attentivement pour :
+1. Identifier les rues, trottoirs, bâtiments, intersections
+2. Repérer les numéros de rue et le nom des voies
+3. Comprendre la configuration de la chaussée (sens de circulation, largeur)
+4. Positionner les éléments de manière RÉALISTE par rapport à ce que tu vois
+
 Contexte du chantier :
 - Adresse : ${address || "Non précisée"}
 ${visiteData ? `- Visite technique : ${visiteData.code || ""}` : ""}
 ${dossierData ? `- Dossier : ${dossierData.title || dossierData.code || ""}` : ""}
-${cranes.length > 0 ? `- Grues disponibles : ${cranes.map(c => `${c.name} (${c.brand || ""} ${c.model || ""}, portée: ${c.reach_meters || "?"}m)`).join(", ")}` : ""}
+${cranes.length > 0 ? `- Grues disponibles : ${cranes.map((c: any) => `${c.name} (${c.brand || ""} ${c.model || ""}, portée: ${c.reach_meters || "?"}m)`).join(", ")}` : ""}
 
 Dimensions du canvas : ${stageWidth}x${stageHeight} pixels.
 ${existingElements?.length > 0 ? `Éléments déjà placés : ${JSON.stringify(existingElements)}` : "Aucun élément existant."}
 
-Règles de placement :
-1. La grue doit être positionnée avec un rayon de giration adapté à sa portée
-2. Le balisage K8 (panneau de chantier AK5) doit être placé en amont du chantier (50-200m selon vitesse)
-3. Les cônes doivent délimiter la zone de travaux
-4. Les barrières ferment les accès interdits
-5. Les hommes trafic sont placés aux intersections impactées
-6. La zone d'emprise couvre la surface occupée sur la chaussée
-7. Les panneaux de déviation guident le trafic alternatif
-8. Les flèches de déviation indiquent le sens alternatif
-9. La signalisation piéton protège les passants
-10. Les totems de ralentissement sont placés en approche
+Règles de placement CRITIQUES :
+1. La GRUE doit être positionnée SUR LA CHAUSSÉE, devant l'adresse du chantier. Son rayon correspond à sa portée réelle en pixels proportionnellement au plan.
+2. Les CÔNES de balisage doivent délimiter la zone de travaux le long de la chaussée, en ligne.
+3. Les BARRIÈRES ferment les accès à la zone de travaux.
+4. Les HOMMES TRAFIC sont placés aux extrémités de la zone de travaux, sur la chaussée, pour réguler la circulation.
+5. Les PANNEAUX K8 (danger) sont placés en amont du chantier (avant la zone de travaux dans le sens de circulation).
+6. La ZONE D'EMPRISE couvre la surface occupée sur la chaussée (rectangle vert englobant grue + zone de travail).
+7. Les FLÈCHES DE DÉVIATION indiquent le contournement de la zone de travaux.
+8. Le panneau ROUTE BARRÉE est placé à l'entrée de la zone si la rue est fermée.
+9. Les TOTEMS (limitation 30) sont placés en approche du chantier.
 
-Positionne les éléments de manière réaliste en tenant compte de l'espace disponible.`;
+POSITIONNE les éléments en coordonnées PIXEL (x, y) en analysant l'image du plan. Place-les aux bons endroits visibles sur le plan (sur les rues, trottoirs, intersections que tu vois).`;
+
+    // Build messages with vision if image is available
+    const userContent: any[] = [];
+    
+    if (planImageBase64) {
+      // Extract base64 data (remove data:image/...;base64, prefix if present)
+      let imageData = planImageBase64;
+      let mediaType = "image/jpeg";
+      const match = planImageBase64.match(/^data:(image\/\w+);base64,(.+)$/);
+      if (match) {
+        mediaType = match[1];
+        imageData = match[2];
+      }
+      
+      userContent.push({
+        type: "image_url",
+        image_url: {
+          url: planImageBase64.startsWith("data:") ? planImageBase64 : `data:image/jpeg;base64,${planImageBase64}`,
+        },
+      });
+      userContent.push({
+        type: "text",
+        text: "Voici le plan de voirie. Analyse-le et positionne les éléments de chantier (grue, cônes, barrières, homme trafic, panneaux, zone d'emprise) aux bons endroits sur la chaussée visible dans l'image. Les coordonnées doivent correspondre aux positions réelles sur cette image.",
+      });
+    } else {
+      userContent.push({
+        type: "text",
+        text: "Génère les éléments du plan d'implantation pour ce chantier. Positionne-les de manière réaliste sur le canvas.",
+      });
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -82,13 +111,13 @@ Positionne les éléments de manière réaliste en tenant compte de l'espace dis
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: "Génère les éléments du plan d'implantation pour ce chantier." },
+          { role: "user", content: userContent },
         ],
         tools: [{
           type: "function",
           function: {
             name: "place_elements",
-            description: "Place les éléments sur le plan d'implantation de grue",
+            description: "Place les éléments sur le plan d'implantation de grue aux coordonnées pixel correspondant aux positions visibles sur le plan",
             parameters: {
               type: "object",
               properties: {
@@ -101,15 +130,15 @@ Positionne les éléments de manière réaliste en tenant compte de l'espace dis
                         type: "string",
                         enum: ["grue", "balisage_cone", "balisage_barriere", "panneau_k8", "panneau_travaux", "panneau_deviation", "panneau_rue_barree", "totem", "homme_traffic", "zone_emprise", "fleche_deviation", "pieton_deviation", "custom_text"],
                       },
-                      x: { type: "number", description: "Position X en pixels" },
-                      y: { type: "number", description: "Position Y en pixels" },
+                      x: { type: "number", description: "Position X en pixels sur le plan" },
+                      y: { type: "number", description: "Position Y en pixels sur le plan" },
                       rotation: { type: "number", description: "Rotation en degrés" },
-                      radius: { type: "number", description: "Rayon de giration pour les grues en pixels" },
-                      label: { type: "string", description: "Label pour les grues ou texte personnalisé" },
-                      width: { type: "number", description: "Largeur pour zone emprise" },
-                      height: { type: "number", description: "Hauteur pour zone emprise" },
+                      radius: { type: "number", description: "Rayon de giration pour les grues en pixels (proportionnel à la portée réelle)" },
+                      label: { type: "string", description: "Label pour les grues (ex: 'Grue 15m') ou texte personnalisé" },
+                      width: { type: "number", description: "Largeur pour zone emprise en pixels" },
+                      height: { type: "number", description: "Hauteur pour zone emprise en pixels" },
                       text: { type: "string", description: "Texte pour custom_text" },
-                      color: { type: "string", description: "Couleur hex" },
+                      color: { type: "string", description: "Couleur hex optionnelle" },
                     },
                     required: ["type", "x", "y"],
                     additionalProperties: false,
@@ -130,6 +159,9 @@ Positionne les éléments de manière réaliste en tenant compte de l'espace dis
       console.error("AI error:", response.status, t);
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Trop de requêtes, réessayez dans un instant." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Crédits IA insuffisants." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       throw new Error("Erreur IA");
     }
