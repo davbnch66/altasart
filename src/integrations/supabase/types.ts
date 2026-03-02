@@ -3335,6 +3335,79 @@ export type Database = {
           },
         ]
       }
+      voirie_plans: {
+        Row: {
+          address: string | null
+          company_id: string
+          created_at: string
+          dossier_id: string | null
+          elements: Json
+          id: string
+          legend: Json
+          notes: string | null
+          plan_image_url: string | null
+          plan_pdf_path: string | null
+          status: string
+          title: string
+          updated_at: string
+          visite_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          company_id: string
+          created_at?: string
+          dossier_id?: string | null
+          elements?: Json
+          id?: string
+          legend?: Json
+          notes?: string | null
+          plan_image_url?: string | null
+          plan_pdf_path?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          visite_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          company_id?: string
+          created_at?: string
+          dossier_id?: string | null
+          elements?: Json
+          id?: string
+          legend?: Json
+          notes?: string | null
+          plan_image_url?: string | null
+          plan_pdf_path?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          visite_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voirie_plans_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voirie_plans_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voirie_plans_visite_id_fkey"
+            columns: ["visite_id"]
+            isOneToOne: false
+            referencedRelation: "visites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

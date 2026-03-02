@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { ShieldAlert, MapPin, Calendar, Clock, CheckCircle2, AlertCircle, Send, Eye, Filter } from "lucide-react";
+import { ShieldAlert, MapPin, Calendar, Clock, CheckCircle2, AlertCircle, Send, Eye, Filter, Map, Loader2 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,9 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+
+const VoiriePlanEditor = lazy(() => import("@/components/voirie/VoiriePlanEditor"));
 
 const VOIRIE_STATUSES = [
   { key: "a_faire", label: "À faire", color: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30", icon: AlertCircle },
@@ -39,6 +42,7 @@ const VoiriePage = () => {
   const queryClient = useQueryClient();
   const { current, dbCompanies } = useCompany();
   const [filterStatus, setFilterStatus] = useState<string>("all_active");
+  const [planEditorItem, setPlanEditorItem] = useState<any>(null);
 
   const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
 
@@ -310,6 +314,9 @@ const VoiriePage = () => {
 
                 {/* Action buttons */}
                 <div className="flex items-center gap-2 pt-1 border-t">
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => setPlanEditorItem(item)}>
+                    <Map className="h-3 w-3" /> Plan d'implantation
+                  </Button>
                   {item.visiteId && (
                     <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={() => navigate(`/visites/${item.visiteId}`)}>
                       <Eye className="h-3 w-3" /> Voir la visite
@@ -326,6 +333,23 @@ const VoiriePage = () => {
           })}
         </div>
       )}
+      {/* Plan Editor Dialog */}
+      <Dialog open={!!planEditorItem} onOpenChange={(v) => !v && setPlanEditorItem(null)}>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden">
+          {planEditorItem && (
+            <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+              <VoiriePlanEditor
+                companyId={typeof current === "string" && current !== "global" ? current : dbCompanies[0]?.id}
+                visiteId={planEditorItem.visiteId}
+                dossierId={planEditorItem.dossierId}
+                address={planEditorItem.address}
+                onSave={() => setPlanEditorItem(null)}
+                onClose={() => setPlanEditorItem(null)}
+              />
+            </Suspense>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
