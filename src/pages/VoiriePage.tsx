@@ -10,12 +10,25 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
-const VoiriePlanEditor = lazy(() => import("@/components/voirie/VoiriePlanEditor"));
+import React from "react";
+
+const VoiriePlanEditor = lazy(() => import("@/components/voirie/VoiriePlanEditor").catch(() => ({
+  default: () => <div className="flex items-center justify-center h-full text-muted-foreground"><p>Erreur de chargement de l'éditeur de plan</p></div>,
+})));
+
+class PlanEditorErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  state = { hasError: false };
+  static getDerivedStateFromError() { return { hasError: true }; }
+  render() {
+    if (this.state.hasError) return <div className="flex items-center justify-center h-full text-destructive"><p>Erreur dans l'éditeur de plan. Rechargez la page.</p></div>;
+    return this.props.children;
+  }
+}
 
 const VOIRIE_STATUSES = [
   { key: "a_faire", label: "À faire", color: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30", icon: AlertCircle },
@@ -335,18 +348,21 @@ const VoiriePage = () => {
       )}
       {/* Plan Editor Dialog */}
       <Dialog open={!!planEditorItem} onOpenChange={(v) => !v && setPlanEditorItem(null)}>
-        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden">
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogTitle className="sr-only">Plan d'implantation</DialogTitle>
           {planEditorItem && (
-            <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
-              <VoiriePlanEditor
-                companyId={typeof current === "string" && current !== "global" ? current : dbCompanies[0]?.id}
-                visiteId={planEditorItem.visiteId}
-                dossierId={planEditorItem.dossierId}
-                address={planEditorItem.address}
-                onSave={() => setPlanEditorItem(null)}
-                onClose={() => setPlanEditorItem(null)}
-              />
-            </Suspense>
+            <PlanEditorErrorBoundary>
+              <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+                <VoiriePlanEditor
+                  companyId={typeof current === "string" && current !== "global" ? current : dbCompanies[0]?.id}
+                  visiteId={planEditorItem.visiteId}
+                  dossierId={planEditorItem.dossierId}
+                  address={planEditorItem.address}
+                  onSave={() => setPlanEditorItem(null)}
+                  onClose={() => setPlanEditorItem(null)}
+                />
+              </Suspense>
+            </PlanEditorErrorBoundary>
           )}
         </DialogContent>
       </Dialog>
