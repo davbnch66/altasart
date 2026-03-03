@@ -113,6 +113,7 @@ const VoiriePage = () => {
     address: string;
     client: string;
     company: string;
+    companyId: string;
     status: string;
     type: string | null;
     notes: string | null;
@@ -132,6 +133,7 @@ const VoiriePage = () => {
       address: v.voirie_address || v.address || "—",
       client: v.clients?.name || "—",
       company: v.companies?.short_name || "",
+      companyId: v.company_id,
       status: v.voirie_status || "a_faire",
       type: v.voirie_type,
       notes: v.voirie_notes,
@@ -153,6 +155,7 @@ const VoiriePage = () => {
         address: addresses.join(" | ") || "—",
         client: d.clients?.name || "—",
         company: d.companies?.short_name || "",
+        companyId: d.company_id,
         status: "a_faire",
         type: "arrete_stationnement",
         notes: null,
@@ -357,7 +360,7 @@ const VoiriePage = () => {
             <PlanEditorErrorBoundary>
               <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
                 <VoiriePlanEditor
-                  companyId={typeof current === "string" && current !== "global" ? current : dbCompanies[0]?.id}
+                  companyId={planEditorItem.companyId || (typeof current === "string" && current !== "global" ? current : dbCompanies[0]?.id)}
                   visiteId={planEditorItem.visiteId}
                   dossierId={planEditorItem.dossierId}
                   address={planEditorItem.address}
