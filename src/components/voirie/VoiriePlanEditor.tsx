@@ -950,6 +950,14 @@ const VoiriePlanEditor = ({
   const [draggingLegend, setDraggingLegend] = useState<{ offsetX: number; offsetY: number } | null>(null);
   const [draggingPan, setDraggingPan] = useState<{ startClientX: number; startClientY: number; originX: number; originY: number } | null>(null);
 
+  const clampScale = useCallback((next: number) => Math.max(0.1, Math.min(3, next)), []);
+
+  const handleCanvasWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const step = e.deltaY < 0 ? 0.08 : -0.08;
+    setScale((prev) => clampScale(prev + step));
+  }, [clampScale]);
+
   const renderPdfToBackground = useCallback(async (fileUrl: string) => {
     const pdfjs = await import("pdfjs-dist");
     pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
@@ -1763,21 +1771,26 @@ const VoiriePlanEditor = ({
             onClick={() => setTimeout(() => fileInputRef.current?.click(), 0)} title="Charger un plan">
             {uploadingPdf ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
           </Button>
-          <Button variant="outline" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => setScale((s) => Math.min(3, s + 0.2))} title="Zoom +">
+          <Button variant="outline" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => setScale((s) => clampScale(s + 0.2))} title="Zoom +">
             <ZoomIn className="h-3 w-3" />
           </Button>
           <span className="text-[9px] text-muted-foreground w-8 text-center font-mono shrink-0">{Math.round(scale * 100)}%</span>
-          <Button variant="outline" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => setScale((s) => Math.max(0.3, s - 0.2))} title="Zoom -">
+          <Button variant="outline" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => setScale((s) => clampScale(s - 0.2))} title="Zoom -">
             <ZoomOut className="h-3 w-3" />
           </Button>
           <Button variant="outline" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={handleAiFill} disabled={aiLoading} title="IA auto-plan">
             {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
           </Button>
           {selectedIds.size > 0 && (
-            <Button variant="destructive" size="sm" className="h-7 text-[10px] gap-0.5 px-1.5 shrink-0" onClick={deleteSelected}>
-              <Trash2 className="h-3 w-3" />
-              {selectedIds.size > 1 && <span>({selectedIds.size})</span>}
-            </Button>
+            <>
+              <Button variant="outline" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => setMobilePropsOpen(true)} title="Propriétés">
+                <MoreHorizontal className="h-3 w-3" />
+              </Button>
+              <Button variant="destructive" size="sm" className="h-7 text-[10px] gap-0.5 px-1.5 shrink-0" onClick={deleteSelected}>
+                <Trash2 className="h-3 w-3" />
+                {selectedIds.size > 1 && <span>({selectedIds.size})</span>}
+              </Button>
+            </>
           )}
           <div className="flex-1" />
           <Button variant="outline" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={handleExportPdf} title="Export PDF">
@@ -1790,6 +1803,7 @@ const VoiriePlanEditor = ({
           <canvas ref={canvasRef} width={Math.round(canvasSize.width * pixelRatio)} height={Math.round(canvasSize.height * pixelRatio)}
             className={draggingPan ? "cursor-grabbing" : bgImage ? "cursor-grab" : "cursor-default"}
             style={{ width: canvasSize.width, height: canvasSize.height, touchAction: "none" }}
+            onWheel={handleCanvasWheel}
             onMouseDown={handlePointerDown} onMouseMove={handlePointerMove}
             onMouseUp={handlePointerUp} onMouseLeave={handlePointerUp}
             onTouchStart={handlePointerDown} onTouchMove={handlePointerMove}
@@ -1826,10 +1840,10 @@ const VoiriePlanEditor = ({
               {categories.map((cat) => (
                 <div key={cat}>
                   <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider px-1.5 pt-0.5">{cat}</p>
-                  <div className="flex gap-1 overflow-x-auto pb-0.5">
+                  <div className="grid grid-cols-4 gap-1.5 pb-1">
                     {ELEMENT_PALETTE.filter(p => p.category === cat).map((item) => (
                       <button key={item.type} onClick={() => { addElement(item.type); setMobilePaletteOpen(false); }}
-                        className="flex flex-col items-center gap-0.5 rounded-md px-2 py-1 text-[9px] hover:bg-accent/60 transition-colors shrink-0"
+                        className="flex flex-col items-center gap-0.5 rounded-md px-1 py-1 text-[9px] hover:bg-accent/60 transition-colors"
                         title={item.label}>
                         <canvas
                           ref={(cvs) => {
@@ -1845,7 +1859,7 @@ const VoiriePlanEditor = ({
                           }}
                           className="shrink-0 rounded" style={{ width: 22, height: 22 }}
                         />
-                        <span className="text-[8px] text-foreground/70 max-w-[50px] truncate">{item.label}</span>
+                        <span className="text-[8px] text-foreground/70 max-w-[56px] truncate text-center">{item.label}</span>
                       </button>
                     ))}
                   </div>
@@ -1910,11 +1924,11 @@ const VoiriePlanEditor = ({
 
         <div className="h-6 w-px bg-border" />
 
-        <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setScale((s) => Math.min(3, s + 0.2))} title="Zoom +">
+        <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setScale((s) => clampScale(s + 0.2))} title="Zoom +">
           <ZoomIn className="h-3.5 w-3.5" />
         </Button>
         <span className="text-[10px] text-muted-foreground w-10 text-center font-mono">{Math.round(scale * 100)}%</span>
-        <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setScale((s) => Math.max(0.3, s - 0.2))} title="Zoom -">
+        <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setScale((s) => clampScale(s - 0.2))} title="Zoom -">
           <ZoomOut className="h-3.5 w-3.5" />
         </Button>
 
@@ -1989,6 +2003,7 @@ const VoiriePlanEditor = ({
           <canvas ref={canvasRef} width={Math.round(canvasSize.width * pixelRatio)} height={Math.round(canvasSize.height * pixelRatio)}
             className={bgImage ? "cursor-crosshair" : "cursor-default"}
             style={{ width: canvasSize.width, height: canvasSize.height, touchAction: "none" }}
+            onWheel={handleCanvasWheel}
             onMouseDown={handlePointerDown} onMouseMove={handlePointerMove}
             onMouseUp={handlePointerUp} onMouseLeave={handlePointerUp}
             onTouchStart={handlePointerDown} onTouchMove={handlePointerMove}
