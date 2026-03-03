@@ -1973,10 +1973,11 @@ const VoiriePlanEditor = ({
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left palette */}
         <div
-          className="w-48 min-h-0 border-r bg-card shrink-0 overflow-y-auto overscroll-contain"
-          style={{ maxHeight: "calc(90vh - 3.25rem)" }}
+          className="w-48 border-r bg-card shrink-0 flex flex-col"
+          style={{ height: "100%" }}
           onWheelCapture={(e) => e.stopPropagation()}
         >
+          <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
           <div className="p-1.5 space-y-0.5 pb-4">
               {categories.map((cat) => (
                 <div key={cat}>
@@ -2005,6 +2006,7 @@ const VoiriePlanEditor = ({
                 </div>
               ))}
             </div>
+          </div>
         </div>
 
         {/* Canvas */}
