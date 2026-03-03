@@ -7,8 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Download, Save, Wand2, Trash2, ZoomIn, ZoomOut,
-  Plus, Loader2, X
+  Plus, Loader2, X, ChevronUp, ChevronDown, MoreHorizontal
 } from "lucide-react";
+import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 
 // ── Element types ──
 export interface PlanElement {
@@ -1445,36 +1446,249 @@ const VoiriePlanEditor = ({
   // Group palette by category
   const categories = [...new Set(ELEMENT_PALETTE.map(p => p.category))];
 
+  const [mobilePaletteOpen, setMobilePaletteOpen] = useState(false);
+  const [mobilePropsOpen, setMobilePropsOpen] = useState(false);
+
+  // Open props drawer when single element selected on mobile
+  useEffect(() => {
+    if (isMobile && selectedEl) setMobilePropsOpen(true);
+    if (!selectedEl) setMobilePropsOpen(false);
+  }, [isMobile, selectedEl]);
+
+  // ── Shared file input ──
+  const fileInput = (
+    <input ref={fileInputRef} type="file" accept=".pdf,image/*"
+      style={{ position: "absolute", top: -9999, left: -9999, opacity: 0 }}
+      onChange={(e) => {
+        const f = e.target.files?.[0];
+        if (f) handlePdfUpload(f);
+        e.target.value = "";
+      }} />
+  );
+
+  // ── Properties panel content (shared between desktop side panel and mobile drawer) ──
+  const propsContent = selectedEl && (
+    <div className="space-y-3">
+      <div>
+        <Badge variant="secondary" className="text-[10px]">
+          {ELEMENT_PALETTE.find((p) => p.type === selectedEl.type)?.label || selectedEl.type}
+        </Badge>
+      </div>
+      {selectedEl.type === "grue" && (
+        <>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-medium">Nom de la grue</label>
+            <Input value={selectedEl.label || ""} onChange={(e) => updateElement(selectedEl.id, { label: e.target.value })} className="h-7 text-xs mt-0.5" />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-medium">Rayon de giration (px)</label>
+            <Input type="number" value={selectedEl.radius || 80} onChange={(e) => updateElement(selectedEl.id, { radius: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
+          </div>
+        </>
+      )}
+      {selectedEl.type === "zone_emprise" && (
+        <>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-medium">Largeur (px)</label>
+            <Input type="number" value={selectedEl.width || 200} onChange={(e) => updateElement(selectedEl.id, { width: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-medium">Hauteur (px)</label>
+            <Input type="number" value={selectedEl.height || 100} onChange={(e) => updateElement(selectedEl.id, { height: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
+          </div>
+        </>
+      )}
+      {selectedEl.type === "custom_text" && (
+        <div>
+          <label className="text-[10px] text-muted-foreground font-medium">Texte</label>
+          <Input value={selectedEl.text || ""} onChange={(e) => updateElement(selectedEl.id, { text: e.target.value })} className="h-7 text-xs mt-0.5" />
+        </div>
+      )}
+      <div>
+        <label className="text-[10px] text-muted-foreground font-medium">Rotation (°)</label>
+        <Input type="number" value={selectedEl.rotation || 0} onChange={(e) => updateElement(selectedEl.id, { rotation: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
+      </div>
+      <div>
+        <label className="text-[10px] text-muted-foreground font-medium">Position</label>
+        <div className="flex gap-1 mt-0.5">
+          <Input type="number" value={Math.round(selectedEl.x)} onChange={(e) => updateElement(selectedEl.id, { x: Number(e.target.value) })} className="h-7 text-xs" placeholder="X" />
+          <Input type="number" value={Math.round(selectedEl.y)} onChange={(e) => updateElement(selectedEl.id, { y: Number(e.target.value) })} className="h-7 text-xs" placeholder="Y" />
+        </div>
+      </div>
+      <Button variant="destructive" size="sm" className="w-full h-7 text-xs gap-1" onClick={deleteSelected}>
+        <Trash2 className="h-3 w-3" /> Supprimer
+      </Button>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <div className="flex flex-col h-full">
+        {fileInput}
+
+        {/* Mobile compact toolbar — row 1: title + save + close */}
+        <div className="flex items-center gap-1.5 p-1.5 border-b bg-card">
+          <Input value={title} onChange={(e) => setTitle(e.target.value)}
+            className="h-7 text-xs flex-1 min-w-0 font-medium" placeholder="Titre" />
+          <Button size="sm" className="h-7 text-[10px] gap-1 px-2 shrink-0" onClick={handleSave} disabled={saving}>
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+            Sauver
+          </Button>
+          {onClose && (
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={onClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
+        {/* Mobile compact toolbar — row 2: actions */}
+        <div className="flex items-center gap-1 px-1.5 py-1 border-b bg-card overflow-x-auto">
+          <Button variant="outline" size="sm" className="h-7 w-7 p-0 shrink-0" disabled={uploadingPdf}
+            onClick={() => setTimeout(() => fileInputRef.current?.click(), 0)} title="Charger un plan">
+            {uploadingPdf ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+          </Button>
+          <Button variant="outline" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => setScale((s) => Math.min(3, s + 0.2))} title="Zoom +">
+            <ZoomIn className="h-3 w-3" />
+          </Button>
+          <span className="text-[9px] text-muted-foreground w-8 text-center font-mono shrink-0">{Math.round(scale * 100)}%</span>
+          <Button variant="outline" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={() => setScale((s) => Math.max(0.3, s - 0.2))} title="Zoom -">
+            <ZoomOut className="h-3 w-3" />
+          </Button>
+          <Button variant="outline" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={handleAiFill} disabled={aiLoading} title="IA auto-plan">
+            {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+          </Button>
+          {selectedIds.size > 0 && (
+            <Button variant="destructive" size="sm" className="h-7 text-[10px] gap-0.5 px-1.5 shrink-0" onClick={deleteSelected}>
+              <Trash2 className="h-3 w-3" />
+              {selectedIds.size > 1 && <span>({selectedIds.size})</span>}
+            </Button>
+          )}
+          <div className="flex-1" />
+          <Button variant="outline" size="sm" className="h-7 w-7 p-0 shrink-0" onClick={handleExportPdf} title="Export PDF">
+            <Download className="h-3 w-3" />
+          </Button>
+        </div>
+
+        {/* Canvas — full width on mobile */}
+        <div className="flex-1 overflow-hidden bg-muted/30 relative" ref={containerRef}>
+          <canvas ref={canvasRef} width={Math.round(canvasSize.width * pixelRatio)} height={Math.round(canvasSize.height * pixelRatio)}
+            className={bgImage ? "cursor-crosshair" : "cursor-default"}
+            style={{ width: canvasSize.width, height: canvasSize.height, touchAction: "none" }}
+            onMouseDown={handlePointerDown} onMouseMove={handlePointerMove}
+            onMouseUp={handlePointerUp} onMouseLeave={handlePointerUp}
+            onTouchStart={handlePointerDown} onTouchMove={handlePointerMove}
+            onTouchEnd={handlePointerUp} />
+
+          {!bgImage && elements.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              <button type="button" onClick={() => fileInputRef.current?.click()}
+                className="text-center text-muted-foreground space-y-2 max-w-xs rounded-lg p-2 transition-colors hover:bg-muted/60">
+                <div className="w-14 h-14 mx-auto rounded-full bg-muted flex items-center justify-center">
+                  <Plus className="h-7 w-7 text-muted-foreground/50" />
+                </div>
+                <p className="text-sm font-medium leading-tight">Chargez un plan</p>
+                <p className="text-xs leading-relaxed">PDF ou image</p>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile bottom palette — horizontal scrollable strip */}
+        <div className="border-t bg-card">
+          <button onClick={() => setMobilePaletteOpen(!mobilePaletteOpen)}
+            className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+            <span>Éléments</span>
+            {mobilePaletteOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+          </button>
+          {mobilePaletteOpen && (
+            <div className="px-1.5 pb-2 space-y-1">
+              {categories.map((cat) => (
+                <div key={cat}>
+                  <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider px-1.5 pt-0.5">{cat}</p>
+                  <div className="flex gap-1 overflow-x-auto pb-0.5">
+                    {ELEMENT_PALETTE.filter(p => p.category === cat).map((item) => (
+                      <button key={item.type} onClick={() => { addElement(item.type); setMobilePaletteOpen(false); }}
+                        className="flex flex-col items-center gap-0.5 rounded-md px-2 py-1 text-[9px] hover:bg-accent/60 transition-colors shrink-0"
+                        title={item.label}>
+                        <canvas
+                          ref={(cvs) => {
+                            if (!cvs) return;
+                            const c = cvs.getContext("2d");
+                            if (!c) return;
+                            const sz = 22;
+                            cvs.width = sz * 2; cvs.height = sz * 2;
+                            cvs.style.width = `${sz}px`; cvs.style.height = `${sz}px`;
+                            c.clearRect(0, 0, sz * 2, sz * 2);
+                            c.scale(2, 2);
+                            drawPaletteIcon(c, item.type, sz / 2, sz / 2, sz - 4);
+                          }}
+                          className="shrink-0 rounded" style={{ width: 22, height: 22 }}
+                        />
+                        <span className="text-[8px] text-foreground/70 max-w-[50px] truncate">{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {!mobilePaletteOpen && (
+            <div className="flex gap-0.5 overflow-x-auto px-1.5 pb-1.5">
+              {ELEMENT_PALETTE.map((item) => (
+                <button key={item.type} onClick={() => addElement(item.type)}
+                  className="flex items-center justify-center rounded-md p-1 hover:bg-accent/60 transition-colors shrink-0"
+                  title={item.label}>
+                  <canvas
+                    ref={(cvs) => {
+                      if (!cvs) return;
+                      const c = cvs.getContext("2d");
+                      if (!c) return;
+                      const sz = 20;
+                      cvs.width = sz * 2; cvs.height = sz * 2;
+                      cvs.style.width = `${sz}px`; cvs.style.height = `${sz}px`;
+                      c.clearRect(0, 0, sz * 2, sz * 2);
+                      c.scale(2, 2);
+                      drawPaletteIcon(c, item.type, sz / 2, sz / 2, sz - 4);
+                    }}
+                    className="shrink-0 rounded" style={{ width: 20, height: 20 }}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Mobile properties drawer */}
+        <Drawer open={mobilePropsOpen} onOpenChange={setMobilePropsOpen}>
+          <DrawerContent className="max-h-[50vh]">
+            <DrawerTitle className="text-xs font-bold px-4 pt-3">Propriétés</DrawerTitle>
+            <div className="px-4 pb-4 pt-2 overflow-y-auto">
+              {propsContent}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      </div>
+    );
+  }
+
+  // ── DESKTOP LAYOUT ──
   return (
     <div className="flex flex-col h-full">
+      {fileInput}
       {/* Toolbar */}
       <div className="flex items-center gap-2 p-2 border-b bg-card flex-wrap">
         <Input value={title} onChange={(e) => setTitle(e.target.value)}
           className="h-8 text-sm w-48 max-w-[200px] font-medium" placeholder="Titre du plan" />
         <div className="h-6 w-px bg-border" />
 
-        {/* Upload PDF */}
         <Button variant="outline" size="sm" className="h-8 text-xs gap-1" disabled={uploadingPdf}
-          onClick={() => {
-            // Use setTimeout to escape dialog event handling
-            setTimeout(() => {
-              fileInputRef.current?.click();
-            }, 0);
-          }}>
+          onClick={() => setTimeout(() => fileInputRef.current?.click(), 0)}>
           {uploadingPdf ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
           {bgImage ? "Changer le plan" : "Charger un plan"}
         </Button>
-        <input ref={fileInputRef} type="file" accept=".pdf,image/*"
-          style={{ position: "absolute", top: -9999, left: -9999, opacity: 0 }}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handlePdfUpload(f);
-            e.target.value = "";
-          }} />
 
         <div className="h-6 w-px bg-border" />
 
-        {/* Zoom */}
         <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => setScale((s) => Math.min(3, s + 0.2))} title="Zoom +">
           <ZoomIn className="h-3.5 w-3.5" />
         </Button>
@@ -1485,7 +1699,6 @@ const VoiriePlanEditor = ({
 
         <div className="h-6 w-px bg-border" />
 
-        {/* AI fill */}
         <Button variant="outline" size="sm" className="h-8 text-xs gap-1" onClick={handleAiFill} disabled={aiLoading}>
           {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
           IA auto-plan
@@ -1518,39 +1731,31 @@ const VoiriePlanEditor = ({
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left palette — grouped by category with visual previews */}
-        <div className={`border-r bg-card overflow-y-auto ${isMobile ? "w-14" : "w-48"} shrink-0`}>
+        {/* Left palette */}
+        <div className="w-48 border-r bg-card overflow-y-auto shrink-0">
           <div className="p-1.5 space-y-0.5">
             {categories.map((cat) => (
               <div key={cat}>
-                {!isMobile && (
-                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider px-2 pt-2 pb-1">{cat}</p>
-                )}
+                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider px-2 pt-2 pb-1">{cat}</p>
                 {ELEMENT_PALETTE.filter(p => p.category === cat).map((item) => (
                   <button key={item.type} onClick={() => addElement(item.type)}
                     className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-xs hover:bg-accent/60 transition-colors text-left group"
                     title={item.label}>
-                    {/* Mini canvas preview */}
                     <canvas
                       ref={(cvs) => {
                         if (!cvs) return;
                         const c = cvs.getContext("2d");
                         if (!c) return;
-                        const sz = isMobile ? 24 : 28;
-                        cvs.width = sz * 2;
-                        cvs.height = sz * 2;
-                        cvs.style.width = `${sz}px`;
-                        cvs.style.height = `${sz}px`;
+                        const sz = 28;
+                        cvs.width = sz * 2; cvs.height = sz * 2;
+                        cvs.style.width = `${sz}px`; cvs.style.height = `${sz}px`;
                         c.clearRect(0, 0, sz * 2, sz * 2);
                         c.scale(2, 2);
                         drawPaletteIcon(c, item.type, sz / 2, sz / 2, sz - 4);
                       }}
-                      className="shrink-0 rounded"
-                      style={{ width: isMobile ? 24 : 28, height: isMobile ? 24 : 28 }}
+                      className="shrink-0 rounded" style={{ width: 28, height: 28 }}
                     />
-                    {!isMobile && (
-                      <span className="truncate text-[11px] font-medium text-foreground/80 group-hover:text-foreground">{item.label}</span>
-                    )}
+                    <span className="truncate text-[11px] font-medium text-foreground/80 group-hover:text-foreground">{item.label}</span>
                   </button>
                 ))}
               </div>
@@ -1570,11 +1775,8 @@ const VoiriePlanEditor = ({
 
           {!bgImage && elements.length === 0 && (
             <div className="absolute inset-0 flex items-center justify-center p-4">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="text-center text-muted-foreground space-y-2 max-w-xs rounded-lg p-2 transition-colors hover:bg-muted/60"
-              >
+              <button type="button" onClick={() => fileInputRef.current?.click()}
+                className="text-center text-muted-foreground space-y-2 max-w-xs rounded-lg p-2 transition-colors hover:bg-muted/60">
                 <div className="w-16 h-16 mx-auto rounded-full bg-muted flex items-center justify-center">
                   <Plus className="h-8 w-8 text-muted-foreground/50" />
                 </div>
@@ -1585,8 +1787,8 @@ const VoiriePlanEditor = ({
           )}
         </div>
 
-        {/* Right panel — selected element properties */}
-        {selectedEl && !isMobile && (
+        {/* Right panel — properties */}
+        {selectedEl && (
           <div className="w-56 border-l bg-card p-3 space-y-3 overflow-y-auto shrink-0">
             <div className="flex items-center justify-between">
               <p className="text-xs font-bold text-foreground">Propriétés</p>
@@ -1594,55 +1796,7 @@ const VoiriePlanEditor = ({
                 <X className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <div>
-              <Badge variant="secondary" className="text-[10px]">
-                {ELEMENT_PALETTE.find((p) => p.type === selectedEl.type)?.label || selectedEl.type}
-              </Badge>
-            </div>
-            {selectedEl.type === "grue" && (
-              <>
-                <div>
-                  <label className="text-[10px] text-muted-foreground font-medium">Nom de la grue</label>
-                  <Input value={selectedEl.label || ""} onChange={(e) => updateElement(selectedEl.id, { label: e.target.value })} className="h-7 text-xs mt-0.5" />
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground font-medium">Rayon de giration (px)</label>
-                  <Input type="number" value={selectedEl.radius || 80} onChange={(e) => updateElement(selectedEl.id, { radius: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
-                </div>
-              </>
-            )}
-            {selectedEl.type === "zone_emprise" && (
-              <>
-                <div>
-                  <label className="text-[10px] text-muted-foreground font-medium">Largeur (px)</label>
-                  <Input type="number" value={selectedEl.width || 200} onChange={(e) => updateElement(selectedEl.id, { width: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
-                </div>
-                <div>
-                  <label className="text-[10px] text-muted-foreground font-medium">Hauteur (px)</label>
-                  <Input type="number" value={selectedEl.height || 100} onChange={(e) => updateElement(selectedEl.id, { height: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
-                </div>
-              </>
-            )}
-            {selectedEl.type === "custom_text" && (
-              <div>
-                <label className="text-[10px] text-muted-foreground font-medium">Texte</label>
-                <Input value={selectedEl.text || ""} onChange={(e) => updateElement(selectedEl.id, { text: e.target.value })} className="h-7 text-xs mt-0.5" />
-              </div>
-            )}
-            <div>
-              <label className="text-[10px] text-muted-foreground font-medium">Rotation (°)</label>
-              <Input type="number" value={selectedEl.rotation || 0} onChange={(e) => updateElement(selectedEl.id, { rotation: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
-            </div>
-            <div>
-              <label className="text-[10px] text-muted-foreground font-medium">Position</label>
-              <div className="flex gap-1 mt-0.5">
-                <Input type="number" value={Math.round(selectedEl.x)} onChange={(e) => updateElement(selectedEl.id, { x: Number(e.target.value) })} className="h-7 text-xs" placeholder="X" />
-                <Input type="number" value={Math.round(selectedEl.y)} onChange={(e) => updateElement(selectedEl.id, { y: Number(e.target.value) })} className="h-7 text-xs" placeholder="Y" />
-              </div>
-            </div>
-            <Button variant="destructive" size="sm" className="w-full h-7 text-xs gap-1" onClick={deleteSelected}>
-              <Trash2 className="h-3 w-3" /> Supprimer
-            </Button>
+            {propsContent}
           </div>
         )}
       </div>
