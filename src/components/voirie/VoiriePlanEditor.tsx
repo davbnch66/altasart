@@ -1913,7 +1913,7 @@ const VoiriePlanEditor = ({
 
   // ── DESKTOP LAYOUT ──
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0 overflow-hidden">
       {fileInput}
       {/* Toolbar */}
       <div className="flex items-center gap-2 p-2 border-b bg-card flex-wrap">
@@ -1972,13 +1972,12 @@ const VoiriePlanEditor = ({
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left palette */}
-        <div
-          className="w-48 border-r bg-card shrink-0 flex flex-col"
-          style={{ height: "100%" }}
-          onWheelCapture={(e) => e.stopPropagation()}
-        >
-          <div className="flex-1 overflow-y-auto overscroll-contain min-h-0">
-          <div className="p-1.5 space-y-0.5 pb-4">
+        <div className="w-48 h-full min-h-0 border-r bg-card shrink-0 overflow-hidden">
+          <div
+            className="h-full overflow-y-auto overscroll-contain"
+            onWheel={(e) => e.stopPropagation()}
+          >
+            <div className="p-1.5 space-y-0.5 pb-4">
               {categories.map((cat) => (
                 <div key={cat}>
                   <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider px-2 pt-2 pb-1">{cat}</p>
