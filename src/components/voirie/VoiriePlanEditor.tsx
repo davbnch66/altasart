@@ -1973,41 +1973,38 @@ const VoiriePlanEditor = ({
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left palette */}
         <div
-          className="w-48 h-full min-h-0 border-r bg-card overflow-y-scroll overscroll-contain pb-4 shrink-0"
-          onWheel={(e) => {
-            e.stopPropagation();
-            const container = e.currentTarget;
-            container.scrollTop += e.deltaY;
-          }}
+          className="w-48 min-h-0 border-r bg-card shrink-0 overflow-y-auto overscroll-contain"
+          style={{ maxHeight: "calc(90vh - 3.25rem)" }}
+          onWheelCapture={(e) => e.stopPropagation()}
         >
-          <div className="p-1.5 space-y-0.5">
-            {categories.map((cat) => (
-              <div key={cat}>
-                <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider px-2 pt-2 pb-1">{cat}</p>
-                {ELEMENT_PALETTE.filter(p => p.category === cat).map((item) => (
-                  <button key={item.type} onClick={() => addElement(item.type)}
-                    className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-xs hover:bg-accent/60 transition-colors text-left group"
-                    title={item.label}>
-                    <canvas
-                      ref={(cvs) => {
-                        if (!cvs) return;
-                        const c = cvs.getContext("2d");
-                        if (!c) return;
-                        const sz = 28;
-                        cvs.width = sz * 2; cvs.height = sz * 2;
-                        cvs.style.width = `${sz}px`; cvs.style.height = `${sz}px`;
-                        c.clearRect(0, 0, sz * 2, sz * 2);
-                        c.scale(2, 2);
-                        drawPaletteIcon(c, item.type, sz / 2, sz / 2, sz - 4);
-                      }}
-                      className="shrink-0 rounded" style={{ width: 28, height: 28 }}
-                    />
-                    <span className="truncate text-[11px] font-medium text-foreground/80 group-hover:text-foreground">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
+          <div className="p-1.5 space-y-0.5 pb-4">
+              {categories.map((cat) => (
+                <div key={cat}>
+                  <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider px-2 pt-2 pb-1">{cat}</p>
+                  {ELEMENT_PALETTE.filter(p => p.category === cat).map((item) => (
+                    <button key={item.type} onClick={() => addElement(item.type)}
+                      className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-xs hover:bg-accent/60 transition-colors text-left group"
+                      title={item.label}>
+                      <canvas
+                        ref={(cvs) => {
+                          if (!cvs) return;
+                          const c = cvs.getContext("2d");
+                          if (!c) return;
+                          const sz = 28;
+                          cvs.width = sz * 2; cvs.height = sz * 2;
+                          cvs.style.width = `${sz}px`; cvs.style.height = `${sz}px`;
+                          c.clearRect(0, 0, sz * 2, sz * 2);
+                          c.scale(2, 2);
+                          drawPaletteIcon(c, item.type, sz / 2, sz / 2, sz - 4);
+                        }}
+                        className="shrink-0 rounded" style={{ width: 28, height: 28 }}
+                      />
+                      <span className="truncate text-[11px] font-medium text-foreground/80 group-hover:text-foreground">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
         </div>
 
         {/* Canvas */}
