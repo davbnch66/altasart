@@ -781,6 +781,41 @@ const VoiriePlanEditor = ({
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [dragging, setDragging] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
   const pixelRatio = Math.min(3, typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1);
+  const [loadedPlanId, setLoadedPlanId] = useState<string | null>(planId || null);
+
+  // ── Load existing plan from DB on mount ──
+  useEffect(() => {
+    if (planId || (!visiteId && !dossierId)) return;
+    const loadExistingPlan = async () => {
+      try {
+        let query = supabase.from("voirie_plans").select("id, title, elements, legend, status").eq("company_id", companyId);
+        if (visiteId) query = query.eq("visite_id", visiteId);
+        else if (dossierId) query = query.eq("dossier_id", dossierId);
+        const { data, error } = await query.order("created_at", { ascending: false }).limit(1).maybeSingle();
+        if (error || !data) return;
+        setLoadedPlanId(data.id);
+        if (data.title) setTitle(data.title);
+        if (data.elements && Array.isArray(data.elements) && data.elements.length > 0) {
+          setElements(data.elements as unknown as PlanElement[]);
+        }
+        // Try to load the stored PDF/image from storage
+        const { data: files } = await supabase.storage.from("voirie-plans").list(companyId, { limit: 100 });
+        const match = files?.find((f) => f.name.startsWith(data.id));
+        if (match) {
+          const { data: signedData } = await supabase.storage.from("voirie-plans").createSignedUrl(`${companyId}/${match.name}`, 3600);
+          if (signedData?.signedUrl) {
+            const img = new window.Image();
+            img.crossOrigin = "anonymous";
+            img.onload = () => setBgImage(img);
+            img.src = signedData.signedUrl;
+          }
+        }
+      } catch (err) {
+        console.error("Error loading existing plan:", err);
+      }
+    };
+    loadExistingPlan();
+  }, [planId, visiteId, dossierId, companyId]);
 
   // Resize canvas to container
   useEffect(() => {
@@ -1143,12 +1178,14 @@ const VoiriePlanEditor = ({
         dossier_id: dossierId || null, title, address: address || null,
         elements: elements as any, legend: generateLegend() as any, status: "brouillon",
       };
-      if (planId) {
-        const { error } = await supabase.from("voirie_plans").update(payload).eq("id", planId);
+      const existingId = planId || loadedPlanId;
+      if (existingId) {
+        const { error } = await supabase.from("voirie_plans").update(payload).eq("id", existingId);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("voirie_plans").insert(payload as any);
+        const { data: inserted, error } = await supabase.from("voirie_plans").insert(payload as any).select("id").single();
         if (error) throw error;
+        if (inserted) setLoadedPlanId(inserted.id);
       }
       toast.success("Plan sauvegardé");
       onSave?.();
