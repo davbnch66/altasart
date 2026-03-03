@@ -1810,14 +1810,19 @@ const VoiriePlanEditor = ({
         </div>
 
         {/* Mobile bottom palette — horizontal scrollable strip */}
-        <div className="border-t bg-card">
+        <div className="border-t bg-card shrink-0">
           <button onClick={() => setMobilePaletteOpen(!mobilePaletteOpen)}
             className="w-full flex items-center justify-between px-3 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
             <span>Éléments</span>
             {mobilePaletteOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
           </button>
           {mobilePaletteOpen && (
-            <div className="px-1.5 pb-[max(env(safe-area-inset-bottom),0.5rem)] space-y-1 max-h-[38vh] overflow-y-auto overscroll-contain touch-pan-y">
+            <div
+              className="px-1.5 pb-[max(env(safe-area-inset-bottom),0.75rem)] space-y-1 overflow-y-auto overscroll-contain touch-pan-y"
+              style={{ maxHeight: "min(52dvh, 360px)" }}
+              onTouchStart={(e) => e.stopPropagation()}
+              onTouchMove={(e) => e.stopPropagation()}
+            >
               {categories.map((cat) => (
                 <div key={cat}>
                   <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider px-1.5 pt-0.5">{cat}</p>
@@ -1876,9 +1881,9 @@ const VoiriePlanEditor = ({
 
         {/* Mobile properties drawer */}
         <Drawer open={mobilePropsOpen} onOpenChange={setMobilePropsOpen}>
-          <DrawerContent className="max-h-[50vh]">
+          <DrawerContent className="max-h-[70dvh] flex flex-col">
             <DrawerTitle className="text-xs font-bold px-4 pt-3">Propriétés</DrawerTitle>
-            <div className="px-4 pb-4 pt-2 overflow-y-auto">
+            <div className="px-4 pt-2 pb-[max(env(safe-area-inset-bottom),1rem)] flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y">
               {propsContent}
             </div>
           </DrawerContent>
@@ -1948,7 +1953,7 @@ const VoiriePlanEditor = ({
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left palette */}
-        <div className="w-48 border-r bg-card overflow-y-auto overscroll-contain touch-pan-y pb-4 shrink-0">
+        <div className="w-48 h-full min-h-0 border-r bg-card overflow-y-auto overscroll-contain touch-pan-y pb-4 shrink-0">
           <div className="p-1.5 space-y-0.5">
             {categories.map((cat) => (
               <div key={cat}>
