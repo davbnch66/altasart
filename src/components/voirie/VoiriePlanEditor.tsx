@@ -10,6 +10,7 @@ import {
   Plus, Loader2, X, ChevronUp, ChevronDown, MoreHorizontal
 } from "lucide-react";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // ── Element types ──
 export interface PlanElement {
@@ -1107,8 +1108,8 @@ const VoiriePlanEditor = ({
   }, [pdfUrl]);
 
   const getPlanRect = useCallback(() => {
-    const sw = canvasSize.width / scale;
-    const sh = canvasSize.height / scale;
+    const sw = canvasSize.width;
+    const sh = canvasSize.height;
 
     if (!bgImage) {
       return { x: 0, y: 0, width: sw, height: sh, stageWidth: sw, stageHeight: sh };
@@ -1123,7 +1124,7 @@ const VoiriePlanEditor = ({
     const drawY = (sh - drawH) / 2;
 
     return { x: drawX, y: drawY, width: drawW, height: drawH, stageWidth: sw, stageHeight: sh };
-  }, [bgImage, canvasSize, scale]);
+  }, [bgImage, canvasSize]);
 
 
   // ── Draw everything on canvas ──
@@ -1387,6 +1388,7 @@ const VoiriePlanEditor = ({
     } else {
       if (!isMulti) setSelectedIds(new Set());
       const { clientX, clientY } = getClientPos(e);
+      setMobilePropsOpen(false);
       setDraggingPan({ startClientX: clientX, startClientY: clientY, originX: viewportOffset.x, originY: viewportOffset.y });
     }
   };
@@ -1646,7 +1648,7 @@ const VoiriePlanEditor = ({
   // Group palette by category
   const categories = [...new Set(ELEMENT_PALETTE.map(p => p.category))];
 
-  const [mobilePaletteOpen, setMobilePaletteOpen] = useState(false);
+  const [mobilePaletteOpen, setMobilePaletteOpen] = useState(true);
   const [mobilePropsOpen, setMobilePropsOpen] = useState(false);
 
   // Open props drawer when single element selected on mobile
@@ -1831,41 +1833,38 @@ const VoiriePlanEditor = ({
             {mobilePaletteOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
           </button>
           {mobilePaletteOpen && (
-            <div
-              className="px-1.5 pb-[max(env(safe-area-inset-bottom),0.75rem)] space-y-1 overflow-y-auto overscroll-contain touch-pan-y"
-              style={{ maxHeight: "min(52dvh, 360px)" }}
-              onTouchStart={(e) => e.stopPropagation()}
-              onTouchMove={(e) => e.stopPropagation()}
-            >
-              {categories.map((cat) => (
-                <div key={cat}>
-                  <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider px-1.5 pt-0.5">{cat}</p>
-                  <div className="grid grid-cols-4 gap-1.5 pb-1">
-                    {ELEMENT_PALETTE.filter(p => p.category === cat).map((item) => (
-                      <button key={item.type} onClick={() => { addElement(item.type); setMobilePaletteOpen(false); }}
-                        className="flex flex-col items-center gap-0.5 rounded-md px-1 py-1 text-[9px] hover:bg-accent/60 transition-colors"
-                        title={item.label}>
-                        <canvas
-                          ref={(cvs) => {
-                            if (!cvs) return;
-                            const c = cvs.getContext("2d");
-                            if (!c) return;
-                            const sz = 22;
-                            cvs.width = sz * 2; cvs.height = sz * 2;
-                            cvs.style.width = `${sz}px`; cvs.style.height = `${sz}px`;
-                            c.clearRect(0, 0, sz * 2, sz * 2);
-                            c.scale(2, 2);
-                            drawPaletteIcon(c, item.type, sz / 2, sz / 2, sz - 4);
-                          }}
-                          className="shrink-0 rounded" style={{ width: 22, height: 22 }}
-                        />
-                        <span className="text-[8px] text-foreground/70 max-w-[56px] truncate text-center">{item.label}</span>
-                      </button>
-                    ))}
+            <ScrollArea className="h-[44vh]">
+              <div className="px-1.5 pb-[max(env(safe-area-inset-bottom),0.75rem)] space-y-1">
+                {categories.map((cat) => (
+                  <div key={cat}>
+                    <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider px-1.5 pt-0.5">{cat}</p>
+                    <div className="grid grid-cols-4 gap-1.5 pb-1">
+                      {ELEMENT_PALETTE.filter(p => p.category === cat).map((item) => (
+                        <button key={item.type} onClick={() => { addElement(item.type); setMobilePaletteOpen(false); }}
+                          className="flex flex-col items-center gap-0.5 rounded-md px-1 py-1 text-[9px] hover:bg-accent/60 transition-colors"
+                          title={item.label}>
+                          <canvas
+                            ref={(cvs) => {
+                              if (!cvs) return;
+                              const c = cvs.getContext("2d");
+                              if (!c) return;
+                              const sz = 22;
+                              cvs.width = sz * 2; cvs.height = sz * 2;
+                              cvs.style.width = `${sz}px`; cvs.style.height = `${sz}px`;
+                              c.clearRect(0, 0, sz * 2, sz * 2);
+                              c.scale(2, 2);
+                              drawPaletteIcon(c, item.type, sz / 2, sz / 2, sz - 4);
+                            }}
+                            className="shrink-0 rounded" style={{ width: 22, height: 22 }}
+                          />
+                          <span className="text-[8px] text-foreground/70 max-w-[56px] truncate text-center">{item.label}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </ScrollArea>
           )}
           {!mobilePaletteOpen && (
             <div className="flex gap-0.5 overflow-x-auto px-1.5 pb-1.5">
