@@ -3135,8 +3135,12 @@ export type Database = {
           updated_at: string
           visit_type: string | null
           voirie_address: string | null
+          voirie_arrete_date: string | null
+          voirie_arrete_storage_path: string | null
           voirie_notes: string | null
           voirie_obtained_at: string | null
+          voirie_plan_storage_path: string | null
+          voirie_pv_roc_storage_path: string | null
           voirie_requested_at: string | null
           voirie_status: string
           voirie_type: string | null
@@ -3212,8 +3216,12 @@ export type Database = {
           updated_at?: string
           visit_type?: string | null
           voirie_address?: string | null
+          voirie_arrete_date?: string | null
+          voirie_arrete_storage_path?: string | null
           voirie_notes?: string | null
           voirie_obtained_at?: string | null
+          voirie_plan_storage_path?: string | null
+          voirie_pv_roc_storage_path?: string | null
           voirie_requested_at?: string | null
           voirie_status?: string
           voirie_type?: string | null
@@ -3289,8 +3297,12 @@ export type Database = {
           updated_at?: string
           visit_type?: string | null
           voirie_address?: string | null
+          voirie_arrete_date?: string | null
+          voirie_arrete_storage_path?: string | null
           voirie_notes?: string | null
           voirie_obtained_at?: string | null
+          voirie_plan_storage_path?: string | null
+          voirie_pv_roc_storage_path?: string | null
           voirie_requested_at?: string | null
           voirie_status?: string
           voirie_type?: string | null
@@ -3455,6 +3467,9 @@ export type Database = {
         | "plan_visite"
         | "extract_materiel"
         | "link_dossier"
+        | "attach_voirie_plan"
+        | "attach_pv_roc"
+        | "attach_arrete"
       facture_status:
         | "brouillon"
         | "envoyee"
@@ -3640,6 +3655,9 @@ export const Constants = {
         "plan_visite",
         "extract_materiel",
         "link_dossier",
+        "attach_voirie_plan",
+        "attach_pv_roc",
+        "attach_arrete",
       ],
       facture_status: [
         "brouillon",

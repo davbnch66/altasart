@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { UserPlus, FolderPlus, FileText, CalendarPlus, Package, Link, Loader2 } from "lucide-react";
+import { UserPlus, FolderPlus, FileText, CalendarPlus, Package, Link, Loader2, MapPin, FileCheck, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -28,17 +29,21 @@ const actionConfig: Record<string, { label: string; icon: React.ElementType; col
   plan_visite: { label: "Planifier visite", icon: CalendarPlus, color: "text-warning", successMsg: "Visite planifiée avec succès" },
   extract_materiel: { label: "Extraire matériel", icon: Package, color: "text-primary", successMsg: "Matériel extrait avec succès" },
   link_dossier: { label: "Associer dossier", icon: Link, color: "text-muted-foreground", successMsg: "Dossier associé" },
+  attach_voirie_plan: { label: "Plan voirie", icon: MapPin, color: "text-blue-600", successMsg: "Plan voirie intégré à la démarche" },
+  attach_pv_roc: { label: "PV de ROC", icon: FileCheck, color: "text-amber-600", successMsg: "PV de ROC intégré à la démarche" },
+  attach_arrete: { label: "Arrêté municipal", icon: ShieldCheck, color: "text-green-600", successMsg: "Arrêté intégré — Programmez l'intervention au planning" },
 };
 
 export const InboxActionBar = ({ actions, onActionExecuted, clientEmail, clientName, emailSubject }: InboxActionBarProps) => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const suggestedActions = actions.filter((a) => a.status === "suggested");
   const [scheduleAction, setScheduleAction] = useState<EmailAction | null>(null);
   const [loadingActionId, setLoadingActionId] = useState<string | null>(null);
 
   if (suggestedActions.length === 0) return null;
 
-  const handleAccept = async (actionId: string, actionType: string) => {
+  const handleAccept = async (actionId: string, actionType: string, payload?: any) => {
     setLoadingActionId(actionId);
     try {
       const config = actionConfig[actionType];
@@ -54,7 +59,14 @@ export const InboxActionBar = ({ actions, onActionExecuted, clientEmail, clientN
       queryClient.invalidateQueries({ queryKey: ["dossiers"] });
       queryClient.invalidateQueries({ queryKey: ["devis"] });
       queryClient.invalidateQueries({ queryKey: ["visites"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-voirie"] });
       onActionExecuted();
+
+      // For arrêté, navigate to planning with pre-filled date
+      if (actionType === "attach_arrete" && payload?.arrete_date) {
+        toast.info("Programmez l'intervention au planning à la date de l'arrêté", { duration: 5000 });
+        navigate(`/planning?date=${payload.arrete_date}&visite_id=${payload.visite_id || ""}`);
+      }
     } finally {
       setLoadingActionId(null);
     }
@@ -82,7 +94,7 @@ export const InboxActionBar = ({ actions, onActionExecuted, clientEmail, clientN
     if (action.action_type === "plan_visite") {
       setScheduleAction(action);
     } else {
-      handleAccept(action.id, action.action_type);
+      handleAccept(action.id, action.action_type, action.payload);
     }
   };
 
@@ -108,13 +120,21 @@ export const InboxActionBar = ({ actions, onActionExecuted, clientEmail, clientN
                   {action.action_type === "plan_visite" && action.payload?.periode && (
                     <p className="text-xs text-warning truncate">📅 Période : {action.payload.periode}</p>
                   )}
+                  {action.action_type === "attach_arrete" && action.payload?.arrete_date && (
+                    <p className="text-xs text-green-600 truncate">📅 Date d'intervention : {action.payload.arrete_date}</p>
+                  )}
+                  {["attach_voirie_plan", "attach_pv_roc", "attach_arrete"].includes(action.action_type) && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      📎 {(action.payload?.attachments || []).length} pièce(s) jointe(s) à intégrer
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-1.5 shrink-0">
                   <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleReject(action.id)} disabled={!!loadingActionId}>
                     {loadingActionId === action.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Ignorer"}
                   </Button>
                   <Button size="sm" className="h-7 text-xs" onClick={() => handleAction(action)} disabled={!!loadingActionId}>
-                    {loadingActionId === action.id ? <Loader2 className="h-3 w-3 animate-spin" /> : action.action_type === "plan_visite" ? "Planifier" : "Valider"}
+                    {loadingActionId === action.id ? <Loader2 className="h-3 w-3 animate-spin" /> : action.action_type === "plan_visite" ? "Planifier" : action.action_type === "attach_arrete" ? "Intégrer & Programmer" : ["attach_voirie_plan", "attach_pv_roc"].includes(action.action_type) ? "Intégrer" : "Valider"}
                   </Button>
                 </div>
               </div>

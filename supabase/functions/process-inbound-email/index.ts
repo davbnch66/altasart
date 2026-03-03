@@ -87,12 +87,17 @@ serve(async (req) => {
     if (insertErr) throw insertErr;
     const emailId = emailRow.id;
 
-    // 2. AI Analysis
+    // Build attachment info for AI analysis
+    const attachmentNames = (Array.isArray(attachments) ? attachments : [])
+      .map((a: any) => a.filename || a.name || "").filter(Boolean).slice(0, 20);
+
+    // 2. AI Analysis (with voirie document detection)
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const contentForAnalysis = `De: ${safeFromName} <${safeFromEmail}>
 Objet: ${safeSubject}
+Pièces jointes: ${attachmentNames.length > 0 ? attachmentNames.join(", ") : "aucune"}
 
 ${safeBodyText.slice(0, 10000)}`;
 
@@ -108,7 +113,14 @@ ${safeBodyText.slice(0, 10000)}`;
           {
             role: "system",
             content: `Tu es un assistant d'analyse d'emails commerciaux pour une entreprise de levage/déménagement.
-Analyse l'email et extrais les informations structurées. Sois précis et ne devine pas ce qui n'est pas dans l'email.`,
+Analyse l'email et extrais les informations structurées. Sois précis et ne devine pas ce qui n'est pas dans l'email.
+
+IMPORTANT: Détecte aussi les documents administratifs de voirie dans les pièces jointes ou le contenu :
+- "plan_voirie" : plan de voirie, plan d'emprise, plan de masse, plan de stationnement (souvent un PDF/image)
+- "pv_roc" : procès-verbal de reconnaissance, PV de ROC, reconnaissance de chaussée
+- "arrete" : arrêté municipal, arrêté de stationnement, arrêté temporaire, autorisation de voirie, arrêté d'occupation
+
+Si un arrêté est détecté, extrais la date d'intervention/d'autorisation mentionnée (champ arrete_date).`,
           },
           {
             role: "user",
@@ -146,6 +158,18 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
                   type_demande: {
                     type: "array",
                     items: { type: "string", enum: ["devis", "visite", "information", "relance", "confirmation", "autre"] },
+                  },
+                  voirie_documents: {
+                    type: "array",
+                    items: {
+                      type: "string",
+                      enum: ["plan_voirie", "pv_roc", "arrete"],
+                    },
+                    description: "Types de documents voirie détectés dans les pièces jointes ou le contenu",
+                  },
+                  arrete_date: {
+                    type: "string",
+                    description: "Date d'intervention/autorisation extraite de l'arrêté (format YYYY-MM-DD si possible)",
                   },
                   materiel: {
                     type: "array",
@@ -319,6 +343,69 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
       });
     }
 
+    // 5b. Voirie document actions
+    const voirieDocs = analysis.voirie_documents || [];
+    if (voirieDocs.length > 0) {
+      // Try to find a visite with voirie needs linked to the client's dossiers
+      let targetVisiteId: string | null = null;
+      if (clientId) {
+        const { data: voirieVisites } = await supabase
+          .from("visites")
+          .select("id, dossier_id, voirie_address")
+          .eq("company_id", companyId)
+          .eq("needs_voirie", true)
+          .order("created_at", { ascending: false })
+          .limit(10);
+
+        if (voirieVisites && voirieVisites.length > 0) {
+          // Filter to visites linked to this client's dossiers
+          const { data: clientDossiers } = await supabase
+            .from("dossiers")
+            .select("id")
+            .eq("client_id", clientId)
+            .eq("company_id", companyId);
+
+          const dossierIds = (clientDossiers || []).map((d: any) => d.id);
+          const matchingVisite = voirieVisites.find((v: any) => dossierIds.includes(v.dossier_id));
+          targetVisiteId = matchingVisite?.id || voirieVisites[0]?.id || null;
+        }
+      }
+
+      // Build attachment info to pass along
+      const pdfAttachments = (Array.isArray(attachments) ? attachments : [])
+        .filter((a: any) => {
+          const name = (a.filename || a.name || "").toLowerCase();
+          return name.endsWith(".pdf") || name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg");
+        })
+        .slice(0, 5);
+
+      for (const docType of voirieDocs) {
+        const actionType = docType === "plan_voirie" ? "attach_voirie_plan"
+          : docType === "pv_roc" ? "attach_pv_roc"
+          : docType === "arrete" ? "attach_arrete"
+          : null;
+
+        if (actionType) {
+          actions.push({
+            inbound_email_id: emailId,
+            company_id: companyId,
+            action_type: actionType,
+            payload: {
+              visite_id: targetVisiteId,
+              attachments: pdfAttachments.map((a: any) => ({
+                filename: a.filename || a.name,
+                content_type: a.content_type || a.type || "application/pdf",
+                url: a.url || null,
+                content: a.content ? String(a.content).slice(0, 500000) : null,
+              })),
+              arrete_date: docType === "arrete" ? (analysis.arrete_date || null) : undefined,
+              address: analysis.adresse_chantier || null,
+            },
+          });
+        }
+      }
+    }
+
     if (actions.length > 0) {
       await supabase.from("email_actions").insert(actions);
     }
@@ -343,17 +430,23 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
       .eq("company_id", companyId);
 
     if (members && members.length > 0) {
-      const notifType = types.includes("visite")
-        ? "visite_requested"
-        : analysis.materiel?.length > 0
-          ? "materiel_detected"
-          : "new_lead";
+      const notifType = voirieDocs.length > 0
+        ? "new_lead" // voirie docs are important
+        : types.includes("visite")
+          ? "visite_requested"
+          : analysis.materiel?.length > 0
+            ? "materiel_detected"
+            : "new_lead";
+
+      const notifTitle = voirieDocs.length > 0
+        ? `📋 Document voirie reçu: ${safeSubject.slice(0, 80)}`
+        : `Nouvel email: ${safeSubject.slice(0, 100)}`;
 
       const notifications = members.map((m: any) => ({
         company_id: companyId,
         user_id: m.profile_id,
         type: notifType,
-        title: `Nouvel email: ${safeSubject.slice(0, 100)}`,
+        title: notifTitle,
         body: String(analysis.resume || `De ${safeFromName || safeFromEmail}`).slice(0, 500),
         link: `/inbox?email=${emailId}`,
       }));
@@ -366,6 +459,7 @@ Analyse l'email et extrais les informations structurées. Sois précis et ne dev
       email_id: emailId,
       client_id: clientId,
       actions_count: actions.length,
+      voirie_docs: voirieDocs,
       analysis,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

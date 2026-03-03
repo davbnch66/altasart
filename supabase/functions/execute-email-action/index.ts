@@ -265,6 +265,83 @@ serve(async (req) => {
           }
           break;
         }
+
+        case "attach_voirie_plan":
+        case "attach_pv_roc":
+        case "attach_arrete": {
+          const visiteId = payload.visite_id;
+          if (!visiteId) throw new Error("Aucune visite voirie associée. Associez d'abord une visite avec démarche voirie.");
+
+          // Store attachments in voirie-plans bucket
+          const attachmentsList = payload.attachments || [];
+          let storagePath: string | null = null;
+
+          for (const att of attachmentsList.slice(0, 3)) {
+            if (!att.content && !att.url) continue;
+
+            const ext = (att.filename || "document.pdf").split(".").pop() || "pdf";
+            const fileName = `${visiteId}/${action.action_type}_${Date.now()}.${ext}`;
+
+            let fileData: Uint8Array | null = null;
+            if (att.content) {
+              // Base64 content
+              const binaryStr = atob(att.content);
+              fileData = new Uint8Array(binaryStr.length);
+              for (let i = 0; i < binaryStr.length; i++) {
+                fileData[i] = binaryStr.charCodeAt(i);
+              }
+            } else if (att.url) {
+              // Download from URL
+              const resp = await fetch(att.url);
+              if (resp.ok) {
+                fileData = new Uint8Array(await resp.arrayBuffer());
+              }
+            }
+
+            if (fileData) {
+              const { error: uploadErr } = await supabase.storage
+                .from("voirie-plans")
+                .upload(fileName, fileData, {
+                  contentType: att.content_type || "application/pdf",
+                  upsert: true,
+                });
+              if (uploadErr) {
+                console.error("Upload error:", uploadErr);
+              } else {
+                storagePath = fileName;
+              }
+            }
+          }
+
+          // Update visites table with the document path
+          const updateData: Record<string, any> = {};
+          if (action.action_type === "attach_voirie_plan") {
+            updateData.voirie_plan_storage_path = storagePath;
+          } else if (action.action_type === "attach_pv_roc") {
+            updateData.voirie_pv_roc_storage_path = storagePath;
+          } else if (action.action_type === "attach_arrete") {
+            updateData.voirie_arrete_storage_path = storagePath;
+            updateData.voirie_status = "obtenue";
+            updateData.voirie_obtained_at = new Date().toISOString();
+            if (payload.arrete_date) {
+              updateData.voirie_arrete_date = payload.arrete_date;
+            }
+          }
+
+          if (Object.keys(updateData).length > 0) {
+            const { error: updateVisiteErr } = await supabase
+              .from("visites")
+              .update(updateData)
+              .eq("id", visiteId);
+            if (updateVisiteErr) {
+              console.error("Update visite error:", updateVisiteErr);
+              throw new Error("Erreur lors de la mise à jour de la visite voirie.");
+            }
+          }
+
+          createdId = visiteId;
+          break;
+        }
       }
     }
 
