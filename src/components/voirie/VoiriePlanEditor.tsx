@@ -785,6 +785,8 @@ const VoiriePlanEditor = ({
   const [uploadedPlanPath, setUploadedPlanPath] = useState<string | null>(null);
   const [didAutoFrameLoaded, setDidAutoFrameLoaded] = useState(false);
   const [loadedFromDb, setLoadedFromDb] = useState(false);
+  const [legendPos, setLegendPos] = useState<{ x: number; y: number } | null>(null);
+  const [draggingLegend, setDraggingLegend] = useState<{ offsetX: number; offsetY: number } | null>(null);
 
   const renderPdfToBackground = useCallback(async (fileUrl: string) => {
     const pdfjs = await import("pdfjs-dist");
@@ -1035,7 +1037,7 @@ const VoiriePlanEditor = ({
         ctx.restore();
       }
 
-      // ── Professional Legend ──
+      // ── Professional Legend (draggable) ──
       if (elements.length > 0) {
         const types = [...new Set(elements.map((e) => e.type))];
         const legendItems = types.map((t) => ({
@@ -1044,11 +1046,11 @@ const VoiriePlanEditor = ({
           count: elements.filter((e) => e.type === t).length,
           color: ELEMENT_COLORS[t] || "#333",
         }));
-        const lx = 8;
         const itemH = 22;
         const legendH = legendItems.length * itemH + 30;
         const legendW = 180;
-        const ly = sh - 8 - legendH;
+        const lx = legendPos?.x ?? 8;
+        const ly = legendPos?.y ?? (sh - 8 - legendH);
 
         // Background with shadow
         ctx.shadowColor = "rgba(0,0,0,0.08)";
@@ -1061,6 +1063,16 @@ const VoiriePlanEditor = ({
         ctx.strokeStyle = "#BDBDBD";
         ctx.lineWidth = 0.8;
         ctx.strokeRect(lx, ly, legendW, legendH);
+
+        // Drag handle indicator (grip dots)
+        ctx.fillStyle = "#BDBDBD";
+        for (let gi = 0; gi < 3; gi++) {
+          for (let gj = 0; gj < 2; gj++) {
+            ctx.beginPath();
+            ctx.arc(lx + legendW - 14 + gj * 5, ly + 8 + gi * 4, 1.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
 
         // Header
         ctx.font = "bold 9px 'Segoe UI', Arial, sans-serif";
@@ -1075,13 +1087,11 @@ const VoiriePlanEditor = ({
 
         legendItems.forEach((item, i) => {
           const iy = ly + 26 + i * itemH;
-          // Color swatch
           ctx.fillStyle = item.color;
           ctx.fillRect(lx + 8, iy, 12, 12);
           ctx.strokeStyle = "#999";
           ctx.lineWidth = 0.5;
           ctx.strokeRect(lx + 8, iy, 12, 12);
-          // Label
           ctx.font = "10px 'Segoe UI', Arial, sans-serif";
           ctx.fillStyle = "#333";
           ctx.fillText(`${item.label} (×${item.count})`, lx + 26, iy + 10);
@@ -1096,7 +1106,7 @@ const VoiriePlanEditor = ({
         toast.error("Erreur de rendu du plan. Rechargez la page.");
       }
     }
-  }, [elements, selectedIds, getPlanRect, pixelRatio, scale]);
+  }, [elements, selectedIds, getPlanRect, pixelRatio, scale, legendPos]);
 
   useEffect(() => {
     try { draw(); } catch (error) {
@@ -1134,10 +1144,30 @@ const VoiriePlanEditor = ({
     return null;
   };
 
+  const getLegendRect = useCallback(() => {
+    if (elements.length === 0) return null;
+    const types = [...new Set(elements.map((e) => e.type))];
+    const itemH = 22;
+    const legendH = types.length * itemH + 30;
+    const legendW = 180;
+    const { stageHeight: sh } = getPlanRect();
+    const lx = legendPos?.x ?? 8;
+    const ly = legendPos?.y ?? (sh - 8 - legendH);
+    return { x: lx, y: ly, width: legendW, height: legendH };
+  }, [elements, legendPos, getPlanRect]);
+
   const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
     const pos = getCanvasPos(e);
-    const hit = hitTest(pos);
     const isMulti = "shiftKey" in e ? e.shiftKey || e.ctrlKey || e.metaKey : false;
+
+    // Check legend hit first
+    const lr = getLegendRect();
+    if (lr && pos.x >= lr.x && pos.x <= lr.x + lr.width && pos.y >= lr.y && pos.y <= lr.y + lr.height) {
+      setDraggingLegend({ offsetX: pos.x - lr.x, offsetY: pos.y - lr.y });
+      return;
+    }
+
+    const hit = hitTest(pos);
 
     if (hit) {
       let newSelected: Set<string>;
@@ -1155,7 +1185,6 @@ const VoiriePlanEditor = ({
       }
       setSelectedIds(newSelected);
 
-      // Drag all selected (including the just-clicked one)
       const dragIds = [...newSelected];
       if (!dragIds.includes(hit.id)) dragIds.push(hit.id);
       const origins: Record<string, { x: number; y: number }> = {};
@@ -1171,8 +1200,14 @@ const VoiriePlanEditor = ({
   };
 
   const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!dragging) return;
     const pos = getCanvasPos(e);
+
+    if (draggingLegend) {
+      setLegendPos({ x: pos.x - draggingLegend.offsetX, y: pos.y - draggingLegend.offsetY });
+      return;
+    }
+
+    if (!dragging) return;
     const dx = pos.x - dragging.startX;
     const dy = pos.y - dragging.startY;
     setElements((prev) =>
@@ -1184,7 +1219,10 @@ const VoiriePlanEditor = ({
     );
   };
 
-  const handlePointerUp = () => setDragging(null);
+  const handlePointerUp = () => {
+    setDragging(null);
+    setDraggingLegend(null);
+  };
 
   // ── Keyboard shortcuts ──
   useEffect(() => {
