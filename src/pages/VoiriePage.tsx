@@ -351,7 +351,7 @@ const VoiriePage = () => {
       )}
       {/* Plan Editor Dialog */}
       <Dialog open={!!planEditorItem} onOpenChange={(v) => !v && setPlanEditorItem(null)}>
-        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()}>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] max-sm:max-w-[100vw] max-sm:w-[100vw] max-sm:h-[100dvh] max-sm:rounded-none max-sm:border-0 gap-0 p-0 overflow-hidden [&>button:last-child]:hidden" onInteractOutside={(e) => e.preventDefault()}>
           <DialogTitle className="sr-only">Plan d'implantation</DialogTitle>
           <DialogDescription className="sr-only">
             Éditeur interactif du plan de voirie avec éléments de signalisation.
