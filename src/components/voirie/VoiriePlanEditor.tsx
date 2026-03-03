@@ -783,6 +783,7 @@ const VoiriePlanEditor = ({
   const pixelRatio = Math.min(3, typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1);
   const [loadedPlanId, setLoadedPlanId] = useState<string | null>(planId || null);
   const [uploadedPlanPath, setUploadedPlanPath] = useState<string | null>(null);
+  const [didAutoFrameLoaded, setDidAutoFrameLoaded] = useState(false);
 
   const renderPdfToBackground = useCallback(async (fileUrl: string) => {
     const pdfjs = await import("pdfjs-dist");
@@ -831,6 +832,7 @@ const VoiriePlanEditor = ({
         if (data.title) setTitle(data.title);
         if (data.elements && Array.isArray(data.elements) && data.elements.length > 0) {
           setElements(data.elements as unknown as PlanElement[]);
+          setDidAutoFrameLoaded(false);
         }
 
         const savedPath = data.plan_pdf_path || data.plan_image_url;
@@ -881,6 +883,41 @@ const VoiriePlanEditor = ({
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
   }, []);
+
+  // Recentre automatiquement les éléments chargés si le plan est hors cadre (surtout mobile / sans fond)
+  useEffect(() => {
+    if (didAutoFrameLoaded || elements.length === 0 || bgImage) return;
+
+    const stageWidth = Math.max(1, canvasSize.width / Math.max(scale, 0.01));
+    const stageHeight = Math.max(1, canvasSize.height / Math.max(scale, 0.01));
+
+    const minX = Math.min(...elements.map((el) => el.x));
+    const maxX = Math.max(...elements.map((el) => el.x));
+    const minY = Math.min(...elements.map((el) => el.y));
+    const maxY = Math.max(...elements.map((el) => el.y));
+
+    const boxCenterX = (minX + maxX) / 2;
+    const boxCenterY = (minY + maxY) / 2;
+    const outOfView =
+      maxX < 0 ||
+      maxY < 0 ||
+      minX > stageWidth ||
+      minY > stageHeight ||
+      boxCenterX < 0 ||
+      boxCenterX > stageWidth ||
+      boxCenterY < 0 ||
+      boxCenterY > stageHeight;
+
+    if (!outOfView) {
+      setDidAutoFrameLoaded(true);
+      return;
+    }
+
+    const offsetX = stageWidth / 2 - boxCenterX;
+    const offsetY = stageHeight / 2 - boxCenterY;
+    setElements((prev) => prev.map((el) => ({ ...el, x: el.x + offsetX, y: el.y + offsetY })));
+    setDidAutoFrameLoaded(true);
+  }, [didAutoFrameLoaded, elements, bgImage, canvasSize.width, canvasSize.height, scale]);
 
   // Load background image
   useEffect(() => {
