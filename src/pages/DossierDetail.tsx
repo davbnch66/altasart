@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, FolderOpen, Pencil, FileText, DollarSign, Eye, User, Building2, ChevronRight, Cog, BarChart3,
-  CreditCard, AlertTriangle, Receipt, PiggyBank, Trash2,
+  CreditCard, AlertTriangle, Receipt, PiggyBank, Trash2, ShieldAlert, Send, CheckCircle, XCircle, AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -134,6 +134,21 @@ const DossierDetail = () => {
       const { data, error } = await supabase.from("visites").select("id, title, status, scheduled_date, completed_date").eq("dossier_id", id!).order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
+    },
+    enabled: !!id,
+  });
+
+  const { data: voirieVisites = [] } = useQuery({
+    queryKey: ["dossier-voirie", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("visites")
+        .select("id, code, voirie_address, voirie_status, voirie_type, voirie_notes, voirie_requested_at, voirie_obtained_at, needs_voirie" as any)
+        .eq("dossier_id", id!)
+        .eq("needs_voirie", true)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data || []) as any[];
     },
     enabled: !!id,
   });
@@ -309,7 +324,50 @@ const DossierDetail = () => {
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Voirie section */}
+      {voirieVisites.length > 0 && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
+          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-3">
+            <ShieldAlert className="h-3.5 w-3.5" /> Démarches voirie
+          </h3>
+          <div className="space-y-2">
+            {voirieVisites.map((v: any) => {
+              const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
+                a_faire: { label: "À faire", icon: AlertCircle, className: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30" },
+                demandee: { label: "Demandée", icon: Send, className: "bg-blue-500/15 text-blue-600 border-blue-500/30" },
+                obtenue: { label: "Obtenue", icon: CheckCircle, className: "bg-green-500/15 text-green-700 border-green-500/30" },
+                refusee: { label: "Refusée", icon: XCircle, className: "bg-red-500/15 text-red-700 border-red-500/30" },
+                non_requise: { label: "Non requise", icon: AlertCircle, className: "bg-muted text-muted-foreground" },
+              };
+              const s = statusConfig[v.voirie_status] || statusConfig.a_faire;
+              const StatusIcon = s.icon;
+              const typeLabels: Record<string, string> = {
+                arrete_stationnement: "Arrêté de stationnement",
+                plan_voirie: "Plan voirie (1/200ème)",
+                emprise: "Emprise voirie",
+                autorisation_grue: "Autorisation grue",
+                autre: "Autre",
+              };
+              return (
+                <div key={v.id} className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors ${isMobile ? "text-xs" : "text-sm"}`} onClick={() => navigate(`/visites/${v.id}`)}>
+                  <StatusIcon className={`h-4 w-4 shrink-0 ${s.className.includes("text-yellow") ? "text-yellow-600" : s.className.includes("text-blue") ? "text-blue-600" : s.className.includes("text-green") ? "text-green-600" : s.className.includes("text-red") ? "text-red-600" : "text-muted-foreground"}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">{v.code || `Visite ${v.id.slice(0, 8)}`}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {v.voirie_address || "—"}
+                      {v.voirie_type && ` · ${typeLabels[v.voirie_type] || v.voirie_type}`}
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${s.className}`}>
+                    {s.label}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
         <Tabs defaultValue="visites">
           {isMobile ? (
