@@ -10,7 +10,7 @@ import {
   Plus, Loader2, X, ChevronUp, ChevronDown, MoreHorizontal
 } from "lucide-react";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 
 // ── Element types ──
 export interface PlanElement {
@@ -1833,7 +1833,13 @@ const VoiriePlanEditor = ({
             {mobilePaletteOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
           </button>
           {mobilePaletteOpen && (
-            <ScrollArea className="h-[44vh]">
+            <div
+              className="h-[44vh] overflow-y-scroll overscroll-contain"
+              style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
+              onWheel={(e) => e.stopPropagation()}
+              onTouchStartCapture={(e) => e.stopPropagation()}
+              onTouchMoveCapture={(e) => e.stopPropagation()}
+            >
               <div className="px-1.5 pb-[max(env(safe-area-inset-bottom),0.75rem)] space-y-1">
                 {categories.map((cat) => (
                   <div key={cat}>
@@ -1864,7 +1870,7 @@ const VoiriePlanEditor = ({
                   </div>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
           )}
           {!mobilePaletteOpen && (
             <div className="flex gap-0.5 overflow-x-auto px-1.5 pb-1.5">
@@ -1966,7 +1972,7 @@ const VoiriePlanEditor = ({
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left palette */}
-        <div className="w-48 h-full min-h-0 border-r bg-card overflow-y-auto overscroll-contain touch-pan-y pb-4 shrink-0">
+        <div className="w-48 h-full min-h-0 border-r bg-card overflow-y-auto overscroll-contain pb-4 shrink-0" onWheel={(e) => e.stopPropagation()}>
           <div className="p-1.5 space-y-0.5">
             {categories.map((cat) => (
               <div key={cat}>
