@@ -1626,18 +1626,6 @@ const VoiriePlanEditor = ({
       const uri = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ orientation: "landscape", unit: "px", format: [canvasSize.width, canvasSize.height] });
       pdf.addImage(uri, "PNG", 0, 0, canvasSize.width, canvasSize.height);
-      const legend = generateLegend();
-      if (legend.length > 0) {
-        pdf.addPage();
-        pdf.setFontSize(18);
-        pdf.text("Légende du plan d'implantation", 30, 40);
-        pdf.setFontSize(12);
-        legend.forEach((item, i) => {
-          pdf.setFillColor(item.color);
-          pdf.circle(40, 70 + i * 25, 6, "F");
-          pdf.text(`${item.label} (×${item.count})`, 55, 74 + i * 25);
-        });
-      }
       pdf.save(`plan-implantation-${title.replace(/\s+/g, "-")}.pdf`);
       toast.success("Plan exporté en PDF");
     }, 100);
