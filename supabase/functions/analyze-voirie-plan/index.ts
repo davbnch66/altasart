@@ -43,11 +43,17 @@ serve(async (req) => {
     const systemPrompt = `Tu es un expert en plans d'implantation de grues et signalisation de chantier en France.
 Tu dois générer les éléments à placer sur un plan de voirie pour un chantier de manutention/levage.
 
-IMPORTANT: Tu VOIS l'image du plan de voirie. Analyse-la attentivement pour :
-1. Identifier les rues, trottoirs, bâtiments, intersections
-2. Repérer les numéros de rue et le nom des voies
-3. Comprendre la configuration de la chaussée (sens de circulation, largeur)
-4. Positionner les éléments de manière RÉALISTE par rapport à ce que tu vois
+ÉTAPE 1 — ANALYSE VISUELLE OBLIGATOIRE :
+Tu VOIS l'image du plan de voirie. DÉCRIS MENTALEMENT ce que tu observes :
+- Où sont les rues ? Dans quelle direction vont-elles ? (horizontales, verticales, diagonales)
+- Où sont les bâtiments, trottoirs, intersections ?
+- Où se trouve l'adresse du chantier sur le plan ?
+- Quelle est la largeur apparente des rues en pixels ?
+- Y a-t-il des noms de rues visibles ?
+
+ÉTAPE 2 — POSITIONNEMENT :
+Place chaque élément en te basant sur ce que tu VOIS dans l'image.
+Les coordonnées (x, y) sont en PIXELS par rapport au coin supérieur gauche de l'image.
 
 Contexte du chantier :
 - Adresse : ${address || "Non précisée"}
@@ -56,21 +62,25 @@ ${dossierData ? `- Dossier : ${dossierData.title || dossierData.code || ""}` : "
 ${cranes.length > 0 ? `- Grues disponibles : ${cranes.map((c: any) => `${c.name} (${c.brand || ""} ${c.model || ""}, portée: ${c.reach_meters || "?"}m)`).join(", ")}` : ""}
 
 Dimensions du canvas : ${stageWidth}x${stageHeight} pixels.
-Zone utile du plan (image réellement visible) : x=${planRect?.x ?? 0}, y=${planRect?.y ?? 0}, largeur=${planRect?.width ?? stageWidth}, hauteur=${planRect?.height ?? stageHeight}.
+Zone utile du plan (image visible) : x=${planRect?.x ?? 0}, y=${planRect?.y ?? 0}, largeur=${planRect?.width ?? stageWidth}, hauteur=${planRect?.height ?? stageHeight}.
 ${existingElements?.length > 0 ? `Éléments déjà placés : ${JSON.stringify(existingElements)}` : "Aucun élément existant."}
 
-Règles de placement CRITIQUES :
-1. La GRUE doit être positionnée SUR LA CHAUSSÉE, devant l'adresse du chantier. Son rayon correspond à sa portée réelle en pixels proportionnellement au plan.
-2. Les CÔNES de balisage doivent délimiter la zone de travaux le long de la chaussée, en ligne.
-3. Les BARRIÈRES ferment les accès à la zone de travaux.
-4. Les HOMMES TRAFIC sont placés aux extrémités de la zone de travaux, sur la chaussée, pour réguler la circulation.
-5. Les PANNEAUX K8 (danger) sont placés en amont du chantier (avant la zone de travaux dans le sens de circulation).
-6. La ZONE D'EMPRISE couvre la surface occupée sur la chaussée (rectangle vert englobant grue + zone de travail).
-7. Les FLÈCHES DE DÉVIATION indiquent le contournement de la zone de travaux.
-8. Le panneau ROUTE BARRÉE est placé à l'entrée de la zone si la rue est fermée.
-9. Les TOTEMS (limitation 30) sont placés en approche du chantier.
+RÈGLES DE PLACEMENT :
+1. GRUE : SUR la chaussée, devant l'adresse. Rayon proportionnel à la portée réelle.
+2. CÔNES : En ligne le long de la chaussée pour délimiter la zone de travaux. ESPACÉS régulièrement (tous les 30-50px).
+3. BARRIÈRES : Aux accès de la zone de travaux, perpendiculaires à la route.
+4. HOMMES TRAFIC : Aux DEUX extrémités de la zone, SUR la chaussée, à 100-150px de la grue.
+5. PANNEAUX AK5 : EN AMONT du chantier (50-100px avant la zone dans le sens de circulation).
+6. ZONE EMPRISE : Rectangle couvrant toute la zone de travail sur la chaussée.
+7. FLÈCHES DÉVIATION : Indiquent le contournement.
+8. TOTEMS 30 : En approche du chantier (100-200px avant).
 
-POSITIONNE les éléments en coordonnées PIXEL (x, y) en analysant l'image du plan. Place-les uniquement dans la zone utile du plan (planRect), sur les rues/trottoirs/intersections visibles. INTERDIT: empiler les éléments au centre sans justification visuelle.`;
+CONTRAINTES ABSOLUES :
+- RÉPARTIS les éléments sur TOUTE la longueur de la zone de travaux visible.
+- Les cônes doivent former une LIGNE le long de la rue, PAS un amas.
+- Chaque élément doit être à une position DISTINCTE et JUSTIFIÉE visuellement.
+- INTERDIT d'empiler les éléments au même endroit.
+- Les coordonnées DOIVENT être dans la zone utile : x entre ${planRect?.x ?? 0} et ${(planRect?.x ?? 0) + (planRect?.width ?? stageWidth)}, y entre ${planRect?.y ?? 0} et ${(planRect?.y ?? 0) + (planRect?.height ?? stageHeight)}.`;
 
     // Build messages with vision if image is available
     const userContent: any[] = [];
@@ -109,7 +119,7 @@ POSITIONNE les éléments en coordonnées PIXEL (x, y) en analysant l'image du p
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-pro",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
