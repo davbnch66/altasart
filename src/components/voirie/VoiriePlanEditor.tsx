@@ -886,20 +886,38 @@ const VoiriePlanEditor = ({
     return () => window.removeEventListener("resize", resize);
   }, []);
 
-  // Recentre automatiquement les éléments chargés depuis la base (surtout mobile / sans fond)
+  // Fit + recentrage automatique des éléments chargés depuis la base (mobile + desktop)
   useEffect(() => {
     if (!loadedFromDb || didAutoFrameLoaded || elements.length === 0 || bgImage) return;
-
-    const stageWidth = Math.max(1, canvasSize.width / Math.max(scale, 0.01));
-    const stageHeight = Math.max(1, canvasSize.height / Math.max(scale, 0.01));
 
     const minX = Math.min(...elements.map((el) => el.x));
     const maxX = Math.max(...elements.map((el) => el.x));
     const minY = Math.min(...elements.map((el) => el.y));
     const maxY = Math.max(...elements.map((el) => el.y));
 
+    const boxWidth = Math.max(1, maxX - minX);
+    const boxHeight = Math.max(1, maxY - minY);
+
+    // 1) Ajuster le zoom pour rendre tout le plan visible (surtout sur mobile)
+    const fitScale = Math.max(
+      0.3,
+      Math.min(
+        1,
+        (canvasSize.width * 0.85) / boxWidth,
+        (canvasSize.height * 0.85) / boxHeight,
+      ),
+    );
+
+    if (Math.abs(fitScale - scale) > 0.01) {
+      setScale(fitScale);
+    }
+
+    // 2) Recentrer la boîte englobante avec l'échelle cible
+    const stageWidth = Math.max(1, canvasSize.width / Math.max(fitScale, 0.01));
+    const stageHeight = Math.max(1, canvasSize.height / Math.max(fitScale, 0.01));
     const boxCenterX = (minX + maxX) / 2;
     const boxCenterY = (minY + maxY) / 2;
+
     const offsetX = stageWidth / 2 - boxCenterX;
     const offsetY = stageHeight / 2 - boxCenterY;
 
