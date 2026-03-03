@@ -782,40 +782,91 @@ const VoiriePlanEditor = ({
   const [dragging, setDragging] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
   const pixelRatio = Math.min(3, typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1);
   const [loadedPlanId, setLoadedPlanId] = useState<string | null>(planId || null);
+  const [uploadedPlanPath, setUploadedPlanPath] = useState<string | null>(null);
+
+  const renderPdfToBackground = useCallback(async (fileUrl: string) => {
+    const pdfjs = await import("pdfjs-dist");
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
+    const arrayBuf = await fetch(fileUrl).then((r) => r.arrayBuffer());
+    const pdf = await pdfjs.getDocument({ data: arrayBuf }).promise;
+    const page = await pdf.getPage(1);
+
+    const viewport = page.getViewport({ scale: 4 });
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext("2d")!;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const dataUrl = canvas.toDataURL("image/png");
+
+    const aiViewport = page.getViewport({ scale: 1.5 });
+    const aiCanvas = document.createElement("canvas");
+    aiCanvas.width = aiViewport.width;
+    aiCanvas.height = aiViewport.height;
+    const aiCtx = aiCanvas.getContext("2d")!;
+    await page.render({ canvasContext: aiCtx, viewport: aiViewport }).promise;
+    bgDataUrlRef.current = aiCanvas.toDataURL("image/jpeg", 0.7);
+
+    const img = new window.Image();
+    img.onload = () => setBgImage(img);
+    img.src = dataUrl;
+  }, []);
 
   // ── Load existing plan from DB on mount ──
   useEffect(() => {
     if (planId || (!visiteId && !dossierId)) return;
     const loadExistingPlan = async () => {
       try {
-        let query = supabase.from("voirie_plans").select("id, title, elements, legend, status").eq("company_id", companyId);
+        let query = supabase
+          .from("voirie_plans")
+          .select("id, title, elements, legend, status, plan_pdf_path, plan_image_url")
+          .eq("company_id", companyId);
         if (visiteId) query = query.eq("visite_id", visiteId);
         else if (dossierId) query = query.eq("dossier_id", dossierId);
+
         const { data, error } = await query.order("created_at", { ascending: false }).limit(1).maybeSingle();
         if (error || !data) return;
+
         setLoadedPlanId(data.id);
         if (data.title) setTitle(data.title);
         if (data.elements && Array.isArray(data.elements) && data.elements.length > 0) {
           setElements(data.elements as unknown as PlanElement[]);
         }
-        // Try to load the stored PDF/image from storage
-        const { data: files } = await supabase.storage.from("voirie-plans").list(companyId, { limit: 100 });
-        const match = files?.find((f) => f.name.startsWith(data.id));
-        if (match) {
-          const { data: signedData } = await supabase.storage.from("voirie-plans").createSignedUrl(`${companyId}/${match.name}`, 3600);
-          if (signedData?.signedUrl) {
-            const img = new window.Image();
-            img.crossOrigin = "anonymous";
-            img.onload = () => setBgImage(img);
-            img.src = signedData.signedUrl;
-          }
+
+        const savedPath = data.plan_pdf_path || data.plan_image_url;
+        if (!savedPath) return;
+        setUploadedPlanPath(savedPath);
+
+        const resolvedUrl = savedPath.startsWith("http")
+          ? savedPath
+          : (await supabase.storage.from("voirie-plans").createSignedUrl(savedPath, 3600)).data?.signedUrl;
+
+        if (!resolvedUrl) return;
+
+        if (savedPath.toLowerCase().endsWith(".pdf")) {
+          await renderPdfToBackground(resolvedUrl);
+        } else {
+          const img = new window.Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            setBgImage(img);
+            const tempCanvas = document.createElement("canvas");
+            tempCanvas.width = img.naturalWidth || img.width;
+            tempCanvas.height = img.naturalHeight || img.height;
+            const tempCtx = tempCanvas.getContext("2d");
+            if (tempCtx) {
+              tempCtx.drawImage(img, 0, 0);
+              bgDataUrlRef.current = tempCanvas.toDataURL("image/jpeg", 0.7);
+            }
+          };
+          img.src = resolvedUrl;
         }
       } catch (err) {
         console.error("Error loading existing plan:", err);
       }
     };
     loadExistingPlan();
-  }, [planId, visiteId, dossierId, companyId]);
+  }, [planId, visiteId, dossierId, companyId, renderPdfToBackground]);
 
   // Resize canvas to container
   useEffect(() => {
@@ -1096,59 +1147,49 @@ const VoiriePlanEditor = ({
     setSelectedId(null);
   }, [selectedId]);
 
-  // ── PDF upload (high quality) ──
+  // ── PDF/image upload (high quality) ──
   const handlePdfUpload = async (file: File) => {
     if (!file.type.includes("pdf") && !file.type.includes("image")) {
       toast.error("Format non supporté. Utilisez PDF ou image.");
       return;
     }
+
     setUploadingPdf(true);
     try {
+      const existingId = planId || loadedPlanId;
+      const fallbackKey = visiteId ? `visite-${visiteId}` : dossierId ? `dossier-${dossierId}` : genId();
+      const ext = file.type.includes("pdf") ? "pdf" : (file.name.split(".").pop() || "png");
+      const path = `${companyId}/${existingId || fallbackKey}.${ext}`;
+
       if (file.type.includes("image")) {
         const url = URL.createObjectURL(file);
-        const img = new window.Image();
-        img.onload = () => {
-          setBgImage(img);
-          const tempCanvas = document.createElement("canvas");
-          tempCanvas.width = img.naturalWidth || img.width;
-          tempCanvas.height = img.naturalHeight || img.height;
-          const tempCtx = tempCanvas.getContext("2d");
-          if (tempCtx) {
-            tempCtx.drawImage(img, 0, 0);
-            bgDataUrlRef.current = tempCanvas.toDataURL("image/jpeg", 0.7);
-          }
-        };
-        img.src = url;
-        setUploadingPdf(false);
-        return;
+        await new Promise<void>((resolve, reject) => {
+          const img = new window.Image();
+          img.onload = () => {
+            setBgImage(img);
+            const tempCanvas = document.createElement("canvas");
+            tempCanvas.width = img.naturalWidth || img.width;
+            tempCanvas.height = img.naturalHeight || img.height;
+            const tempCtx = tempCanvas.getContext("2d");
+            if (tempCtx) {
+              tempCtx.drawImage(img, 0, 0);
+              bgDataUrlRef.current = tempCanvas.toDataURL("image/jpeg", 0.7);
+            }
+            resolve();
+          };
+          img.onerror = () => reject(new Error("Impossible de charger l'image"));
+          img.src = url;
+        });
+        URL.revokeObjectURL(url);
+      } else {
+        const pdfObjectUrl = URL.createObjectURL(file);
+        await renderPdfToBackground(pdfObjectUrl);
+        URL.revokeObjectURL(pdfObjectUrl);
       }
-      const pdfjs = await import("pdfjs-dist");
-      pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
-      const arrayBuf = await file.arrayBuffer();
-      const pdf = await pdfjs.getDocument({ data: arrayBuf }).promise;
-      const page = await pdf.getPage(1);
-      const viewport = page.getViewport({ scale: 4 });
-      const canvas = document.createElement("canvas");
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const ctx2 = canvas.getContext("2d")!;
-      await page.render({ canvasContext: ctx2, viewport }).promise;
-      const dataUrl = canvas.toDataURL("image/png");
-      
-      // Lower-res for AI
-      const aiViewport = page.getViewport({ scale: 1.5 });
-      const aiCanvas = document.createElement("canvas");
-      aiCanvas.width = aiViewport.width;
-      aiCanvas.height = aiViewport.height;
-      const aiCtx = aiCanvas.getContext("2d")!;
-      await page.render({ canvasContext: aiCtx, viewport: aiViewport }).promise;
-      bgDataUrlRef.current = aiCanvas.toDataURL("image/jpeg", 0.7);
-      
-      const img = new window.Image();
-      img.onload = () => setBgImage(img);
-      img.src = dataUrl;
-      const path = `${companyId}/${planId || genId()}.pdf`;
-      await supabase.storage.from("voirie-plans").upload(path, file, { upsert: true });
+
+      const { error: uploadError } = await supabase.storage.from("voirie-plans").upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      setUploadedPlanPath(path);
     } catch (err) {
       console.error(err);
       toast.error("Erreur lors du chargement du plan");
@@ -1173,10 +1214,13 @@ const VoiriePlanEditor = ({
   const handleSave = async () => {
     setSaving(true);
     try {
+      const isPdfPath = uploadedPlanPath?.toLowerCase().endsWith(".pdf") ?? false;
       const payload = {
         company_id: companyId, visite_id: visiteId || null,
         dossier_id: dossierId || null, title, address: address || null,
         elements: elements as any, legend: generateLegend() as any, status: "brouillon",
+        plan_pdf_path: isPdfPath ? uploadedPlanPath : null,
+        plan_image_url: !isPdfPath ? uploadedPlanPath : null,
       };
       const existingId = planId || loadedPlanId;
       if (existingId) {
