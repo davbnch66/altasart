@@ -1972,7 +1972,14 @@ const VoiriePlanEditor = ({
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left palette */}
-        <div className="w-48 h-full min-h-0 border-r bg-card overflow-y-auto overscroll-contain pb-4 shrink-0" onWheel={(e) => e.stopPropagation()}>
+        <div
+          className="w-48 h-full min-h-0 border-r bg-card overflow-y-scroll overscroll-contain pb-4 shrink-0"
+          onWheel={(e) => {
+            e.stopPropagation();
+            const container = e.currentTarget;
+            container.scrollTop += e.deltaY;
+          }}
+        >
           <div className="p-1.5 space-y-0.5">
             {categories.map((cat) => (
               <div key={cat}>
