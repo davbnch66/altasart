@@ -37,7 +37,7 @@ const ELEMENT_PALETTE = [
   { type: "panneau_deviation", label: "Panneau KD", category: "Signalisation" },
   { type: "panneau_rue_barree", label: "B1 Route barrée", category: "Signalisation" },
   { type: "totem", label: "B14 Lim. 30", category: "Signalisation" },
-  { type: "homme_traffic", label: "Alternateur", category: "Personnel" },
+  { type: "homme_traffic", label: "Homme trafic", category: "Personnel" },
   { type: "pieton_deviation", label: "Dév. piéton", category: "Personnel" },
   { type: "zone_emprise", label: "Zone emprise", category: "Zones" },
   { type: "fleche_deviation", label: "Flèche déviation", category: "Signalisation" },
@@ -258,7 +258,7 @@ function drawHommeTraffic(ctx: CanvasRenderingContext2D, _el: PlanElement, isSel
   ctx.font = "600 9px 'Segoe UI', Arial, sans-serif";
   ctx.fillStyle = "#1A1A1A";
   ctx.textAlign = "center";
-  const lbl = "Alternateur";
+  const lbl = "Homme trafic";
   const lblW = ctx.measureText(lbl).width + 6;
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   ctx.fillRect(-lblW / 2, s + 3, lblW, 12);
