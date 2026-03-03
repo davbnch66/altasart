@@ -143,7 +143,7 @@ const DossierDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("visites")
-        .select("id, code, voirie_address, voirie_status, voirie_type, voirie_notes, voirie_requested_at, voirie_obtained_at, needs_voirie" as any)
+        .select("id, code, voirie_address, voirie_status, voirie_type, voirie_notes, voirie_requested_at, voirie_obtained_at, needs_voirie, voirie_plan_storage_path, voirie_pv_roc_storage_path, voirie_arrete_storage_path, voirie_arrete_date" as any)
         .eq("dossier_id", id!)
         .eq("needs_voirie", true)
         .order("created_at", { ascending: false });
@@ -357,6 +357,13 @@ const DossierDetail = () => {
                       {v.voirie_address || "—"}
                       {v.voirie_type && ` · ${typeLabels[v.voirie_type] || v.voirie_type}`}
                     </p>
+                    {/* Document indicators */}
+                    <div className="flex gap-2 mt-1">
+                      {v.voirie_plan_storage_path && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600">📐 Plan</span>}
+                      {v.voirie_pv_roc_storage_path && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600">📋 PV ROC</span>}
+                      {v.voirie_arrete_storage_path && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-600">✅ Arrêté</span>}
+                      {v.voirie_arrete_date && <span className="text-[10px] text-muted-foreground">📅 {formatDate(v.voirie_arrete_date)}</span>}
+                    </div>
                   </div>
                   <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${s.className}`}>
                     {s.label}
