@@ -771,7 +771,7 @@ const VoiriePlanEditor = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [elements, setElements] = useState<PlanElement[]>(initialElements);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const [scale, setScale] = useState(1);
@@ -779,7 +779,7 @@ const VoiriePlanEditor = ({
   const [aiLoading, setAiLoading] = useState(false);
   const [title, setTitle] = useState(address || "Plan d'implantation");
   const [uploadingPdf, setUploadingPdf] = useState(false);
-  const [dragging, setDragging] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const [dragging, setDragging] = useState<{ ids: string[]; startX: number; startY: number; origins: Record<string, { x: number; y: number }> } | null>(null);
   const pixelRatio = Math.min(3, typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1);
   const [loadedPlanId, setLoadedPlanId] = useState<string | null>(planId || null);
   const [uploadedPlanPath, setUploadedPlanPath] = useState<string | null>(null);
@@ -1011,7 +1011,7 @@ const VoiriePlanEditor = ({
 
       // Draw elements
       for (const el of elements) {
-        const isSelected = el.id === selectedId;
+        const isSelected = selectedIds.has(el.id);
         ctx.save();
         ctx.translate(el.x, el.y);
         if (el.rotation) ctx.rotate((el.rotation * Math.PI) / 180);
@@ -1096,7 +1096,7 @@ const VoiriePlanEditor = ({
         toast.error("Erreur de rendu du plan. Rechargez la page.");
       }
     }
-  }, [elements, selectedId, getPlanRect, pixelRatio, scale]);
+  }, [elements, selectedIds, getPlanRect, pixelRatio, scale]);
 
   useEffect(() => {
     try { draw(); } catch (error) {
@@ -1137,27 +1137,74 @@ const VoiriePlanEditor = ({
   const handlePointerDown = (e: React.MouseEvent | React.TouchEvent) => {
     const pos = getCanvasPos(e);
     const hit = hitTest(pos);
+    const isMulti = "shiftKey" in e ? e.shiftKey || e.ctrlKey || e.metaKey : false;
+
     if (hit) {
-      setSelectedId(hit.id);
-      setDragging({ id: hit.id, offsetX: pos.x - hit.x, offsetY: pos.y - hit.y });
+      let newSelected: Set<string>;
+      if (isMulti) {
+        newSelected = new Set(selectedIds);
+        if (newSelected.has(hit.id)) {
+          newSelected.delete(hit.id);
+        } else {
+          newSelected.add(hit.id);
+        }
+      } else if (!selectedIds.has(hit.id)) {
+        newSelected = new Set([hit.id]);
+      } else {
+        newSelected = selectedIds;
+      }
+      setSelectedIds(newSelected);
+
+      // Drag all selected (including the just-clicked one)
+      const dragIds = [...newSelected];
+      if (!dragIds.includes(hit.id)) dragIds.push(hit.id);
+      const origins: Record<string, { x: number; y: number }> = {};
+      for (const el of elements) {
+        if (dragIds.includes(el.id)) {
+          origins[el.id] = { x: el.x, y: el.y };
+        }
+      }
+      setDragging({ ids: dragIds, startX: pos.x, startY: pos.y, origins });
     } else {
-      setSelectedId(null);
+      if (!isMulti) setSelectedIds(new Set());
     }
   };
 
   const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
     if (!dragging) return;
     const pos = getCanvasPos(e);
+    const dx = pos.x - dragging.startX;
+    const dy = pos.y - dragging.startY;
     setElements((prev) =>
       prev.map((el) =>
-        el.id === dragging.id
-          ? { ...el, x: pos.x - dragging.offsetX, y: pos.y - dragging.offsetY }
+        dragging.origins[el.id]
+          ? { ...el, x: dragging.origins[el.id].x + dx, y: dragging.origins[el.id].y + dy }
           : el
       )
     );
   };
 
   const handlePointerUp = () => setDragging(null);
+
+  // ── Keyboard shortcuts ──
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedIds.size > 0) {
+          e.preventDefault();
+          setElements((prev) => prev.filter((el) => !selectedIds.has(el.id)));
+          setSelectedIds(new Set());
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "a") {
+        e.preventDefault();
+        setSelectedIds(new Set(elements.map((el) => el.id)));
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedIds, elements]);
 
   // ── Add element ──
   const addElement = useCallback((type: string) => {
@@ -1177,7 +1224,7 @@ const VoiriePlanEditor = ({
       color: ELEMENT_COLORS[type] || "#1A1A1A",
     };
     setElements((prev) => [...prev, newEl]);
-    setSelectedId(newEl.id);
+    setSelectedIds(new Set([newEl.id]));
   }, [canvasSize, scale]);
 
   const updateElement = useCallback((id: string, updates: Partial<PlanElement>) => {
@@ -1185,10 +1232,10 @@ const VoiriePlanEditor = ({
   }, []);
 
   const deleteSelected = useCallback(() => {
-    if (!selectedId) return;
-    setElements((prev) => prev.filter((el) => el.id !== selectedId));
-    setSelectedId(null);
-  }, [selectedId]);
+    if (selectedIds.size === 0) return;
+    setElements((prev) => prev.filter((el) => !selectedIds.has(el.id)));
+    setSelectedIds(new Set());
+  }, [selectedIds]);
 
   // ── PDF/image upload (high quality) ──
   const handlePdfUpload = async (file: File) => {
@@ -1316,7 +1363,7 @@ const VoiriePlanEditor = ({
   const handleExportPng = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    setSelectedId(null);
+    setSelectedIds(new Set());
     setTimeout(() => {
       draw();
       const link = document.createElement("a");
@@ -1331,7 +1378,7 @@ const VoiriePlanEditor = ({
   const handleExportPdf = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    setSelectedId(null);
+    setSelectedIds(new Set());
     setTimeout(async () => {
       draw();
       const { default: jsPDF } = await import("jspdf");
@@ -1355,7 +1402,7 @@ const VoiriePlanEditor = ({
     }, 100);
   };
 
-  const selectedEl = elements.find((el) => el.id === selectedId);
+  const selectedEl = selectedIds.size === 1 ? elements.find((el) => selectedIds.has(el.id)) : null;
 
   // Group palette by category
   const categories = [...new Set(ELEMENT_PALETTE.map(p => p.category))];
@@ -1406,9 +1453,10 @@ const VoiriePlanEditor = ({
           IA auto-plan
         </Button>
 
-        {selectedId && (
-          <Button variant="destructive" size="sm" className="h-8 w-8 p-0" onClick={deleteSelected} title="Supprimer">
+        {selectedIds.size > 0 && (
+          <Button variant="destructive" size="sm" className="h-8 text-xs gap-1 px-2" onClick={deleteSelected} title="Supprimer la sélection">
             <Trash2 className="h-3.5 w-3.5" />
+            {selectedIds.size > 1 && <span>({selectedIds.size})</span>}
           </Button>
         )}
 
@@ -1504,7 +1552,7 @@ const VoiriePlanEditor = ({
           <div className="w-56 border-l bg-card p-3 space-y-3 overflow-y-auto shrink-0">
             <div className="flex items-center justify-between">
               <p className="text-xs font-bold text-foreground">Propriétés</p>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setSelectedId(null)}>
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setSelectedIds(new Set())}>
                 <X className="h-3.5 w-3.5" />
               </Button>
             </div>
