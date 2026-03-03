@@ -16,7 +16,8 @@ export interface PlanElement {
   id: string;
   type: "grue" | "balisage_cone" | "balisage_barriere" | "panneau_k8" | "panneau_travaux" |
     "panneau_deviation" | "panneau_rue_barree" | "totem" | "homme_traffic" | "zone_emprise" |
-    "fleche_deviation" | "pieton_deviation" | "custom_text";
+    "fleche_deviation" | "pieton_deviation" | "custom_text" | "camion_porteur" | "camion_20m3" |
+    "camion_semi" | "forme_rectangle" | "forme_cercle" | "forme_ligne";
   x: number;
   y: number;
   rotation?: number;
@@ -31,6 +32,9 @@ export interface PlanElement {
 
 const ELEMENT_PALETTE = [
   { type: "grue", label: "Grue", category: "Engins" },
+  { type: "camion_porteur", label: "Camion porteur", category: "Transport" },
+  { type: "camion_20m3", label: "Camion 20m³", category: "Transport" },
+  { type: "camion_semi", label: "Semi-remorque", category: "Transport" },
   { type: "balisage_cone", label: "Cône K5c", category: "Balisage" },
   { type: "balisage_barriere", label: "Barrière K2", category: "Balisage" },
   { type: "panneau_k8", label: "Panneau AK5", category: "Signalisation" },
@@ -41,13 +45,19 @@ const ELEMENT_PALETTE = [
   { type: "homme_traffic", label: "Homme trafic", category: "Personnel" },
   { type: "pieton_deviation", label: "Dév. piéton", category: "Personnel" },
   { type: "zone_emprise", label: "Zone emprise", category: "Zones" },
+  { type: "forme_rectangle", label: "Rectangle", category: "Formes" },
+  { type: "forme_cercle", label: "Cercle", category: "Formes" },
+  { type: "forme_ligne", label: "Ligne", category: "Formes" },
   { type: "fleche_deviation", label: "Flèche déviation", category: "Signalisation" },
-  { type: "custom_text", label: "Annotation", category: "Autre" },
+  { type: "custom_text", label: "Texte libre", category: "Autre" },
 ] as const;
 
 // Professional CAD color scheme
 const ELEMENT_COLORS: Record<string, string> = {
   grue: "#D4760A",
+  camion_porteur: "#455A64",
+  camion_20m3: "#37474F",
+  camion_semi: "#263238",
   balisage_cone: "#E25A1C",
   balisage_barriere: "#C41E3A",
   panneau_k8: "#FFB800",
@@ -58,6 +68,9 @@ const ELEMENT_COLORS: Record<string, string> = {
   homme_traffic: "#2E7D32",
   pieton_deviation: "#0066B3",
   zone_emprise: "#2E7D32",
+  forme_rectangle: "#1A1A1A",
+  forme_cercle: "#1A1A1A",
+  forme_ligne: "#1A1A1A",
   fleche_deviation: "#1A1A1A",
   custom_text: "#1A1A1A",
 };
@@ -657,6 +670,117 @@ function drawCustomText(ctx: CanvasRenderingContext2D, el: PlanElement, isSelect
   }
 }
 
+// Transport trucks and geometric shapes
+function drawCamion(ctx: CanvasRenderingContext2D, el: PlanElement, isSelected: boolean) {
+  const bodyColor = el.color || "#37474F";
+  const label =
+    el.type === "camion_semi" ? "Semi" :
+    el.type === "camion_20m3" ? "20m³" : "Porteur";
+  const bodyW = el.type === "camion_semi" ? 78 : el.type === "camion_20m3" ? 62 : 52;
+  const bodyH = 24;
+  const cabinW = 18;
+
+  // Trailer/body
+  ctx.fillStyle = bodyColor;
+  ctx.fillRect(-bodyW / 2, -bodyH / 2, bodyW, bodyH);
+  ctx.strokeStyle = "#1A1A1A";
+  ctx.lineWidth = 1.2;
+  ctx.strokeRect(-bodyW / 2, -bodyH / 2, bodyW, bodyH);
+
+  // Cabin
+  ctx.fillStyle = "#607D8B";
+  ctx.fillRect(bodyW / 2 - cabinW, -bodyH / 2, cabinW, bodyH);
+  ctx.strokeRect(bodyW / 2 - cabinW, -bodyH / 2, cabinW, bodyH);
+
+  // Wheels
+  ctx.fillStyle = "#1A1A1A";
+  const wheelY = bodyH / 2 + 3;
+  const wheelXs = el.type === "camion_semi"
+    ? [-bodyW / 2 + 10, -10, 10, bodyW / 2 - 12]
+    : [-bodyW / 2 + 10, bodyW / 2 - 12];
+  for (const wx of wheelXs) {
+    ctx.beginPath();
+    ctx.arc(wx, wheelY, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Label
+  ctx.font = "600 9px 'Segoe UI', Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  const textW = ctx.measureText(label).width + 8;
+  ctx.fillRect(-textW / 2, -bodyH / 2 - 14, textW, 12);
+  ctx.fillStyle = "#1A1A1A";
+  ctx.fillText(label, 0, -bodyH / 2 - 5);
+  ctx.textAlign = "start";
+
+  if (isSelected) {
+    ctx.strokeStyle = "#1565C0";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-bodyW / 2 - 4, -bodyH / 2 - 18, bodyW + 8, bodyH + 28);
+  }
+}
+
+function drawRectangleShape(ctx: CanvasRenderingContext2D, el: PlanElement, isSelected: boolean) {
+  const w = el.width || 120;
+  const h = el.height || 70;
+  const color = el.color || "#1A1A1A";
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(-w / 2, -h / 2, w, h);
+  ctx.fillStyle = `${color}1A`;
+  ctx.fillRect(-w / 2, -h / 2, w, h);
+
+  if (isSelected) {
+    ctx.strokeStyle = "#1565C0";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 2]);
+    ctx.strokeRect(-w / 2 - 4, -h / 2 - 4, w + 8, h + 8);
+    ctx.setLineDash([]);
+  }
+}
+
+function drawCircleShape(ctx: CanvasRenderingContext2D, el: PlanElement, isSelected: boolean) {
+  const r = Math.max(10, el.radius || 45);
+  const color = el.color || "#1A1A1A";
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = `${color}1A`;
+  ctx.fill();
+
+  if (isSelected) {
+    ctx.beginPath();
+    ctx.arc(0, 0, r + 4, 0, Math.PI * 2);
+    ctx.strokeStyle = "#1565C0";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 2]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function drawLineShape(ctx: CanvasRenderingContext2D, el: PlanElement, isSelected: boolean) {
+  const w = Math.max(20, el.width || 120);
+  const color = el.color || "#1A1A1A";
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-w / 2, 0);
+  ctx.lineTo(w / 2, 0);
+  ctx.stroke();
+
+  if (isSelected) {
+    ctx.strokeStyle = "#1565C0";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 2]);
+    ctx.strokeRect(-w / 2 - 6, -8, w + 12, 16);
+    ctx.setLineDash([]);
+  }
+}
+
 // Palette preview — small icon renderings for the sidebar
 function drawPaletteIcon(ctx: CanvasRenderingContext2D, type: string, x: number, y: number, size: number) {
   ctx.save();
@@ -675,6 +799,19 @@ function drawPaletteIcon(ctx: CanvasRenderingContext2D, type: string, x: number,
       ctx.fillStyle = ELEMENT_COLORS.grue;
       ctx.fillRect(-3, -3, 6, 6);
       ctx.fillRect(3, -1, s - 6, 2);
+      break;
+    }
+    case "camion_porteur":
+    case "camion_20m3":
+    case "camion_semi": {
+      const bw = type === "camion_semi" ? s * 1.8 : type === "camion_20m3" ? s * 1.55 : s * 1.35;
+      ctx.fillStyle = ELEMENT_COLORS[type];
+      ctx.fillRect(-bw / 2, -s / 3, bw, (s / 3) * 2);
+      ctx.fillStyle = "#607D8B";
+      ctx.fillRect(bw / 2 - 6, -s / 3, 6, (s / 3) * 2);
+      ctx.fillStyle = "#1A1A1A";
+      ctx.fillRect(-bw / 2 + 2, s / 3 + 1, 4, 3);
+      ctx.fillRect(bw / 2 - 6, s / 3 + 1, 4, 3);
       break;
     }
     case "balisage_cone": {
@@ -717,8 +854,30 @@ function drawPaletteIcon(ctx: CanvasRenderingContext2D, type: string, x: number,
       ctx.setLineDash([]);
       break;
     }
+    case "forme_rectangle": {
+      ctx.strokeStyle = ELEMENT_COLORS.forme_rectangle;
+      ctx.lineWidth = 1.6;
+      ctx.strokeRect(-s + 3, -s / 2, (s - 3) * 2, s);
+      break;
+    }
+    case "forme_cercle": {
+      ctx.beginPath();
+      ctx.arc(0, 0, s - 3, 0, Math.PI * 2);
+      ctx.strokeStyle = ELEMENT_COLORS.forme_cercle;
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      break;
+    }
+    case "forme_ligne": {
+      ctx.strokeStyle = ELEMENT_COLORS.forme_ligne;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-s + 2, 0);
+      ctx.lineTo(s - 2, 0);
+      ctx.stroke();
+      break;
+    }
     default: {
-      // Sign types
       const color = ELEMENT_COLORS[type] || "#666";
       if (type === "totem" || type === "panneau_rue_barree") {
         ctx.beginPath();
@@ -1024,11 +1183,17 @@ const VoiriePlanEditor = ({
         try {
           switch (el.type) {
             case "grue": drawCrane(ctx, el, isSelected); break;
+            case "camion_porteur":
+            case "camion_20m3":
+            case "camion_semi": drawCamion(ctx, el, isSelected); break;
             case "homme_traffic": drawHommeTraffic(ctx, el, isSelected); break;
             case "pieton_deviation": drawPietonDeviation(ctx, el, isSelected); break;
             case "balisage_cone": drawCone(ctx, el, isSelected); break;
             case "balisage_barriere": drawBarriere(ctx, el, isSelected); break;
             case "zone_emprise": drawZoneEmprise(ctx, el, isSelected); break;
+            case "forme_rectangle": drawRectangleShape(ctx, el, isSelected); break;
+            case "forme_cercle": drawCircleShape(ctx, el, isSelected); break;
+            case "forme_ligne": drawLineShape(ctx, el, isSelected); break;
             case "fleche_deviation": drawFlecheDeviation(ctx, el, isSelected); break;
             case "custom_text": drawCustomText(ctx, el, isSelected); break;
             default: drawPanneau(ctx, el, isSelected, el.type); break;
@@ -1141,9 +1306,19 @@ const VoiriePlanEditor = ({
       const dy = pos.y - el.y;
       const hitRadius = el.type === "zone_emprise"
         ? Math.max(el.width || 150, el.height || 80)
-        : el.type === "grue" ? (el.radius || 80) : 25;
+        : el.type === "forme_rectangle"
+          ? Math.max((el.width || 120) / 2, (el.height || 70) / 2)
+          : el.type === "forme_cercle"
+            ? (el.radius || 45)
+            : el.type === "forme_ligne"
+              ? Math.max((el.width || 120) / 2, 12)
+              : el.type === "grue" ? (el.radius || 80) : 25;
       if (el.type === "zone_emprise") {
         if (dx >= 0 && dx <= (el.width || 150) && dy >= 0 && dy <= (el.height || 80)) return el;
+      } else if (el.type === "forme_rectangle") {
+        if (Math.abs(dx) <= (el.width || 120) / 2 && Math.abs(dy) <= (el.height || 70) / 2) return el;
+      } else if (el.type === "forme_ligne") {
+        if (Math.abs(dy) <= 10 && Math.abs(dx) <= (el.width || 120) / 2 + 8) return el;
       } else if (Math.sqrt(dx * dx + dy * dy) < hitRadius) {
         return el;
       }
@@ -1264,8 +1439,8 @@ const VoiriePlanEditor = ({
 
   // ── Add element ──
   const addElement = useCallback((type: string) => {
-    const cx = canvasSize.width / 2 / scale;
-    const cy = canvasSize.height / 2 / scale;
+    const cx = (canvasSize.width / 2 - viewportOffset.x) / scale;
+    const cy = (canvasSize.height / 2 - viewportOffset.y) / scale;
     const newEl: PlanElement = {
       id: genId(),
       type: type as PlanElement["type"],
@@ -1273,15 +1448,15 @@ const VoiriePlanEditor = ({
       y: cy + (Math.random() - 0.5) * 100,
       rotation: 0,
       label: type === "grue" ? "Grue GME" : undefined,
-      radius: type === "grue" ? 80 : undefined,
-      width: type === "zone_emprise" ? 200 : undefined,
-      height: type === "zone_emprise" ? 100 : undefined,
-      text: type === "custom_text" ? "Annotation" : undefined,
+      radius: type === "grue" ? 80 : type === "forme_cercle" ? 45 : undefined,
+      width: type === "zone_emprise" ? 200 : type === "forme_rectangle" ? 120 : type === "forme_ligne" ? 120 : undefined,
+      height: type === "zone_emprise" ? 100 : type === "forme_rectangle" ? 70 : undefined,
+      text: type === "custom_text" ? "Texte" : undefined,
       color: ELEMENT_COLORS[type] || "#1A1A1A",
     };
     setElements((prev) => [...prev, newEl]);
     setSelectedIds(new Set([newEl.id]));
-  }, [canvasSize, scale]);
+  }, [canvasSize, scale, viewportOffset]);
 
   const updateElement = useCallback((id: string, updates: Partial<PlanElement>) => {
     setElements((prev) => prev.map((el) => (el.id === id ? { ...el, ...updates } : el)));
@@ -1514,6 +1689,30 @@ const VoiriePlanEditor = ({
             <Input type="number" value={selectedEl.height || 100} onChange={(e) => updateElement(selectedEl.id, { height: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
           </div>
         </>
+      )}
+      {selectedEl.type === "forme_rectangle" && (
+        <>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-medium">Largeur (px)</label>
+            <Input type="number" value={selectedEl.width || 120} onChange={(e) => updateElement(selectedEl.id, { width: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground font-medium">Hauteur (px)</label>
+            <Input type="number" value={selectedEl.height || 70} onChange={(e) => updateElement(selectedEl.id, { height: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
+          </div>
+        </>
+      )}
+      {selectedEl.type === "forme_cercle" && (
+        <div>
+          <label className="text-[10px] text-muted-foreground font-medium">Rayon (px)</label>
+          <Input type="number" value={selectedEl.radius || 45} onChange={(e) => updateElement(selectedEl.id, { radius: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
+        </div>
+      )}
+      {selectedEl.type === "forme_ligne" && (
+        <div>
+          <label className="text-[10px] text-muted-foreground font-medium">Longueur (px)</label>
+          <Input type="number" value={selectedEl.width || 120} onChange={(e) => updateElement(selectedEl.id, { width: Number(e.target.value) })} className="h-7 text-xs mt-0.5" />
+        </div>
       )}
       {selectedEl.type === "custom_text" && (
         <div>
