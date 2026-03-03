@@ -775,6 +775,7 @@ const VoiriePlanEditor = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [viewportOffset, setViewportOffset] = useState({ x: 0, y: 0 });
   const [scale, setScale] = useState(1);
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -788,6 +789,7 @@ const VoiriePlanEditor = ({
   const [loadedFromDb, setLoadedFromDb] = useState(false);
   const [legendPos, setLegendPos] = useState<{ x: number; y: number } | null>(null);
   const [draggingLegend, setDraggingLegend] = useState<{ offsetX: number; offsetY: number } | null>(null);
+  const [draggingPan, setDraggingPan] = useState<{ startClientX: number; startClientY: number; originX: number; originY: number } | null>(null);
 
   const renderPdfToBackground = useCallback(async (fileUrl: string) => {
     const pdfjs = await import("pdfjs-dist");
@@ -967,7 +969,7 @@ const VoiriePlanEditor = ({
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.setTransform(pixelRatio * scale, 0, 0, pixelRatio * scale, 0, 0);
+      ctx.setTransform(pixelRatio * scale, 0, 0, pixelRatio * scale, pixelRatio * viewportOffset.x, pixelRatio * viewportOffset.y);
       ctx.save();
 
       const { stageWidth: sw, stageHeight: sh, x: planX, y: planY, width: planW, height: planH } = getPlanRect();
@@ -1107,7 +1109,7 @@ const VoiriePlanEditor = ({
         toast.error("Erreur de rendu du plan. Rechargez la page.");
       }
     }
-  }, [elements, selectedIds, getPlanRect, pixelRatio, scale, legendPos]);
+  }, [elements, selectedIds, getPlanRect, pixelRatio, scale, legendPos, viewportOffset]);
 
   useEffect(() => {
     try { draw(); } catch (error) {
@@ -1116,15 +1118,19 @@ const VoiriePlanEditor = ({
   }, [draw]);
 
   // ── Mouse / Touch interaction ──
+  const getClientPos = (e: React.MouseEvent | React.TouchEvent) => ({
+    clientX: "touches" in e ? e.touches[0]?.clientX || 0 : e.clientX,
+    clientY: "touches" in e ? e.touches[0]?.clientY || 0 : e.clientY,
+  });
+
   const getCanvasPos = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
-    const clientX = "touches" in e ? e.touches[0]?.clientX || 0 : e.clientX;
-    const clientY = "touches" in e ? e.touches[0]?.clientY || 0 : e.clientY;
+    const { clientX, clientY } = getClientPos(e);
     return {
-      x: (clientX - rect.left) / scale,
-      y: (clientY - rect.top) / scale,
+      x: (clientX - rect.left - viewportOffset.x) / scale,
+      y: (clientY - rect.top - viewportOffset.y) / scale,
     };
   };
 
@@ -1197,6 +1203,8 @@ const VoiriePlanEditor = ({
       setDragging({ ids: dragIds, startX: pos.x, startY: pos.y, origins });
     } else {
       if (!isMulti) setSelectedIds(new Set());
+      const { clientX, clientY } = getClientPos(e);
+      setDraggingPan({ startClientX: clientX, startClientY: clientY, originX: viewportOffset.x, originY: viewportOffset.y });
     }
   };
 
@@ -1205,6 +1213,14 @@ const VoiriePlanEditor = ({
 
     if (draggingLegend) {
       setLegendPos({ x: pos.x - draggingLegend.offsetX, y: pos.y - draggingLegend.offsetY });
+      return;
+    }
+
+    if (draggingPan) {
+      const { clientX, clientY } = getClientPos(e);
+      const dx = clientX - draggingPan.startClientX;
+      const dy = clientY - draggingPan.startClientY;
+      setViewportOffset({ x: draggingPan.originX + dx, y: draggingPan.originY + dy });
       return;
     }
 
@@ -1223,6 +1239,7 @@ const VoiriePlanEditor = ({
   const handlePointerUp = () => {
     setDragging(null);
     setDraggingLegend(null);
+    setDraggingPan(null);
   };
 
   // ── Keyboard shortcuts ──
@@ -1572,7 +1589,7 @@ const VoiriePlanEditor = ({
         {/* Canvas — full width on mobile */}
         <div className="flex-1 overflow-hidden bg-muted/30 relative" ref={containerRef}>
           <canvas ref={canvasRef} width={Math.round(canvasSize.width * pixelRatio)} height={Math.round(canvasSize.height * pixelRatio)}
-            className={bgImage ? "cursor-crosshair" : "cursor-default"}
+            className={draggingPan ? "cursor-grabbing" : bgImage ? "cursor-grab" : "cursor-default"}
             style={{ width: canvasSize.width, height: canvasSize.height, touchAction: "none" }}
             onMouseDown={handlePointerDown} onMouseMove={handlePointerMove}
             onMouseUp={handlePointerUp} onMouseLeave={handlePointerUp}
