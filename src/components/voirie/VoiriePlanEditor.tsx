@@ -784,6 +784,7 @@ const VoiriePlanEditor = ({
   const [loadedPlanId, setLoadedPlanId] = useState<string | null>(planId || null);
   const [uploadedPlanPath, setUploadedPlanPath] = useState<string | null>(null);
   const [didAutoFrameLoaded, setDidAutoFrameLoaded] = useState(false);
+  const [loadedFromDb, setLoadedFromDb] = useState(false);
 
   const renderPdfToBackground = useCallback(async (fileUrl: string) => {
     const pdfjs = await import("pdfjs-dist");
@@ -829,6 +830,7 @@ const VoiriePlanEditor = ({
         if (error || !data) return;
 
         setLoadedPlanId(data.id);
+        setLoadedFromDb(true);
         if (data.title) setTitle(data.title);
         if (data.elements && Array.isArray(data.elements) && data.elements.length > 0) {
           setElements(data.elements as unknown as PlanElement[]);
@@ -884,9 +886,9 @@ const VoiriePlanEditor = ({
     return () => window.removeEventListener("resize", resize);
   }, []);
 
-  // Recentre automatiquement les éléments chargés si le plan est hors cadre (surtout mobile / sans fond)
+  // Recentre automatiquement les éléments chargés depuis la base (surtout mobile / sans fond)
   useEffect(() => {
-    if (didAutoFrameLoaded || elements.length === 0 || bgImage) return;
+    if (!loadedFromDb || didAutoFrameLoaded || elements.length === 0 || bgImage) return;
 
     const stageWidth = Math.max(1, canvasSize.width / Math.max(scale, 0.01));
     const stageHeight = Math.max(1, canvasSize.height / Math.max(scale, 0.01));
@@ -898,26 +900,12 @@ const VoiriePlanEditor = ({
 
     const boxCenterX = (minX + maxX) / 2;
     const boxCenterY = (minY + maxY) / 2;
-    const outOfView =
-      maxX < 0 ||
-      maxY < 0 ||
-      minX > stageWidth ||
-      minY > stageHeight ||
-      boxCenterX < 0 ||
-      boxCenterX > stageWidth ||
-      boxCenterY < 0 ||
-      boxCenterY > stageHeight;
-
-    if (!outOfView) {
-      setDidAutoFrameLoaded(true);
-      return;
-    }
-
     const offsetX = stageWidth / 2 - boxCenterX;
     const offsetY = stageHeight / 2 - boxCenterY;
+
     setElements((prev) => prev.map((el) => ({ ...el, x: el.x + offsetX, y: el.y + offsetY })));
     setDidAutoFrameLoaded(true);
-  }, [didAutoFrameLoaded, elements, bgImage, canvasSize.width, canvasSize.height, scale]);
+  }, [loadedFromDb, didAutoFrameLoaded, elements, bgImage, canvasSize.width, canvasSize.height, scale]);
 
   // Load background image
   useEffect(() => {
