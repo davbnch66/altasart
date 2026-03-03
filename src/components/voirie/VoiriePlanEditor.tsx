@@ -1540,7 +1540,7 @@ const VoiriePlanEditor = ({
 
   if (isMobile) {
     return (
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full min-h-0">
         {fileInput}
 
         {/* Mobile compact toolbar — row 1: title + save + close */}
@@ -1587,7 +1587,7 @@ const VoiriePlanEditor = ({
         </div>
 
         {/* Canvas — full width on mobile */}
-        <div className="flex-1 overflow-hidden bg-muted/30 relative" ref={containerRef}>
+        <div className="flex-1 min-h-0 overflow-hidden bg-muted/30 relative" ref={containerRef}>
           <canvas ref={canvasRef} width={Math.round(canvasSize.width * pixelRatio)} height={Math.round(canvasSize.height * pixelRatio)}
             className={draggingPan ? "cursor-grabbing" : bgImage ? "cursor-grab" : "cursor-default"}
             style={{ width: canvasSize.width, height: canvasSize.height, touchAction: "none" }}
@@ -1618,7 +1618,7 @@ const VoiriePlanEditor = ({
             {mobilePaletteOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
           </button>
           {mobilePaletteOpen && (
-            <div className="px-1.5 pb-2 space-y-1">
+            <div className="px-1.5 pb-[max(env(safe-area-inset-bottom),0.5rem)] space-y-1 max-h-[38vh] overflow-y-auto overscroll-contain touch-pan-y">
               {categories.map((cat) => (
                 <div key={cat}>
                   <p className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider px-1.5 pt-0.5">{cat}</p>
@@ -1747,9 +1747,9 @@ const VoiriePlanEditor = ({
         )}
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left palette */}
-        <div className="w-48 border-r bg-card overflow-y-auto shrink-0">
+        <div className="w-48 border-r bg-card overflow-y-auto overscroll-contain touch-pan-y pb-4 shrink-0">
           <div className="p-1.5 space-y-0.5">
             {categories.map((cat) => (
               <div key={cat}>
