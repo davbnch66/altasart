@@ -345,6 +345,52 @@ serve(async (req) => {
             }
           }
 
+          // Keep voirie_plans in sync so the plan editor can load the imported document
+          if (action.action_type === "attach_voirie_plan" && storagePath) {
+            const isPdf = storagePath.toLowerCase().endsWith(".pdf");
+            const title = payload.address
+              ? `Plan voirie - ${String(payload.address).slice(0, 120)}`
+              : "Plan voirie";
+
+            const { data: existingPlan, error: findPlanErr } = await supabase
+              .from("voirie_plans")
+              .select("id")
+              .eq("company_id", companyId)
+              .eq("visite_id", visiteId)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (findPlanErr) {
+              console.error("Find existing plan error:", findPlanErr);
+            }
+
+            const planPayload: Record<string, any> = {
+              company_id: companyId,
+              visite_id: visiteId,
+              dossier_id: payload.dossier_id || email?.dossier_id || null,
+              title,
+              address: payload.address ? String(payload.address).slice(0, 500) : null,
+              ...(isPdf ? { plan_pdf_path: storagePath } : { plan_image_url: storagePath }),
+            };
+
+            if (existingPlan?.id) {
+              const { error: updatePlanErr } = await supabase
+                .from("voirie_plans")
+                .update(planPayload)
+                .eq("id", existingPlan.id);
+              if (updatePlanErr) {
+                console.error("Update voirie_plans error:", updatePlanErr);
+              }
+            } else {
+              const { error: insertPlanErr } = await supabase
+                .from("voirie_plans")
+                .insert(planPayload);
+              if (insertPlanErr) {
+                console.error("Insert voirie_plans error:", insertPlanErr);
+              }
+            }
+          }
+
           createdId = visiteId;
           break;
         }
