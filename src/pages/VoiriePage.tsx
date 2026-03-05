@@ -65,7 +65,7 @@ const VoiriePage = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("visites")
-        .select("id, code, address, voirie_address, voirie_status, voirie_type, voirie_notes, voirie_requested_at, voirie_obtained_at, needs_voirie, company_id, dossier_id, client_id, created_at, clients(name), companies(short_name), dossiers(title, code)" as any)
+        .select("id, code, address, voirie_address, voirie_status, voirie_type, voirie_notes, voirie_requested_at, voirie_obtained_at, needs_voirie, company_id, dossier_id, client_id, created_at, voirie_plan_storage_path, voirie_pv_roc_storage_path, voirie_arrete_storage_path, voirie_arrete_date, clients(name), companies(short_name), dossiers(title, code)" as any)
         .eq("needs_voirie", true)
         .in("company_id", companyIds)
         .order("created_at", { ascending: false });
@@ -123,6 +123,10 @@ const VoiriePage = () => {
     visiteId?: string;
     dossierId?: string;
     dossierTitle?: string;
+    planPath?: string | null;
+    pvRocPath?: string | null;
+    arretePath?: string | null;
+    arreteDate?: string | null;
   };
 
   const items: VoirieItem[] = [
@@ -143,6 +147,10 @@ const VoiriePage = () => {
       visiteId: v.id,
       dossierId: v.dossier_id,
       dossierTitle: v.dossiers?.title || v.dossiers?.code,
+      planPath: v.voirie_plan_storage_path,
+      pvRocPath: v.voirie_pv_roc_storage_path,
+      arretePath: v.voirie_arrete_storage_path,
+      arreteDate: v.voirie_arrete_date,
     })),
     ...dossiersPR.map((d: any) => {
       const addresses: string[] = [];
@@ -281,6 +289,20 @@ const VoiriePage = () => {
                       <div className="flex items-center gap-1 mt-1 text-xs text-emerald-600">
                         <CheckCircle2 className="h-3 w-3" />
                         Obtenue le {format(new Date(item.obtainedAt), "dd MMM yyyy", { locale: fr })}
+                      </div>
+                    )}
+                    {/* Document indicators */}
+                    {(item.planPath || item.pvRocPath || item.arretePath) && (
+                      <div className="flex gap-2 mt-1.5 flex-wrap">
+                        {item.planPath && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 border border-blue-500/20">📐 Plan</span>}
+                        {item.pvRocPath && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20">📋 PV ROC</span>}
+                        {item.arretePath && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">✅ Arrêté</span>}
+                      </div>
+                    )}
+                    {item.arreteDate && (
+                      <div className="flex items-center gap-1 mt-1 text-xs text-emerald-600">
+                        <Calendar className="h-3 w-3" />
+                        Intervention le {format(new Date(item.arreteDate), "dd MMM yyyy", { locale: fr })}
                       </div>
                     )}
                   </div>
