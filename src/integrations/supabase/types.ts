@@ -3097,7 +3097,7 @@ export type Database = {
           devis_type: string | null
           distance: number | null
           dossier_id: string | null
-          duration: unknown
+          duration: string | null
           id: string
           instructions: string | null
           loading_date: string | null
@@ -3178,7 +3178,7 @@ export type Database = {
           devis_type?: string | null
           distance?: number | null
           dossier_id?: string | null
-          duration?: unknown
+          duration?: string | null
           id?: string
           instructions?: string | null
           loading_date?: string | null
@@ -3259,7 +3259,7 @@ export type Database = {
           devis_type?: string | null
           distance?: number | null
           dossier_id?: string | null
-          duration?: unknown
+          duration?: string | null
           id?: string
           instructions?: string | null
           loading_date?: string | null
