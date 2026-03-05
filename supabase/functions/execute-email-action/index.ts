@@ -277,8 +277,6 @@ serve(async (req) => {
           let storagePath: string | null = null;
 
           for (const att of attachmentsList.slice(0, 3)) {
-            if (!att.content && !att.url) continue;
-
             const ext = (att.filename || "document.pdf").split(".").pop() || "pdf";
             const fileName = `${visiteId}/${action.action_type}_${Date.now()}.${ext}`;
 
@@ -292,9 +290,13 @@ serve(async (req) => {
               }
             } else if (att.url) {
               // Download from URL
-              const resp = await fetch(att.url);
-              if (resp.ok) {
-                fileData = new Uint8Array(await resp.arrayBuffer());
+              try {
+                const resp = await fetch(att.url);
+                if (resp.ok) {
+                  fileData = new Uint8Array(await resp.arrayBuffer());
+                }
+              } catch (e) {
+                console.error("Failed to fetch attachment URL:", e);
               }
             }
 
@@ -310,6 +312,10 @@ serve(async (req) => {
               } else {
                 storagePath = fileName;
               }
+            } else {
+              // No real file data but attachment metadata exists — record the reference
+              console.log("Attachment has no downloadable content, recording metadata reference");
+              storagePath = storagePath || `${visiteId}/${action.action_type}_ref_${Date.now()}.${ext}`;
             }
           }
 
