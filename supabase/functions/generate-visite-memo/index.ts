@@ -11,14 +11,47 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { visite_id } = await req.json();
-    if (!visite_id) throw new Error("visite_id requis");
+    // Authenticate the caller
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Non autorisé" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const lovableKey = Deno.env.get("LOVABLE_API_KEY");
     if (!lovableKey) throw new Error("LOVABLE_API_KEY non configurée");
 
+    // Verify JWT and get user
+    const authClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: authErr } = await authClient.auth.getUser();
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: "Non autorisé" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { visite_id } = await req.json();
+    if (!visite_id) throw new Error("visite_id requis");
+
+    // Verify the user has access to this visite via RLS
+    const { data: accessCheck, error: accessErr } = await authClient
+      .from("visites")
+      .select("id")
+      .eq("id", visite_id)
+      .maybeSingle();
+    if (accessErr || !accessCheck) {
+      return new Response(JSON.stringify({ error: "Accès refusé" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Use service role for full data fetch (already verified access above)
     const sb = createClient(supabaseUrl, serviceKey);
 
     // Fetch visite with relations
