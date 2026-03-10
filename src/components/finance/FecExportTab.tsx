@@ -282,7 +282,7 @@ export function FecExportTab() {
       const content = "\uFEFF" + [header, ...rows].join("\r\n");
 
       // Generate filename per FEC convention: SirenFEC{YYYYMMDD}.txt
-      const siren = selectedCompany?.siret?.slice(0, 9) || "000000000";
+      const siren = (selectedCompany as any)?.siret?.slice(0, 9) || "000000000";
       const endDateStr = format(new Date(dateTo), "yyyyMMdd");
       const fileName = `${siren}FEC${endDateStr}.txt`;
 
