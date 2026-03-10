@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList, Clock, ExternalLink } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList, Clock, ExternalLink, CalendarSync, Copy, Check } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useState, useMemo, useEffect, useCallback, DragEvent } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
