@@ -90,7 +90,8 @@ function generateCSV(rows: string[][]): string {
 }
 
 export function ImportDataTab() {
-  const { currentCompanyId } = useCompany();
+  const { current, dbCompanies } = useCompany();
+  const currentCompanyId = current === "global" ? dbCompanies[0]?.id : current;
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const fileRef = useRef<HTMLInputElement>(null);
