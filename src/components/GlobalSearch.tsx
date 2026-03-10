@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -33,9 +33,10 @@ export function GlobalSearch() {
   const navigate = useNavigate();
   const { current, dbCompanies } = useCompany();
 
-  const companyIds = current === "global"
-    ? dbCompanies.map((c) => c.id)
-    : [current];
+  const companyIds = useMemo(
+    () => (current === "global" ? dbCompanies.map((c) => c.id) : [current]),
+    [current, dbCompanies]
+  );
 
   // Keyboard shortcut
   useEffect(() => {
