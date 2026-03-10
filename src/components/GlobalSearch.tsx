@@ -110,7 +110,7 @@ export function GlobalSearch() {
         </kbd>
       </button>
 
-      <CommandDialog open={open} onOpenChange={setOpen}>
+      <CommandDialog open={open} onOpenChange={setOpen} shouldFilter={false}>
         <CommandInput
           placeholder="Rechercher clients, dossiers, devis, visites…"
           value={query}
