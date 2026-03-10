@@ -67,6 +67,99 @@ const PRIORITY_OPTIONS = [
 
 const DEPOT_ADDRESS = { address: "12 rue Jean Monnet", postal_code: "95190", city: "Goussainville" };
 
+// ── Address Block extracted as a stable component ──
+interface AddressBlockFields {
+  address: string; setAddress: (v: string) => void;
+  postalCode: string; setPostalCode: (v: string) => void;
+  city: string; setCity: (v: string) => void;
+  floor: string; setFloor: (v: string) => void;
+  access: string; setAccess: (v: string) => void;
+  elevator: boolean; setElevator: (v: boolean) => void;
+  parkingRequest: boolean; setParkingRequest: (v: boolean) => void;
+  portage: string; setPortage: (v: string) => void;
+  passageFenetre: boolean; setPassageFenetre: (v: boolean) => void;
+  monteMeubles: boolean; setMonteMeubles: (v: boolean) => void;
+  transbordement: boolean; setTransbordement: (v: boolean) => void;
+  comments: string; setComments: (v: string) => void;
+}
+
+interface AddressBlockProps {
+  title: string;
+  fields: AddressBlockFields;
+  clientId?: string;
+  onFillClient?: () => void;
+  onFillDepot?: () => void;
+}
+
+const AddressBlock = ({ title: blockTitle, fields, clientId, onFillClient, onFillDepot }: AddressBlockProps) => {
+  const {
+    address, setAddress, postalCode, setPostalCode, city, setCity,
+    floor, setFloor, access, setAccess, elevator, setElevator,
+    parkingRequest, setParkingRequest, portage, setPortage,
+    passageFenetre, setPassageFenetre, monteMeubles, setMonteMeubles,
+    transbordement, setTransbordement, comments, setComments,
+  } = fields;
+
+  return (
+    <div className="rounded-lg border bg-card p-3 space-y-2.5">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-primary">{blockTitle}</h4>
+        <div className="flex gap-1">
+          {clientId && clientId !== "__none__" && onFillClient && (
+            <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2" onClick={onFillClient}>
+              <Building2 className="h-3 w-3" /> Client
+            </Button>
+          )}
+          {onFillDepot && (
+            <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2" onClick={onFillDepot}>
+              <Warehouse className="h-3 w-3" /> Dépôt
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <Label className="text-[10px] text-muted-foreground">Adresse</Label>
+        <AddressAutocomplete
+          value={address}
+          onChange={setAddress}
+          onSelect={(s) => {
+            setAddress(s.label);
+            if (s.postcode) setPostalCode(s.postcode);
+            if (s.city) setCity(s.city);
+          }}
+          placeholder="Adresse"
+          className="h-7 text-xs"
+        />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div><Label className="text-[10px] text-muted-foreground">CP</Label><Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="h-7 text-xs" /></div>
+        <div className="col-span-2"><Label className="text-[10px] text-muted-foreground">Ville</Label><Input value={city} onChange={(e) => setCity(e.target.value)} className="h-7 text-xs" /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div><Label className="text-[10px] text-muted-foreground">Étage</Label><Input value={floor} onChange={(e) => setFloor(e.target.value)} className="h-7 text-xs" placeholder="RDC, 3e…" /></div>
+        <div><Label className="text-[10px] text-muted-foreground">Portage (m)</Label><Input type="number" value={portage} onChange={(e) => setPortage(e.target.value)} className="h-7 text-xs" /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+        {[
+          { checked: elevator, set: setElevator, label: "Ascenseur" },
+          { checked: passageFenetre, set: setPassageFenetre, label: "Passage fenêtre" },
+          { checked: monteMeubles, set: setMonteMeubles, label: "Monte-meubles" },
+          { checked: transbordement, set: setTransbordement, label: "Transbordement" },
+          { checked: parkingRequest, set: setParkingRequest, label: "Stationnement" },
+        ].map(({ checked, set, label }) => (
+          <div key={label} className="flex items-center gap-1.5">
+            <Checkbox checked={checked} onCheckedChange={(v) => set(!!v)} />
+            <label className="text-[10px] cursor-pointer">{label}</label>
+          </div>
+        ))}
+      </div>
+      <div><Label className="text-[10px] text-muted-foreground">Accès</Label><Input value={access} onChange={(e) => setAccess(e.target.value)} className="h-7 text-xs" placeholder="Digicode, portail…" /></div>
+      <div><Label className="text-[10px] text-muted-foreground">Observations</Label><Textarea value={comments} onChange={(e) => setComments(e.target.value)} className="min-h-[40px] text-xs resize-none" /></div>
+    </div>
+  );
+};
+
 export const PlanningEventDialog = ({
   open, onOpenChange, event, defaultDate, defaultResourceId,
 }: PlanningEventDialogProps) => {
@@ -587,90 +680,36 @@ export const PlanningEventDialog = ({
     enabled: open && resourceIds.length > 0 && !!startDate,
   });
 
-  // ── Address Block sub-component ──
-  const AddressBlock = ({ title: blockTitle, prefix }: { title: string; prefix: "loading" | "delivery" }) => {
-    const isLoading = prefix === "loading";
-    const address = isLoading ? loadingAddress : deliveryAddress;
-    const setAddress = isLoading ? setLoadingAddress : setDeliveryAddress;
-    const postalCode = isLoading ? loadingPostalCode : deliveryPostalCode;
-    const setPostalCode = isLoading ? setLoadingPostalCode : setDeliveryPostalCode;
-    const city = isLoading ? loadingCity : deliveryCity;
-    const setCity = isLoading ? setLoadingCity : setDeliveryCity;
-    const floor = isLoading ? loadingFloor : deliveryFloor;
-    const setFloor = isLoading ? setLoadingFloor : setDeliveryFloor;
-    const access = isLoading ? loadingAccess : deliveryAccess;
-    const setAccess = isLoading ? setLoadingAccess : setDeliveryAccess;
-    const elevator = isLoading ? loadingElevator : deliveryElevator;
-    const setElevator = isLoading ? setLoadingElevator : setDeliveryElevator;
-    const parkingRequest = isLoading ? loadingParkingRequest : deliveryParkingRequest;
-    const setParkingRequest = isLoading ? setLoadingParkingRequest : setDeliveryParkingRequest;
-    const portage = isLoading ? loadingPortage : deliveryPortage;
-    const setPortage = isLoading ? setLoadingPortage : setDeliveryPortage;
-    const passageFenetre = isLoading ? loadingPassageFenetre : deliveryPassageFenetre;
-    const setPassageFenetre = isLoading ? setLoadingPassageFenetre : setDeliveryPassageFenetre;
-    const monteMeubles = isLoading ? loadingMonteMeubles : deliveryMonteMeubles;
-    const setMonteMeubles = isLoading ? setLoadingMonteMeubles : setDeliveryMonteMeubles;
-    const transbordement = isLoading ? loadingTransbordement : deliveryTransbordement;
-    const setTransbordement = isLoading ? setLoadingTransbordement : setDeliveryTransbordement;
-    const comments = isLoading ? loadingComments : deliveryComments;
-    const setComments = isLoading ? setLoadingComments : setDeliveryComments;
-
-    return (
-      <div className="rounded-lg border bg-card p-3 space-y-2.5">
-        <div className="flex items-center justify-between">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-primary">{blockTitle}</h4>
-          <div className="flex gap-1">
-            {clientId !== "__none__" && (
-              <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2" onClick={() => fillFromClient(prefix)}>
-                <Building2 className="h-3 w-3" /> Client
-              </Button>
-            )}
-            <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2" onClick={() => fillDepot(prefix)}>
-              <Warehouse className="h-3 w-3" /> Dépôt
-            </Button>
-          </div>
-        </div>
-
-        <div>
-          <Label className="text-[10px] text-muted-foreground">Adresse</Label>
-          <AddressAutocomplete
-            value={address}
-            onChange={setAddress}
-            onSelect={(s) => {
-              setAddress(s.label);
-              if (s.postcode) setPostalCode(s.postcode);
-              if (s.city) setCity(s.city);
-            }}
-            placeholder="Adresse"
-            className="h-7 text-xs"
-          />
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div><Label className="text-[10px] text-muted-foreground">CP</Label><Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="h-7 text-xs" /></div>
-          <div className="col-span-2"><Label className="text-[10px] text-muted-foreground">Ville</Label><Input value={city} onChange={(e) => setCity(e.target.value)} className="h-7 text-xs" /></div>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div><Label className="text-[10px] text-muted-foreground">Étage</Label><Input value={floor} onChange={(e) => setFloor(e.target.value)} className="h-7 text-xs" placeholder="RDC, 3e…" /></div>
-          <div><Label className="text-[10px] text-muted-foreground">Portage (m)</Label><Input type="number" value={portage} onChange={(e) => setPortage(e.target.value)} className="h-7 text-xs" /></div>
-        </div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-          {[
-            { checked: elevator, set: setElevator, label: "Ascenseur" },
-            { checked: passageFenetre, set: setPassageFenetre, label: "Passage fenêtre" },
-            { checked: monteMeubles, set: setMonteMeubles, label: "Monte-meubles" },
-            { checked: transbordement, set: setTransbordement, label: "Transbordement" },
-            { checked: parkingRequest, set: setParkingRequest, label: "Stationnement" },
-          ].map(({ checked, set, label }) => (
-            <div key={label} className="flex items-center gap-1.5">
-              <Checkbox checked={checked} onCheckedChange={(v) => set(!!v)} />
-              <label className="text-[10px] cursor-pointer">{label}</label>
-            </div>
-          ))}
-        </div>
-        <div><Label className="text-[10px] text-muted-foreground">Accès</Label><Input value={access} onChange={(e) => setAccess(e.target.value)} className="h-7 text-xs" placeholder="Digicode, portail…" /></div>
-        <div><Label className="text-[10px] text-muted-foreground">Observations</Label><Textarea value={comments} onChange={(e) => setComments(e.target.value)} className="min-h-[40px] text-xs resize-none" /></div>
-      </div>
-    );
+  // AddressBlock props passed down
+  const addressBlockProps = {
+    loading: {
+      address: loadingAddress, setAddress: setLoadingAddress,
+      postalCode: loadingPostalCode, setPostalCode: setLoadingPostalCode,
+      city: loadingCity, setCity: setLoadingCity,
+      floor: loadingFloor, setFloor: setLoadingFloor,
+      access: loadingAccess, setAccess: setLoadingAccess,
+      elevator: loadingElevator, setElevator: setLoadingElevator,
+      parkingRequest: loadingParkingRequest, setParkingRequest: setLoadingParkingRequest,
+      portage: loadingPortage, setPortage: setLoadingPortage,
+      passageFenetre: loadingPassageFenetre, setPassageFenetre: setLoadingPassageFenetre,
+      monteMeubles: loadingMonteMeubles, setMonteMeubles: setLoadingMonteMeubles,
+      transbordement: loadingTransbordement, setTransbordement: setLoadingTransbordement,
+      comments: loadingComments, setComments: setLoadingComments,
+    },
+    delivery: {
+      address: deliveryAddress, setAddress: setDeliveryAddress,
+      postalCode: deliveryPostalCode, setPostalCode: setDeliveryPostalCode,
+      city: deliveryCity, setCity: setDeliveryCity,
+      floor: deliveryFloor, setFloor: setDeliveryFloor,
+      access: deliveryAccess, setAccess: setDeliveryAccess,
+      elevator: deliveryElevator, setElevator: setDeliveryElevator,
+      parkingRequest: deliveryParkingRequest, setParkingRequest: setDeliveryParkingRequest,
+      portage: deliveryPortage, setPortage: setDeliveryPortage,
+      passageFenetre: deliveryPassageFenetre, setPassageFenetre: setDeliveryPassageFenetre,
+      monteMeubles: deliveryMonteMeubles, setMonteMeubles: setDeliveryMonteMeubles,
+      transbordement: deliveryTransbordement, setTransbordement: setDeliveryTransbordement,
+      comments: deliveryComments, setComments: setDeliveryComments,
+    },
   };
 
   return (
@@ -880,8 +919,8 @@ export const PlanningEventDialog = ({
 
             {/* Chargement / Livraison side by side */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <AddressBlock title="Chargement" prefix="loading" />
-              <AddressBlock title="Livraison" prefix="delivery" />
+              <AddressBlock title="Chargement" fields={addressBlockProps.loading} clientId={clientId} onFillClient={() => fillFromClient("loading")} onFillDepot={() => fillDepot("loading")} />
+              <AddressBlock title="Livraison" fields={addressBlockProps.delivery} clientId={clientId} onFillClient={() => fillFromClient("delivery")} onFillDepot={() => fillDepot("delivery")} />
             </div>
           </TabsContent>
 
