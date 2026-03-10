@@ -937,21 +937,31 @@ const Planning = () => {
                   });
 
                   const cellKey = `res-${resource.id}-${dayIdx}`;
-                  return (
-                    <div
-                      key={day.toISOString()}
-                      className={`border-r last:border-r-0 relative overflow-visible cursor-pointer transition-colors ${
-                        isToday(day) ? "bg-primary/5" : rowIdx % 2 === 0 ? "bg-muted/10" : ""
-                      } hover:bg-muted/30 ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
-                      style={{ minHeight: `${rowMinHeight}px` }}
-                      onDragOver={(e) => handleDragOver(e, cellKey)}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, day)}
-                      onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
-                      onTouchEnd={(e) => { e.preventDefault(); openCreate(day, resource.id); }}
-                    >
-                      {cellItems}
-                    </div>
+                    const hasItems = cellItems.length > 0;
+                    return (
+                     <div
+                       key={day.toISOString()}
+                       className={`group/cell border-r last:border-r-0 relative overflow-visible cursor-pointer transition-colors ${
+                         isToday(day) ? "bg-primary/5" : rowIdx % 2 === 0 ? "bg-muted/10" : ""
+                       } hover:bg-muted/30 ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
+                       style={{ minHeight: `${rowMinHeight}px` }}
+                       onDragOver={(e) => handleDragOver(e, cellKey)}
+                       onDragLeave={handleDragLeave}
+                       onDrop={(e) => handleDrop(e, day)}
+                       onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
+                       onTouchEnd={(e) => { e.preventDefault(); openCreate(day, resource.id); }}
+                     >
+                       {cellItems}
+                       {hasItems && (
+                         <button
+                           className="absolute bottom-1 right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-opacity z-10 shadow-sm hover:scale-110"
+                           onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
+                           title="Ajouter un événement"
+                         >
+                           <Plus className="h-3 w-3" />
+                         </button>
+                       )}
+                     </div>
                   );
                 })}
               </div>
