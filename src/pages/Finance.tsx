@@ -480,6 +480,10 @@ const Finance = () => {
         <TabsContent value="depenses">
           <VehicleExpensesTab />
         </TabsContent>
+
+        <TabsContent value="fec">
+          <FecExportTab />
+        </TabsContent>
       </Tabs>
 
       {editFacture && (
