@@ -1,20 +1,21 @@
-import { useEffect, useCallback, useRef } from "react";
-import { useBlocker } from "react-router-dom";
+import { useEffect, useCallback, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 /**
- * Hook that detects unsaved changes and blocks navigation with a confirmation dialog.
- * Also handles browser tab close / refresh via beforeunload.
- *
- * @param isDirty - whether the form has unsaved changes
- * @param onSave - async function to save; returns true if save succeeded
+ * Guard against unsaved changes.
+ * Works with BrowserRouter (no useBlocker needed).
+ * Intercepts link clicks and back/forward navigation.
  */
 export function useUnsavedChangesGuard(isDirty: boolean, onSave?: () => Promise<boolean> | boolean) {
-  // Block react-router navigation
-  const blocker = useBlocker(isDirty);
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
   const saveRef = useRef(onSave);
   saveRef.current = onSave;
+  const dirtyRef = useRef(isDirty);
+  dirtyRef.current = isDirty;
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // Handle browser close / refresh
+  // Browser close / refresh
   useEffect(() => {
     if (!isDirty) return;
     const handler = (e: BeforeUnloadEvent) => {
@@ -25,27 +26,72 @@ export function useUnsavedChangesGuard(isDirty: boolean, onSave?: () => Promise<
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty]);
 
+  // Intercept popstate (back/forward)
+  useEffect(() => {
+    if (!isDirty) return;
+
+    const handler = () => {
+      if (dirtyRef.current) {
+        // Push the current path back so the user stays
+        window.history.pushState(null, "", location.pathname + location.search);
+        setPendingPath("__back__");
+      }
+    };
+
+    window.addEventListener("popstate", handler);
+    return () => window.removeEventListener("popstate", handler);
+  }, [isDirty, location.pathname, location.search]);
+
+  const isBlocked = pendingPath !== null;
+
   const proceed = useCallback(() => {
-    if (blocker.state === "blocked") blocker.proceed?.();
-  }, [blocker]);
+    const path = pendingPath;
+    setPendingPath(null);
+    if (path === "__back__") {
+      // Actually go back
+      window.history.go(-1);
+    } else if (path) {
+      navigate(path);
+    }
+  }, [pendingPath, navigate]);
 
   const reset = useCallback(() => {
-    if (blocker.state === "blocked") blocker.reset?.();
-  }, [blocker]);
+    setPendingPath(null);
+  }, []);
 
   const saveAndProceed = useCallback(async () => {
     if (saveRef.current) {
       const ok = await saveRef.current();
-      if (ok && blocker.state === "blocked") {
-        blocker.proceed?.();
+      if (ok) {
+        const path = pendingPath;
+        setPendingPath(null);
+        // Small delay to let the save propagate
+        setTimeout(() => {
+          if (path === "__back__") {
+            window.history.go(-1);
+          } else if (path) {
+            navigate(path);
+          }
+        }, 100);
       }
     }
-  }, [blocker]);
+  }, [pendingPath, navigate]);
+
+  // Function to call before navigating programmatically
+  const guardNavigate = useCallback((to: string) => {
+    if (dirtyRef.current) {
+      setPendingPath(to);
+      return false; // blocked
+    }
+    navigate(to);
+    return true;
+  }, [navigate]);
 
   return {
-    isBlocked: blocker.state === "blocked",
+    isBlocked,
     proceed,
     reset,
     saveAndProceed,
+    guardNavigate,
   };
 }
