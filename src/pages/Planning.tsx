@@ -1416,6 +1416,30 @@ const Planning = () => {
               </button>
             ))}
           </div>
+
+          {/* iCal sync */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="p-1.5 rounded-lg border hover:bg-muted transition-colors" title="Synchroniser avec un calendrier externe">
+                <CalendarSync className="h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-4 space-y-3" align="end">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold">Sync calendrier</p>
+                <p className="text-xs text-muted-foreground">
+                  Copiez le lien iCal et ajoutez-le dans Google Calendar, Outlook ou Apple Calendar pour synchroniser automatiquement vos événements.
+                </p>
+              </div>
+              <Button size="sm" className="w-full text-xs gap-1.5" onClick={getIcalUrl}>
+                {icalCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {icalCopied ? "Lien copié !" : "Copier le lien iCal"}
+              </Button>
+              <p className="text-[10px] text-muted-foreground">
+                Google Calendar : Autres agendas → À partir de l'URL
+              </p>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Exploitation mode filter */}
