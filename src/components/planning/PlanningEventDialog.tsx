@@ -207,9 +207,23 @@ export const PlanningEventDialog = ({
 
   // ── Populate on edit / reset on create ──
   const eventId = event?.id;
+  const formInitRef = useRef<string | null>(null);
   const eventResLinksKey = JSON.stringify(eventResLinks);
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      formInitRef.current = null;
+      return;
+    }
+    // Build a stable init key to prevent re-initialization on unrelated re-renders
+    const initKey = `${eventId || "new"}-${defaultDate?.toISOString() || ""}-${defaultResourceId || ""}`;
+    // For editing, wait until eventResLinks are loaded before initializing
+    if (eventId && eventResLinks.length === 0 && formInitRef.current === null) {
+      // Allow first init even with empty links (event may have no resources)
+      // but skip if we already initialized
+    }
+    if (formInitRef.current === initKey) return;
+    formInitRef.current = initKey;
+
     if (event) {
       const e = event as any;
       setTitle(e.title || "");
@@ -278,7 +292,7 @@ export const PlanningEventDialog = ({
       resetAddresses();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, defaultDate, defaultResourceId, companyId, open, eventResLinksKey]);
+  }, [eventId, defaultDate, defaultResourceId, companyId, open]);
 
   const resetAddresses = () => {
     setLoadingAddress(""); setLoadingPostalCode(""); setLoadingCity("");
