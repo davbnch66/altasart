@@ -142,7 +142,7 @@ export function GlobalSearch() {
       );
 
       (resources.data ?? []).forEach((r) =>
-        items.push({ id: r.id, type: "resource", label: r.name, sub: r.type === "personnel" ? "Personnel" : "Équipement", path: `/ressources` })
+        items.push({ id: r.id, type: "resource", label: r.name, sub: r.type === "employe" ? "Personnel" : "Équipement", path: `/ressources` })
       );
 
       (factures.data ?? []).forEach((f) =>
