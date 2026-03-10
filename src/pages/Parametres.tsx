@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { EmailTemplatesTab } from "@/components/settings/EmailTemplatesTab";
 import { DocumentTemplatesTab } from "@/components/settings/DocumentTemplatesTab";
+import { ImportDataTab } from "@/components/settings/ImportDataTab";
 import { ROLE_LABELS, ROLE_DESCRIPTIONS, type AppRole } from "@/hooks/useMyRole";
 
 const roleLabels = ROLE_LABELS;
