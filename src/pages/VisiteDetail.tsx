@@ -173,15 +173,21 @@ const VisiteDetail = () => {
   const isDirty = useMemo(() => {
     if (!visite || !editData) return false;
     const fieldsToCheck = [
-      "title", "status", "on_hold", "date", "time", "duration", "zone", "call_date",
-      "address", "postal_code", "city", "country",
-      "loading_address", "loading_postal_code", "loading_city",
-      "delivery_address", "delivery_postal_code", "delivery_city",
-      "advisor", "coordinator", "technician_id", "origin", "visite_type",
+      "title", "status", "on_hold", "scheduled_date", "scheduled_time", "duration", "zone", "call_date",
+      "address", "origin_postal_code", "origin_city", "origin_country",
+      "origin_address_line1", "origin_address_line2", "origin_floor", "origin_access",
+      "dest_address_line1", "dest_address_line2", "dest_city", "dest_postal_code", "dest_floor", "dest_access",
+      "advisor", "coordinator", "technician_id", "origin", "visit_type",
       "comment", "instructions", "notes", "loading_date",
       "needs_voirie", "voirie_status", "voirie_type", "voirie_address", "voirie_notes",
+      "nature", "contractor", "distance", "volume", "period",
+      "voirie_requested_at", "voirie_obtained_at",
     ];
-    return fieldsToCheck.some((f) => (editData[f] ?? "") !== ((visite as any)[f] ?? ""));
+    return fieldsToCheck.some((f) => {
+      const editVal = editData[f] ?? "";
+      const origVal = (visite as any)[f] ?? "";
+      return String(editVal) !== String(origVal);
+    });
   }, [visite, editData]);
 
   const { isBlocked, proceed, reset, saveAndProceed } = useUnsavedChangesGuard(isDirty, handleSave);
