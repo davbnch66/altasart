@@ -88,6 +88,8 @@ const Planning = () => {
   const isMobile = useIsMobile();
   const [icalCopied, setIcalCopied] = useState(false);
 
+  const [icalUrl, setIcalUrl] = useState("");
+
   const getIcalUrl = useCallback(async () => {
     if (!user) return;
     const companyId = current === "global" ? dbCompanies[0]?.id : current;
@@ -96,10 +98,16 @@ const Planning = () => {
     if (!session?.access_token) { toast.error("Session expirée"); return; }
     const baseUrl = import.meta.env.VITE_SUPABASE_URL;
     const url = `${baseUrl}/functions/v1/calendar-feed?token=${session.access_token}&company_id=${companyId}`;
-    await navigator.clipboard.writeText(url);
-    setIcalCopied(true);
-    toast.success("Lien iCal copié ! Collez-le dans Google Calendar ou Outlook.");
-    setTimeout(() => setIcalCopied(false), 3000);
+    setIcalUrl(url);
+    try {
+      await navigator.clipboard.writeText(url);
+      setIcalCopied(true);
+      toast.success("Lien iCal copié !");
+      setTimeout(() => setIcalCopied(false), 3000);
+    } catch {
+      // Clipboard blocked in iframe — show URL instead
+      toast.info("Copiez le lien ci-dessous manuellement.");
+    }
   }, [user, current, dbCompanies]);
 
   useEffect(() => {
@@ -1435,6 +1443,9 @@ const Planning = () => {
                 {icalCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 {icalCopied ? "Lien copié !" : "Copier le lien iCal"}
               </Button>
+              {icalUrl && !icalCopied && (
+                <Input value={icalUrl} readOnly className="text-[10px] h-7" onFocus={(e) => e.target.select()} />
+              )}
               <p className="text-[10px] text-muted-foreground">
                 Google Calendar : Autres agendas → À partir de l'URL
               </p>
