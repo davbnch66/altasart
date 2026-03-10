@@ -37,7 +37,8 @@ import { PdfPreviewDialog } from "@/components/visite/PdfPreviewDialog";
 import { ARPhotoOverlay } from "@/components/ar/ARPhotoOverlay";
 import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
 import { GenerateVisiteMemoButton } from "@/components/visite/GenerateVisiteMemoButton";
-
+import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
+import { UnsavedChangesDialog } from "@/components/UnsavedChangesDialog";
 const statusLabels: Record<string, string> = {
   planifiee: "Planifiée",
   realisee: "Réalisée",
