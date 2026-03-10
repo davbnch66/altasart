@@ -260,15 +260,7 @@ const VisiteDetail = () => {
         {/* Title row */}
         <div className="flex items-start gap-2">
           <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => {
-            if (isDirty) {
-              // Trigger the unsaved changes guard by setting a pending path
-              const fakeLink = document.createElement("a");
-              fakeLink.href = document.referrer || "/visites";
-              fakeLink.style.display = "none";
-              document.body.appendChild(fakeLink);
-              fakeLink.click();
-              document.body.removeChild(fakeLink);
-            } else {
+            if (!triggerBlock("/visites")) {
               navigate(-1);
             }
           }}>

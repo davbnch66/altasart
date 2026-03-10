@@ -72,10 +72,19 @@ export function useUnsavedChangesGuard(isDirty: boolean, onSave?: () => Promise<
     }
   }, [pendingPath]);
 
+  const triggerBlock = useCallback((path: string) => {
+    if (dirtyRef.current) {
+      setPendingPath(path);
+      return true;
+    }
+    return false;
+  }, []);
+
   return {
     isBlocked,
     proceed,
     reset,
     saveAndProceed,
+    triggerBlock,
   };
 }
