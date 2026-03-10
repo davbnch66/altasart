@@ -259,7 +259,19 @@ const VisiteDetail = () => {
 
         {/* Title row */}
         <div className="flex items-start gap-2">
-          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => {
+            if (isDirty) {
+              // Trigger the unsaved changes guard by setting a pending path
+              const fakeLink = document.createElement("a");
+              fakeLink.href = document.referrer || "/visites";
+              fakeLink.style.display = "none";
+              document.body.appendChild(fakeLink);
+              fakeLink.click();
+              document.body.removeChild(fakeLink);
+            } else {
+              navigate(-1);
+            }
+          }}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
