@@ -190,7 +190,7 @@ const VisiteDetail = () => {
     });
   }, [visite, editData]);
 
-  const { isBlocked, proceed, reset, saveAndProceed } = useUnsavedChangesGuard(isDirty, handleSave);
+  const { isBlocked, proceed, reset, saveAndProceed, triggerBlock } = useUnsavedChangesGuard(isDirty, handleSave);
 
   const updateField = (field: string, value: any) => {
     setEditData((prev: any) => ({ ...prev, [field]: value }));
