@@ -31,10 +31,7 @@ export function useUnsavedChangesGuard(isDirty: boolean, onSave?: () => Promise<
       const href = anchor.getAttribute("href");
       if (!href || href.startsWith("http") || href.startsWith("mailto:") || href.startsWith("tel:") || href.startsWith("#")) return;
 
-      console.log("[UnsavedGuard] Click on link:", href, "isDirty:", dirtyRef.current);
-
       if (dirtyRef.current) {
-        console.log("[UnsavedGuard] BLOCKING navigation to:", href);
         e.preventDefault();
         e.stopImmediatePropagation();
         setPendingPath(href);
@@ -45,8 +42,6 @@ export function useUnsavedChangesGuard(isDirty: boolean, onSave?: () => Promise<
     document.addEventListener("click", handler, true);
     return () => document.removeEventListener("click", handler, true);
   }, []);
-
-  console.log("[UnsavedGuard] render - isDirty:", isDirty, "pendingPath:", pendingPath);
 
   const isBlocked = pendingPath !== null;
 
