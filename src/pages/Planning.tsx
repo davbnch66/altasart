@@ -1,15 +1,17 @@
 import { motion } from "framer-motion";
-import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList, Clock, ExternalLink } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList, Clock, ExternalLink, CalendarSync, Copy, Check } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useState, useMemo, useEffect, useCallback, DragEvent } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PlanningEventDialog } from "@/components/planning/PlanningEventDialog";
 import { PlanningOperationDialog } from "@/components/planning/PlanningOperationDialog";
 import { toast } from "sonner";
@@ -67,6 +69,7 @@ const companyColors: Record<string, string> = {
 
 const Planning = () => {
   const { current, setCurrent, companies, dbCompanies } = useCompany();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [view, setView] = useState<ViewMode>(() => {
     return (sessionStorage.getItem("planningView") as ViewMode) || "week";
@@ -83,6 +86,21 @@ const Planning = () => {
     return (sessionStorage.getItem("exploitationMode") as ExploitationMode) || "vehicule";
   });
   const isMobile = useIsMobile();
+  const [icalCopied, setIcalCopied] = useState(false);
+
+  const getIcalUrl = useCallback(async () => {
+    if (!user) return;
+    const companyId = current === "global" ? dbCompanies[0]?.id : current;
+    if (!companyId) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) { toast.error("Session expirée"); return; }
+    const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const url = `${baseUrl}/functions/v1/calendar-feed?token=${session.access_token}&company_id=${companyId}`;
+    await navigator.clipboard.writeText(url);
+    setIcalCopied(true);
+    toast.success("Lien iCal copié ! Collez-le dans Google Calendar ou Outlook.");
+    setTimeout(() => setIcalCopied(false), 3000);
+  }, [user, current, dbCompanies]);
 
   useEffect(() => {
     sessionStorage.setItem("exploitationMode", exploitationMode);
@@ -1398,6 +1416,30 @@ const Planning = () => {
               </button>
             ))}
           </div>
+
+          {/* iCal sync */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="p-1.5 rounded-lg border hover:bg-muted transition-colors" title="Synchroniser avec un calendrier externe">
+                <CalendarSync className="h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-4 space-y-3" align="end">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold">Sync calendrier</p>
+                <p className="text-xs text-muted-foreground">
+                  Copiez le lien iCal et ajoutez-le dans Google Calendar, Outlook ou Apple Calendar pour synchroniser automatiquement vos événements.
+                </p>
+              </div>
+              <Button size="sm" className="w-full text-xs gap-1.5" onClick={getIcalUrl}>
+                {icalCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {icalCopied ? "Lien copié !" : "Copier le lien iCal"}
+              </Button>
+              <p className="text-[10px] text-muted-foreground">
+                Google Calendar : Autres agendas → À partir de l'URL
+              </p>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Exploitation mode filter */}
