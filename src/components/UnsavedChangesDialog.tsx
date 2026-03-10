@@ -22,25 +22,25 @@ interface UnsavedChangesDialogProps {
 export function UnsavedChangesDialog({ open, onStay, onDiscard, onSave, saving }: UnsavedChangesDialogProps) {
   return (
     <AlertDialog open={open}>
-      <AlertDialogContent>
+      <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
           <AlertDialogTitle>Modifications non enregistrées</AlertDialogTitle>
           <AlertDialogDescription>
             Vous avez des modifications en cours. Que souhaitez-vous faire ?
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-          <AlertDialogCancel onClick={onStay} className="gap-2">
+        <AlertDialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+          <AlertDialogCancel onClick={onStay} className="gap-2 w-full sm:w-auto">
             <ArrowRight className="h-4 w-4 rotate-180" />
-            Rester sur la page
+            Rester
           </AlertDialogCancel>
-          <Button variant="destructive" onClick={onDiscard} className="gap-2">
+          <Button variant="destructive" onClick={onDiscard} className="gap-2 w-full sm:w-auto">
             <X className="h-4 w-4" />
-            Quitter sans enregistrer
+            Quitter
           </Button>
-          <Button onClick={onSave} disabled={saving} className="gap-2">
+          <Button onClick={onSave} disabled={saving} className="gap-2 w-full sm:w-auto">
             <Save className="h-4 w-4" />
-            {saving ? "Enregistrement…" : "Enregistrer et quitter"}
+            {saving ? "Enregistrement…" : "Enregistrer & quitter"}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
