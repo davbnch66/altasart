@@ -1,11 +1,12 @@
-import React from "react";
+import React, { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { NotificationBell } from "@/components/NotificationBell";
-import { motion } from "framer-motion";
+import { GlobalSearch } from "@/components/GlobalSearch";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, Users, CalendarDays, FolderOpen, FileText,
   ClipboardCheck, Inbox, DollarSign, Wrench, Settings, Building2,
-  ChevronDown, Kanban, Truck, Warehouse, LogOut, BarChart3, HardHat, ShieldAlert,
+  ChevronDown, ChevronRight, Kanban, Truck, Warehouse, LogOut, BarChart3, HardHat, ShieldAlert,
 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery } from "@tanstack/react-query";
@@ -15,25 +16,42 @@ import { useMyRole, ROLE_LABELS, canAccessRoute } from "@/hooks/useMyRole";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 
-const ALL_NAV_ITEMS = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/clients", icon: Users, label: "Clients" },
-  { to: "/pipeline", icon: Kanban, label: "Pipeline" },
-  { to: "/planning", icon: CalendarDays, label: "Planning" },
-  { to: "/dossiers", icon: FolderOpen, label: "Dossiers" },
-  { to: "/devis", icon: FileText, label: "Devis" },
-  { to: "/visites", icon: ClipboardCheck, label: "Visites" },
-  { to: "/terrain", icon: HardHat, label: "Terrain" },
-  { to: "/voirie", icon: ShieldAlert, label: "Voirie" },
-  { to: "/inbox", icon: Inbox, label: "Inbox" },
-  { to: "/finance", icon: DollarSign, label: "Finance" },
-  { to: "/rentabilite", icon: BarChart3, label: "Rentabilité" },
-  { to: "/flotte", icon: Truck, label: "Flotte" },
-  { to: "/stockage", icon: Warehouse, label: "Stockage" },
-  { to: "/ressources", icon: Wrench, label: "Ressources" },
-  { to: "/parametres", icon: Settings, label: "Paramètres" },
+const NAV_CATEGORIES = [
+  {
+    label: "Commercial",
+    items: [
+      { to: "/clients", icon: Users, label: "Clients" },
+      { to: "/pipeline", icon: Kanban, label: "Pipeline" },
+      { to: "/devis", icon: FileText, label: "Devis" },
+      { to: "/visites", icon: ClipboardCheck, label: "Visites" },
+      { to: "/inbox", icon: Inbox, label: "Inbox" },
+    ],
+  },
+  {
+    label: "Exploitation",
+    items: [
+      { to: "/dossiers", icon: FolderOpen, label: "Dossiers" },
+      { to: "/planning", icon: CalendarDays, label: "Planning" },
+      { to: "/terrain", icon: HardHat, label: "Terrain" },
+      { to: "/voirie", icon: ShieldAlert, label: "Voirie" },
+    ],
+  },
+  {
+    label: "Logistique",
+    items: [
+      { to: "/flotte", icon: Truck, label: "Flotte" },
+      { to: "/stockage", icon: Warehouse, label: "Stockage" },
+      { to: "/ressources", icon: Wrench, label: "Ressources" },
+    ],
+  },
+  {
+    label: "Finance",
+    items: [
+      { to: "/finance", icon: DollarSign, label: "Finance" },
+      { to: "/rentabilite", icon: BarChart3, label: "Rentabilité" },
+    ],
+  },
 ];
 
 const companyDotColor: Record<string, string> = {
@@ -61,6 +79,13 @@ export const AppSidebar: React.FC = () => {
   const navigate = useNavigate();
   const { role } = useMyRole();
 
+  // Track collapsed categories (all open by default)
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const toggleCategory = (label: string) => {
+    setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
+  };
+
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
     : [current];
@@ -86,9 +111,6 @@ export const AppSidebar: React.FC = () => {
     navigate("/auth");
   };
 
-  // Filter nav items based on role
-  const navItems = ALL_NAV_ITEMS.filter((item) => canAccessRoute(role, item.to));
-
   return (
     <aside className="flex h-screen w-60 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       {/* Company Switcher */}
@@ -110,35 +132,119 @@ export const AppSidebar: React.FC = () => {
         </DropdownMenu>
       </div>
 
+      {/* Search */}
+      <div className="px-3 pt-3">
+        <GlobalSearch />
+      </div>
+
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto scrollbar-thin py-3 px-3 space-y-0.5">
-        {navItems.map((item) => {
-          const isActive = item.to === "/" ? location.pathname === "/" : location.pathname.startsWith(item.to);
+      <nav className="flex-1 overflow-y-auto scrollbar-thin py-2 px-3">
+        {/* Dashboard - always on top */}
+        {canAccessRoute(role, "/") && (
+          <NavLink
+            to="/"
+            className="relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground mb-1"
+          >
+            {location.pathname === "/" && (
+              <motion.div
+                layoutId="sidebar-active"
+                className="absolute inset-0 rounded-md bg-sidebar-accent"
+                transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
+              />
+            )}
+            <LayoutDashboard className="relative z-10 h-4 w-4" />
+            <span className={`relative z-10 flex-1 ${location.pathname === "/" ? "text-sidebar-accent-foreground font-medium" : ""}`}>
+              Dashboard
+            </span>
+          </NavLink>
+        )}
+
+        {/* Categorized nav items */}
+        {NAV_CATEGORIES.map((cat) => {
+          const visibleItems = cat.items.filter((item) => canAccessRoute(role, item.to));
+          if (visibleItems.length === 0) return null;
+          const isCollapsed = !!collapsed[cat.label];
+          const hasActiveChild = visibleItems.some(
+            (item) => location.pathname.startsWith(item.to)
+          );
+
           return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className="relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            >
-              {isActive && (
-                <motion.div
-                  layoutId="sidebar-active"
-                  className="absolute inset-0 rounded-md bg-sidebar-accent"
-                  transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
-                />
-              )}
-              <item.icon className="relative z-10 h-4 w-4" />
-              <span className={`relative z-10 flex-1 ${isActive ? "text-sidebar-accent-foreground font-medium" : ""}`}>
-                {item.label}
-              </span>
-              {item.to === "/inbox" && pendingCount > 0 && (
-                <span className="relative z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1">
-                  {pendingCount > 99 ? "99+" : pendingCount}
-                </span>
-              )}
-            </NavLink>
+            <div key={cat.label} className="mt-2">
+              <button
+                onClick={() => toggleCategory(cat.label)}
+                className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-muted hover:text-sidebar-foreground transition-colors"
+              >
+                <ChevronRight className={`h-3 w-3 transition-transform duration-200 ${isCollapsed ? "" : "rotate-90"}`} />
+                <span className="flex-1 text-left">{cat.label}</span>
+                {isCollapsed && hasActiveChild && (
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                )}
+              </button>
+
+              <AnimatePresence initial={false}>
+                {!isCollapsed && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-0.5 mt-0.5">
+                      {visibleItems.map((item) => {
+                        const isActive = location.pathname.startsWith(item.to);
+                        return (
+                          <NavLink
+                            key={item.to}
+                            to={item.to}
+                            className="relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                          >
+                            {isActive && (
+                              <motion.div
+                                layoutId="sidebar-active"
+                                className="absolute inset-0 rounded-md bg-sidebar-accent"
+                                transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
+                              />
+                            )}
+                            <item.icon className="relative z-10 h-4 w-4" />
+                            <span className={`relative z-10 flex-1 ${isActive ? "text-sidebar-accent-foreground font-medium" : ""}`}>
+                              {item.label}
+                            </span>
+                            {item.to === "/inbox" && pendingCount > 0 && (
+                              <span className="relative z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1">
+                                {pendingCount > 99 ? "99+" : pendingCount}
+                              </span>
+                            )}
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           );
         })}
+
+        {/* Settings - always at bottom of nav */}
+        {canAccessRoute(role, "/parametres") && (
+          <NavLink
+            to="/parametres"
+            className="relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground mt-2"
+          >
+            {location.pathname.startsWith("/parametres") && (
+              <motion.div
+                layoutId="sidebar-active"
+                className="absolute inset-0 rounded-md bg-sidebar-accent"
+                transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
+              />
+            )}
+            <Settings className="relative z-10 h-4 w-4" />
+            <span className={`relative z-10 flex-1 ${location.pathname.startsWith("/parametres") ? "text-sidebar-accent-foreground font-medium" : ""}`}>
+              Paramètres
+            </span>
+          </NavLink>
+        )}
       </nav>
 
       {/* Footer */}

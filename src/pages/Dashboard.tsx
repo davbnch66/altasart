@@ -19,6 +19,7 @@ import { CreateClientDialog } from "@/components/forms/CreateClientDialog";
 import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
 import { CreateDossierDialog } from "@/components/forms/CreateDossierDialog";
 import { CreateFactureDialog } from "@/components/forms/CreateFactureDialog";
+import { DashboardAlerts } from "@/components/DashboardAlerts";
 import { useCompany, type CompanyId } from "@/contexts/CompanyContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -396,6 +397,9 @@ const Dashboard = () => {
           </button>
         )}
       </motion.div>
+
+      {/* Alerts */}
+      <DashboardAlerts />
 
       {/* Stats */}
       <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4"}`}>

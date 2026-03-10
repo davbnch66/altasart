@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Plus, Pencil, Trash2, Check, X, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -16,6 +17,7 @@ interface DevisLine {
   unit_price: number;
   total: number | null;
   sort_order: number;
+  tva_rate?: number;
 }
 
 interface Props {
@@ -26,14 +28,26 @@ interface Props {
   companyId?: string;
 }
 
+const TVA_OPTIONS = [
+  { value: "0", label: "0%" },
+  { value: "5.5", label: "5.5%" },
+  { value: "10", label: "10%" },
+  { value: "20", label: "20%" },
+];
+
 const formatAmount = (amount: number) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
 
-const emptyLine = { description: "", quantity: 1, unit_price: 0 };
+const emptyLine = { description: "", quantity: 1, unit_price: 0, tva_rate: 20 };
 
 export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, companyId }: Props) => {
   const isMobile = useIsMobile();
-  const computedTotal = lines.reduce((sum, l) => sum + (l.total ?? l.quantity * l.unit_price), 0);
+  const computedTotalHT = lines.reduce((sum, l) => sum + (l.total ?? l.quantity * l.unit_price), 0);
+  const computedTVA = lines.reduce((sum, l) => {
+    const ht = l.total ?? l.quantity * l.unit_price;
+    return sum + ht * ((l.tva_rate ?? 20) / 100);
+  }, 0);
+  const computedTotalTTC = computedTotalHT + computedTVA;
   const queryClient = useQueryClient();
 
   // AI suggestion state
@@ -42,13 +56,13 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
-    if (lines.length > 0 && Math.abs(computedTotal - totalAmount) > 0.01) {
-      supabase.from("devis").update({ amount: computedTotal }).eq("id", devisId).then(() => {
+    if (lines.length > 0 && Math.abs(computedTotalHT - totalAmount) > 0.01) {
+      supabase.from("devis").update({ amount: computedTotalHT }).eq("id", devisId).then(() => {
         queryClient.invalidateQueries({ queryKey: ["devis-detail", devisId] });
         queryClient.invalidateQueries({ queryKey: ["devis"] });
       });
     }
-  }, [computedTotal, totalAmount, devisId, lines.length]);
+  }, [computedTotalHT, totalAmount, devisId, lines.length]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState(emptyLine);
@@ -70,9 +84,10 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
         quantity: line.quantity,
         unit_price: line.unit_price,
         sort_order: lines.length,
+        tva_rate: line.tva_rate,
       });
       if (error) throw error;
-      const newTotal = computedTotal + lineTotal;
+      const newTotal = computedTotalHT + lineTotal;
       await supabase.from("devis").update({ amount: newTotal }).eq("id", devisId);
     },
     onSuccess: () => {
@@ -96,7 +111,7 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
           sort_order: sortOffset++,
         });
       }
-      const newTotal = newLines.reduce((s, l) => s + l.quantity * l.unit_price, computedTotal);
+      const newTotal = newLines.reduce((s, l) => s + l.quantity * l.unit_price, computedTotalHT);
       await supabase.from("devis").update({ amount: newTotal }).eq("id", devisId);
     },
     onSuccess: () => {
@@ -115,11 +130,12 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
         description: line.description,
         quantity: line.quantity,
         unit_price: line.unit_price,
+        tva_rate: line.tva_rate,
       }).eq("id", id);
       if (error) throw error;
       const oldLine = lines.find((l) => l.id === id);
       const oldTotal = oldLine ? (oldLine.total ?? oldLine.quantity * oldLine.unit_price) : 0;
-      const newAmount = computedTotal - oldTotal + lineTotal;
+      const newAmount = computedTotalHT - oldTotal + lineTotal;
       await supabase.from("devis").update({ amount: newAmount }).eq("id", devisId);
     },
     onSuccess: () => {
@@ -135,7 +151,7 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
       const { error } = await supabase.from("devis_lines").delete().eq("id", line.id);
       if (error) throw error;
       const lineTotal = line.total ?? line.quantity * line.unit_price;
-      const newAmount = Math.max(0, computedTotal - lineTotal);
+      const newAmount = Math.max(0, computedTotalHT - lineTotal);
       await supabase.from("devis").update({ amount: newAmount }).eq("id", devisId);
     },
     onSuccess: () => {
@@ -175,8 +191,22 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
 
   const startEdit = (line: DevisLine) => {
     setEditingId(line.id);
-    setEditForm({ description: line.description, quantity: line.quantity, unit_price: line.unit_price });
+    setEditForm({ description: line.description, quantity: line.quantity, unit_price: line.unit_price, tva_rate: line.tva_rate ?? 20 });
   };
+
+  // TVA selector component
+  const TvaSelect = ({ value, onChange, className = "" }: { value: number; onChange: (v: number) => void; className?: string }) => (
+    <Select value={String(value)} onValueChange={(v) => onChange(Number(v))}>
+      <SelectTrigger className={`h-8 text-xs ${className}`}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {TVA_OPTIONS.map((o) => (
+          <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
 
   // Mobile form for adding/editing a line
   const MobileLineForm = ({ form, setForm, onSubmit, onCancel, isPending }: {
@@ -194,7 +224,7 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
         placeholder="Description"
         autoFocus
       />
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <div>
           <label className="text-[10px] text-muted-foreground">Quantité</label>
           <Input
@@ -216,6 +246,10 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
             min={0}
             step="0.01"
           />
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground">TVA</label>
+          <TvaSelect value={form.tva_rate} onChange={(v) => setForm((f) => ({ ...f, tva_rate: v }))} />
         </div>
       </div>
       <div className="flex items-center justify-between">
@@ -279,6 +313,24 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
     </AnimatePresence>
   );
 
+  // Footer with HT/TVA/TTC breakdown
+  const TotalsFooter = ({ className = "" }: { className?: string }) => (
+    <div className={`space-y-1 ${className}`}>
+      <div className="flex justify-between text-xs">
+        <span className="text-muted-foreground">Total HT</span>
+        <span className="font-semibold">{formatAmount(computedTotalHT)}</span>
+      </div>
+      <div className="flex justify-between text-xs">
+        <span className="text-muted-foreground">TVA</span>
+        <span className="font-medium">{formatAmount(computedTVA)}</span>
+      </div>
+      <div className="flex justify-between text-sm border-t pt-1">
+        <span className="font-semibold">Total TTC</span>
+        <span className="font-bold">{formatAmount(computedTotalTTC)}</span>
+      </div>
+    </div>
+  );
+
   if (isMobile) {
     return (
       <div className="space-y-3">
@@ -322,7 +374,7 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium truncate">{line.description}</p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      {line.quantity} × {formatAmount(line.unit_price)}
+                      {line.quantity} × {formatAmount(line.unit_price)} · TVA {line.tva_rate ?? 20}%
                     </p>
                   </div>
                   <span className="text-xs font-semibold shrink-0">
@@ -360,9 +412,8 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
           </div>
 
           {lines.length > 0 && (
-            <div className="border-t bg-muted/20 px-3 py-2.5 flex justify-between items-center">
-              <span className="text-xs font-semibold text-muted-foreground">Total HT</span>
-              <span className="text-sm font-bold">{formatAmount(computedTotal)}</span>
+            <div className="border-t bg-muted/20 px-3 py-2.5">
+              <TotalsFooter />
             </div>
           )}
         </motion.div>
@@ -402,7 +453,8 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
               <th className="text-left font-medium text-muted-foreground px-5 py-2.5">Description</th>
               <th className="text-right font-medium text-muted-foreground px-3 py-2.5 w-20">Qté</th>
               <th className="text-right font-medium text-muted-foreground px-3 py-2.5 w-28">P.U. (€)</th>
-              <th className="text-right font-medium text-muted-foreground px-5 py-2.5 w-28">Total</th>
+              <th className="text-center font-medium text-muted-foreground px-3 py-2.5 w-24">TVA</th>
+              <th className="text-right font-medium text-muted-foreground px-5 py-2.5 w-28">Total HT</th>
               <th className="px-3 py-2.5 w-20"></th>
             </tr>
           </thead>
@@ -418,6 +470,9 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
                   </td>
                   <td className="px-3 py-2">
                     <Input type="number" value={editForm.unit_price} onChange={(e) => setEditForm((f) => ({ ...f, unit_price: Number(e.target.value) }))} className="h-8 text-sm text-right w-full" min={0} step="0.01" />
+                  </td>
+                  <td className="px-3 py-2">
+                    <TvaSelect value={editForm.tva_rate} onChange={(v) => setEditForm((f) => ({ ...f, tva_rate: v }))} className="w-full" />
                   </td>
                   <td className="px-5 py-2 text-right font-semibold text-muted-foreground">{formatAmount(editForm.quantity * editForm.unit_price)}</td>
                   <td className="px-3 py-2">
@@ -436,6 +491,7 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
                   <td className="px-5 py-3">{line.description}</td>
                   <td className="px-3 py-3 text-right">{line.quantity}</td>
                   <td className="px-3 py-3 text-right">{formatAmount(line.unit_price)}</td>
+                  <td className="px-3 py-3 text-center text-xs text-muted-foreground">{line.tva_rate ?? 20}%</td>
                   <td className="px-5 py-3 text-right font-semibold">{formatAmount(line.total ?? line.quantity * line.unit_price)}</td>
                   <td className="px-3 py-3">
                     <div className="flex gap-1">
@@ -462,6 +518,9 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
                 <td className="px-3 py-2">
                   <Input type="number" value={newLine.unit_price} onChange={(e) => setNewLine((f) => ({ ...f, unit_price: Number(e.target.value) }))} className="h-8 text-sm text-right w-full" min={0} step="0.01" />
                 </td>
+                <td className="px-3 py-2">
+                  <TvaSelect value={newLine.tva_rate} onChange={(v) => setNewLine((f) => ({ ...f, tva_rate: v }))} className="w-full" />
+                </td>
                 <td className="px-5 py-2 text-right font-semibold text-muted-foreground">{formatAmount(newLine.quantity * newLine.unit_price)}</td>
                 <td className="px-3 py-2">
                   <div className="flex gap-1">
@@ -478,22 +537,21 @@ export const DevisLinesManager = ({ devisId, lines, totalAmount, devisObjet, com
 
             {lines.length === 0 && !adding && (
               <tr>
-                <td colSpan={5} className="px-5 py-8 text-center text-muted-foreground">
+                <td colSpan={6} className="px-5 py-8 text-center text-muted-foreground">
                   Aucune ligne. Cliquez sur "Ajouter" pour commencer.
                 </td>
               </tr>
             )}
           </tbody>
-          {lines.length > 0 && (
-            <tfoot>
-              <tr className="border-t bg-muted/20">
-                <td colSpan={3} className="px-5 py-3 text-right font-semibold">Total HT</td>
-                <td className="px-5 py-3 text-right font-bold">{formatAmount(computedTotal)}</td>
-                <td></td>
-              </tr>
-            </tfoot>
-          )}
         </table>
+
+        {lines.length > 0 && (
+          <div className="border-t bg-muted/20 px-5 py-3">
+            <div className="flex justify-end">
+              <TotalsFooter className="w-64" />
+            </div>
+          </div>
+        )}
       </motion.div>
     </div>
   );
