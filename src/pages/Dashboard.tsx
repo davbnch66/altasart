@@ -19,6 +19,7 @@ import { CreateClientDialog } from "@/components/forms/CreateClientDialog";
 import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
 import { CreateDossierDialog } from "@/components/forms/CreateDossierDialog";
 import { CreateFactureDialog } from "@/components/forms/CreateFactureDialog";
+import { DashboardAlerts } from "@/components/DashboardAlerts";
 import { useCompany, type CompanyId } from "@/contexts/CompanyContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
