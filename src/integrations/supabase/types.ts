@@ -545,6 +545,7 @@ export type Database = {
           quantity: number
           sort_order: number
           total: number | null
+          tva_rate: number
           unit_price: number
         }
         Insert: {
@@ -555,6 +556,7 @@ export type Database = {
           quantity?: number
           sort_order?: number
           total?: number | null
+          tva_rate?: number
           unit_price?: number
         }
         Update: {
@@ -565,6 +567,7 @@ export type Database = {
           quantity?: number
           sort_order?: number
           total?: number | null
+          tva_rate?: number
           unit_price?: number
         }
         Relationships: [
@@ -1136,6 +1139,7 @@ export type Database = {
           paid_amount: number
           sent_at: string | null
           status: Database["public"]["Enums"]["facture_status"]
+          tva_rate: number
           updated_at: string
         }
         Insert: {
@@ -1152,6 +1156,7 @@ export type Database = {
           paid_amount?: number
           sent_at?: string | null
           status?: Database["public"]["Enums"]["facture_status"]
+          tva_rate?: number
           updated_at?: string
         }
         Update: {
@@ -1168,6 +1173,7 @@ export type Database = {
           paid_amount?: number
           sent_at?: string | null
           status?: Database["public"]["Enums"]["facture_status"]
+          tva_rate?: number
           updated_at?: string
         }
         Relationships: [
