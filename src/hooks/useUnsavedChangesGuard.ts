@@ -3,8 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 /**
  * Guard against unsaved changes.
- * Works with BrowserRouter (no useBlocker needed).
- * Intercepts link clicks and back/forward navigation.
+ * Intercepts: link clicks, back/forward, and tab close.
  */
 export function useUnsavedChangesGuard(isDirty: boolean, onSave?: () => Promise<boolean> | boolean) {
   const [pendingPath, setPendingPath] = useState<string | null>(null);
@@ -14,6 +13,7 @@ export function useUnsavedChangesGuard(isDirty: boolean, onSave?: () => Promise<
   dirtyRef.current = isDirty;
   const navigate = useNavigate();
   const location = useLocation();
+  const skipNextRef = useRef(false);
 
   // Browser close / refresh
   useEffect(() => {
@@ -26,16 +26,41 @@ export function useUnsavedChangesGuard(isDirty: boolean, onSave?: () => Promise<
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty]);
 
+  // Intercept all internal link clicks
+  useEffect(() => {
+    if (!isDirty) return;
+
+    const handler = (e: MouseEvent) => {
+      // Find closest <a> tag
+      const anchor = (e.target as HTMLElement).closest("a[href]");
+      if (!anchor) return;
+
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("http") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+
+      // Internal link - block it
+      if (dirtyRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        setPendingPath(href);
+      }
+    };
+
+    // Use capture phase to intercept before react-router
+    document.addEventListener("click", handler, true);
+    return () => document.removeEventListener("click", handler, true);
+  }, [isDirty]);
+
   // Intercept popstate (back/forward)
   useEffect(() => {
     if (!isDirty) return;
 
     const handler = () => {
-      if (dirtyRef.current) {
-        // Push the current path back so the user stays
+      if (dirtyRef.current && !skipNextRef.current) {
         window.history.pushState(null, "", location.pathname + location.search);
         setPendingPath("__back__");
       }
+      skipNextRef.current = false;
     };
 
     window.addEventListener("popstate", handler);
@@ -48,7 +73,7 @@ export function useUnsavedChangesGuard(isDirty: boolean, onSave?: () => Promise<
     const path = pendingPath;
     setPendingPath(null);
     if (path === "__back__") {
-      // Actually go back
+      skipNextRef.current = true;
       window.history.go(-1);
     } else if (path) {
       navigate(path);
@@ -65,33 +90,22 @@ export function useUnsavedChangesGuard(isDirty: boolean, onSave?: () => Promise<
       if (ok) {
         const path = pendingPath;
         setPendingPath(null);
-        // Small delay to let the save propagate
         setTimeout(() => {
           if (path === "__back__") {
+            skipNextRef.current = true;
             window.history.go(-1);
           } else if (path) {
             navigate(path);
           }
-        }, 100);
+        }, 150);
       }
     }
   }, [pendingPath, navigate]);
-
-  // Function to call before navigating programmatically
-  const guardNavigate = useCallback((to: string) => {
-    if (dirtyRef.current) {
-      setPendingPath(to);
-      return false; // blocked
-    }
-    navigate(to);
-    return true;
-  }, [navigate]);
 
   return {
     isBlocked,
     proceed,
     reset,
     saveAndProceed,
-    guardNavigate,
   };
 }
