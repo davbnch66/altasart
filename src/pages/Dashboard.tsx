@@ -398,6 +398,9 @@ const Dashboard = () => {
         )}
       </motion.div>
 
+      {/* Alerts */}
+      <DashboardAlerts />
+
       {/* Stats */}
       <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4"}`}>
         {statCards.map((stat, i) => (
