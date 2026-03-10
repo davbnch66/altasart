@@ -69,6 +69,7 @@ const companyColors: Record<string, string> = {
 
 const Planning = () => {
   const { current, setCurrent, companies, dbCompanies } = useCompany();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [view, setView] = useState<ViewMode>(() => {
     return (sessionStorage.getItem("planningView") as ViewMode) || "week";
@@ -85,6 +86,21 @@ const Planning = () => {
     return (sessionStorage.getItem("exploitationMode") as ExploitationMode) || "vehicule";
   });
   const isMobile = useIsMobile();
+  const [icalCopied, setIcalCopied] = useState(false);
+
+  const getIcalUrl = useCallback(async () => {
+    if (!user) return;
+    const companyId = current === "global" ? dbCompanies[0]?.id : current;
+    if (!companyId) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) { toast.error("Session expirée"); return; }
+    const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const url = `${baseUrl}/functions/v1/calendar-feed?token=${session.access_token}&company_id=${companyId}`;
+    await navigator.clipboard.writeText(url);
+    setIcalCopied(true);
+    toast.success("Lien iCal copié ! Collez-le dans Google Calendar ou Outlook.");
+    setTimeout(() => setIcalCopied(false), 3000);
+  }, [user, current, dbCompanies]);
 
   useEffect(() => {
     sessionStorage.setItem("exploitationMode", exploitationMode);
