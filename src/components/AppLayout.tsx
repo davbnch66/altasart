@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { useMyRole, canAccessRoute } from "@/hooks/useMyRole";
 
 const PAGE_NAMES: Record<string, string> = {
