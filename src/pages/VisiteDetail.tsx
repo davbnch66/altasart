@@ -1025,6 +1025,13 @@ const VisiteDetail = () => {
         visiteId={visite.id}
         companyId={visite.company_id}
       />
+      <UnsavedChangesDialog
+        open={isBlocked}
+        onStay={reset}
+        onDiscard={proceed}
+        onSave={saveAndProceed}
+        saving={saveMutation.isPending}
+      />
     </div>
   );
 };
