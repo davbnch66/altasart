@@ -295,6 +295,7 @@ const Finance = () => {
           <TabsTrigger value="factures" className="gap-2"><DollarSign className="h-4 w-4" /> Factures</TabsTrigger>
           <TabsTrigger value="reglements" className="gap-2"><CreditCard className="h-4 w-4" /> Règlements</TabsTrigger>
           <TabsTrigger value="depenses" className="gap-2"><Fuel className="h-4 w-4" /> Véhicules</TabsTrigger>
+          <TabsTrigger value="fec" className="gap-2"><FileText className="h-4 w-4" /> Export FEC</TabsTrigger>
         </TabsList>
 
         <TabsContent value="factures">
