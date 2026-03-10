@@ -95,6 +95,7 @@ export const AppLayout: React.FC = () => {
 
       <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background">
         <OfflineBanner />
+        <OnboardingWizard />
         {isMobile && (
           <div className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/95 backdrop-blur-sm px-3 py-2">
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen((v) => !v)} className="h-9 w-9 shrink-0">
