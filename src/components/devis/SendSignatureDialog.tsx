@@ -103,26 +103,10 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      const { data: existing } = await supabase
-        .from("devis_signatures")
-        .select("token")
-        .eq("devis_id", devis.id)
-        .eq("status", "pending")
-        .gte("expires_at", new Date().toISOString())
-        .single();
-
-      if (existing) return existing.token;
-
       const { data, error } = await supabase
-        .from("devis_signatures")
-        .insert({
-          devis_id: devis.id,
-          company_id: devis.company_id,
-        })
-        .select("token")
-        .single();
+        .rpc("get_or_create_signature_token", { p_devis_id: devis.id });
       if (error) throw error;
-      return data.token;
+      return data as string;
     },
     onSuccess: (token) => {
       const url = `${appBaseUrl}/sign/${token}`;
