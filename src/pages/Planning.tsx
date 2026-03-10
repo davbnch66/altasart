@@ -1443,6 +1443,9 @@ const Planning = () => {
                 {icalCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 {icalCopied ? "Lien copié !" : "Copier le lien iCal"}
               </Button>
+              {icalUrl && !icalCopied && (
+                <Input value={icalUrl} readOnly className="text-[10px] h-7" onFocus={(e) => e.target.select()} />
+              )}
               <p className="text-[10px] text-muted-foreground">
                 Google Calendar : Autres agendas → À partir de l'URL
               </p>
