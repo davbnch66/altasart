@@ -556,7 +556,7 @@ const VisiteDetail = () => {
             <VisiteVehiculesTab visiteId={visite.id} companyId={visite.company_id} />
           </Section>
 
-          <Section title="Démarches voirie" icon={ShieldAlert}>
+          <Section title="Démarches voirie" icon={ShieldAlert} badge={editData.needs_voirie ? (editData.voirie_status === "obtenue" ? "✓" : editData.voirie_status === "refusee" ? "✗" : "…") : undefined}>
             <div className="rounded-xl border bg-card p-5 space-y-4">
               <div className="flex items-center gap-3">
                 <Checkbox
@@ -579,7 +579,115 @@ const VisiteDetail = () => {
                 </Label>
               </div>
               {editData.needs_voirie && (
-                <div className="space-y-3 pl-7">
+                <div className="space-y-4 pl-7">
+                  {/* Status & Type row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Statut</Label>
+                      <Select value={editData.voirie_status || "a_faire"} onValueChange={(v) => {
+                        updateField("voirie_status", v);
+                        if (v === "demandee" && !editData.voirie_requested_at) {
+                          updateField("voirie_requested_at", new Date().toISOString());
+                        }
+                        if (v === "obtenue" && !editData.voirie_obtained_at) {
+                          updateField("voirie_obtained_at", new Date().toISOString());
+                        }
+                      }}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="a_faire">À faire</SelectItem>
+                          <SelectItem value="demandee">Demandée</SelectItem>
+                          <SelectItem value="en_attente">En attente</SelectItem>
+                          <SelectItem value="obtenue">Obtenue</SelectItem>
+                          <SelectItem value="refusee">Refusée</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Type de démarche</Label>
+                      <Select value={editData.voirie_type || ""} onValueChange={(v) => updateField("voirie_type", v)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sélectionner…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="arrete_stationnement">Arrêté de stationnement</SelectItem>
+                          <SelectItem value="plan_voirie">Plan voirie (1/200ème)</SelectItem>
+                          <SelectItem value="emprise">Emprise voirie</SelectItem>
+                          <SelectItem value="autorisation_grue">Autorisation grue</SelectItem>
+                          <SelectItem value="autre">Autre</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Status indicator badge */}
+                  {(() => {
+                    const statusConfig: Record<string, { label: string; className: string }> = {
+                      a_faire: { label: "À faire", className: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30" },
+                      demandee: { label: "Demandée", className: "bg-blue-500/15 text-blue-600 border-blue-500/30" },
+                      en_attente: { label: "En attente", className: "bg-orange-500/15 text-orange-600 border-orange-500/30" },
+                      obtenue: { label: "Obtenue", className: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30" },
+                      refusee: { label: "Refusée", className: "bg-red-500/15 text-red-600 border-red-500/30" },
+                    };
+                    const s = statusConfig[editData.voirie_status] || statusConfig.a_faire;
+                    return (
+                      <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${s.className}`}>
+                        <ShieldAlert className="h-3.5 w-3.5" />
+                        {s.label}
+                        {editData.voirie_requested_at && (
+                          <span className="text-[10px] opacity-70">
+                            · demandée le {format(new Date(editData.voirie_requested_at), "dd/MM/yyyy")}
+                          </span>
+                        )}
+                        {editData.voirie_obtained_at && editData.voirie_status === "obtenue" && (
+                          <span className="text-[10px] opacity-70">
+                            · obtenue le {format(new Date(editData.voirie_obtained_at), "dd/MM/yyyy")}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Documents badges */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Documents reçus</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {editData.voirie_plan_storage_path ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600">
+                          <FileText className="h-3 w-3" /> Plan ✓
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground">
+                          <FileText className="h-3 w-3" /> Plan —
+                        </span>
+                      )}
+                      {editData.voirie_pv_roc_storage_path ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600">
+                          <FileText className="h-3 w-3" /> PV ROC ✓
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground">
+                          <FileText className="h-3 w-3" /> PV ROC —
+                        </span>
+                      )}
+                      {editData.voirie_arrete_storage_path ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600">
+                          <FileText className="h-3 w-3" /> Arrêté ✓
+                          {editData.voirie_arrete_date && (
+                            <span className="text-[10px] opacity-70">({format(new Date(editData.voirie_arrete_date), "dd/MM/yyyy")})</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground">
+                          <FileText className="h-3 w-3" /> Arrêté —
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Address */}
                   <div className="space-y-2">
                     <Label>Adresse concernée</Label>
                     <AddressAutocomplete
@@ -597,6 +705,28 @@ const VisiteDetail = () => {
                       </button>
                     )}
                   </div>
+
+                  {/* Notes voirie */}
+                  <div className="space-y-1.5">
+                    <Label>Notes voirie</Label>
+                    <Textarea
+                      value={editData.voirie_notes || ""}
+                      onChange={(e) => updateField("voirie_notes", e.target.value)}
+                      rows={3}
+                      placeholder="Observations, remarques sur la démarche voirie…"
+                    />
+                  </div>
+
+                  {/* Lien vers la page Voirie */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => navigate("/voirie")}
+                  >
+                    <ShieldAlert className="h-4 w-4" />
+                    Voir le tableau voirie complet
+                  </Button>
 
                   {/* Bouton envoi demande voirie Paris */}
                   {(editData.voirie_address || "").toLowerCase().includes("paris") && (
