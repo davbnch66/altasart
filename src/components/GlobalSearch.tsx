@@ -33,9 +33,10 @@ export function GlobalSearch() {
   const navigate = useNavigate();
   const { current, dbCompanies } = useCompany();
 
-  const companyIds = current === "global"
-    ? dbCompanies.map((c) => c.id)
-    : [current];
+  const companyIds = useMemo(
+    () => (current === "global" ? dbCompanies.map((c) => c.id) : [current]),
+    [current, dbCompanies]
+  );
 
   // Keyboard shortcut
   useEffect(() => {
