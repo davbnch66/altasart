@@ -621,6 +621,13 @@ const Parametres = () => {
             ))}
           </motion.div>
         </TabsContent>
+
+        {/* Import Tab */}
+        <TabsContent value="import">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <ImportDataTab />
+          </motion.div>
+        </TabsContent>
       </Tabs>
     </div>
   );
