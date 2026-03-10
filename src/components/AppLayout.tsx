@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { useMyRole, canAccessRoute } from "@/hooks/useMyRole";
 
 const PAGE_NAMES: Record<string, string> = {
@@ -94,6 +95,7 @@ export const AppLayout: React.FC = () => {
 
       <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background">
         <OfflineBanner />
+        <OnboardingWizard />
         {isMobile && (
           <div className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/95 backdrop-blur-sm px-3 py-2">
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen((v) => !v)} className="h-9 w-9 shrink-0">
