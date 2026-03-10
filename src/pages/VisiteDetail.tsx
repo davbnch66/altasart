@@ -190,7 +190,7 @@ const VisiteDetail = () => {
     });
   }, [visite, editData]);
 
-  const { isBlocked, proceed, reset, saveAndProceed } = useUnsavedChangesGuard(isDirty, handleSave);
+  const { isBlocked, proceed, reset, saveAndProceed, triggerBlock } = useUnsavedChangesGuard(isDirty, handleSave);
 
   const updateField = (field: string, value: any) => {
     setEditData((prev: any) => ({ ...prev, [field]: value }));
@@ -259,7 +259,11 @@ const VisiteDetail = () => {
 
         {/* Title row */}
         <div className="flex items-start gap-2">
-          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" className="shrink-0 mt-0.5" onClick={() => {
+            if (!triggerBlock("/visites")) {
+              navigate(-1);
+            }
+          }}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
