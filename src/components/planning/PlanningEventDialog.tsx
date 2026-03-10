@@ -919,8 +919,8 @@ export const PlanningEventDialog = ({
 
             {/* Chargement / Livraison side by side */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <AddressBlock title="Chargement" prefix="loading" />
-              <AddressBlock title="Livraison" prefix="delivery" />
+              <AddressBlock title="Chargement" fields={addressBlockProps.loading} clientId={clientId} onFillClient={() => fillFromClient("loading")} onFillDepot={() => fillDepot("loading")} />
+              <AddressBlock title="Livraison" fields={addressBlockProps.delivery} clientId={clientId} onFillClient={() => fillFromClient("delivery")} onFillDepot={() => fillDepot("delivery")} />
             </div>
           </TabsContent>
 
