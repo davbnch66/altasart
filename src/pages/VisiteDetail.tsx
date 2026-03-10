@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useCompany } from "@/contexts/CompanyContext";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { VisitePiecesTab } from "@/components/visite/VisitePiecesTab";
