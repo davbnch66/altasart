@@ -734,7 +734,7 @@ export const PlanningEventDialog = ({
             data-lpignore="true"
             data-1p-ignore="true"
             data-form-type="other"
-            name={`evt-title-${Date.now()}`}
+            name="evt-title-field"
             className="mt-3 text-base font-medium border-0 border-b rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary"
           />
         </div>
