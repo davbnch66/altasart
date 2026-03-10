@@ -3430,6 +3430,10 @@ export type Database = {
         Returns: undefined
       }
       get_my_company_ids: { Args: never; Returns: string[] }
+      get_or_create_signature_token: {
+        Args: { p_devis_id: string }
+        Returns: string
+      }
       has_role_in_company: {
         Args: {
           p_company_id: string
