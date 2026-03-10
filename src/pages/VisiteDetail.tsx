@@ -123,7 +123,7 @@ const VisiteDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("visites")
-        .select("*, clients(id, name, code, phone, mobile, email, address, postal_code, city), resources:technician_id(name), dossiers:dossier_id(id, code, title)" as any)
+        .select("*, clients(id, name, code, phone, mobile, email, address, postal_code, city), resources:technician_id(name), dossiers:dossier_id(id, code, title)")
         .eq("id", id!)
         .single();
       if (error) throw error;
