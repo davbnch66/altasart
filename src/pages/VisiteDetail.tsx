@@ -159,9 +159,32 @@ const VisiteDetail = () => {
     onError: () => toast.error("Erreur lors de la sauvegarde"),
   });
 
-  const handleSave = () => {
-    if (editData) saveMutation.mutate(editData);
-  };
+  const handleSave = useCallback(async () => {
+    if (!editData) return false;
+    try {
+      await saveMutation.mutateAsync(editData);
+      return true;
+    } catch {
+      return false;
+    }
+  }, [editData, saveMutation]);
+
+  // Dirty detection: compare editData to fetched visite
+  const isDirty = useMemo(() => {
+    if (!visite || !editData) return false;
+    const fieldsToCheck = [
+      "title", "status", "on_hold", "date", "time", "duration", "zone", "call_date",
+      "address", "postal_code", "city", "country",
+      "loading_address", "loading_postal_code", "loading_city",
+      "delivery_address", "delivery_postal_code", "delivery_city",
+      "advisor", "coordinator", "technician_id", "origin", "visite_type",
+      "comment", "instructions", "notes", "loading_date",
+      "needs_voirie", "voirie_status", "voirie_type", "voirie_address", "voirie_notes",
+    ];
+    return fieldsToCheck.some((f) => (editData[f] ?? "") !== ((visite as any)[f] ?? ""));
+  }, [visite, editData]);
+
+  const { isBlocked, proceed, reset, saveAndProceed } = useUnsavedChangesGuard(isDirty, handleSave);
 
   const updateField = (field: string, value: any) => {
     setEditData((prev: any) => ({ ...prev, [field]: value }));
