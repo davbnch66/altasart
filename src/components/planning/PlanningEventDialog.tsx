@@ -67,6 +67,99 @@ const PRIORITY_OPTIONS = [
 
 const DEPOT_ADDRESS = { address: "12 rue Jean Monnet", postal_code: "95190", city: "Goussainville" };
 
+// ── Address Block extracted as a stable component ──
+interface AddressBlockFields {
+  address: string; setAddress: (v: string) => void;
+  postalCode: string; setPostalCode: (v: string) => void;
+  city: string; setCity: (v: string) => void;
+  floor: string; setFloor: (v: string) => void;
+  access: string; setAccess: (v: string) => void;
+  elevator: boolean; setElevator: (v: boolean) => void;
+  parkingRequest: boolean; setParkingRequest: (v: boolean) => void;
+  portage: string; setPortage: (v: string) => void;
+  passageFenetre: boolean; setPassageFenetre: (v: boolean) => void;
+  monteMeubles: boolean; setMonteMeubles: (v: boolean) => void;
+  transbordement: boolean; setTransbordement: (v: boolean) => void;
+  comments: string; setComments: (v: string) => void;
+}
+
+interface AddressBlockProps {
+  title: string;
+  fields: AddressBlockFields;
+  clientId?: string;
+  onFillClient?: () => void;
+  onFillDepot?: () => void;
+}
+
+const AddressBlock = ({ title: blockTitle, fields, clientId, onFillClient, onFillDepot }: AddressBlockProps) => {
+  const {
+    address, setAddress, postalCode, setPostalCode, city, setCity,
+    floor, setFloor, access, setAccess, elevator, setElevator,
+    parkingRequest, setParkingRequest, portage, setPortage,
+    passageFenetre, setPassageFenetre, monteMeubles, setMonteMeubles,
+    transbordement, setTransbordement, comments, setComments,
+  } = fields;
+
+  return (
+    <div className="rounded-lg border bg-card p-3 space-y-2.5">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-primary">{blockTitle}</h4>
+        <div className="flex gap-1">
+          {clientId && clientId !== "__none__" && onFillClient && (
+            <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2" onClick={onFillClient}>
+              <Building2 className="h-3 w-3" /> Client
+            </Button>
+          )}
+          {onFillDepot && (
+            <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2" onClick={onFillDepot}>
+              <Warehouse className="h-3 w-3" /> Dépôt
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <Label className="text-[10px] text-muted-foreground">Adresse</Label>
+        <AddressAutocomplete
+          value={address}
+          onChange={setAddress}
+          onSelect={(s) => {
+            setAddress(s.label);
+            if (s.postcode) setPostalCode(s.postcode);
+            if (s.city) setCity(s.city);
+          }}
+          placeholder="Adresse"
+          className="h-7 text-xs"
+        />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div><Label className="text-[10px] text-muted-foreground">CP</Label><Input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className="h-7 text-xs" /></div>
+        <div className="col-span-2"><Label className="text-[10px] text-muted-foreground">Ville</Label><Input value={city} onChange={(e) => setCity(e.target.value)} className="h-7 text-xs" /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div><Label className="text-[10px] text-muted-foreground">Étage</Label><Input value={floor} onChange={(e) => setFloor(e.target.value)} className="h-7 text-xs" placeholder="RDC, 3e…" /></div>
+        <div><Label className="text-[10px] text-muted-foreground">Portage (m)</Label><Input type="number" value={portage} onChange={(e) => setPortage(e.target.value)} className="h-7 text-xs" /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+        {[
+          { checked: elevator, set: setElevator, label: "Ascenseur" },
+          { checked: passageFenetre, set: setPassageFenetre, label: "Passage fenêtre" },
+          { checked: monteMeubles, set: setMonteMeubles, label: "Monte-meubles" },
+          { checked: transbordement, set: setTransbordement, label: "Transbordement" },
+          { checked: parkingRequest, set: setParkingRequest, label: "Stationnement" },
+        ].map(({ checked, set, label }) => (
+          <div key={label} className="flex items-center gap-1.5">
+            <Checkbox checked={checked} onCheckedChange={(v) => set(!!v)} />
+            <label className="text-[10px] cursor-pointer">{label}</label>
+          </div>
+        ))}
+      </div>
+      <div><Label className="text-[10px] text-muted-foreground">Accès</Label><Input value={access} onChange={(e) => setAccess(e.target.value)} className="h-7 text-xs" placeholder="Digicode, portail…" /></div>
+      <div><Label className="text-[10px] text-muted-foreground">Observations</Label><Textarea value={comments} onChange={(e) => setComments(e.target.value)} className="min-h-[40px] text-xs resize-none" /></div>
+    </div>
+  );
+};
+
 export const PlanningEventDialog = ({
   open, onOpenChange, event, defaultDate, defaultResourceId,
 }: PlanningEventDialogProps) => {
