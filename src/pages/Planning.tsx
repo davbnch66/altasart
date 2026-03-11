@@ -623,8 +623,8 @@ const Planning = () => {
         <div className="flex-1 rounded-xl border bg-card overflow-auto">
         <div className={isMobile ? "min-w-[700px]" : ""}>
           {/* Day headers */}
-          <div className="grid border-b sticky top-0 bg-card z-10 shadow-sm" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
-            <div className="px-3 py-3 border-r bg-muted/50">
+          <div className="grid border-b-2 border-border sticky top-0 bg-card z-10 shadow-sm" style={{ gridTemplateColumns: `180px ${colWidth}` }}>
+            <div className="px-3 py-3 border-r-2 border-border bg-muted/50 flex items-end">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                 {exploitationMode === "vehicule" ? "Véhicule" : exploitationMode === "personnel" ? "Personnel" : "Opération"}
               </span>
@@ -632,7 +632,7 @@ const Planning = () => {
             {days.map((day) => (
               <div
                 key={day.toISOString()}
-                className={`px-2 py-3 text-center border-r last:border-r-0 cursor-pointer hover:bg-primary/15 transition-colors ${isToday(day) ? "bg-primary/10 border-b-2 border-b-primary" : "bg-muted/30"}`}
+                className={`px-2 py-3 text-center border-r border-border last:border-r-0 cursor-pointer hover:bg-primary/15 transition-colors ${isToday(day) ? "bg-primary/10 border-b-2 border-b-primary" : "bg-muted/30"}`}
                 onClick={() => { setView("day"); setCurrentDate(day); }}
               >
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
@@ -667,9 +667,9 @@ const Planning = () => {
                 const span = firstIdx >= 0 ? lastIdx - firstIdx + 1 : 0;
 
                 return (
-                  <div key={op.id} className="grid border-b" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
+                  <div key={op.id} className="grid border-b border-border" style={{ gridTemplateColumns: `180px ${colWidth}` }}>
                     <div
-                      className="px-3 py-2.5 border-r bg-muted/10 flex items-center gap-2 cursor-pointer hover:bg-muted/30 transition-colors"
+                      className="px-3 py-2.5 border-r-2 border-border bg-muted/10 flex items-center gap-2 cursor-pointer hover:bg-muted/30 transition-colors"
                       onClick={() => { setEditingOpId(op.id); setOpDialogOpen(true); }}
                     >
                       <div className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 bg-warning/20 text-warning">
@@ -690,7 +690,7 @@ const Planning = () => {
                       return (
                       <div
                         key={day.toISOString()}
-                        className={`border-r last:border-r-0 min-h-[64px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
+                        className={`border-r border-border last:border-r-0 min-h-[72px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
                         onDragOver={(e) => handleDragOver(e, cellKey)}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, day)}
@@ -746,9 +746,9 @@ const Planning = () => {
               const resourceName = (evt.resources as any)?.name;
 
               return (
-                <div key={evt.id} className="grid border-b" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
+                <div key={evt.id} className="grid border-b border-border" style={{ gridTemplateColumns: `180px ${colWidth}` }}>
                   <div
-                    className="px-3 py-2.5 border-r bg-muted/10 flex items-center gap-2 cursor-pointer hover:bg-muted/30 transition-colors"
+                    className="px-3 py-2.5 border-r-2 border-border bg-muted/10 flex items-center gap-2 cursor-pointer hover:bg-muted/30 transition-colors"
                     onClick={() => openEdit(evt)}
                   >
                     <div className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0" style={{ backgroundColor: bgColor + "33", color: bgColor }}>
@@ -764,7 +764,7 @@ const Planning = () => {
                     return (
                     <div
                       key={day.toISOString()}
-                      className={`border-r last:border-r-0 min-h-[64px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
+                      className={`border-r border-border last:border-r-0 min-h-[72px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
                       onDragOver={(e) => handleDragOver(e, cellKey)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, day)}
@@ -850,11 +850,11 @@ const Planning = () => {
             return (
               <div
                 key={resource.id}
-                className={`grid border-b last:border-b-0 transition-colors hover:brightness-95`}
-                style={{ gridTemplateColumns: `160px ${colWidth}` }}
+                className={`grid border-b border-border last:border-b-0 transition-colors hover:brightness-95`}
+                style={{ gridTemplateColumns: `180px ${colWidth}` }}
               >
                 {/* Resource label */}
-                <div className={`px-3 py-2.5 border-r flex items-center gap-2.5 ${rowIdx % 2 === 0 ? "bg-muted/20" : "bg-muted/5"} ${resourceConflicts.has(resource.id) ? "bg-destructive/10" : ""}`}>
+                <div className={`px-3 py-2.5 border-r-2 border-border flex items-center gap-2.5 ${rowIdx % 2 === 0 ? "bg-muted/20" : "bg-muted/5"} ${resourceConflicts.has(resource.id) ? "bg-destructive/10" : ""}`}>
                   <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
                     resourceConflicts.has(resource.id)
                       ? "bg-destructive/20 text-destructive"
@@ -941,7 +941,7 @@ const Planning = () => {
                     return (
                      <div
                        key={day.toISOString()}
-                       className={`group/cell border-r last:border-r-0 relative overflow-visible cursor-pointer transition-colors ${
+                       className={`group/cell border-r border-border last:border-r-0 relative overflow-visible cursor-pointer transition-colors ${
                          isToday(day) ? "bg-primary/5" : rowIdx % 2 === 0 ? "bg-muted/10" : ""
                        } hover:bg-muted/30 ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
                        style={{ minHeight: `${rowMinHeight}px` }}
@@ -974,8 +974,8 @@ const Planning = () => {
             // Deduplicate: only render each event once, on its first visible day
             const renderedEventIds = new Set<string>();
             return (
-              <div className="grid border-t" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
-                <div className="px-3 py-2.5 border-r bg-muted/30 flex items-center gap-2">
+              <div className="grid border-t-2 border-border" style={{ gridTemplateColumns: `180px ${colWidth}` }}>
+                <div className="px-3 py-2.5 border-r-2 border-border bg-muted/30 flex items-center gap-2">
                   <span className="text-xs font-semibold text-muted-foreground">Non assigné</span>
                 </div>
                 {days.map((day, dayIdx) => {
@@ -984,7 +984,7 @@ const Planning = () => {
                     return (
                     <div
                       key={day.toISOString()}
-                      className={`border-r last:border-r-0 min-h-[48px] relative overflow-visible cursor-pointer hover:bg-muted/20 ${isToday(day) ? "bg-primary/5" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
+                      className={`border-r border-border last:border-r-0 min-h-[56px] relative overflow-visible cursor-pointer hover:bg-muted/20 ${isToday(day) ? "bg-primary/5" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
                       onDragOver={(e) => handleDragOver(e, cellKey)}
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, day)}
