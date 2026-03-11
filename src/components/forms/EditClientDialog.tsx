@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Building2, Users, MapPin, CreditCard, Briefcase, StickyNote } from "lucide-react";
+import { Building2, Users, MapPin, CreditCard, Briefcase, StickyNote, Loader2, Search } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 const tagOptions = ["Déménagement", "Garde-meubles", "Stockage", "Manutention", "Distribution", "Archives"];
@@ -90,10 +90,43 @@ interface EditClientDialogProps {
 export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialogProps) => {
   const { dbCompanies } = useCompany();
   const queryClient = useQueryClient();
+  const [siretLoading, setSiretLoading] = useState(false);
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
+
+  const lookupSiret = useCallback(async () => {
+    const siret = (watch("siret") || "").replace(/\s/g, "");
+    if (siret.length !== 14) {
+      toast.error("Le SIRET doit contenir 14 chiffres");
+      return;
+    }
+    setSiretLoading(true);
+    try {
+      const res = await fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${siret}&mtm_campaign=lovable`);
+      if (!res.ok) throw new Error("API indisponible");
+      const data = await res.json();
+      const etab = data.results?.[0];
+      if (!etab) { toast.error("Aucune entreprise trouvée pour ce SIRET"); return; }
+      const siege = etab.siege || {};
+      const matchingEtab = etab.matching_etablissements?.find((e: any) => e.siret === siret) || siege;
+      if (etab.nom_complet) setValue("name", etab.nom_complet);
+      if (etab.activite_principale) setValue("ape_naf", etab.activite_principale);
+      const siren = siret.substring(0, 9);
+      const tvaKey = (12 + 3 * (parseInt(siren) % 97)) % 97;
+      setValue("tva_intra", `FR${String(tvaKey).padStart(2, "0")}${siren}`);
+      const addr = matchingEtab || siege;
+      if (addr.adresse) setValue("address", addr.adresse);
+      if (addr.code_postal) setValue("postal_code", addr.code_postal);
+      if (addr.commune) setValue("city", addr.commune);
+      toast.success(`Données pré-remplies pour ${etab.nom_complet}`);
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors de la recherche SIRET");
+    } finally {
+      setSiretLoading(false);
+    }
+  }, [watch, setValue]);
 
   useEffect(() => {
     if (open && client) {
@@ -278,7 +311,12 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
                   </div>
                   <div>
                     <Label htmlFor="edit-siret">SIRET</Label>
-                    <Input id="edit-siret" {...register("siret")} />
+                    <div className="flex gap-1.5">
+                      <Input id="edit-siret" {...register("siret")} className="flex-1" />
+                      <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={lookupSiret} disabled={siretLoading} title="Rechercher les données de l'entreprise">
+                        {siretLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </div>
                   <div>
                     <Label htmlFor="edit-ape">APE / NAF</Label>

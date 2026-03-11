@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Building2, Users, MapPin, CreditCard, Briefcase, StickyNote } from "lucide-react";
+import { Plus, Building2, Users, MapPin, CreditCard, Briefcase, StickyNote, Loader2, Search } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 
 const tagOptions = ["Déménagement", "Garde-meubles", "Stockage", "Manutention", "Distribution", "Archives"];
@@ -87,6 +87,7 @@ interface CreateClientDialogProps {
 
 export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
   const [open, setOpen] = useState(false);
+  const [siretLoading, setSiretLoading] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
 
@@ -96,6 +97,48 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
     resolver: zodResolver(schema),
     defaultValues: { company_id: defaultCompanyId, client_type: "societe", status: "nouveau_lead", tags: [], country: "France", credit_limit: 0, invoice_by_email: false },
   });
+
+  const lookupSiret = useCallback(async () => {
+    const siret = (watch("siret") || "").replace(/\s/g, "");
+    if (siret.length !== 14) {
+      toast.error("Le SIRET doit contenir 14 chiffres");
+      return;
+    }
+    setSiretLoading(true);
+    try {
+      const res = await fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${siret}&mtm_campaign=lovable`);
+      if (!res.ok) throw new Error("API indisponible");
+      const data = await res.json();
+      const etab = data.results?.[0];
+      if (!etab) { toast.error("Aucune entreprise trouvée pour ce SIRET"); return; }
+
+      // Find matching establishment
+      const siege = etab.siege || {};
+      const matchingEtab = etab.matching_etablissements?.find((e: any) => e.siret === siret) || siege;
+
+      // Fill form fields
+      if (etab.nom_complet) setValue("name", etab.nom_complet);
+      if (etab.activite_principale) setValue("ape_naf", etab.activite_principale);
+
+      // TVA number: FR + key + SIREN
+      const siren = siret.substring(0, 9);
+      const tvaKey = (12 + 3 * (parseInt(siren) % 97)) % 97;
+      setValue("tva_intra", `FR${String(tvaKey).padStart(2, "0")}${siren}`);
+
+      // Address from matching establishment or siege
+      const addr = matchingEtab || siege;
+      if (addr.adresse) setValue("address", addr.adresse);
+      if (addr.code_postal) setValue("postal_code", addr.code_postal);
+      if (addr.commune) setValue("city", addr.commune);
+      setValue("country", "France");
+
+      toast.success(`Données pré-remplies pour ${etab.nom_complet}`);
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors de la recherche SIRET");
+    } finally {
+      setSiretLoading(false);
+    }
+  }, [watch, setValue]);
 
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -241,7 +284,12 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
                   </div>
                   <div>
                     <Label htmlFor="siret">SIRET</Label>
-                    <Input id="siret" {...register("siret")} placeholder="123 456 789 00012" />
+                    <div className="flex gap-1.5">
+                      <Input id="siret" {...register("siret")} placeholder="123 456 789 00012" className="flex-1" />
+                      <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={lookupSiret} disabled={siretLoading} title="Rechercher les données de l'entreprise">
+                        {siretLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      </Button>
+                    </div>
                   </div>
                   <div>
                     <Label htmlFor="ape_naf">APE / NAF</Label>
