@@ -605,7 +605,7 @@ const Planning = () => {
     const colWidth = view === "day" ? "1fr" : `repeat(${days.length}, minmax(0, 1fr))`;
 
     return (
-      <div className="flex-1 flex flex-col gap-2">
+      <div className="flex-1 flex flex-col gap-2 min-h-0">
         {/* Conflict banner */}
         {conflictSummary.length > 0 && (
           <div className="rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 flex items-start gap-3">
