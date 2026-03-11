@@ -690,7 +690,7 @@ const Planning = () => {
                       return (
                       <div
                         key={day.toISOString()}
-                        className={`border-r last:border-r-0 min-h-[64px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
+                        className={`border-r border-border last:border-r-0 min-h-[72px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
                         onDragOver={(e) => handleDragOver(e, cellKey)}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, day)}
