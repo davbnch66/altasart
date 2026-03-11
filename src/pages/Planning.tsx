@@ -623,8 +623,8 @@ const Planning = () => {
         <div className="flex-1 rounded-xl border bg-card overflow-auto">
         <div className={isMobile ? "min-w-[700px]" : ""}>
           {/* Day headers */}
-          <div className="grid border-b sticky top-0 bg-card z-10 shadow-sm" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
-            <div className="px-3 py-3 border-r bg-muted/50">
+          <div className="grid border-b-2 border-border sticky top-0 bg-card z-10 shadow-sm" style={{ gridTemplateColumns: `180px ${colWidth}` }}>
+            <div className="px-3 py-3 border-r-2 border-border bg-muted/50 flex items-end">
               <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                 {exploitationMode === "vehicule" ? "Véhicule" : exploitationMode === "personnel" ? "Personnel" : "Opération"}
               </span>
@@ -632,7 +632,7 @@ const Planning = () => {
             {days.map((day) => (
               <div
                 key={day.toISOString()}
-                className={`px-2 py-3 text-center border-r last:border-r-0 cursor-pointer hover:bg-primary/15 transition-colors ${isToday(day) ? "bg-primary/10 border-b-2 border-b-primary" : "bg-muted/30"}`}
+                className={`px-2 py-3 text-center border-r border-border last:border-r-0 cursor-pointer hover:bg-primary/15 transition-colors ${isToday(day) ? "bg-primary/10 border-b-2 border-b-primary" : "bg-muted/30"}`}
                 onClick={() => { setView("day"); setCurrentDate(day); }}
               >
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
