@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Building2, Users, MapPin, CreditCard, Briefcase, StickyNote, Loader2, Search } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { useSiretLookup } from "@/hooks/useSiretLookup";
 
 const tagOptions = ["Déménagement", "Garde-meubles", "Stockage", "Manutention", "Distribution", "Archives"];
 
@@ -87,9 +88,9 @@ interface CreateClientDialogProps {
 
 export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
   const [open, setOpen] = useState(false);
-  const [siretLoading, setSiretLoading] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
+  const nameDropdownRef = useRef<HTMLDivElement>(null);
 
   const defaultCompanyId = current !== "global" ? current : dbCompanies[0]?.id || "";
 
@@ -98,47 +99,7 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
     defaultValues: { company_id: defaultCompanyId, client_type: "societe", status: "nouveau_lead", tags: [], country: "France", credit_limit: 0, invoice_by_email: false },
   });
 
-  const lookupSiret = useCallback(async () => {
-    const siret = (watch("siret") || "").replace(/\s/g, "");
-    if (siret.length !== 14) {
-      toast.error("Le SIRET doit contenir 14 chiffres");
-      return;
-    }
-    setSiretLoading(true);
-    try {
-      const res = await fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${siret}&mtm_campaign=lovable`);
-      if (!res.ok) throw new Error("API indisponible");
-      const data = await res.json();
-      const etab = data.results?.[0];
-      if (!etab) { toast.error("Aucune entreprise trouvée pour ce SIRET"); return; }
-
-      // Find matching establishment
-      const siege = etab.siege || {};
-      const matchingEtab = etab.matching_etablissements?.find((e: any) => e.siret === siret) || siege;
-
-      // Fill form fields
-      if (etab.nom_complet) setValue("name", etab.nom_complet);
-      if (etab.activite_principale) setValue("ape_naf", etab.activite_principale);
-
-      // TVA number: FR + key + SIREN
-      const siren = siret.substring(0, 9);
-      const tvaKey = (12 + 3 * (parseInt(siren) % 97)) % 97;
-      setValue("tva_intra", `FR${String(tvaKey).padStart(2, "0")}${siren}`);
-
-      // Address from matching establishment or siege
-      const addr = matchingEtab || siege;
-      if (addr.adresse) setValue("address", addr.adresse);
-      if (addr.code_postal) setValue("postal_code", addr.code_postal);
-      if (addr.commune) setValue("city", addr.commune);
-      setValue("country", "France");
-
-      toast.success(`Données pré-remplies pour ${etab.nom_complet}`);
-    } catch (e: any) {
-      toast.error(e.message || "Erreur lors de la recherche SIRET");
-    } finally {
-      setSiretLoading(false);
-    }
-  }, [watch, setValue]);
+  const { siretLoading, lookupSiret, nameResults, nameLoading, showNameResults, setShowNameResults, searchByName, fillFromEntreprise } = useSiretLookup();
 
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -245,10 +206,45 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
             <div className="flex-1 overflow-y-auto pr-1 mt-2">
               <TabsContent value="general" className="mt-0">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
+                  <div className="col-span-2 relative">
                     <Label htmlFor="name">Nom / Raison sociale *</Label>
-                    <Input id="name" {...register("name")} placeholder="Nom du client" />
+                    <Input
+                      id="name"
+                      {...register("name")}
+                      placeholder="Nom du client"
+                      autoComplete="off"
+                      onChange={(e) => {
+                        register("name").onChange(e);
+                        searchByName(e.target.value);
+                      }}
+                      onFocus={() => { if (nameResults.length > 0) setShowNameResults(true); }}
+                      onBlur={() => { setTimeout(() => setShowNameResults(false), 200); }}
+                    />
                     {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
+                    {showNameResults && (
+                      <div ref={nameDropdownRef} className="absolute z-50 top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-lg border bg-popover shadow-lg">
+                        {nameLoading && (
+                          <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" /> Recherche…
+                          </div>
+                        )}
+                        {nameResults.map((r) => (
+                          <button
+                            key={r.siren}
+                            type="button"
+                            className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b last:border-b-0"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => fillFromEntreprise(r, setValue as any)}
+                          >
+                            <p className="text-sm font-medium text-foreground truncate">{r.nom_complet}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              SIRET {r.siege?.siret} · {r.siege?.commune} {r.siege?.code_postal}
+                              {r.activite_principale && ` · ${r.activite_principale}`}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="code">Code client</Label>
@@ -286,7 +282,7 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
                     <Label htmlFor="siret">SIRET</Label>
                     <div className="flex gap-1.5">
                       <Input id="siret" {...register("siret")} placeholder="123 456 789 00012" className="flex-1" />
-                      <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={lookupSiret} disabled={siretLoading} title="Rechercher les données de l'entreprise">
+                      <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => lookupSiret(watch("siret") || "", setValue as any)} disabled={siretLoading} title="Rechercher les données de l'entreprise">
                         {siretLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                       </Button>
                     </div>

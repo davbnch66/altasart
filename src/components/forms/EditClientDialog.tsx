@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building2, Users, MapPin, CreditCard, Briefcase, StickyNote, Loader2, Search } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { useSiretLookup } from "@/hooks/useSiretLookup";
 
 const tagOptions = ["Déménagement", "Garde-meubles", "Stockage", "Manutention", "Distribution", "Archives"];
 
@@ -90,43 +91,13 @@ interface EditClientDialogProps {
 export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialogProps) => {
   const { dbCompanies } = useCompany();
   const queryClient = useQueryClient();
-  const [siretLoading, setSiretLoading] = useState(false);
+  const nameDropdownRef = useRef<HTMLDivElement>(null);
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
 
-  const lookupSiret = useCallback(async () => {
-    const siret = (watch("siret") || "").replace(/\s/g, "");
-    if (siret.length !== 14) {
-      toast.error("Le SIRET doit contenir 14 chiffres");
-      return;
-    }
-    setSiretLoading(true);
-    try {
-      const res = await fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${siret}&mtm_campaign=lovable`);
-      if (!res.ok) throw new Error("API indisponible");
-      const data = await res.json();
-      const etab = data.results?.[0];
-      if (!etab) { toast.error("Aucune entreprise trouvée pour ce SIRET"); return; }
-      const siege = etab.siege || {};
-      const matchingEtab = etab.matching_etablissements?.find((e: any) => e.siret === siret) || siege;
-      if (etab.nom_complet) setValue("name", etab.nom_complet);
-      if (etab.activite_principale) setValue("ape_naf", etab.activite_principale);
-      const siren = siret.substring(0, 9);
-      const tvaKey = (12 + 3 * (parseInt(siren) % 97)) % 97;
-      setValue("tva_intra", `FR${String(tvaKey).padStart(2, "0")}${siren}`);
-      const addr = matchingEtab || siege;
-      if (addr.adresse) setValue("address", addr.adresse);
-      if (addr.code_postal) setValue("postal_code", addr.code_postal);
-      if (addr.commune) setValue("city", addr.commune);
-      toast.success(`Données pré-remplies pour ${etab.nom_complet}`);
-    } catch (e: any) {
-      toast.error(e.message || "Erreur lors de la recherche SIRET");
-    } finally {
-      setSiretLoading(false);
-    }
-  }, [watch, setValue]);
+  const { siretLoading, lookupSiret, nameResults, nameLoading, showNameResults, setShowNameResults, searchByName, fillFromEntreprise } = useSiretLookup();
 
   useEffect(() => {
     if (open && client) {
@@ -272,10 +243,44 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
             <div className="flex-1 overflow-y-auto pr-1 mt-2">
               <TabsContent value="general" className="mt-0">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
+                  <div className="col-span-2 relative">
                     <Label htmlFor="edit-name">Nom / Raison sociale *</Label>
-                    <Input id="edit-name" {...register("name")} />
+                    <Input
+                      id="edit-name"
+                      {...register("name")}
+                      autoComplete="off"
+                      onChange={(e) => {
+                        register("name").onChange(e);
+                        searchByName(e.target.value);
+                      }}
+                      onFocus={() => { if (nameResults.length > 0) setShowNameResults(true); }}
+                      onBlur={() => { setTimeout(() => setShowNameResults(false), 200); }}
+                    />
                     {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
+                    {showNameResults && (
+                      <div ref={nameDropdownRef} className="absolute z-50 top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-lg border bg-popover shadow-lg">
+                        {nameLoading && (
+                          <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" /> Recherche…
+                          </div>
+                        )}
+                        {nameResults.map((r) => (
+                          <button
+                            key={r.siren}
+                            type="button"
+                            className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b last:border-b-0"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => fillFromEntreprise(r, setValue as any)}
+                          >
+                            <p className="text-sm font-medium text-foreground truncate">{r.nom_complet}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              SIRET {r.siege?.siret} · {r.siege?.commune} {r.siege?.code_postal}
+                              {r.activite_principale && ` · ${r.activite_principale}`}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="edit-code">Code client</Label>
@@ -313,7 +318,7 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
                     <Label htmlFor="edit-siret">SIRET</Label>
                     <div className="flex gap-1.5">
                       <Input id="edit-siret" {...register("siret")} className="flex-1" />
-                      <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={lookupSiret} disabled={siretLoading} title="Rechercher les données de l'entreprise">
+                      <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => lookupSiret(watch("siret") || "", setValue as any)} disabled={siretLoading} title="Rechercher les données de l'entreprise">
                         {siretLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                       </Button>
                     </div>
