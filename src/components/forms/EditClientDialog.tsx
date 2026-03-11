@@ -243,10 +243,44 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
             <div className="flex-1 overflow-y-auto pr-1 mt-2">
               <TabsContent value="general" className="mt-0">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2">
+                  <div className="col-span-2 relative">
                     <Label htmlFor="edit-name">Nom / Raison sociale *</Label>
-                    <Input id="edit-name" {...register("name")} />
+                    <Input
+                      id="edit-name"
+                      {...register("name")}
+                      autoComplete="off"
+                      onChange={(e) => {
+                        register("name").onChange(e);
+                        searchByName(e.target.value);
+                      }}
+                      onFocus={() => { if (nameResults.length > 0) setShowNameResults(true); }}
+                      onBlur={() => { setTimeout(() => setShowNameResults(false), 200); }}
+                    />
                     {errors.name && <p className="text-xs text-destructive mt-1">{errors.name.message}</p>}
+                    {showNameResults && (
+                      <div ref={nameDropdownRef} className="absolute z-50 top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-lg border bg-popover shadow-lg">
+                        {nameLoading && (
+                          <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" /> Recherche…
+                          </div>
+                        )}
+                        {nameResults.map((r) => (
+                          <button
+                            key={r.siren}
+                            type="button"
+                            className="w-full text-left px-3 py-2 hover:bg-accent transition-colors border-b last:border-b-0"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => fillFromEntreprise(r, setValue as any)}
+                          >
+                            <p className="text-sm font-medium text-foreground truncate">{r.nom_complet}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              SIRET {r.siege?.siret} · {r.siege?.commune} {r.siege?.code_postal}
+                              {r.activite_principale && ` · ${r.activite_principale}`}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="edit-code">Code client</Label>
