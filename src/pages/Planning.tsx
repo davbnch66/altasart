@@ -850,11 +850,11 @@ const Planning = () => {
             return (
               <div
                 key={resource.id}
-                className={`grid border-b last:border-b-0 transition-colors hover:brightness-95`}
-                style={{ gridTemplateColumns: `160px ${colWidth}` }}
+                className={`grid border-b border-border last:border-b-0 transition-colors hover:brightness-95`}
+                style={{ gridTemplateColumns: `180px ${colWidth}` }}
               >
                 {/* Resource label */}
-                <div className={`px-3 py-2.5 border-r flex items-center gap-2.5 ${rowIdx % 2 === 0 ? "bg-muted/20" : "bg-muted/5"} ${resourceConflicts.has(resource.id) ? "bg-destructive/10" : ""}`}>
+                <div className={`px-3 py-2.5 border-r-2 border-border flex items-center gap-2.5 ${rowIdx % 2 === 0 ? "bg-muted/20" : "bg-muted/5"} ${resourceConflicts.has(resource.id) ? "bg-destructive/10" : ""}`}>
                   <div className={`h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
                     resourceConflicts.has(resource.id)
                       ? "bg-destructive/20 text-destructive"
