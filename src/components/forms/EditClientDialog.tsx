@@ -318,7 +318,7 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
                     <Label htmlFor="edit-siret">SIRET</Label>
                     <div className="flex gap-1.5">
                       <Input id="edit-siret" {...register("siret")} className="flex-1" />
-                      <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={lookupSiret} disabled={siretLoading} title="Rechercher les données de l'entreprise">
+                      <Button type="button" variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => lookupSiret(watch("siret") || "", setValue as any)} disabled={siretLoading} title="Rechercher les données de l'entreprise">
                         {siretLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                       </Button>
                     </div>
