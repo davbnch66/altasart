@@ -88,9 +88,9 @@ interface CreateClientDialogProps {
 
 export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
   const [open, setOpen] = useState(false);
-  const [siretLoading, setSiretLoading] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
+  const nameDropdownRef = useRef<HTMLDivElement>(null);
 
   const defaultCompanyId = current !== "global" ? current : dbCompanies[0]?.id || "";
 
@@ -99,47 +99,7 @@ export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
     defaultValues: { company_id: defaultCompanyId, client_type: "societe", status: "nouveau_lead", tags: [], country: "France", credit_limit: 0, invoice_by_email: false },
   });
 
-  const lookupSiret = useCallback(async () => {
-    const siret = (watch("siret") || "").replace(/\s/g, "");
-    if (siret.length !== 14) {
-      toast.error("Le SIRET doit contenir 14 chiffres");
-      return;
-    }
-    setSiretLoading(true);
-    try {
-      const res = await fetch(`https://recherche-entreprises.api.gouv.fr/search?q=${siret}&mtm_campaign=lovable`);
-      if (!res.ok) throw new Error("API indisponible");
-      const data = await res.json();
-      const etab = data.results?.[0];
-      if (!etab) { toast.error("Aucune entreprise trouvée pour ce SIRET"); return; }
-
-      // Find matching establishment
-      const siege = etab.siege || {};
-      const matchingEtab = etab.matching_etablissements?.find((e: any) => e.siret === siret) || siege;
-
-      // Fill form fields
-      if (etab.nom_complet) setValue("name", etab.nom_complet);
-      if (etab.activite_principale) setValue("ape_naf", etab.activite_principale);
-
-      // TVA number: FR + key + SIREN
-      const siren = siret.substring(0, 9);
-      const tvaKey = (12 + 3 * (parseInt(siren) % 97)) % 97;
-      setValue("tva_intra", `FR${String(tvaKey).padStart(2, "0")}${siren}`);
-
-      // Address from matching establishment or siege
-      const addr = matchingEtab || siege;
-      if (addr.adresse) setValue("address", addr.adresse);
-      if (addr.code_postal) setValue("postal_code", addr.code_postal);
-      if (addr.commune) setValue("city", addr.commune);
-      setValue("country", "France");
-
-      toast.success(`Données pré-remplies pour ${etab.nom_complet}`);
-    } catch (e: any) {
-      toast.error(e.message || "Erreur lors de la recherche SIRET");
-    } finally {
-      setSiretLoading(false);
-    }
-  }, [watch, setValue]);
+  const { siretLoading, lookupSiret, nameResults, nameLoading, showNameResults, setShowNameResults, searchByName, fillFromEntreprise } = useSiretLookup();
 
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
