@@ -605,7 +605,7 @@ const Planning = () => {
     const colWidth = view === "day" ? "1fr" : `repeat(${days.length}, minmax(0, 1fr))`;
 
     return (
-      <div className="flex-1 flex flex-col gap-2">
+      <div className="flex-1 flex flex-col gap-2 min-h-0">
         {/* Conflict banner */}
         {conflictSummary.length > 0 && (
           <div className="rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 flex items-start gap-3">
@@ -620,7 +620,7 @@ const Planning = () => {
             </div>
           </div>
         )}
-        <div className="flex-1 rounded-xl border bg-card overflow-auto">
+        <div className="flex-1 rounded-xl border bg-card overflow-auto min-h-0">
         <div className={isMobile ? "min-w-[700px]" : ""}>
           {/* Day headers */}
           <div className="grid border-b-2 border-border sticky top-0 bg-card z-10 shadow-sm" style={{ gridTemplateColumns: `180px ${colWidth}` }}>
@@ -1360,7 +1360,7 @@ const Planning = () => {
   );
 
   return (
-    <div className={`max-w-full mx-auto flex flex-col ${isMobile ? "p-3 pb-20 space-y-3 min-h-full" : "p-6 lg:p-8 space-y-5 h-full"}`}>
+    <div className={`max-w-full mx-auto flex flex-col ${isMobile ? "p-3 pb-20 space-y-3 min-h-full" : "p-6 lg:p-8 space-y-5 h-[calc(100vh-1rem)]"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between flex-wrap gap-3">
         <div>
