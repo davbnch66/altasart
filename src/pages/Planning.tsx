@@ -667,9 +667,9 @@ const Planning = () => {
                 const span = firstIdx >= 0 ? lastIdx - firstIdx + 1 : 0;
 
                 return (
-                  <div key={op.id} className="grid border-b" style={{ gridTemplateColumns: `160px ${colWidth}` }}>
+                  <div key={op.id} className="grid border-b border-border" style={{ gridTemplateColumns: `180px ${colWidth}` }}>
                     <div
-                      className="px-3 py-2.5 border-r bg-muted/10 flex items-center gap-2 cursor-pointer hover:bg-muted/30 transition-colors"
+                      className="px-3 py-2.5 border-r-2 border-border bg-muted/10 flex items-center gap-2 cursor-pointer hover:bg-muted/30 transition-colors"
                       onClick={() => { setEditingOpId(op.id); setOpDialogOpen(true); }}
                     >
                       <div className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 bg-warning/20 text-warning">
