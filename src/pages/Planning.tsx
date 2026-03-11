@@ -941,7 +941,7 @@ const Planning = () => {
                     return (
                      <div
                        key={day.toISOString()}
-                       className={`group/cell border-r last:border-r-0 relative overflow-visible cursor-pointer transition-colors ${
+                       className={`group/cell border-r border-border last:border-r-0 relative overflow-visible cursor-pointer transition-colors ${
                          isToday(day) ? "bg-primary/5" : rowIdx % 2 === 0 ? "bg-muted/10" : ""
                        } hover:bg-muted/30 ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
                        style={{ minHeight: `${rowMinHeight}px` }}
