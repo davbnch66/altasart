@@ -40,7 +40,6 @@ const TabsTrigger = React.forwardRef<
     // Outside CompanyProvider, use default
   }
   const colors = companyColorMap[companyColor] || companyColorMap["primary"];
-  const isActive = props["data-state"] === "active";
 
   return (
     <TabsPrimitive.Trigger
@@ -50,11 +49,9 @@ const TabsTrigger = React.forwardRef<
         className,
       )}
       style={{
-        ...(style || {}),
-        "--tab-active-bg": colors.bg,
-        "--tab-active-fg": colors.fg,
-        backgroundColor: isActive ? colors.bg : undefined,
-        color: isActive ? colors.fg : undefined,
+        ...style,
+        "--_tab-bg": colors.bg,
+        "--_tab-fg": colors.fg,
       } as React.CSSProperties}
       {...props}
     />
