@@ -102,7 +102,17 @@ export const AppLayout: React.FC = () => {
         </>
       )}
 
-      <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background">
+      <main className="relative flex-1 overflow-y-auto overflow-x-hidden bg-background">
+        {watermarkLogo && (
+          <div className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center" style={{ left: isMobile ? 0 : '15rem' }}>
+            <img
+              src={watermarkLogo}
+              alt=""
+              className="w-[40vw] max-w-[500px] opacity-[0.04] select-none"
+              draggable={false}
+            />
+          </div>
+        )}
         <OfflineBanner />
         <OnboardingWizard />
         {isMobile && (
