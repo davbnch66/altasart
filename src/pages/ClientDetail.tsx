@@ -5,7 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Mail, Phone, MapPin, Building2, User, FileText, Receipt, CreditCard,
   FolderOpen, ClipboardCheck, Pencil, Trash2, ChevronRight, Euro, MessageSquare,
-  Plus, StickyNote, Calendar, Send, Users, Tag,
+  Plus, StickyNote, Calendar, Send, Users, Tag, HardHat,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,12 +26,13 @@ import { ClientReplyForm } from "@/components/client/ClientReplyForm";
 import { ClientNotesTab } from "@/components/client/ClientNotesTab";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
 
-type TabKey = "infos" | "contacts" | "dossiers" | "echanges" | "notes" | "factures" | "devis" | "reglements" | "visites";
+type TabKey = "infos" | "contacts" | "dossiers" | "chantiers" | "echanges" | "notes" | "factures" | "devis" | "reglements" | "visites";
 
 const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: "infos", label: "Infos", icon: User },
   { key: "contacts", label: "Contacts", icon: Users },
   { key: "dossiers", label: "Dossiers", icon: FolderOpen },
+  { key: "chantiers", label: "Chantiers", icon: HardHat },
   { key: "echanges", label: "Échanges", icon: MessageSquare },
   { key: "notes", label: "Notes", icon: StickyNote },
   { key: "factures", label: "Factures", icon: Receipt },
@@ -468,6 +469,58 @@ const ClientDetail = () => {
             </div>
           )
         )}
+
+        {activeTab === "chantiers" && (() => {
+          const activeStages = ["planifie", "en_cours", "termine", "accepte"];
+          const chantiersEnCours = dossiers.filter((d) => activeStages.includes(d.stage));
+          return (
+            <div className={`${isMobile ? "space-y-2" : "rounded-xl border bg-card overflow-hidden"}`}>
+              {!isMobile && (
+                <div className="p-4 border-b">
+                  <h3 className="font-semibold">Chantiers en cours ({chantiersEnCours.length})</h3>
+                </div>
+              )}
+              {chantiersEnCours.length === 0 ? (
+                <p className={`text-center text-muted-foreground text-sm ${isMobile ? "py-8" : "px-4 py-12"}`}>Aucun chantier en cours</p>
+              ) : (
+                <div className={isMobile ? "space-y-2" : "divide-y"}>
+                  {chantiersEnCours.map((d) => {
+                    const stageKeys = ["prospect", "devis", "accepte", "planifie", "en_cours", "termine", "facture", "paye"];
+                    const progress = ((stageKeys.indexOf(d.stage) + 1) / stageKeys.length) * 100;
+                    return (
+                      <div
+                        key={d.id}
+                        className={`cursor-pointer transition-colors ${isMobile ? "rounded-xl border bg-card p-3" : "px-5 py-4 hover:bg-muted/30"}`}
+                        onClick={() => navigate(`/dossiers/${d.id}`, { state: { fromClient: true } })}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-mono text-xs font-medium shrink-0">{d.code || "—"}</span>
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${dossierStageStyles[d.stage] || ""}`}>
+                              {dossierStageLabels[d.stage] || d.stage}
+                            </span>
+                          </div>
+                          <span className="font-semibold text-sm shrink-0">{formatAmount(d.amount)}</span>
+                        </div>
+                        <p className={`font-medium break-words ${isMobile ? "text-xs" : "text-sm"}`}>{d.title}</p>
+                        <div className="flex gap-0.5 mt-2">
+                          {stageKeys.map((key, i) => (
+                            <div key={key} className={`flex-1 h-1 rounded-full ${i <= stageKeys.indexOf(d.stage) ? "bg-primary" : "bg-muted"}`} />
+                          ))}
+                        </div>
+                        <div className="flex items-center justify-between mt-1.5">
+                          <span className="text-[10px] text-muted-foreground">{formatDate(d.start_date || d.created_at)}</span>
+                          {d.end_date && <span className="text-[10px] text-muted-foreground">→ {formatDate(d.end_date)}</span>}
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {activeTab === "echanges" && (
           <div className="space-y-4">

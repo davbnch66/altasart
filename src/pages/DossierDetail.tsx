@@ -25,6 +25,8 @@ import { DossierAvariesTab } from "@/components/dossier/DossierAvariesTab";
 import { DetailBreadcrumb, BreadcrumbItem } from "@/components/DetailBreadcrumb";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
 import { DossierCostsTab } from "@/components/dossier/DossierCostsTab";
+import { DossierTimeline } from "@/components/dossier/DossierTimeline";
+import { DossierNextAction } from "@/components/dossier/DossierNextAction";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 
 const stageLabels: Record<string, string> = {
@@ -231,6 +233,7 @@ const DossierDetail = () => {
   const currentStageIdx = stageKeys.indexOf(dossier.stage);
 
   const tabItems = [
+    { key: "timeline", label: "Chronologie", count: null, icon: BarChart3 },
     { key: "visites", label: "Visites", count: visites.length, icon: Eye },
     { key: "devis", label: "Devis", count: devis.length, icon: FileText },
     { key: "operations", label: "Opérations", count: operations.length, icon: Cog },
@@ -297,6 +300,15 @@ const DossierDetail = () => {
           </div>
         ))}
       </motion.div>
+
+      {/* Next Action Banner */}
+      <DossierNextAction
+        dossier={dossier}
+        devis={devis}
+        factures={factures}
+        visites={visites}
+        operationsCount={operations.length}
+      />
 
       {/* Info cards */}
       <div className={`grid gap-3 ${isMobile ? "" : "lg:grid-cols-2 gap-4"}`}>
@@ -376,7 +388,7 @@ const DossierDetail = () => {
         </motion.div>
       )}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-        <Tabs defaultValue="visites">
+        <Tabs defaultValue="timeline">
           {isMobile ? (
             <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-3 px-3 pb-1">
               {tabItems.map((tab) => (
@@ -396,6 +408,18 @@ const DossierDetail = () => {
               ))}
             </TabsList>
           )}
+
+          <TabsContent value="timeline">
+            <div className="rounded-xl border bg-card p-4">
+              <DossierTimeline
+                dossierId={id!}
+                dossier={dossier}
+                devis={devis}
+                factures={factures}
+                visites={visites}
+              />
+            </div>
+          </TabsContent>
 
           <TabsContent value="visites">
             <div className="space-y-3">
