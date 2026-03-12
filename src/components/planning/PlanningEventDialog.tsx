@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Calendar as CalendarIcon, Clock, Loader2, MapPin, Palette, Tag, Users, Truck, User, Link2, AlertTriangle, FileText, Trash2, Plus, X, Warehouse, Building2, HardHat, ExternalLink, CheckCircle } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, Loader2, MapPin, Palette, Tag, Users, Truck, User, Link2, AlertTriangle, FileText, Trash2, Plus, X, Warehouse, Building2, HardHat, ExternalLink, CheckCircle, ArrowDownToLine } from "lucide-react";
 import { MaterielListDisplay } from "@/components/MaterielListDisplay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import { format, differenceInCalendarDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { useNavigate } from "react-router-dom";
+import { AiWriteButton } from "@/components/planning/AiWriteButton";
 
 interface PlanningEventDialogProps {
   open: boolean;
@@ -314,6 +315,30 @@ export const PlanningEventDialog = ({
         .eq("dossier_id", dossierId)
         .order("sort_order");
       return data || [];
+    },
+    enabled: open && !!dossierId && dossierId !== "__none__",
+  });
+
+  // ── Fetch visite & devis instructions linked to the dossier ──
+  const { data: dossierSources } = useQuery({
+    queryKey: ["event-dossier-sources", dossierId],
+    queryFn: async () => {
+      if (!dossierId || dossierId === "__none__") return null;
+      // Fetch visites with methodologie/instructions
+      const { data: visites } = await supabase
+        .from("visites")
+        .select("id, code, methodologie, instructions, contraintes_acces, contraintes_techniques")
+        .eq("dossier_id", dossierId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      // Fetch devis with notes/custom_content
+      const { data: devisData } = await supabase
+        .from("devis")
+        .select("id, code, notes, custom_content, objet")
+        .eq("dossier_id", dossierId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      return { visites: visites || [], devis: devisData || [] };
     },
     enabled: open && !!dossierId && dossierId !== "__none__",
   });
@@ -810,6 +835,41 @@ export const PlanningEventDialog = ({
     },
   };
 
+  // ── Build context string for AI generation ──
+  const buildAiContext = useCallback(() => {
+    const parts: string[] = [];
+    if (title) parts.push(`Titre : ${title}`);
+    const typeLabel = EVENT_TYPES.find(t => t.value === eventType)?.label;
+    if (typeLabel) parts.push(`Type : ${typeLabel}`);
+    const client = clients.find((c: any) => c.id === clientId);
+    if (client) parts.push(`Client : ${client.name}`);
+    const dossier = dossiers.find((d: any) => d.id === dossierId);
+    if (dossier) parts.push(`Dossier : ${dossier.code || ""} ${dossier.title}`);
+    if (loadingAddress || loadingCity) parts.push(`Chargement : ${loadingAddress} ${loadingPostalCode} ${loadingCity}`.trim());
+    if (loadingFloor) parts.push(`Étage chargement : ${loadingFloor}`);
+    if (loadingAccess) parts.push(`Accès chargement : ${loadingAccess}`);
+    if (deliveryAddress || deliveryCity) parts.push(`Livraison : ${deliveryAddress} ${deliveryPostalCode} ${deliveryCity}`.trim());
+    if (deliveryFloor) parts.push(`Étage livraison : ${deliveryFloor}`);
+    if (deliveryAccess) parts.push(`Accès livraison : ${deliveryAccess}`);
+    if (volume) parts.push(`Volume : ${volume} m³`);
+    if (weight) parts.push(`Poids : ${weight} t`);
+    if (loadingElevator) parts.push("Ascenseur au chargement");
+    if (deliveryElevator) parts.push("Ascenseur à la livraison");
+    if (loadingPassageFenetre || deliveryPassageFenetre) parts.push("Passage fenêtre requis");
+    if (loadingMonteMeubles || deliveryMonteMeubles) parts.push("Monte-meubles requis");
+    // Include visite/devis sources if available
+    if (dossierSources) {
+      dossierSources.visites.forEach((v: any) => {
+        if (v.methodologie) parts.push(`Méthodologie visite : ${v.methodologie.substring(0, 500)}`);
+        if (v.contraintes_techniques) parts.push(`Contraintes techniques : ${v.contraintes_techniques}`);
+        if (v.contraintes_acces) parts.push(`Contraintes accès : ${v.contraintes_acces}`);
+      });
+    }
+    const selectedRes = resources.filter((r: any) => resourceIds.includes(r.id));
+    if (selectedRes.length > 0) parts.push(`Ressources : ${selectedRes.map((r: any) => r.name).join(", ")}`);
+    return parts.join("\n");
+  }, [title, eventType, clientId, dossierId, clients, dossiers, loadingAddress, loadingPostalCode, loadingCity, loadingFloor, loadingAccess, deliveryAddress, deliveryPostalCode, deliveryCity, deliveryFloor, deliveryAccess, volume, weight, loadingElevator, deliveryElevator, loadingPassageFenetre, deliveryPassageFenetre, loadingMonteMeubles, deliveryMonteMeubles, dossierSources, resources, resourceIds]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
@@ -1208,18 +1268,111 @@ export const PlanningEventDialog = ({
 
           {/* ── Tab: Détails ── */}
           <TabsContent value="details" className="px-6 py-4 space-y-4 mt-0">
+            {/* Sources from visite/devis */}
+            {dossierSources && (dossierSources.visites.length > 0 || dossierSources.devis.length > 0) && (
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <ArrowDownToLine className="h-3 w-3" /> Récupérer depuis les sources
+                </h4>
+                {dossierSources.visites.map((v: any) => {
+                  const hasContent = v.methodologie || v.instructions || v.contraintes_acces || v.contraintes_techniques;
+                  if (!hasContent) return null;
+                  return (
+                    <div key={v.id} className="space-y-1">
+                      <p className="text-[10px] font-medium text-primary">Visite {v.code || ""}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {v.methodologie && (
+                          <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2"
+                            onClick={() => setInstructions(prev => prev ? `${prev}\n\n${v.methodologie}` : v.methodologie)}>
+                            + Méthodologie
+                          </Button>
+                        )}
+                        {v.instructions && (
+                          <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2"
+                            onClick={() => setInstructions(prev => prev ? `${prev}\n\n${v.instructions}` : v.instructions)}>
+                            + Consignes visite
+                          </Button>
+                        )}
+                        {v.contraintes_acces && (
+                          <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2"
+                            onClick={() => setInstructions(prev => prev ? `${prev}\n\nAccès : ${v.contraintes_acces}` : `Accès : ${v.contraintes_acces}`)}>
+                            + Contraintes accès
+                          </Button>
+                        )}
+                        {v.contraintes_techniques && (
+                          <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2"
+                            onClick={() => setInstructions(prev => prev ? `${prev}\n\n${v.contraintes_techniques}` : v.contraintes_techniques)}>
+                            + Contraintes techniques
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {dossierSources.devis.map((d: any) => {
+                  if (!d.notes && !d.custom_content) return null;
+                  return (
+                    <div key={d.id} className="space-y-1">
+                      <p className="text-[10px] font-medium text-primary">Devis {d.code || d.objet}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {d.notes && (
+                          <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2"
+                            onClick={() => setInternalNotes(prev => prev ? `${prev}\n\n${d.notes}` : d.notes)}>
+                            + Notes devis
+                          </Button>
+                        )}
+                        {d.custom_content && (
+                          <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2"
+                            onClick={() => setDescription(prev => prev ? `${prev}\n\n${d.custom_content}` : d.custom_content)}>
+                            + Contenu devis
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Consignes / Mode opératoire</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Consignes / Mode opératoire</Label>
+                <AiWriteButton
+                  field="instructions"
+                  context={buildAiContext()}
+                  currentText={instructions}
+                  onGenerated={setInstructions}
+                  label="Rédiger avec l'IA"
+                />
+              </div>
               <Textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Mode opératoire, consignes de sécurité…" rows={3} className="resize-none text-sm" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Description</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Description</Label>
+                <AiWriteButton
+                  field="description"
+                  context={buildAiContext()}
+                  currentText={description}
+                  onGenerated={setDescription}
+                  label="Rédiger avec l'IA"
+                />
+              </div>
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Détails de l'intervention…" rows={3} className="resize-none text-sm" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <FileText className="h-3 w-3" /> Notes internes
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                  <FileText className="h-3 w-3" /> Notes internes
+                </Label>
+                <AiWriteButton
+                  field="notes"
+                  context={buildAiContext()}
+                  currentText={internalNotes}
+                  onGenerated={setInternalNotes}
+                  label="Rédiger avec l'IA"
+                />
+              </div>
               <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="Notes visibles uniquement en interne…" rows={3} className="resize-none text-sm bg-muted/30" />
             </div>
           </TabsContent>
