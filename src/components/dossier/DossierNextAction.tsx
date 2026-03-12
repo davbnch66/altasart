@@ -109,17 +109,9 @@ export const DossierNextAction: React.FC<Props> = ({ dossier, devis, factures, v
       icon: CalendarDays,
       color: "text-primary",
       action: acceptedDevis ? (
-        <ScheduleChantierDialog
-          devisId={acceptedDevis.id}
-          dossierId={dossier.id}
-          clientId={client?.id}
-          companyId={dossier.company_id}
-          trigger={
-            <Button size="sm" className="gap-1.5">
-              <CalendarDays className="h-3.5 w-3.5" /> Programmer
-            </Button>
-          }
-        />
+        <Button size="sm" className="gap-1.5" onClick={() => setScheduleOpen(true)}>
+          <CalendarDays className="h-3.5 w-3.5" /> Programmer
+        </Button>
       ) : null,
     });
   }
