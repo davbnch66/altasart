@@ -10,6 +10,13 @@ import { Button } from "@/components/ui/button";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { useMyRole, canAccessRoute } from "@/hooks/useMyRole";
+import { useCompany } from "@/contexts/CompanyContext";
+
+const companyLogoMap: Record<string, string> = {
+  "company-art": "/logos/artlevage.png",
+  "company-altigrues": "/logos/altigrues.png",
+  "company-asdgm": "/logos/asdgm.png",
+};
 
 const PAGE_NAMES: Record<string, string> = {
   "/": "Dashboard",
@@ -65,6 +72,8 @@ export const AppLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const { role } = useMyRole();
+  const { currentCompany } = useCompany();
+  const watermarkLogo = companyLogoMap[currentCompany.color];
 
   useEffect(() => {
     if (isMobile) setSidebarOpen(false);
@@ -93,7 +102,17 @@ export const AppLayout: React.FC = () => {
         </>
       )}
 
-      <main className="flex-1 overflow-y-auto overflow-x-hidden bg-background">
+      <main className="relative flex-1 overflow-y-auto overflow-x-hidden bg-background">
+        {watermarkLogo && (
+          <div className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center" style={{ left: isMobile ? 0 : '15rem' }}>
+            <img
+              src={watermarkLogo}
+              alt=""
+              className="w-[40vw] max-w-[500px] opacity-[0.04] select-none"
+              draggable={false}
+            />
+          </div>
+        )}
         <OfflineBanner />
         <OnboardingWizard />
         {isMobile && (
