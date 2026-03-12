@@ -11,9 +11,16 @@ import { toast } from "sonner";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { UnsavedChangesDialog } from "@/components/UnsavedChangesDialog";
 
+const SIDEBAR_BG_KEY = "__sidebar_bg";
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 // ─── HSL helpers ──────────────────────────────────────────────────────────────
 function hslToHex(h: number, s: number, l: number): string {
-  const sn = s / 100, ln = l / 100;
+  const sn = s / 100;
+  const ln = l / 100;
   const a = sn * Math.min(ln, 1 - ln);
   const f = (n: number) => {
     const k = (n + h / 30) % 12;
@@ -27,9 +34,12 @@ function hexToHsl(hex: string): [number, number, number] {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
   const g = parseInt(hex.slice(3, 5), 16) / 255;
   const b = parseInt(hex.slice(5, 7), 16) / 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  let h = 0, s = 0;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
   const l = (max + min) / 2;
+
   if (max !== min) {
     const d = max - min;
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
@@ -37,6 +47,7 @@ function hexToHsl(hex: string): [number, number, number] {
     else if (max === g) h = ((b - r) / d + 2) * 60;
     else h = ((r - g) / d + 4) * 60;
   }
+
   return [Math.round(h), Math.round(s * 100), Math.round(l * 100)];
 }
 
@@ -45,8 +56,26 @@ function parseHslString(hsl: string): [number, number, number] {
   return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
 }
 
-function hslStr(h: number, s: number, l: number) {
+function hslCss(hsl: string): string {
+  const [h, s, l] = parseHslString(hsl);
   return `hsl(${h}, ${s}%, ${l}%)`;
+}
+
+function buildSidebarPaletteFromBackground(backgroundHsl: string, fallback: Record<string, string>) {
+  const [h, s, l] = parseHslString(backgroundHsl);
+  const isDark = l < 45;
+
+  return {
+    ...fallback,
+    "--sidebar-background": `${h} ${s}% ${l}%`,
+    "--sidebar-foreground": isDark ? "210 40% 98%" : "222 47% 11%",
+    "--sidebar-accent": `${h} ${clamp(s - 8, 8, 95)}% ${clamp(isDark ? l + 8 : l - 8, 4, 96)}%`,
+    "--sidebar-accent-foreground": isDark ? "210 40% 98%" : "222 47% 11%",
+    "--sidebar-border": `${h} ${clamp(s - 20, 6, 95)}% ${clamp(isDark ? l + 14 : l - 14, 4, 96)}%`,
+    "--sidebar-muted": isDark ? `${h} ${clamp(s - 25, 5, 95)}% ${clamp(l + 24, 20, 90)}%` : "220 9% 46%",
+    "--sidebar-primary": isDark ? "210 40% 98%" : "222 47% 11%",
+    "--sidebar-primary-foreground": isDark ? "222 47% 11%" : "210 40% 98%",
+  };
 }
 
 // ─── Sidebar theme maps ──────────────────────────────────────────────────────
@@ -133,6 +162,7 @@ const FONT_SIZE_OPTIONS = [
   { value: "large", label: "Grand", scale: "1.125" },
 ];
 
+// ─── Default company colors ──────────────────────────────────────────────────
 const DEFAULT_COMPANY_COLORS: Record<string, string> = {
   "company-art": "24 95% 53%",
   "company-altigrues": "205 85% 50%",
@@ -155,21 +185,18 @@ const DEFAULT_SETTINGS: ThemeSettings = {
   sidebarStyle: "default",
 };
 
-// ─── Color Swatch Button ─────────────────────────────────────────────────────
 function ColorSwatch({ hsl, active, onClick, label }: { hsl: string; active: boolean; onClick: () => void; label: string }) {
-  const [h, s, l] = parseHslString(hsl);
   return (
     <button
       type="button"
       onClick={onClick}
       title={label}
       className={`h-8 w-8 rounded-full border-2 transition-all hover:scale-110 ${active ? "border-foreground ring-2 ring-ring ring-offset-2 ring-offset-background" : "border-transparent"}`}
-      style={{ backgroundColor: hslStr(h, s, l) }}
+      style={{ backgroundColor: hslCss(hsl) }}
     />
   );
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
 export function AppearanceSettingsTab() {
   const { user } = useAuth();
   const { dbCompanies, currentCompany } = useCompany();
@@ -178,7 +205,6 @@ export function AppearanceSettingsTab() {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
-  // Fetch saved settings
   const { data: savedSettings, isLoading } = useQuery({
     queryKey: ["user-theme-settings", user?.id],
     queryFn: async () => {
@@ -194,16 +220,15 @@ export function AppearanceSettingsTab() {
   });
 
   useEffect(() => {
-    if (savedSettings) {
-      setSettings({
-        darkMode: savedSettings.dark_mode,
-        borderRadius: savedSettings.border_radius,
-        fontSize: savedSettings.font_size,
-        companyColors: (savedSettings.company_colors as Record<string, string>) || {},
-        sidebarStyle: savedSettings.sidebar_style,
-      });
-      setDirty(false);
-    }
+    if (!savedSettings) return;
+    setSettings({
+      darkMode: savedSettings.dark_mode,
+      borderRadius: savedSettings.border_radius,
+      fontSize: savedSettings.font_size,
+      companyColors: (savedSettings.company_colors as Record<string, string>) || {},
+      sidebarStyle: savedSettings.sidebar_style,
+    });
+    setDirty(false);
   }, [savedSettings]);
 
   const updateSetting = useCallback(<K extends keyof ThemeSettings>(key: K, value: ThemeSettings[K]) => {
@@ -211,62 +236,55 @@ export function AppearanceSettingsTab() {
     setDirty(true);
   }, []);
 
-  // ─── Apply sidebar CSS vars based on style ────────────────────────────────
-  const applySidebarVars = useCallback((style: string, companyColor: string) => {
-    const root = document.documentElement;
-    let vars: Record<string, string>;
-
-    if (style === "light") {
-      vars = LIGHT_SIDEBAR;
-    } else if (style === "dark") {
-      vars = DARK_SIDEBAR;
-    } else {
-      // "default" = company-colored
-      vars = COMPANY_SIDEBAR_COLORS[companyColor] || DARK_SIDEBAR;
-    }
-
-    SIDEBAR_KEYS.forEach((key) => {
-      root.style.setProperty(key, vars[key] || "");
-    });
+  const getBaseSidebarVars = useCallback((style: string, companyColor: string) => {
+    if (style === "light") return LIGHT_SIDEBAR;
+    if (style === "dark") return DARK_SIDEBAR;
+    return COMPANY_SIDEBAR_COLORS[companyColor] || DARK_SIDEBAR;
   }, []);
 
-  // ─── Live preview: apply all settings to DOM ──────────────────────────────
+  const getSidebarBackgroundHsl = useCallback(() => {
+    return settings.companyColors[SIDEBAR_BG_KEY]
+      || getBaseSidebarVars(settings.sidebarStyle, currentCompany.color)["--sidebar-background"];
+  }, [settings.companyColors, settings.sidebarStyle, currentCompany.color, getBaseSidebarVars]);
+
+  // Live preview + app theme application
   useEffect(() => {
     const root = document.documentElement;
 
-    // Dark mode
     if (settings.darkMode) root.classList.add("dark");
     else root.classList.remove("dark");
 
-    // Border radius
     root.style.setProperty("--radius", settings.borderRadius);
 
-    // Font size
     const scale = FONT_SIZE_OPTIONS.find((f) => f.value === settings.fontSize)?.scale || "1";
     root.style.fontSize = `${parseFloat(scale) * 16}px`;
 
-    // Primary color from company colors
     const colorKey = currentCompany.color;
-    const customColor = settings.companyColors[colorKey] || settings.companyColors["primary"];
-    if (customColor) {
-      root.style.setProperty("--primary", customColor);
-      root.style.setProperty("--ring", customColor);
+    const customPrimary = settings.companyColors[colorKey] || settings.companyColors["primary"];
+    if (customPrimary) {
+      root.style.setProperty("--primary", customPrimary);
+      root.style.setProperty("--ring", customPrimary);
     } else {
       root.style.removeProperty("--primary");
       root.style.removeProperty("--ring");
     }
 
-    // Sidebar style
-    applySidebarVars(settings.sidebarStyle, colorKey);
+    const baseSidebar = getBaseSidebarVars(settings.sidebarStyle, colorKey);
+    const sidebarBg = settings.companyColors[SIDEBAR_BG_KEY];
+    const sidebarVars = sidebarBg ? buildSidebarPaletteFromBackground(sidebarBg, baseSidebar) : baseSidebar;
+
+    SIDEBAR_KEYS.forEach((key) => {
+      root.style.setProperty(key, sidebarVars[key] || "");
+    });
 
     return () => {
       root.style.fontSize = "";
     };
-  }, [settings, currentCompany.color, applySidebarVars]);
+  }, [settings, currentCompany.color, getBaseSidebarVars]);
 
-  // ─── Save ─────────────────────────────────────────────────────────────────
   const saveSettings = useCallback(async (): Promise<boolean> => {
     if (!user) return false;
+
     setSaving(true);
     try {
       const payload = {
@@ -283,6 +301,17 @@ export function AppearanceSettingsTab() {
         .upsert(payload, { onConflict: "user_id" });
 
       if (error) throw error;
+
+      window.dispatchEvent(new CustomEvent("theme-settings-updated", {
+        detail: {
+          companyColors: settings.companyColors,
+          sidebarStyle: settings.sidebarStyle,
+          darkMode: settings.darkMode,
+          borderRadius: settings.borderRadius,
+          fontSize: settings.fontSize,
+        },
+      }));
+
       toast.success("Préférences d'apparence sauvegardées");
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: ["user-theme-settings"] });
@@ -295,7 +324,6 @@ export function AppearanceSettingsTab() {
     }
   }, [user, settings, queryClient]);
 
-  // ─── Unsaved changes guard ────────────────────────────────────────────────
   const { isBlocked, proceed, reset, saveAndProceed } = useUnsavedChangesGuard(dirty, saveSettings);
 
   const resetToDefaults = () => {
@@ -314,37 +342,13 @@ export function AppearanceSettingsTab() {
     );
   }
 
-  // Compute preview sidebar color
-  const previewSidebarBg = (() => {
-    let bgHsl: string;
-    if (settings.sidebarStyle === "light") bgHsl = LIGHT_SIDEBAR["--sidebar-background"];
-    else if (settings.sidebarStyle === "dark") bgHsl = DARK_SIDEBAR["--sidebar-background"];
-    else bgHsl = (COMPANY_SIDEBAR_COLORS[currentCompany.color] || DARK_SIDEBAR)["--sidebar-background"];
-    const [h, s, l] = parseHslString(bgHsl);
-    return hslStr(h, s, l);
-  })();
-
-  const previewSidebarFg = (() => {
-    let fgHsl: string;
-    if (settings.sidebarStyle === "light") fgHsl = LIGHT_SIDEBAR["--sidebar-foreground"];
-    else if (settings.sidebarStyle === "dark") fgHsl = DARK_SIDEBAR["--sidebar-foreground"];
-    else fgHsl = (COMPANY_SIDEBAR_COLORS[currentCompany.color] || DARK_SIDEBAR)["--sidebar-foreground"];
-    const [h, s, l] = parseHslString(fgHsl);
-    return hslStr(h, s, l);
-  })();
-
-  const previewSidebarAccent = (() => {
-    let val: string;
-    if (settings.sidebarStyle === "light") val = LIGHT_SIDEBAR["--sidebar-accent"];
-    else if (settings.sidebarStyle === "dark") val = DARK_SIDEBAR["--sidebar-accent"];
-    else val = (COMPANY_SIDEBAR_COLORS[currentCompany.color] || DARK_SIDEBAR)["--sidebar-accent"];
-    const [h, s, l] = parseHslString(val);
-    return hslStr(h, s, l);
-  })();
+  const previewSidebarBg = hslCss(getSidebarBackgroundHsl());
+  const previewSidebarVars = settings.companyColors[SIDEBAR_BG_KEY]
+    ? buildSidebarPaletteFromBackground(settings.companyColors[SIDEBAR_BG_KEY], getBaseSidebarVars(settings.sidebarStyle, currentCompany.color))
+    : getBaseSidebarVars(settings.sidebarStyle, currentCompany.color);
 
   return (
     <div className="space-y-6">
-      {/* Unsaved changes dialog */}
       <UnsavedChangesDialog
         open={isBlocked}
         onStay={reset}
@@ -353,56 +357,49 @@ export function AppearanceSettingsTab() {
         saving={saving}
       />
 
-      {/* Header with save/reset */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <Paintbrush className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold">Apparence & Design</h2>
+          {dirty && <Badge variant="outline" className="text-[10px]">Non sauvegardé</Badge>}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={resetToDefaults}>
             <RotateCcw className="h-3 w-3" /> Réinitialiser
           </Button>
-          <Button size="sm" className="text-xs gap-1.5" onClick={saveSettings} disabled={saving || !dirty}>
+          <Button size="sm" className="text-xs gap-1.5" onClick={saveSettings} disabled={saving}>
             {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
             Sauvegarder
           </Button>
         </div>
       </div>
 
-      {/* Dark mode */}
       <div className="rounded-xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           {settings.darkMode ? <Moon className="h-4 w-4 text-primary" /> : <Sun className="h-4 w-4 text-primary" />}
           <h3 className="text-sm font-semibold">Mode d'affichage</h3>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex rounded-lg border bg-muted/30 p-0.5 gap-0.5">
-            <button
-              onClick={() => updateSetting("darkMode", false)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${!settings.darkMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-            >
-              <Sun className="h-3 w-3" /> Clair
-            </button>
-            <button
-              onClick={() => updateSetting("darkMode", true)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${settings.darkMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-            >
-              <Moon className="h-3 w-3" /> Sombre
-            </button>
-          </div>
+        <div className="flex rounded-lg border bg-muted/30 p-0.5 gap-0.5 w-fit">
+          <button
+            onClick={() => updateSetting("darkMode", false)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${!settings.darkMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <Sun className="h-3 w-3" /> Clair
+          </button>
+          <button
+            onClick={() => updateSetting("darkMode", true)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${settings.darkMode ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+          >
+            <Moon className="h-3 w-3" /> Sombre
+          </button>
         </div>
       </div>
 
-      {/* Company Colors */}
       <div className="rounded-xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Palette className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-semibold">Couleurs par société</h3>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Personnalisez la couleur principale de chaque société. Elle s'applique automatiquement à toute l'interface lorsque vous changez de contexte.
-        </p>
 
         {dbCompanies.map((company) => {
           const colorKey = company.color;
@@ -413,12 +410,11 @@ export function AppearanceSettingsTab() {
           return (
             <div key={company.id} className="space-y-3 rounded-lg border p-4">
               <div className="flex items-center gap-3">
-                <div className="h-4 w-4 rounded-full" style={{ backgroundColor: hslStr(h, s, l) }} />
+                <div className="h-4 w-4 rounded-full" style={{ backgroundColor: hslCss(currentHsl) }} />
                 <span className="text-sm font-medium">{company.name}</span>
                 <Badge variant="outline" className="text-[10px]">{company.shortName}</Badge>
               </div>
 
-              {/* Preset swatches */}
               <div className="flex flex-wrap gap-2">
                 {COLOR_PRESETS.map((preset) => (
                   <ColorSwatch
@@ -426,14 +422,11 @@ export function AppearanceSettingsTab() {
                     hsl={preset.hsl}
                     label={preset.name}
                     active={currentHsl === preset.hsl}
-                    onClick={() => {
-                      updateSetting("companyColors", { ...settings.companyColors, [colorKey]: preset.hsl });
-                    }}
+                    onClick={() => updateSetting("companyColors", { ...settings.companyColors, [colorKey]: preset.hsl })}
                   />
                 ))}
               </div>
 
-              {/* Custom color picker */}
               <div className="flex items-center gap-3">
                 <Label className="text-xs text-muted-foreground shrink-0">Couleur personnalisée</Label>
                 <input
@@ -450,59 +443,8 @@ export function AppearanceSettingsTab() {
             </div>
           );
         })}
-
-        {/* Global / default color */}
-        <div className="space-y-3 rounded-lg border p-4">
-          <div className="flex items-center gap-3">
-            {(() => {
-              const [gh, gs, gl] = parseHslString(settings.companyColors["primary"] || "222 60% 28%");
-              return <div className="h-4 w-4 rounded-full" style={{ backgroundColor: hslStr(gh, gs, gl) }} />;
-            })()}
-            <span className="text-sm font-medium">Vue globale</span>
-            <Badge variant="outline" className="text-[10px]">Par défaut</Badge>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {COLOR_PRESETS.map((preset) => {
-              const curGlobal = settings.companyColors["primary"] || "222 60% 28%";
-              return (
-                <ColorSwatch
-                  key={preset.hsl}
-                  hsl={preset.hsl}
-                  label={preset.name}
-                  active={curGlobal === preset.hsl}
-                  onClick={() => {
-                    updateSetting("companyColors", { ...settings.companyColors, primary: preset.hsl });
-                  }}
-                />
-              );
-            })}
-          </div>
-          <div className="flex items-center gap-3">
-            <Label className="text-xs text-muted-foreground shrink-0">Couleur personnalisée</Label>
-            {(() => {
-              const gHsl = settings.companyColors["primary"] || "222 60% 28%";
-              const [gh, gs, gl] = parseHslString(gHsl);
-              const gHex = hslToHex(gh, gs, gl);
-              return (
-                <>
-                  <input
-                    type="color"
-                    value={gHex}
-                    onChange={(e) => {
-                      const [h2, s2, l2] = hexToHsl(e.target.value);
-                      updateSetting("companyColors", { ...settings.companyColors, primary: `${h2} ${s2}% ${l2}%` });
-                    }}
-                    className="h-8 w-12 cursor-pointer rounded border border-input bg-transparent p-0.5"
-                  />
-                  <span className="text-[10px] text-muted-foreground font-mono">{gHex}</span>
-                </>
-              );
-            })()}
-          </div>
-        </div>
       </div>
 
-      {/* Border Radius */}
       <div className="rounded-xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Square className="h-4 w-4 text-primary" />
@@ -523,7 +465,6 @@ export function AppearanceSettingsTab() {
         </div>
       </div>
 
-      {/* Font Size */}
       <div className="rounded-xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Type className="h-4 w-4 text-primary" />
@@ -540,14 +481,8 @@ export function AppearanceSettingsTab() {
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-muted-foreground">
-          {settings.fontSize === "compact" ? "Interface dense, idéale pour les écrans larges." :
-           settings.fontSize === "large" ? "Texte agrandi pour une meilleure lisibilité." :
-           "Taille standard recommandée."}
-        </p>
       </div>
 
-      {/* Sidebar Style */}
       <div className="rounded-xl border bg-card p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Monitor className="h-4 w-4 text-primary" />
@@ -555,9 +490,9 @@ export function AppearanceSettingsTab() {
         </div>
         <div className="flex flex-wrap gap-3">
           {[
-            { value: "default", label: "Colorée", desc: "La sidebar prend la teinte de la société" },
-            { value: "dark", label: "Sombre fixe", desc: "Sidebar toujours sombre quelle que soit la société" },
-            { value: "light", label: "Claire", desc: "Sidebar avec fond clair" },
+            { value: "default", label: "Colorée", desc: "Couleurs de la société" },
+            { value: "dark", label: "Sombre fixe", desc: "Toujours sombre" },
+            { value: "light", label: "Claire", desc: "Fond clair" },
           ].map((style) => (
             <button
               key={style.value}
@@ -569,34 +504,72 @@ export function AppearanceSettingsTab() {
             </button>
           ))}
         </div>
+
+        <div className="rounded-lg border p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-xs text-muted-foreground">Couleur du fond de la sidebar</Label>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-[10px]"
+              onClick={() => {
+                const next = { ...settings.companyColors };
+                delete next[SIDEBAR_BG_KEY];
+                updateSetting("companyColors", next);
+              }}
+            >
+              Auto
+            </Button>
+          </div>
+          <div className="flex items-center gap-3">
+            {(() => {
+              const bgHsl = getSidebarBackgroundHsl();
+              const [h, s, l] = parseHslString(bgHsl);
+              const hex = hslToHex(h, s, l);
+              return (
+                <>
+                  <input
+                    type="color"
+                    value={hex}
+                    onChange={(e) => {
+                      const [h2, s2, l2] = hexToHsl(e.target.value);
+                      updateSetting("companyColors", { ...settings.companyColors, [SIDEBAR_BG_KEY]: `${h2} ${s2}% ${l2}%` });
+                    }}
+                    className="h-8 w-12 cursor-pointer rounded border border-input bg-transparent p-0.5"
+                  />
+                  <span className="text-[10px] text-muted-foreground font-mono">{hex}</span>
+                </>
+              );
+            })()}
+          </div>
+        </div>
       </div>
 
-      {/* Live Preview Box */}
       <div className="rounded-xl border bg-card p-5 space-y-4">
         <h3 className="text-sm font-semibold">Aperçu</h3>
-        
-        {/* Mini app preview */}
-        <div className="rounded-lg border overflow-hidden" style={{ height: 160 }}>
+        <div className="rounded-lg border overflow-hidden" style={{ height: 170 }}>
           <div className="flex h-full">
-            {/* Sidebar preview */}
             <div
               className="w-[180px] shrink-0 flex flex-col p-3 gap-1.5"
-              style={{ backgroundColor: previewSidebarBg, color: previewSidebarFg }}
+              style={{
+                backgroundColor: previewSidebarBg,
+                color: hslCss(previewSidebarVars["--sidebar-foreground"]),
+              }}
             >
               <div className="text-[10px] font-bold mb-1 opacity-80">MENU</div>
-              {["Tableau de bord", "Clients", "Devis", "Planning"].map((item, i) => (
+              {["Dashboard", "Clients", "Devis", "Planning"].map((item, i) => (
                 <div
                   key={item}
                   className="text-[10px] px-2 py-1 rounded"
-                  style={i === 0 ? { backgroundColor: previewSidebarAccent } : undefined}
+                  style={i === 0 ? { backgroundColor: hslCss(previewSidebarVars["--sidebar-accent"]) } : undefined}
                 >
                   {item}
                 </div>
               ))}
             </div>
-            {/* Content preview */}
-            <div className="flex-1 p-3 space-y-3" style={{ backgroundColor: settings.darkMode ? "hsl(222, 47%, 6%)" : "hsl(220, 20%, 97%)" }}>
-              <div className="flex gap-2 items-center">
+
+            <div className="flex-1 p-3 space-y-3 bg-background">
+              <div className="flex gap-2 items-center flex-wrap">
                 <Button size="sm" className="h-6 text-[10px] px-2">Principal</Button>
                 <Button variant="secondary" size="sm" className="h-6 text-[10px] px-2">Secondaire</Button>
                 <Button variant="outline" size="sm" className="h-6 text-[10px] px-2">Contour</Button>
@@ -605,13 +578,6 @@ export function AppearanceSettingsTab() {
               <div className="flex gap-2 items-center">
                 <Badge className="text-[9px]">Badge</Badge>
                 <Badge variant="outline" className="text-[9px]">Outline</Badge>
-              </div>
-              <div className="flex gap-2 items-center">
-                <div className="h-6 w-6 rounded bg-primary" />
-                <div className="h-6 w-6 rounded bg-secondary" />
-                <div className="h-6 w-6 rounded bg-muted" />
-                <div className="h-6 w-6 rounded bg-accent" />
-                <div className="h-6 w-6 rounded bg-destructive" />
               </div>
             </div>
           </div>
