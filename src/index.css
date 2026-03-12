@@ -138,11 +138,6 @@
   }
 }
 
-/* Dynamic company-colored tabs */
-[data-state="active"][style*="--_tab-bg"] {
-  background-color: var(--_tab-bg) !important;
-  color: var(--_tab-fg) !important;
-}
 
 /* Prevent horizontal overflow globally on mobile */
 html, body {
