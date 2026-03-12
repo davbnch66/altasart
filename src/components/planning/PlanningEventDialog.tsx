@@ -1233,18 +1233,111 @@ export const PlanningEventDialog = ({
 
           {/* ── Tab: Détails ── */}
           <TabsContent value="details" className="px-6 py-4 space-y-4 mt-0">
+            {/* Sources from visite/devis */}
+            {dossierSources && (dossierSources.visites.length > 0 || dossierSources.devis.length > 0) && (
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                  <ArrowDownToLine className="h-3 w-3" /> Récupérer depuis les sources
+                </h4>
+                {dossierSources.visites.map((v: any) => {
+                  const hasContent = v.methodologie || v.instructions || v.contraintes_acces || v.contraintes_techniques;
+                  if (!hasContent) return null;
+                  return (
+                    <div key={v.id} className="space-y-1">
+                      <p className="text-[10px] font-medium text-primary">Visite {v.code || ""}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {v.methodologie && (
+                          <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2"
+                            onClick={() => setInstructions(prev => prev ? `${prev}\n\n${v.methodologie}` : v.methodologie)}>
+                            + Méthodologie
+                          </Button>
+                        )}
+                        {v.instructions && (
+                          <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2"
+                            onClick={() => setInstructions(prev => prev ? `${prev}\n\n${v.instructions}` : v.instructions)}>
+                            + Consignes visite
+                          </Button>
+                        )}
+                        {v.contraintes_acces && (
+                          <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2"
+                            onClick={() => setInstructions(prev => prev ? `${prev}\n\nAccès : ${v.contraintes_acces}` : `Accès : ${v.contraintes_acces}`)}>
+                            + Contraintes accès
+                          </Button>
+                        )}
+                        {v.contraintes_techniques && (
+                          <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2"
+                            onClick={() => setInstructions(prev => prev ? `${prev}\n\n${v.contraintes_techniques}` : v.contraintes_techniques)}>
+                            + Contraintes techniques
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {dossierSources.devis.map((d: any) => {
+                  if (!d.notes && !d.custom_content) return null;
+                  return (
+                    <div key={d.id} className="space-y-1">
+                      <p className="text-[10px] font-medium text-primary">Devis {d.code || d.objet}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {d.notes && (
+                          <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2"
+                            onClick={() => setInternalNotes(prev => prev ? `${prev}\n\n${d.notes}` : d.notes)}>
+                            + Notes devis
+                          </Button>
+                        )}
+                        {d.custom_content && (
+                          <Button type="button" variant="outline" size="sm" className="h-6 text-[10px] gap-1 px-2"
+                            onClick={() => setDescription(prev => prev ? `${prev}\n\n${d.custom_content}` : d.custom_content)}>
+                            + Contenu devis
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Consignes / Mode opératoire</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Consignes / Mode opératoire</Label>
+                <AiWriteButton
+                  field="instructions"
+                  context={buildAiContext()}
+                  currentText={instructions}
+                  onGenerated={setInstructions}
+                  label="Rédiger avec l'IA"
+                />
+              </div>
               <Textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Mode opératoire, consignes de sécurité…" rows={3} className="resize-none text-sm" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Description</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Description</Label>
+                <AiWriteButton
+                  field="description"
+                  context={buildAiContext()}
+                  currentText={description}
+                  onGenerated={setDescription}
+                  label="Rédiger avec l'IA"
+                />
+              </div>
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Détails de l'intervention…" rows={3} className="resize-none text-sm" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <FileText className="h-3 w-3" /> Notes internes
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                  <FileText className="h-3 w-3" /> Notes internes
+                </Label>
+                <AiWriteButton
+                  field="notes"
+                  context={buildAiContext()}
+                  currentText={internalNotes}
+                  onGenerated={setInternalNotes}
+                  label="Rédiger avec l'IA"
+                />
+              </div>
               <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="Notes visibles uniquement en interne…" rows={3} className="resize-none text-sm bg-muted/30" />
             </div>
           </TabsContent>
