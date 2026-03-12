@@ -233,6 +233,7 @@ const DossierDetail = () => {
   const currentStageIdx = stageKeys.indexOf(dossier.stage);
 
   const tabItems = [
+    { key: "timeline", label: "Chronologie", count: null, icon: BarChart3 },
     { key: "visites", label: "Visites", count: visites.length, icon: Eye },
     { key: "devis", label: "Devis", count: devis.length, icon: FileText },
     { key: "operations", label: "Opérations", count: operations.length, icon: Cog },
