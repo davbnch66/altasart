@@ -10,6 +10,13 @@ import { Button } from "@/components/ui/button";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { useMyRole, canAccessRoute } from "@/hooks/useMyRole";
+import { useCompany } from "@/contexts/CompanyContext";
+
+const companyLogoMap: Record<string, string> = {
+  "company-art": "/logos/artlevage.png",
+  "company-altigrues": "/logos/altigrues.png",
+  "company-asdgm": "/logos/asdgm.png",
+};
 
 const PAGE_NAMES: Record<string, string> = {
   "/": "Dashboard",
