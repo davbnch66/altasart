@@ -1532,6 +1532,7 @@ const Planning = () => {
         event={editingEvent}
         defaultDate={defaultDate}
         defaultResourceId={defaultResourceId}
+        onOpenOperation={(opId) => { setEditingOpId(opId); setOpDialogOpen(true); }}
       />
       <PlanningOperationDialog
         open={opDialogOpen}
