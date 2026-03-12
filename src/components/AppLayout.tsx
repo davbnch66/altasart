@@ -72,6 +72,8 @@ export const AppLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const { role } = useMyRole();
+  const { currentCompany } = useCompany();
+  const watermarkLogo = companyLogoMap[currentCompany.color];
 
   useEffect(() => {
     if (isMobile) setSidebarOpen(false);
