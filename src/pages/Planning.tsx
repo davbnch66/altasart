@@ -585,7 +585,12 @@ const Planning = () => {
     setDefaultResourceId(resourceId);
     setDialogOpen(true);
   };
-  const openEdit = (evt: any) => { setEditingEvent(evt); setDialogOpen(true); };
+  const openEdit = (evt: any) => {
+    setDefaultDate(undefined);
+    setDefaultResourceId(undefined);
+    setEditingEvent(evt);
+    setDialogOpen(true);
+  };
 
   // ── Conflict summary for banner ──
   const conflictSummary = useMemo(() => {

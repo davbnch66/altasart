@@ -448,8 +448,8 @@ export const PlanningEventDialog = ({
       setEndDate(eDate);
       setStartTime(format(sDate, "HH:mm"));
       setEndTime(format(eDate, "HH:mm"));
-      // Resources will be set by the async eventResLinks effect; use legacy fallback for now
-      setResourceIds(e.resource_id ? [e.resource_id] : []);
+      const linkedResourceIds = eventResLinks as string[];
+      setResourceIds(linkedResourceIds.length > 0 ? linkedResourceIds : e.resource_id ? [e.resource_id] : []);
       setDossierId(e.dossier_id || "__none__");
       setClientId(e.client_id || "__none__");
       setSelectedCompanyId(e.company_id || companyId || "");
