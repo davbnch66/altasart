@@ -170,6 +170,8 @@ export const PlanningEventDialog = ({
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [creatingBT, setCreatingBT] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
+  const [dossierSearch, setDossierSearch] = useState("");
 
   const companyId = current === "global" ? dbCompanies[0]?.id : current;
   const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
