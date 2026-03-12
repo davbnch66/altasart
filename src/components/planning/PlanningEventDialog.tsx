@@ -705,11 +705,16 @@ export const PlanningEventDialog = ({
 
       // Sync event_resources junction table
       // Delete existing links
-      await supabase.from("event_resources").delete().eq("event_id", eventId);
+      const { error: delErr } = await supabase.from("event_resources").delete().eq("event_id", eventId);
+      if (delErr) console.error("[event_resources] delete error:", delErr);
       // Insert new links
       if (resourceIds.length > 0) {
         const rows = resourceIds.map((rid) => ({ event_id: eventId, resource_id: rid }));
-        await supabase.from("event_resources").insert(rows);
+        const { error: insErr } = await supabase.from("event_resources").insert(rows);
+        if (insErr) {
+          console.error("[event_resources] insert error:", insErr);
+          toast.error("Erreur sauvegarde ressources : " + insErr.message);
+        }
       }
 
       queryClient.invalidateQueries({ queryKey: ["planning-events"] });
