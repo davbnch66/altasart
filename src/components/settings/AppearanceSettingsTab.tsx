@@ -168,10 +168,41 @@ export function AppearanceSettingsTab() {
     const scale = FONT_SIZE_OPTIONS.find((f) => f.value === settings.fontSize)?.scale || "1";
     root.style.fontSize = `${parseFloat(scale) * 16}px`;
 
+    // Sidebar style - apply immediately
+    if (settings.sidebarStyle === "light") {
+      root.style.setProperty("--sidebar-background", "220 20% 97%");
+      root.style.setProperty("--sidebar-foreground", "222 47% 11%");
+      root.style.setProperty("--sidebar-accent", "220 14% 90%");
+      root.style.setProperty("--sidebar-accent-foreground", "222 47% 11%");
+      root.style.setProperty("--sidebar-border", "220 13% 91%");
+      root.style.setProperty("--sidebar-muted", "220 9% 46%");
+      root.style.setProperty("--sidebar-primary", "222 47% 11%");
+      root.style.setProperty("--sidebar-primary-foreground", "210 40% 98%");
+    } else if (settings.sidebarStyle === "dark") {
+      root.style.setProperty("--sidebar-background", "222 47% 11%");
+      root.style.setProperty("--sidebar-foreground", "220 20% 80%");
+      root.style.setProperty("--sidebar-accent", "222 40% 18%");
+      root.style.setProperty("--sidebar-accent-foreground", "210 40% 98%");
+      root.style.setProperty("--sidebar-border", "222 30% 20%");
+      root.style.setProperty("--sidebar-muted", "220 15% 50%");
+      root.style.setProperty("--sidebar-primary", "210 40% 98%");
+      root.style.setProperty("--sidebar-primary-foreground", "222 47% 11%");
+    } else {
+      // "default" = company-colored, remove overrides so CompanyContext takes over
+      root.style.removeProperty("--sidebar-background");
+      root.style.removeProperty("--sidebar-foreground");
+      root.style.removeProperty("--sidebar-accent");
+      root.style.removeProperty("--sidebar-accent-foreground");
+      root.style.removeProperty("--sidebar-border");
+      root.style.removeProperty("--sidebar-muted");
+      root.style.removeProperty("--sidebar-primary");
+      root.style.removeProperty("--sidebar-primary-foreground");
+    }
+
     return () => {
       root.style.fontSize = "";
     };
-  }, [settings.darkMode, settings.borderRadius, settings.fontSize]);
+  }, [settings.darkMode, settings.borderRadius, settings.fontSize, settings.sidebarStyle]);
 
   const saveSettings = async () => {
     if (!user) return;
