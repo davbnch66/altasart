@@ -25,6 +25,8 @@ import { DossierAvariesTab } from "@/components/dossier/DossierAvariesTab";
 import { DetailBreadcrumb, BreadcrumbItem } from "@/components/DetailBreadcrumb";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
 import { DossierCostsTab } from "@/components/dossier/DossierCostsTab";
+import { DossierTimeline } from "@/components/dossier/DossierTimeline";
+import { DossierNextAction } from "@/components/dossier/DossierNextAction";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 
 const stageLabels: Record<string, string> = {
