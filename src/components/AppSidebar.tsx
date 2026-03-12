@@ -62,6 +62,12 @@ const companyDotColor: Record<string, string> = {
   "primary": "bg-primary",
 };
 
+const companyLogoMap: Record<string, string> = {
+  "company-art": "/logos/artlevage.png",
+  "company-altigrues": "/logos/altigrues.png",
+  "company-asdgm": "/logos/asdgm.png",
+};
+
 const ROLE_BADGE_COLOR: Record<string, string> = {
   admin: "bg-primary/15 text-primary border-primary/30",
   manager: "bg-blue-500/15 text-blue-600 border-blue-500/30",
