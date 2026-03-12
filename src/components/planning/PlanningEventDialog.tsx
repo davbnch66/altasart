@@ -26,6 +26,7 @@ import { format, differenceInCalendarDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { useNavigate } from "react-router-dom";
+import { AiWriteButton } from "@/components/planning/AiWriteButton";
 
 interface PlanningEventDialogProps {
   open: boolean;
