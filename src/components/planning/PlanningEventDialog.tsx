@@ -889,49 +889,127 @@ export const PlanningEventDialog = ({
               </div>
             </div>
 
-            {/* Client */}
+            {/* Client (searchable) */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground flex items-center gap-1">
                 <Building2 className="h-3 w-3" /> Client
               </Label>
-              <Select value={clientId} onValueChange={(val) => {
-                setClientId(val);
-                // Reset dossier if it doesn't match the new client
-                if (val !== "__none__" && dossierId !== "__none__") {
-                  const currentDossier = dossiers.find((d: any) => d.id === dossierId);
-                  if (currentDossier && currentDossier.client_id !== val) {
-                    setDossierId("__none__");
-                  }
-                }
-              }}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Aucun" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Aucun</SelectItem>
-                  {clients.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full h-9 text-xs justify-between font-normal">
+                    {clientId !== "__none__" ? clients.find((c: any) => c.id === clientId)?.name || "Client" : "Aucun"}
+                    <span className="text-muted-foreground ml-1">▾</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <div className="p-2 border-b">
+                    <Input
+                      placeholder="Rechercher un client…"
+                      className="h-8 text-xs"
+                      value={clientSearch}
+                      onChange={(e) => setClientSearch(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-[200px] overflow-y-auto p-1">
+                    <button
+                      type="button"
+                      className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors"
+                      onClick={() => {
+                        const prev = clientId;
+                        setClientId("__none__");
+                        if (prev !== "__none__" && dossierId !== "__none__") {
+                          setDossierId("__none__");
+                        }
+                        setClientSearch("");
+                      }}
+                    >
+                      Aucun
+                    </button>
+                    {clients
+                      .filter((c: any) => !clientSearch || c.name?.toLowerCase().includes(clientSearch.toLowerCase()))
+                      .map((c: any) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className={cn(
+                            "w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors",
+                            clientId === c.id && "bg-primary/10 font-medium"
+                          )}
+                          onClick={() => {
+                            setClientId(c.id);
+                            if (dossierId !== "__none__") {
+                              const currentDossier = dossiers.find((d: any) => d.id === dossierId);
+                              if (currentDossier && currentDossier.client_id !== c.id) {
+                                setDossierId("__none__");
+                              }
+                            }
+                            setClientSearch("");
+                          }}
+                        >
+                          {c.name}
+                        </button>
+                      ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
-            {/* Dossier */}
+            {/* Dossier (searchable) */}
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground flex items-center gap-1">
                 <Link2 className="h-3 w-3" /> Dossier lié
               </Label>
-              <Select value={dossierId} onValueChange={handleDossierChange}>
-                <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Aucun" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Aucun</SelectItem>
-                  {dossiers
-                    .filter((d: any) => clientId === "__none__" || d.client_id === clientId)
-                    .map((d: any) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.code ? `${d.code} — ` : ""}{d.title} ({(d.clients as any)?.name || "—"})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full h-9 text-xs justify-between font-normal">
+                    {dossierId !== "__none__"
+                      ? (() => { const d = dossiers.find((d: any) => d.id === dossierId); return d ? `${d.code ? d.code + " — " : ""}${d.title}` : "Dossier"; })()
+                      : "Aucun"}
+                    <span className="text-muted-foreground ml-1">▾</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[340px] p-0" align="start">
+                  <div className="p-2 border-b">
+                    <Input
+                      placeholder="Rechercher un dossier…"
+                      className="h-8 text-xs"
+                      value={dossierSearch}
+                      onChange={(e) => setDossierSearch(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="max-h-[200px] overflow-y-auto p-1">
+                    <button
+                      type="button"
+                      className="w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors"
+                      onClick={() => { setDossierId("__none__"); setDossierSearch(""); }}
+                    >
+                      Aucun
+                    </button>
+                    {dossiers
+                      .filter((d: any) => clientId === "__none__" || d.client_id === clientId)
+                      .filter((d: any) => {
+                        if (!dossierSearch) return true;
+                        const q = dossierSearch.toLowerCase();
+                        return d.title?.toLowerCase().includes(q) || d.code?.toLowerCase().includes(q) || (d.clients as any)?.name?.toLowerCase().includes(q);
+                      })
+                      .map((d: any) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          className={cn(
+                            "w-full text-left px-2 py-1.5 rounded text-xs hover:bg-muted transition-colors",
+                            dossierId === d.id && "bg-primary/10 font-medium"
+                          )}
+                          onClick={() => { handleDossierChange(d.id); setDossierSearch(""); }}
+                        >
+                          {d.code ? `${d.code} — ` : ""}{d.title} <span className="text-muted-foreground">({(d.clients as any)?.name || "—"})</span>
+                        </button>
+                      ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
               {dossierId !== "__none__" && (
                 <p className="text-[10px] text-muted-foreground">Les adresses et volumes du dossier ont été pré-remplis.</p>
               )}
