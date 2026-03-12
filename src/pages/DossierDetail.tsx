@@ -301,6 +301,15 @@ const DossierDetail = () => {
         ))}
       </motion.div>
 
+      {/* Next Action Banner */}
+      <DossierNextAction
+        dossier={dossier}
+        devis={devis}
+        factures={factures}
+        visites={visites}
+        operationsCount={operations.length}
+      />
+
       {/* Info cards */}
       <div className={`grid gap-3 ${isMobile ? "" : "lg:grid-cols-2 gap-4"}`}>
         <div className={`rounded-xl border bg-card space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
