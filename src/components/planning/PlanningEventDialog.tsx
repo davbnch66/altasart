@@ -503,8 +503,7 @@ export const PlanningEventDialog = ({
       setAllDay(false);
       resetAddresses();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, defaultDate, defaultResourceId, companyId, open]);
+  }, [eventId, defaultDate, defaultResourceId, companyId, open, eventResLinksKey]);
 
   const resetAddresses = () => {
     setLoadingAddress(""); setLoadingPostalCode(""); setLoadingCity("");
