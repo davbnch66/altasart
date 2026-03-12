@@ -319,6 +319,30 @@ export const PlanningEventDialog = ({
     enabled: open && !!dossierId && dossierId !== "__none__",
   });
 
+  // ── Fetch visite & devis instructions linked to the dossier ──
+  const { data: dossierSources } = useQuery({
+    queryKey: ["event-dossier-sources", dossierId],
+    queryFn: async () => {
+      if (!dossierId || dossierId === "__none__") return null;
+      // Fetch visites with methodologie/instructions
+      const { data: visites } = await supabase
+        .from("visites")
+        .select("id, code, methodologie, instructions, contraintes_acces, contraintes_techniques")
+        .eq("dossier_id", dossierId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      // Fetch devis with notes/custom_content
+      const { data: devisData } = await supabase
+        .from("devis")
+        .select("id, code, notes, custom_content, objet")
+        .eq("dossier_id", dossierId)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      return { visites: visites || [], devis: devisData || [] };
+    },
+    enabled: open && !!dossierId && dossierId !== "__none__",
+  });
+
   // ── Create BT from event ──
   const handleCreateBT = async () => {
     if (!dossierId || dossierId === "__none__") {
