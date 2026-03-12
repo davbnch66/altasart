@@ -2549,6 +2549,42 @@ export type Database = {
           },
         ]
       }
+      user_theme_settings: {
+        Row: {
+          border_radius: string
+          company_colors: Json
+          created_at: string
+          dark_mode: boolean
+          font_size: string
+          id: string
+          sidebar_style: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          border_radius?: string
+          company_colors?: Json
+          created_at?: string
+          dark_mode?: boolean
+          font_size?: string
+          id?: string
+          sidebar_style?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          border_radius?: string
+          company_colors?: Json
+          created_at?: string
+          dark_mode?: boolean
+          font_size?: string
+          id?: string
+          sidebar_style?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       vehicle_expenses: {
         Row: {
           ai_extracted: boolean | null
