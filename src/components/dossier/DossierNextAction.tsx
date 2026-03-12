@@ -196,6 +196,16 @@ export const DossierNextAction: React.FC<Props> = ({ dossier, devis, factures, v
           ))}
         </div>
       )}
+
+      {/* Schedule dialog */}
+      {acceptedDevis && (
+        <ScheduleChantierDialog
+          open={scheduleOpen}
+          onOpenChange={setScheduleOpen}
+          devis={acceptedDevis}
+          dossier={dossier}
+        />
+      )}
     </div>
   );
 };
