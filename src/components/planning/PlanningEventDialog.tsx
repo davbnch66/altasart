@@ -34,6 +34,7 @@ interface PlanningEventDialogProps {
   event?: any;
   defaultDate?: Date;
   defaultResourceId?: string;
+  onOpenOperation?: (operationId: string) => void;
 }
 
 const EVENT_TYPES = [
