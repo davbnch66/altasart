@@ -22,6 +22,7 @@ interface Props {
 export const DossierNextAction: React.FC<Props> = ({ dossier, devis, factures, visites, operationsCount }) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const client = dossier.clients as any;
   const stage = dossier.stage;
 
