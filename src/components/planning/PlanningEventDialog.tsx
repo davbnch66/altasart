@@ -301,6 +301,99 @@ export const PlanningEventDialog = ({
     enabled: open && !!event?.id,
   });
 
+  // ── Fetch operations (BT) linked to the same dossier ──
+  const { data: dossierOperations = [] } = useQuery({
+    queryKey: ["event-dossier-operations", dossierId],
+    queryFn: async () => {
+      if (!dossierId || dossierId === "__none__") return [];
+      const { data } = await supabase
+        .from("operations")
+        .select("id, operation_number, type, loading_date, delivery_date, completed, lv_bt_number, loading_city, delivery_city")
+        .eq("dossier_id", dossierId)
+        .order("sort_order");
+      return data || [];
+    },
+    enabled: open && !!dossierId && dossierId !== "__none__",
+  });
+
+  // ── Create BT from event ──
+  const handleCreateBT = async () => {
+    if (!dossierId || dossierId === "__none__") {
+      toast.error("Liez un dossier pour créer un bon de travail");
+      return;
+    }
+    setCreatingBT(true);
+    try {
+      // Get next operation number
+      const { data: existing } = await supabase
+        .from("operations")
+        .select("operation_number")
+        .eq("dossier_id", dossierId)
+        .order("operation_number", { ascending: false })
+        .limit(1);
+      const nextNum = (existing?.[0]?.operation_number || 0) + 1;
+
+      const sDateStr = startDate ? format(startDate, "yyyy-MM-dd") : null;
+      
+      const payload: Record<string, any> = {
+        dossier_id: dossierId,
+        company_id: selectedCompanyId,
+        operation_number: nextNum,
+        sort_order: nextNum,
+        type: "B.T.",
+        loading_date: sDateStr,
+        loading_address: loadingAddress || null,
+        loading_postal_code: loadingPostalCode || null,
+        loading_city: loadingCity || null,
+        loading_floor: loadingFloor || null,
+        loading_access: loadingAccess || null,
+        loading_elevator: loadingElevator,
+        loading_parking_request: loadingParkingRequest,
+        loading_portage: Number(loadingPortage) || 0,
+        loading_passage_fenetre: loadingPassageFenetre,
+        loading_monte_meubles: loadingMonteMeubles,
+        loading_transbordement: loadingTransbordement,
+        loading_comments: loadingComments || null,
+        loading_time_start: allDay ? null : startTime || null,
+        loading_time_end: allDay ? null : endTime || null,
+        delivery_address: deliveryAddress || null,
+        delivery_postal_code: deliveryPostalCode || null,
+        delivery_city: deliveryCity || null,
+        delivery_floor: deliveryFloor || null,
+        delivery_access: deliveryAccess || null,
+        delivery_elevator: deliveryElevator,
+        delivery_parking_request: deliveryParkingRequest,
+        delivery_portage: Number(deliveryPortage) || 0,
+        delivery_passage_fenetre: deliveryPassageFenetre,
+        delivery_monte_meubles: deliveryMonteMeubles,
+        delivery_transbordement: deliveryTransbordement,
+        delivery_comments: deliveryComments || null,
+        volume: volume ? Number(volume) : 0,
+        weight: weight ? Number(weight) : 0,
+        instructions: instructions || null,
+        notes: description || null,
+      };
+
+      const { data: newOp, error } = await supabase.from("operations").insert(payload as any).select("id").single();
+      if (error) throw error;
+
+      // Copy event resources to operation_resources
+      if (resourceIds.length > 0 && newOp) {
+        const rows = resourceIds.map((rid) => ({ operation_id: newOp.id, resource_id: rid }));
+        await supabase.from("operation_resources").insert(rows as any);
+      }
+
+      toast.success(`Bon de travail n°${nextNum} créé`);
+      queryClient.invalidateQueries({ queryKey: ["event-dossier-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["planning-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors de la création du BT");
+    } finally {
+      setCreatingBT(false);
+    }
+  };
+
   // ── Populate on edit / reset on create ──
   const eventId = event?.id;
   const formInitRef = useRef<string | null>(null);
