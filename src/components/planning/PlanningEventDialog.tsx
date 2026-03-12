@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Calendar as CalendarIcon, Clock, Loader2, MapPin, Palette, Tag, Users, Truck, User, Link2, AlertTriangle, FileText, Trash2, Plus, X, Warehouse, Building2 } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, Loader2, MapPin, Palette, Tag, Users, Truck, User, Link2, AlertTriangle, FileText, Trash2, Plus, X, Warehouse, Building2, HardHat, ExternalLink, CheckCircle } from "lucide-react";
 import { MaterielListDisplay } from "@/components/MaterielListDisplay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, differenceInCalendarDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { useNavigate } from "react-router-dom";
 
 interface PlanningEventDialogProps {
   open: boolean;
@@ -166,7 +167,9 @@ export const PlanningEventDialog = ({
   const { current, dbCompanies } = useCompany();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
+  const [creatingBT, setCreatingBT] = useState(false);
 
   const companyId = current === "global" ? dbCompanies[0]?.id : current;
   const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
@@ -297,6 +300,99 @@ export const PlanningEventDialog = ({
     },
     enabled: open && !!event?.id,
   });
+
+  // ── Fetch operations (BT) linked to the same dossier ──
+  const { data: dossierOperations = [] } = useQuery({
+    queryKey: ["event-dossier-operations", dossierId],
+    queryFn: async () => {
+      if (!dossierId || dossierId === "__none__") return [];
+      const { data } = await supabase
+        .from("operations")
+        .select("id, operation_number, type, loading_date, delivery_date, completed, lv_bt_number, loading_city, delivery_city")
+        .eq("dossier_id", dossierId)
+        .order("sort_order");
+      return data || [];
+    },
+    enabled: open && !!dossierId && dossierId !== "__none__",
+  });
+
+  // ── Create BT from event ──
+  const handleCreateBT = async () => {
+    if (!dossierId || dossierId === "__none__") {
+      toast.error("Liez un dossier pour créer un bon de travail");
+      return;
+    }
+    setCreatingBT(true);
+    try {
+      // Get next operation number
+      const { data: existing } = await supabase
+        .from("operations")
+        .select("operation_number")
+        .eq("dossier_id", dossierId)
+        .order("operation_number", { ascending: false })
+        .limit(1);
+      const nextNum = (existing?.[0]?.operation_number || 0) + 1;
+
+      const sDateStr = startDate ? format(startDate, "yyyy-MM-dd") : null;
+      
+      const payload: Record<string, any> = {
+        dossier_id: dossierId,
+        company_id: selectedCompanyId,
+        operation_number: nextNum,
+        sort_order: nextNum,
+        type: "B.T.",
+        loading_date: sDateStr,
+        loading_address: loadingAddress || null,
+        loading_postal_code: loadingPostalCode || null,
+        loading_city: loadingCity || null,
+        loading_floor: loadingFloor || null,
+        loading_access: loadingAccess || null,
+        loading_elevator: loadingElevator,
+        loading_parking_request: loadingParkingRequest,
+        loading_portage: Number(loadingPortage) || 0,
+        loading_passage_fenetre: loadingPassageFenetre,
+        loading_monte_meubles: loadingMonteMeubles,
+        loading_transbordement: loadingTransbordement,
+        loading_comments: loadingComments || null,
+        loading_time_start: allDay ? null : startTime || null,
+        loading_time_end: allDay ? null : endTime || null,
+        delivery_address: deliveryAddress || null,
+        delivery_postal_code: deliveryPostalCode || null,
+        delivery_city: deliveryCity || null,
+        delivery_floor: deliveryFloor || null,
+        delivery_access: deliveryAccess || null,
+        delivery_elevator: deliveryElevator,
+        delivery_parking_request: deliveryParkingRequest,
+        delivery_portage: Number(deliveryPortage) || 0,
+        delivery_passage_fenetre: deliveryPassageFenetre,
+        delivery_monte_meubles: deliveryMonteMeubles,
+        delivery_transbordement: deliveryTransbordement,
+        delivery_comments: deliveryComments || null,
+        volume: volume ? Number(volume) : 0,
+        weight: weight ? Number(weight) : 0,
+        instructions: instructions || null,
+        notes: description || null,
+      };
+
+      const { data: newOp, error } = await supabase.from("operations").insert(payload as any).select("id").single();
+      if (error) throw error;
+
+      // Copy event resources to operation_resources
+      if (resourceIds.length > 0 && newOp) {
+        const rows = resourceIds.map((rid) => ({ operation_id: newOp.id, resource_id: rid }));
+        await supabase.from("operation_resources").insert(rows as any);
+      }
+
+      toast.success(`Bon de travail n°${nextNum} créé`);
+      queryClient.invalidateQueries({ queryKey: ["event-dossier-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["planning-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors de la création du BT");
+    } finally {
+      setCreatingBT(false);
+    }
+  };
 
   // ── Populate on edit / reset on create ──
   const eventId = event?.id;
@@ -753,6 +849,9 @@ export const PlanningEventDialog = ({
             <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none py-2.5 text-xs">
               Détails
             </TabsTrigger>
+            <TabsTrigger value="bt" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none py-2.5 text-xs">
+              <HardHat className="h-3 w-3 mr-1" /> BT {dossierOperations.length > 0 && <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1">{dossierOperations.length}</Badge>}
+            </TabsTrigger>
           </TabsList>
 
           {/* ── Tab: Général ── */}
@@ -1032,6 +1131,73 @@ export const PlanningEventDialog = ({
               </Label>
               <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="Notes visibles uniquement en interne…" rows={3} className="resize-none text-sm bg-muted/30" />
             </div>
+          </TabsContent>
+
+          {/* ── Tab: Bons de travail ── */}
+          <TabsContent value="bt" className="px-6 py-4 space-y-4 mt-0">
+            {dossierId === "__none__" ? (
+              <div className="text-center py-8 space-y-2">
+                <HardHat className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">Liez un dossier dans l'onglet « Général » pour voir et créer des bons de travail.</p>
+              </div>
+            ) : (
+              <>
+                {/* Existing operations */}
+                {dossierOperations.length > 0 ? (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Bons de travail du dossier ({dossierOperations.length})</Label>
+                    <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
+                      {dossierOperations.map((op: any) => (
+                        <div
+                          key={op.id}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => { onOpenChange(false); navigate(`/dossiers/${dossierId}`); }}
+                        >
+                          <div className={cn(
+                            "h-7 w-7 rounded-full flex items-center justify-center shrink-0",
+                            op.completed ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                          )}>
+                            {op.completed ? <CheckCircle className="h-3.5 w-3.5" /> : <HardHat className="h-3.5 w-3.5" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">
+                              {op.lv_bt_number || `BT n°${op.operation_number}`}
+                              <span className="ml-2 text-muted-foreground font-normal">{op.type}</span>
+                            </p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {[op.loading_date, op.loading_city, op.delivery_city ? `→ ${op.delivery_city}` : ""].filter(Boolean).join(" · ")}
+                            </p>
+                          </div>
+                          <Badge variant={op.completed ? "default" : "secondary"} className="text-[9px] shrink-0">
+                            {op.completed ? "Terminé" : "En cours"}
+                          </Badge>
+                          <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-muted-foreground">Aucun bon de travail pour ce dossier</p>
+                  </div>
+                )}
+
+                {/* Create BT button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={handleCreateBT}
+                  disabled={creatingBT}
+                >
+                  {creatingBT ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  Créer un bon de travail depuis cet événement
+                </Button>
+                <p className="text-[10px] text-muted-foreground text-center">
+                  Les adresses, ressources et dates de l'événement seront pré-remplies dans le BT.
+                </p>
+              </>
+            )}
           </TabsContent>
         </Tabs>
 
