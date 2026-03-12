@@ -1396,7 +1396,7 @@ export const PlanningEventDialog = ({
                         <div
                           key={op.id}
                           className="flex items-center gap-3 px-3 py-2.5 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
-                          onClick={() => { onOpenChange(false); navigate(`/dossiers/${dossierId}`); }}
+                          onClick={() => { onOpenChange(false); onOpenOperation?.(op.id); }}
                         >
                           <div className={cn(
                             "h-7 w-7 rounded-full flex items-center justify-center shrink-0",
