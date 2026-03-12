@@ -26,12 +26,13 @@ import { ClientReplyForm } from "@/components/client/ClientReplyForm";
 import { ClientNotesTab } from "@/components/client/ClientNotesTab";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
 
-type TabKey = "infos" | "contacts" | "dossiers" | "echanges" | "notes" | "factures" | "devis" | "reglements" | "visites";
+type TabKey = "infos" | "contacts" | "dossiers" | "chantiers" | "echanges" | "notes" | "factures" | "devis" | "reglements" | "visites";
 
 const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: "infos", label: "Infos", icon: User },
   { key: "contacts", label: "Contacts", icon: Users },
   { key: "dossiers", label: "Dossiers", icon: FolderOpen },
+  { key: "chantiers", label: "Chantiers", icon: HardHat },
   { key: "echanges", label: "Échanges", icon: MessageSquare },
   { key: "notes", label: "Notes", icon: StickyNote },
   { key: "factures", label: "Factures", icon: Receipt },
