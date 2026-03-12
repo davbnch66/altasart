@@ -62,6 +62,12 @@ const companyDotColor: Record<string, string> = {
   "primary": "bg-primary",
 };
 
+const companyLogoMap: Record<string, string> = {
+  "company-art": "/logos/artlevage.png",
+  "company-altigrues": "/logos/altigrues.png",
+  "company-asdgm": "/logos/asdgm.png",
+};
+
 const ROLE_BADGE_COLOR: Record<string, string> = {
   admin: "bg-primary/15 text-primary border-primary/30",
   manager: "bg-blue-500/15 text-blue-600 border-blue-500/30",
@@ -117,14 +123,22 @@ export const AppSidebar: React.FC = () => {
       <div className="p-4 border-b border-sidebar-border">
         <DropdownMenu>
           <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium hover:bg-sidebar-accent transition-colors outline-none">
-            <div className={`h-2.5 w-2.5 rounded-full ${companyDotColor[currentCompany.color] || "bg-primary"}`} />
+            {companyLogoMap[currentCompany.color] ? (
+              <img src={companyLogoMap[currentCompany.color]} alt={currentCompany.name} className="h-6 w-6 rounded object-contain" />
+            ) : (
+              <div className={`h-2.5 w-2.5 rounded-full ${companyDotColor[currentCompany.color] || "bg-primary"}`} />
+            )}
             <span className="flex-1 text-left text-sidebar-primary truncate">{currentCompany.name}</span>
             <ChevronDown className="h-4 w-4 text-sidebar-muted" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-52">
             {companies.map((c) => (
               <DropdownMenuItem key={c.id} onClick={() => setCurrent(c.id)} className="flex items-center gap-3">
-                <div className={`h-2 w-2 rounded-full ${companyDotColor[c.color] || "bg-primary"}`} />
+                {companyLogoMap[c.color] ? (
+                  <img src={companyLogoMap[c.color]} alt={c.name} className="h-5 w-5 rounded object-contain" />
+                ) : (
+                  <div className={`h-2 w-2 rounded-full ${companyDotColor[c.color] || "bg-primary"}`} />
+                )}
                 <span>{c.name}</span>
               </DropdownMenuItem>
             ))}
