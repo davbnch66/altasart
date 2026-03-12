@@ -164,7 +164,7 @@ const AddressBlock = ({ title: blockTitle, fields, clientId, onFillClient, onFil
 };
 
 export const PlanningEventDialog = ({
-  open, onOpenChange, event, defaultDate, defaultResourceId,
+  open, onOpenChange, event, defaultDate, defaultResourceId, onOpenOperation,
 }: PlanningEventDialogProps) => {
   const { current, dbCompanies } = useCompany();
   const { user } = useAuth();
