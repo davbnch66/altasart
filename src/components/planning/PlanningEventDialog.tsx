@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Calendar as CalendarIcon, Clock, Loader2, MapPin, Palette, Tag, Users, Truck, User, Link2, AlertTriangle, FileText, Trash2, Plus, X, Warehouse, Building2 } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, Loader2, MapPin, Palette, Tag, Users, Truck, User, Link2, AlertTriangle, FileText, Trash2, Plus, X, Warehouse, Building2, HardHat, ExternalLink, CheckCircle } from "lucide-react";
 import { MaterielListDisplay } from "@/components/MaterielListDisplay";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
