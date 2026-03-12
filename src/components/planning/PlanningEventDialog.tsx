@@ -1132,6 +1132,73 @@ export const PlanningEventDialog = ({
               <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} placeholder="Notes visibles uniquement en interne…" rows={3} className="resize-none text-sm bg-muted/30" />
             </div>
           </TabsContent>
+
+          {/* ── Tab: Bons de travail ── */}
+          <TabsContent value="bt" className="px-6 py-4 space-y-4 mt-0">
+            {dossierId === "__none__" ? (
+              <div className="text-center py-8 space-y-2">
+                <HardHat className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">Liez un dossier dans l'onglet « Général » pour voir et créer des bons de travail.</p>
+              </div>
+            ) : (
+              <>
+                {/* Existing operations */}
+                {dossierOperations.length > 0 ? (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Bons de travail du dossier ({dossierOperations.length})</Label>
+                    <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
+                      {dossierOperations.map((op: any) => (
+                        <div
+                          key={op.id}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg border bg-card hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => { onOpenChange(false); navigate(`/dossiers/${dossierId}`); }}
+                        >
+                          <div className={cn(
+                            "h-7 w-7 rounded-full flex items-center justify-center shrink-0",
+                            op.completed ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                          )}>
+                            {op.completed ? <CheckCircle className="h-3.5 w-3.5" /> : <HardHat className="h-3.5 w-3.5" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">
+                              {op.lv_bt_number || `BT n°${op.operation_number}`}
+                              <span className="ml-2 text-muted-foreground font-normal">{op.type}</span>
+                            </p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {[op.loading_date, op.loading_city, op.delivery_city ? `→ ${op.delivery_city}` : ""].filter(Boolean).join(" · ")}
+                            </p>
+                          </div>
+                          <Badge variant={op.completed ? "default" : "secondary"} className="text-[9px] shrink-0">
+                            {op.completed ? "Terminé" : "En cours"}
+                          </Badge>
+                          <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-muted-foreground">Aucun bon de travail pour ce dossier</p>
+                  </div>
+                )}
+
+                {/* Create BT button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={handleCreateBT}
+                  disabled={creatingBT}
+                >
+                  {creatingBT ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  Créer un bon de travail depuis cet événement
+                </Button>
+                <p className="text-[10px] text-muted-foreground text-center">
+                  Les adresses, ressources et dates de l'événement seront pré-remplies dans le BT.
+                </p>
+              </>
+            )}
+          </TabsContent>
         </Tabs>
 
         {/* Footer */}
