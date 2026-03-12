@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield, ChevronDown, ChevronUp, FileText, Upload } from "lucide-react";
+import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield, ChevronDown, ChevronUp, FileText, Upload, Paintbrush } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { EmailTemplatesTab } from "@/components/settings/EmailTemplatesTab";
 import { DocumentTemplatesTab } from "@/components/settings/DocumentTemplatesTab";
 import { ImportDataTab } from "@/components/settings/ImportDataTab";
+import { AppearanceSettingsTab } from "@/components/settings/AppearanceSettingsTab";
 import { ROLE_LABELS, ROLE_DESCRIPTIONS, type AppRole } from "@/hooks/useMyRole";
 
 const roleLabels = ROLE_LABELS;
@@ -386,6 +387,7 @@ const Parametres = () => {
           <TabsTrigger value="documents" className="text-xs gap-1.5"><FileText className="h-3.5 w-3.5" /> Documents</TabsTrigger>
           <TabsTrigger value="roles" className="text-xs gap-1.5"><Shield className="h-3.5 w-3.5" /> Rôles</TabsTrigger>
           <TabsTrigger value="import" className="text-xs gap-1.5"><Upload className="h-3.5 w-3.5" /> Import</TabsTrigger>
+          <TabsTrigger value="appearance" className="text-xs gap-1.5"><Paintbrush className="h-3.5 w-3.5" /> Apparence</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
@@ -626,6 +628,13 @@ const Parametres = () => {
         <TabsContent value="import">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <ImportDataTab />
+          </motion.div>
+        </TabsContent>
+
+        {/* Appearance Tab */}
+        <TabsContent value="appearance">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <AppearanceSettingsTab />
           </motion.div>
         </TabsContent>
       </Tabs>
