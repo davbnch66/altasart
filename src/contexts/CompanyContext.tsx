@@ -58,6 +58,8 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [current, setCurrent] = useState<CompanyId>("global");
   const [dbCompanies, setDbCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userTheme, setUserTheme] = useState<Record<string, string>>({});
+  const [sidebarStyle, setSidebarStyle] = useState("default");
   const { user } = useAuth();
 
   useEffect(() => {
@@ -67,14 +69,32 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Auto-assign memberships if needed (bypasses RLS via security definer)
       await supabase.rpc("auto_assign_companies_for_new_user", { p_user_id: user.id });
 
-      // Now fetch companies the user is a member of
-      const { data: memberships } = await supabase
-        .from("company_memberships")
-        .select("company_id")
-        .eq("profile_id", user.id);
+      // Fetch companies + theme settings in parallel
+      const [membershipsRes, themeRes] = await Promise.all([
+        supabase.from("company_memberships").select("company_id").eq("profile_id", user.id),
+        supabase.from("user_theme_settings").select("*").eq("user_id", user.id).maybeSingle(),
+      ]);
 
-      if (memberships && memberships.length > 0) {
-        const companyIds = memberships.map((m) => m.company_id);
+      // Apply saved theme settings
+      if (themeRes.data) {
+        const ts = themeRes.data;
+        setUserTheme((ts.company_colors as Record<string, string>) || {});
+        setSidebarStyle(ts.sidebar_style || "default");
+
+        // Apply dark mode
+        if (ts.dark_mode) document.documentElement.classList.add("dark");
+        else document.documentElement.classList.remove("dark");
+
+        // Apply border radius
+        if (ts.border_radius) document.documentElement.style.setProperty("--radius", ts.border_radius);
+
+        // Apply font size
+        const fontScales: Record<string, string> = { compact: "14px", normal: "16px", large: "18px" };
+        document.documentElement.style.fontSize = fontScales[ts.font_size] || "16px";
+      }
+
+      if (membershipsRes.data && membershipsRes.data.length > 0) {
+        const companyIds = membershipsRes.data.map((m) => m.company_id);
         const { data: companiesData } = await supabase
           .from("companies")
           .select("*")
@@ -100,17 +120,46 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Apply company theme to CSS custom properties
   useEffect(() => {
-    const theme = companyThemeOverrides[currentCompany.color] || companyThemeOverrides["primary"];
+    // Build theme: start with defaults, then apply user overrides
+    const colorKey = currentCompany.color;
+    const baseTheme = companyThemeOverrides[colorKey] || companyThemeOverrides["primary"];
     const defaultTheme = companyThemeOverrides["primary"];
     const root = document.documentElement;
 
-    // Apply all overrides from selected theme
+    // Check if user has a custom color for this company
+    const userColor = userTheme[colorKey] || userTheme["primary"];
+
+    // Build the final theme
+    const theme = { ...baseTheme };
+    if (userColor) {
+      theme["--primary"] = userColor;
+      theme["--ring"] = userColor;
+    }
+
+    // Handle sidebar style override
+    if (sidebarStyle === "dark") {
+      // Always use default dark sidebar
+      delete theme["--sidebar-background"];
+      delete theme["--sidebar-accent"];
+      delete theme["--sidebar-border"];
+    } else if (sidebarStyle === "light") {
+      theme["--sidebar-background"] = "220 20% 97%";
+      theme["--sidebar-foreground"] = "222 47% 11%";
+      theme["--sidebar-accent"] = "220 14% 90%";
+      theme["--sidebar-accent-foreground"] = "222 47% 11%";
+      theme["--sidebar-border"] = "220 13% 91%";
+      theme["--sidebar-muted"] = "220 9% 46%";
+      theme["--sidebar-primary"] = "222 47% 11%";
+      theme["--sidebar-primary-foreground"] = "210 40% 98%";
+    }
+    // "default" keeps the per-company sidebar colors
+
+    // Apply all overrides
     const allKeys = new Set([...Object.keys(theme), ...Object.keys(defaultTheme)]);
     allKeys.forEach((key) => {
       if (theme[key]) {
         root.style.setProperty(key, theme[key]);
       } else {
-        // Reset to default if this theme doesn't override it
         root.style.removeProperty(key);
       }
     });
@@ -118,7 +167,7 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return () => {
       allKeys.forEach((key) => root.style.removeProperty(key));
     };
-  }, [currentCompany.color]);
+  }, [currentCompany.color, userTheme, sidebarStyle]);
 
   return (
     <CompanyContext.Provider value={{ current, setCurrent, currentCompany, companies, dbCompanies, loading }}>
