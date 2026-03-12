@@ -835,6 +835,41 @@ export const PlanningEventDialog = ({
     },
   };
 
+  // ── Build context string for AI generation ──
+  const buildAiContext = useCallback(() => {
+    const parts: string[] = [];
+    if (title) parts.push(`Titre : ${title}`);
+    const typeLabel = EVENT_TYPES.find(t => t.value === eventType)?.label;
+    if (typeLabel) parts.push(`Type : ${typeLabel}`);
+    const client = clients.find((c: any) => c.id === clientId);
+    if (client) parts.push(`Client : ${client.name}`);
+    const dossier = dossiers.find((d: any) => d.id === dossierId);
+    if (dossier) parts.push(`Dossier : ${dossier.code || ""} ${dossier.title}`);
+    if (loadingAddress || loadingCity) parts.push(`Chargement : ${loadingAddress} ${loadingPostalCode} ${loadingCity}`.trim());
+    if (loadingFloor) parts.push(`Étage chargement : ${loadingFloor}`);
+    if (loadingAccess) parts.push(`Accès chargement : ${loadingAccess}`);
+    if (deliveryAddress || deliveryCity) parts.push(`Livraison : ${deliveryAddress} ${deliveryPostalCode} ${deliveryCity}`.trim());
+    if (deliveryFloor) parts.push(`Étage livraison : ${deliveryFloor}`);
+    if (deliveryAccess) parts.push(`Accès livraison : ${deliveryAccess}`);
+    if (volume) parts.push(`Volume : ${volume} m³`);
+    if (weight) parts.push(`Poids : ${weight} t`);
+    if (loadingElevator) parts.push("Ascenseur au chargement");
+    if (deliveryElevator) parts.push("Ascenseur à la livraison");
+    if (loadingPassageFenetre || deliveryPassageFenetre) parts.push("Passage fenêtre requis");
+    if (loadingMonteMeubles || deliveryMonteMeubles) parts.push("Monte-meubles requis");
+    // Include visite/devis sources if available
+    if (dossierSources) {
+      dossierSources.visites.forEach((v: any) => {
+        if (v.methodologie) parts.push(`Méthodologie visite : ${v.methodologie.substring(0, 500)}`);
+        if (v.contraintes_techniques) parts.push(`Contraintes techniques : ${v.contraintes_techniques}`);
+        if (v.contraintes_acces) parts.push(`Contraintes accès : ${v.contraintes_acces}`);
+      });
+    }
+    const selectedRes = resources.filter((r: any) => resourceIds.includes(r.id));
+    if (selectedRes.length > 0) parts.push(`Ressources : ${selectedRes.map((r: any) => r.name).join(", ")}`);
+    return parts.join("\n");
+  }, [title, eventType, clientId, dossierId, clients, dossiers, loadingAddress, loadingPostalCode, loadingCity, loadingFloor, loadingAccess, deliveryAddress, deliveryPostalCode, deliveryCity, deliveryFloor, deliveryAccess, volume, weight, loadingElevator, deliveryElevator, loadingPassageFenetre, deliveryPassageFenetre, loadingMonteMeubles, deliveryMonteMeubles, dossierSources, resources, resourceIds]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
