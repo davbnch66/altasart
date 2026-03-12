@@ -34,10 +34,12 @@ export function UnsavedChangesDialog({ open, onStay, onDiscard, onSave, saving }
             <ArrowLeft className="h-3.5 w-3.5" />
             Rester
           </AlertDialogCancel>
-          <Button variant="destructive" size="sm" onClick={onDiscard} className="gap-1.5 text-xs h-9 w-full sm:w-auto">
-            <X className="h-3.5 w-3.5" />
-            Quitter
-          </Button>
+          <AlertDialogAction asChild>
+            <Button variant="destructive" size="sm" onClick={onDiscard} className="gap-1.5 text-xs h-9 w-full sm:w-auto">
+              <X className="h-3.5 w-3.5" />
+              Quitter
+            </Button>
+          </AlertDialogAction>
           <Button size="sm" onClick={onSave} disabled={saving} className="gap-1.5 text-xs h-9 w-full sm:w-auto">
             <Save className="h-3.5 w-3.5" />
             {saving ? "…" : "Enregistrer"}
