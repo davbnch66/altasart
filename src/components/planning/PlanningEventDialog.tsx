@@ -25,6 +25,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, differenceInCalendarDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { useNavigate } from "react-router-dom";
 
 interface PlanningEventDialogProps {
   open: boolean;
