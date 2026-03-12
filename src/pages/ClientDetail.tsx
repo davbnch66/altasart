@@ -5,7 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Mail, Phone, MapPin, Building2, User, FileText, Receipt, CreditCard,
   FolderOpen, ClipboardCheck, Pencil, Trash2, ChevronRight, Euro, MessageSquare,
-  Plus, StickyNote, Calendar, Send, Users, Tag,
+  Plus, StickyNote, Calendar, Send, Users, Tag, HardHat,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
