@@ -14,12 +14,33 @@ export interface Company {
 // Static global entry
 const globalCompany: Company = { id: "global", name: "Vue globale", shortName: "Global", color: "primary" };
 
-// Map company color keys to HSL values for --primary / --ring overrides
-const companyThemeOverrides: Record<string, { primary: string; ring: string }> = {
-  "primary": { primary: "222 60% 28%", ring: "222 60% 28%" },
-  "company-art": { primary: "24 95% 53%", ring: "24 95% 53%" },
-  "company-altigrues": { primary: "205 85% 50%", ring: "205 85% 50%" },
-  "company-asdgm": { primary: "152 69% 40%", ring: "152 69% 40%" },
+// Map company color keys to CSS variable overrides
+const companyThemeOverrides: Record<string, Record<string, string>> = {
+  "primary": {
+    "--primary": "222 60% 28%",
+    "--ring": "222 60% 28%",
+  },
+  "company-art": {
+    "--primary": "24 95% 53%",
+    "--ring": "24 95% 53%",
+    "--sidebar-background": "24 40% 12%",
+    "--sidebar-accent": "24 35% 18%",
+    "--sidebar-border": "24 30% 20%",
+  },
+  "company-altigrues": {
+    "--primary": "205 85% 50%",
+    "--ring": "205 85% 50%",
+    "--sidebar-background": "205 45% 12%",
+    "--sidebar-accent": "205 35% 18%",
+    "--sidebar-border": "205 30% 20%",
+  },
+  "company-asdgm": {
+    "--primary": "152 69% 40%",
+    "--ring": "152 69% 40%",
+    "--sidebar-background": "152 35% 12%",
+    "--sidebar-accent": "152 28% 18%",
+    "--sidebar-border": "152 25% 20%",
+  },
 };
 
 interface CompanyContextType {
@@ -80,14 +101,22 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Apply company theme to CSS custom properties
   useEffect(() => {
     const theme = companyThemeOverrides[currentCompany.color] || companyThemeOverrides["primary"];
+    const defaultTheme = companyThemeOverrides["primary"];
     const root = document.documentElement;
-    root.style.setProperty("--primary", theme.primary);
-    root.style.setProperty("--ring", theme.ring);
+
+    // Apply all overrides from selected theme
+    const allKeys = new Set([...Object.keys(theme), ...Object.keys(defaultTheme)]);
+    allKeys.forEach((key) => {
+      if (theme[key]) {
+        root.style.setProperty(key, theme[key]);
+      } else {
+        // Reset to default if this theme doesn't override it
+        root.style.removeProperty(key);
+      }
+    });
 
     return () => {
-      // Reset to default on unmount
-      root.style.removeProperty("--primary");
-      root.style.removeProperty("--ring");
+      allKeys.forEach((key) => root.style.removeProperty(key));
     };
   }, [currentCompany.color]);
 
