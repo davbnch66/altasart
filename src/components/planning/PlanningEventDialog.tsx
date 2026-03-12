@@ -714,6 +714,7 @@ export const PlanningEventDialog = ({
 
       queryClient.invalidateQueries({ queryKey: ["planning-events"] });
       queryClient.invalidateQueries({ queryKey: ["planning-event-resources"] });
+      queryClient.invalidateQueries({ queryKey: ["event-resources-dialog"] });
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e.message || "Erreur");
