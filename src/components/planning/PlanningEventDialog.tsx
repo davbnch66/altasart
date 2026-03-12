@@ -894,7 +894,16 @@ export const PlanningEventDialog = ({
               <Label className="text-xs text-muted-foreground flex items-center gap-1">
                 <Building2 className="h-3 w-3" /> Client
               </Label>
-              <Select value={clientId} onValueChange={setClientId}>
+              <Select value={clientId} onValueChange={(val) => {
+                setClientId(val);
+                // Reset dossier if it doesn't match the new client
+                if (val !== "__none__" && dossierId !== "__none__") {
+                  const currentDossier = dossiers.find((d: any) => d.id === dossierId);
+                  if (currentDossier && currentDossier.client_id !== val) {
+                    setDossierId("__none__");
+                  }
+                }
+              }}>
                 <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Aucun" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">Aucun</SelectItem>
