@@ -426,26 +426,13 @@ export const PlanningEventDialog = ({
   const formInitRef = useRef<string | null>(null);
   const eventResLinksKey = JSON.stringify(eventResLinks);
 
-  // Sync resourceIds when event_resources load asynchronously
-  const resLinksAppliedRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!open || !eventId) return;
-    if (resLinksAppliedRef.current === eventResLinksKey) return;
-    resLinksAppliedRef.current = eventResLinksKey;
-    const parsed = eventResLinks as string[];
-    if (parsed.length > 0) {
-      setResourceIds(parsed);
-    }
-  }, [open, eventId, eventResLinksKey, eventResLinks]);
-
   useEffect(() => {
     if (!open) {
       formInitRef.current = null;
-      resLinksAppliedRef.current = null;
       return;
     }
-    // Build a stable init key to prevent re-initialization on unrelated re-renders
-    const initKey = `${eventId || "new"}-${defaultDate?.toISOString() || ""}-${defaultResourceId || ""}`;
+    // Include linked resources in init key so edit form re-inits when junction data arrives
+    const initKey = `${eventId || "new"}-${defaultDate?.toISOString() || ""}-${defaultResourceId || ""}-${eventId ? eventResLinksKey : "new"}`;
     if (formInitRef.current === initKey) return;
     formInitRef.current = initKey;
 
@@ -461,8 +448,8 @@ export const PlanningEventDialog = ({
       setEndDate(eDate);
       setStartTime(format(sDate, "HH:mm"));
       setEndTime(format(eDate, "HH:mm"));
-      // Resources will be set by the async eventResLinks effect; use legacy fallback for now
-      setResourceIds(e.resource_id ? [e.resource_id] : []);
+      const linkedResourceIds = eventResLinks as string[];
+      setResourceIds(linkedResourceIds.length > 0 ? linkedResourceIds : e.resource_id ? [e.resource_id] : []);
       setDossierId(e.dossier_id || "__none__");
       setClientId(e.client_id || "__none__");
       setSelectedCompanyId(e.company_id || companyId || "");
