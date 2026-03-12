@@ -14,6 +14,14 @@ export interface Company {
 // Static global entry
 const globalCompany: Company = { id: "global", name: "Vue globale", shortName: "Global", color: "primary" };
 
+// Map company color keys to HSL values for --primary / --ring overrides
+const companyThemeOverrides: Record<string, { primary: string; ring: string }> = {
+  "primary": { primary: "222 60% 28%", ring: "222 60% 28%" },
+  "company-art": { primary: "24 95% 53%", ring: "24 95% 53%" },
+  "company-altigrues": { primary: "205 85% 50%", ring: "205 85% 50%" },
+  "company-asdgm": { primary: "152 69% 40%", ring: "152 69% 40%" },
+};
+
 interface CompanyContextType {
   current: CompanyId;
   setCurrent: (id: CompanyId) => void;
@@ -68,6 +76,20 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const companies = [globalCompany, ...dbCompanies];
   const currentCompany = companies.find((c) => c.id === current) || globalCompany;
+
+  // Apply company theme to CSS custom properties
+  useEffect(() => {
+    const theme = companyThemeOverrides[currentCompany.color] || companyThemeOverrides["primary"];
+    const root = document.documentElement;
+    root.style.setProperty("--primary", theme.primary);
+    root.style.setProperty("--ring", theme.ring);
+
+    return () => {
+      // Reset to default on unmount
+      root.style.removeProperty("--primary");
+      root.style.removeProperty("--ring");
+    };
+  }, [currentCompany.color]);
 
   return (
     <CompanyContext.Provider value={{ current, setCurrent, currentCompany, companies, dbCompanies, loading }}>
