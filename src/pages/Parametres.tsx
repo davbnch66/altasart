@@ -630,6 +630,13 @@ const Parametres = () => {
             <ImportDataTab />
           </motion.div>
         </TabsContent>
+
+        {/* Appearance Tab */}
+        <TabsContent value="appearance">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <AppearanceSettingsTab />
+          </motion.div>
+        </TabsContent>
       </Tabs>
     </div>
   );
