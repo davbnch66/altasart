@@ -409,6 +409,18 @@ const DossierDetail = () => {
             </TabsList>
           )}
 
+          <TabsContent value="timeline">
+            <div className="rounded-xl border bg-card p-4">
+              <DossierTimeline
+                dossierId={id!}
+                dossier={dossier}
+                devis={devis}
+                factures={factures}
+                visites={visites}
+              />
+            </div>
+          </TabsContent>
+
           <TabsContent value="visites">
             <div className="space-y-3">
               <div className="flex justify-end">
