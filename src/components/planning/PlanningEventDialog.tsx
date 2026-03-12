@@ -425,18 +425,27 @@ export const PlanningEventDialog = ({
   const eventId = event?.id;
   const formInitRef = useRef<string | null>(null);
   const eventResLinksKey = JSON.stringify(eventResLinks);
+
+  // Sync resourceIds when event_resources load asynchronously
+  const resLinksAppliedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open || !eventId) return;
+    if (resLinksAppliedRef.current === eventResLinksKey) return;
+    resLinksAppliedRef.current = eventResLinksKey;
+    const parsed = eventResLinks as string[];
+    if (parsed.length > 0) {
+      setResourceIds(parsed);
+    }
+  }, [open, eventId, eventResLinksKey, eventResLinks]);
+
   useEffect(() => {
     if (!open) {
       formInitRef.current = null;
+      resLinksAppliedRef.current = null;
       return;
     }
     // Build a stable init key to prevent re-initialization on unrelated re-renders
     const initKey = `${eventId || "new"}-${defaultDate?.toISOString() || ""}-${defaultResourceId || ""}`;
-    // For editing, wait until eventResLinks are loaded before initializing
-    if (eventId && eventResLinks.length === 0 && formInitRef.current === null) {
-      // Allow first init even with empty links (event may have no resources)
-      // but skip if we already initialized
-    }
     if (formInitRef.current === initKey) return;
     formInitRef.current = initKey;
 
