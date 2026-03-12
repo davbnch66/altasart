@@ -849,6 +849,9 @@ export const PlanningEventDialog = ({
             <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none py-2.5 text-xs">
               Détails
             </TabsTrigger>
+            <TabsTrigger value="bt" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none py-2.5 text-xs">
+              <HardHat className="h-3 w-3 mr-1" /> BT {dossierOperations.length > 0 && <Badge variant="secondary" className="ml-1 text-[9px] h-4 px-1">{dossierOperations.length}</Badge>}
+            </TabsTrigger>
           </TabsList>
 
           {/* ── Tab: Général ── */}
