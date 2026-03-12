@@ -42,7 +42,7 @@ function hexToHsl(hex: string): [number, number, number] {
 }
 
 function parseHslString(hsl: string): [number, number, number] {
-  const parts = hsl.split(/\s+/).map(Number);
+  const parts = hsl.replace(/%/g, "").split(/\s+/).map(Number);
   return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
 }
 
