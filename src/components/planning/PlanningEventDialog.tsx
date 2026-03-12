@@ -914,7 +914,9 @@ export const PlanningEventDialog = ({
                 <SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Aucun" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">Aucun</SelectItem>
-                  {dossiers.map((d: any) => (
+                  {dossiers
+                    .filter((d: any) => clientId === "__none__" || d.client_id === clientId)
+                    .map((d: any) => (
                     <SelectItem key={d.id} value={d.id}>
                       {d.code ? `${d.code} — ` : ""}{d.title} ({(d.clients as any)?.name || "—"})
                     </SelectItem>
