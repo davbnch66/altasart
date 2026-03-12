@@ -351,7 +351,10 @@ export function AppearanceSettingsTab() {
         {/* Global / default color */}
         <div className="space-y-3 rounded-lg border p-4">
           <div className="flex items-center gap-3">
-            <div className="h-4 w-4 rounded-full" style={{ backgroundColor: `hsl(${parseHslString(settings.companyColors["primary"] || "222 60% 28%").join(", ").replace(/,/g, (_, i) => i ? "%" : "").replace(",", ", ").replace(",", "%, ")})` }} />
+            {(() => {
+              const [gh, gs, gl] = parseHslString(settings.companyColors["primary"] || "222 60% 28%");
+              return <div className="h-4 w-4 rounded-full" style={{ backgroundColor: `hsl(${gh}, ${gs}%, ${gl}%)` }} />;
+            })()}
             <span className="text-sm font-medium">Vue globale</span>
             <Badge variant="outline" className="text-[10px]">Par défaut</Badge>
           </div>
