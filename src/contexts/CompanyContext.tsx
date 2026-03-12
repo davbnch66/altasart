@@ -101,14 +101,22 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Apply company theme to CSS custom properties
   useEffect(() => {
     const theme = companyThemeOverrides[currentCompany.color] || companyThemeOverrides["primary"];
+    const defaultTheme = companyThemeOverrides["primary"];
     const root = document.documentElement;
-    root.style.setProperty("--primary", theme.primary);
-    root.style.setProperty("--ring", theme.ring);
+
+    // Apply all overrides from selected theme
+    const allKeys = new Set([...Object.keys(theme), ...Object.keys(defaultTheme)]);
+    allKeys.forEach((key) => {
+      if (theme[key]) {
+        root.style.setProperty(key, theme[key]);
+      } else {
+        // Reset to default if this theme doesn't override it
+        root.style.removeProperty(key);
+      }
+    });
 
     return () => {
-      // Reset to default on unmount
-      root.style.removeProperty("--primary");
-      root.style.removeProperty("--ring");
+      allKeys.forEach((key) => root.style.removeProperty(key));
     };
   }, [currentCompany.color]);
 
