@@ -19,11 +19,13 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus, FileText, Euro, StickyNote, Link2, Sparkles, Loader2,
-  MapPin, CalendarDays, Truck, HardHat, Weight, Box, ClipboardCheck,
+  MapPin, CalendarDays, Truck, HardHat, Weight, Box, ClipboardCheck, Eye,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { generateFacturePdf } from "@/lib/generateFacturePdf";
+import { GenericPdfPreviewDialog } from "@/components/shared/GenericPdfPreviewDialog";
 
 const fmt = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
 const fmtDate = (d: string | null) => {
