@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { EditDossierDialog } from "@/components/forms/EditDossierDialog";
 import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
@@ -57,6 +57,15 @@ const DossierDetail = () => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const operationFromUrl = searchParams.get("operation");
+  const [activeTab, setActiveTab] = useState(operationFromUrl ? "operations" : "timeline");
+  
+  // React to URL changes (e.g. clicking a notification while already on the page)
+  useEffect(() => {
+    if (operationFromUrl) {
+      setActiveTab("operations");
+    }
+  }, [operationFromUrl]);
+
   const [editing, setEditing] = useState(false);
   const [deletingFactureId, setDeletingFactureId] = useState<string | null>(null);
   const [deletingDevisId, setDeletingDevisId] = useState<string | null>(null);
@@ -390,7 +399,7 @@ const DossierDetail = () => {
         </motion.div>
       )}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-        <Tabs defaultValue={operationFromUrl ? "operations" : "timeline"}>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           {isMobile ? (
             <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-3 px-3 pb-1">
               {tabItems.map((tab) => (
