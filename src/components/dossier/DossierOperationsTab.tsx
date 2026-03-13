@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Check, Users, X, Pencil, MessageSquare, Warehouse, FileText, HardHat, Pen, Download } from "lucide-react";
+import { Plus, Trash2, Check, Users, X, Pencil, MessageSquare, Warehouse, FileText, HardHat, Pen, Download, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MaterielListDisplay } from "@/components/MaterielListDisplay";
@@ -283,7 +283,7 @@ export const DossierOperationsTab = ({ dossierId, companyId, initialOperationId 
   const { data: dossier } = useQuery({
     queryKey: ["dossier-for-ops", dossierId],
     queryFn: async () => {
-      const { data } = await supabase.from("dossiers").select("loading_address, loading_postal_code, loading_city, loading_floor, loading_access, loading_elevator, loading_parking_request, loading_comments, delivery_address, delivery_postal_code, delivery_city, delivery_floor, delivery_access, delivery_elevator, delivery_parking_request, delivery_comments").eq("id", dossierId).single();
+      const { data } = await supabase.from("dossiers").select("client_id, amount, loading_address, loading_postal_code, loading_city, loading_floor, loading_access, loading_elevator, loading_parking_request, loading_comments, delivery_address, delivery_postal_code, delivery_city, delivery_floor, delivery_access, delivery_elevator, delivery_parking_request, delivery_comments").eq("id", dossierId).single();
       return data;
     },
   });
@@ -413,6 +413,37 @@ export const DossierOperationsTab = ({ dossierId, companyId, initialOperationId 
   });
 
   const getResourcesForOp = (opId: string) => opResources.filter((or: any) => or.operation_id === opId);
+
+  const createFactureFromOp = useMutation({
+    mutationFn: async (op: any) => {
+      if (!dossier?.client_id) throw new Error("Client introuvable");
+      const amount = dossier.amount || 0;
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 30);
+      const { data: facture, error: fErr } = await supabase.from("factures").insert({
+        company_id: companyId,
+        client_id: dossier.client_id,
+        dossier_id: dossierId,
+        amount,
+        status: "brouillon" as any,
+        due_date: dueDate.toISOString().split("T")[0],
+        notes: `Facture créée depuis Op. ${op.operation_number} — ${op.type}`,
+      } as any).select("id").single();
+      if (fErr) throw fErr;
+      // Link operation to facture
+      const { error: uErr } = await supabase.from("operations").update({ facture_id: facture.id } as any).eq("id", op.id);
+      if (uErr) throw uErr;
+      return facture;
+    },
+    onSuccess: () => {
+      toast.success("Facture créée et liée à l'opération");
+      queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-factures"] });
+      queryClient.invalidateQueries({ queryKey: ["finance"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+    },
+    onError: () => toast.error("Erreur lors de la création de la facture"),
+  });
 
   const openCreate = () => {
     const f = emptyForm();
@@ -682,6 +713,17 @@ export const DossierOperationsTab = ({ dossierId, companyId, initialOperationId 
                     {op.factures?.code && ` · Fact: ${op.factures.code}`}
                   </p>
                 </div>
+                {/* Create facture button - visible when completed and no facture linked */}
+                {op.completed && !op.facture_id && (
+                  <button
+                    onClick={() => createFactureFromOp.mutate(op)}
+                    className="p-1 rounded text-success hover:bg-success/10 transition-colors shrink-0"
+                    title="Créer la facture"
+                    disabled={createFactureFromOp.isPending}
+                  >
+                    <Receipt className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 {/* BT Report button - visible when at least one signature exists */}
                 {(op.operator_signature_url || op.start_signature_url || op.end_signature_url) && (
                   <button
