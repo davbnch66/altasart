@@ -10,7 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Warehouse, X, Loader2, ExternalLink, Trash2 } from "lucide-react";
+import { Warehouse, X, Loader2, ExternalLink, Trash2, Eye } from "lucide-react";
+import { generateBTReportPdf } from "@/lib/generateBTReportPdf";
+import { BTReportPreviewDialog } from "@/components/terrain/BTReportPreviewDialog";
+import { useCompany } from "@/contexts/CompanyContext";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigate } from "react-router-dom";
