@@ -37,6 +37,8 @@ interface CreateFactureDialogProps {
   preselectedClientId?: string;
   preselectedCompanyId?: string;
   preselectedDossierId?: string;
+  /** If set, the created facture will be linked to this operation via facture_id */
+  linkOperationId?: string;
   trigger?: React.ReactNode;
 }
 
