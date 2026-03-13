@@ -226,7 +226,7 @@ export async function generateFacturePdf(factureId: string, returnPreview = fals
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(30, 30, 30);
-    doc.text(noteLines.slice(0, 6), marginL + 5, y + 5);
+    doc.text(noteLines, marginL + 5, y + 5);
     y += boxH + 4;
   }
 

@@ -348,7 +348,10 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
         {/* Operation context card */}
         {linkOperationId && <OperationContextCard operationId={linkOperationId} />}
 
-        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+        <form onSubmit={handleSubmit((d) => {
+          wantPreviewRef.current = Boolean(linkOperationId);
+          mutation.mutate(d);
+        })} className="space-y-4">
           <Tabs defaultValue="general" className="w-full">
             <TabsList className={`w-full grid ${isMobile ? "grid-cols-3" : "grid-cols-4"}`}>
               <TabsTrigger value="general" className="gap-1.5 text-xs"><FileText className="h-3.5 w-3.5" /> Général</TabsTrigger>
