@@ -56,6 +56,24 @@ const fmtEur = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency"
 
 export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDialogProps) => {
   const queryClient = useQueryClient();
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<{ blobUrl: string; fileName: string; dataUri: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const handlePreview = async () => {
+    setPreviewLoading(true);
+    try {
+      const result = await generateFacturePdf(facture.id, true);
+      if (result) {
+        setPreviewData(result);
+        setPreviewOpen(true);
+      }
+    } catch {
+      toast.error("Erreur lors de la génération de l'aperçu");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
