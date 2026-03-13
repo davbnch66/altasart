@@ -293,6 +293,13 @@ const FactureDetail = () => {
           isPending={deleteReglementMutation.isPending}
         />
       )}
+      <GenericPdfPreviewDialog
+        open={!!pdfPreview}
+        onClose={() => setPdfPreview(null)}
+        blobUrl={pdfPreview?.blobUrl || null}
+        dataUri={pdfPreview?.dataUri || null}
+        fileName={pdfPreview?.fileName || ""}
+      />
     </div>
   );
 };
