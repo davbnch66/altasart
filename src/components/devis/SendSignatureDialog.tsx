@@ -168,10 +168,14 @@ export const SendSignatureDialog = ({ devis, open, onOpenChange }: SendSignature
       const token = await generateMutation.mutateAsync();
       link = `${appBaseUrl}/sign/${token}`;
     }
-    await navigator.clipboard.writeText(link!);
-    setLinkCopied(true);
-    toast.success("Lien copié !");
-    setTimeout(() => setLinkCopied(false), 3000);
+    try {
+      await navigator.clipboard.writeText(link!);
+      setLinkCopied(true);
+      toast.success("Lien copié !");
+      setTimeout(() => setLinkCopied(false), 3000);
+    } catch {
+      toast.info("Impossible de copier automatiquement. Copiez le lien manuellement.");
+    }
   };
 
   return (

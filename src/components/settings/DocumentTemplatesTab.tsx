@@ -142,9 +142,13 @@ export function DocumentTemplatesTab() {
   const filteredTemplates = templates.filter((t: any) => t.document_type === selectedType);
   const typeLabel = DOCUMENT_TYPES.find((d) => d.value === selectedType)?.label || selectedType;
 
-  const copyVariable = (key: string) => {
-    navigator.clipboard.writeText(`{{${key}}}`);
-    toast.success(`{{${key}}} copié`);
+  const copyVariable = async (key: string) => {
+    try {
+      await navigator.clipboard.writeText(`{{${key}}}`);
+      toast.success(`{{${key}}} copié`);
+    } catch {
+      toast.info("Copie automatique indisponible dans ce navigateur.");
+    }
   };
 
   const handleGenerateSample = async () => {

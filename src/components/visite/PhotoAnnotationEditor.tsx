@@ -455,9 +455,19 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
       if (imageSrc.startsWith("http")) {
         const resp = await fetch(imageSrc);
         const blob = await resp.blob();
-        const bmpOrImg = await createImageBitmap(blob);
-        fctx.drawImage(bmpOrImg, 0, 0, fullCanvas.width, fullCanvas.height);
-        bmpOrImg.close();
+        // Safari < 16.4 doesn't support ImageBitmap.close(), use Image fallback
+        if (typeof createImageBitmap === "function") {
+          try {
+            const bmpOrImg = await createImageBitmap(blob);
+            fctx.drawImage(bmpOrImg, 0, 0, fullCanvas.width, fullCanvas.height);
+            if (typeof bmpOrImg.close === "function") bmpOrImg.close();
+          } catch {
+            // Fallback: draw from loaded img element
+            fctx.drawImage(imgRef.current!, 0, 0, fullCanvas.width, fullCanvas.height);
+          }
+        } else {
+          fctx.drawImage(imgRef.current!, 0, 0, fullCanvas.width, fullCanvas.height);
+        }
       } else {
         fctx.drawImage(imgRef.current, 0, 0, fullCanvas.width, fullCanvas.height);
       }

@@ -132,10 +132,12 @@ function useMonthlyEvolution(companyIds: string[]) {
   });
 }
 
-const ChartTooltipContent = ({ active, payload, label }: any) => {
+import React from "react";
+
+const ChartTooltipContent = React.forwardRef<HTMLDivElement, any>(({ active, payload, label }, ref) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border bg-card p-3 shadow-md text-sm">
+    <div ref={ref} className="rounded-lg border bg-card p-3 shadow-md text-sm">
       <p className="font-medium mb-1">{label}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2">
@@ -146,7 +148,8 @@ const ChartTooltipContent = ({ active, payload, label }: any) => {
       ))}
     </div>
   );
-};
+});
+ChartTooltipContent.displayName = "ChartTooltipContent";
 
 const statusLabels: Record<string, string> = {
   brouillon: "Brouillon",
