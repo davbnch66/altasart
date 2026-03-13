@@ -740,11 +740,18 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSi
         <BTPhotoUpload btId={bt.id} photos={photos} onPhotosChange={onPhotosChange} />
       )}
 
-      {/* Send report - available when completed (end signature done) */}
-      {completed && onSendReport && (
-        <Button size="sm" className="w-full h-9 text-xs" onClick={(e) => { e.stopPropagation(); onSendReport(); }}>
-          <Send className="h-3.5 w-3.5 mr-1" /> Envoyer rapport au client
-        </Button>
+      {/* Preview & Send report - available when completed or has signatures */}
+      {onSendReport && (hasOperatorSig || hasStartSig || hasEndSig || completed) && (
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="flex-1 h-9 text-xs" onClick={(e) => { e.stopPropagation(); onSendReport(); }}>
+            <Eye className="h-3.5 w-3.5 mr-1" /> Aperçu PDF
+          </Button>
+          {completed && (
+            <Button size="sm" className="flex-1 h-9 text-xs" onClick={(e) => { e.stopPropagation(); onSendReport(); }}>
+              <Send className="h-3.5 w-3.5 mr-1" /> Envoyer
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
