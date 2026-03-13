@@ -35,7 +35,22 @@ const TerrainPage = lazy(() => import("@/pages/TerrainPage"));
 const VoiriePage = lazy(() => import("@/pages/VoiriePage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000, // 30s before refetch
+      gcTime: 5 * 60_000, // 5min garbage collection
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+const PageLoader = () => (
+  <div className="flex h-[60vh] items-center justify-center">
+    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+  </div>
+);
 
 const ProtectedRoutes = () => {
   const { session, loading } = useAuth();
