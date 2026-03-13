@@ -477,7 +477,7 @@ const DossierDetail = () => {
           </TabsContent>
 
           <TabsContent value="operations">
-            <DossierOperationsTab dossierId={id!} companyId={dossier.company_id} />
+            <DossierOperationsTab dossierId={id!} companyId={dossier.company_id} initialOperationId={operationFromUrl} />
           </TabsContent>
 
           <TabsContent value="factures">
