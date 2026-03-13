@@ -19,6 +19,7 @@ import { BTReportPreviewDialog } from "@/components/terrain/BTReportPreviewDialo
 interface Props {
   dossierId: string;
   companyId: string;
+  initialOperationId?: string | null;
 }
 
 const DEPOT_ADDRESS = { address: "12 rue Jean Monnet", postal_code: "95190", city: "Goussainville" };
