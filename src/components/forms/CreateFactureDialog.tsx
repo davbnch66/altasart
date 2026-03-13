@@ -184,8 +184,8 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
     defaultValues: { company_id: defaultCompanyId, amount: 0, tva_rate: 20, due_date: defaultDueDateStr },
   });
 
-  const watchAmount = watch("amount") || 0;
-  const watchTva = watch("tva_rate") ?? 20;
+  const watchAmount = Number(watch("amount")) || 0;
+  const watchTva = Number(watch("tva_rate")) || 20;
   const montantHT = watchAmount;
   const montantTVA = montantHT * (watchTva / 100);
   const montantTTC = montantHT + montantTVA;
