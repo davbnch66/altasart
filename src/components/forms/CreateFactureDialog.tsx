@@ -227,8 +227,9 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
       if (linkOperationId && facture) {
         await supabase.from("operations").update({ facture_id: facture.id } as any).eq("id", linkOperationId);
       }
+      return facture?.id;
     },
-    onSuccess: () => {
+    onSuccess: async (factureId) => {
       toast.success("Facture créée avec succès");
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       queryClient.invalidateQueries({ queryKey: ["finance-factures"] });
@@ -239,6 +240,23 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       reset();
       setOpen(false);
+
+      // Auto-open preview if requested
+      if (wantPreviewRef.current && factureId) {
+        wantPreviewRef.current = false;
+        setPreviewLoading(true);
+        try {
+          const result = await generateFacturePdf(factureId, true);
+          if (result) {
+            setPreviewData(result);
+            setPreviewOpen(true);
+          }
+        } catch {
+          toast.error("Erreur lors de la génération de l'aperçu");
+        } finally {
+          setPreviewLoading(false);
+        }
+      }
     },
     onError: () => toast.error("Erreur lors de la création de la facture"),
   });
