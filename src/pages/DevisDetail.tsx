@@ -615,7 +615,3 @@ const DevisDetail = () => {
 };
 
 export default DevisDetail;
-  );
-};
-
-export default DevisDetail;
