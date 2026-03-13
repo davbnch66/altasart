@@ -603,7 +603,18 @@ const DevisDetail = () => {
       {scheduling && dossier && (
         <ScheduleChantierDialog devis={devis} dossier={dossier} open={scheduling} onOpenChange={(v) => !v && setScheduling(false)} />
       )}
+      <GenericPdfPreviewDialog
+        open={!!pdfPreview}
+        onClose={() => setPdfPreview(null)}
+        blobUrl={pdfPreview?.blobUrl || null}
+        dataUri={pdfPreview?.dataUri || null}
+        fileName={pdfPreview?.fileName || ""}
+      />
     </div>
+  );
+};
+
+export default DevisDetail;
   );
 };
 

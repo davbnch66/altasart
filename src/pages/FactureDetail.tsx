@@ -17,6 +17,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
 import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
+import { GenericPdfPreviewDialog } from "@/components/shared/GenericPdfPreviewDialog";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(n);
