@@ -96,7 +96,7 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
 
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const { error } = await supabase.from("factures").insert({
+      const { data: facture, error } = await supabase.from("factures").insert({
         code: data.code || null,
         amount: data.amount,
         notes: data.notes || null,
@@ -105,8 +105,12 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
         company_id: data.company_id,
         dossier_id: data.dossier_id && data.dossier_id !== "none" ? data.dossier_id : null,
         devis_id: data.devis_id && data.devis_id !== "none" ? data.devis_id : null,
-      });
+      }).select("id").single();
       if (error) throw error;
+      // Link operation to facture if requested
+      if (linkOperationId && facture) {
+        await supabase.from("operations").update({ facture_id: facture.id } as any).eq("id", linkOperationId);
+      }
     },
     onSuccess: () => {
       toast.success("Facture créée avec succès");
@@ -115,6 +119,7 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
       queryClient.invalidateQueries({ queryKey: ["client-factures"] });
       queryClient.invalidateQueries({ queryKey: ["dossier-factures"] });
       queryClient.invalidateQueries({ queryKey: ["dossier-reglements-count"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       reset();
       setOpen(false);
