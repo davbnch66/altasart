@@ -390,7 +390,7 @@ const DossierDetail = () => {
         </motion.div>
       )}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-        <Tabs defaultValue="timeline">
+        <Tabs defaultValue={operationFromUrl ? "operations" : "timeline"}>
           {isMobile ? (
             <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-3 px-3 pb-1">
               {tabItems.map((tab) => (
