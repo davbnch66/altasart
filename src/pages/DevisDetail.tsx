@@ -28,6 +28,7 @@ import { ScheduleChantierDialog } from "@/components/devis/ScheduleChantierDialo
 import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
 import { GenerateDevisMemoButton } from "@/components/devis/GenerateDevisMemoButton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { GenericPdfPreviewDialog } from "@/components/shared/GenericPdfPreviewDialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
