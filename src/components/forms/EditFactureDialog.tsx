@@ -218,9 +218,14 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
 
           <Separator />
           <div className="flex justify-between gap-2 pt-1">
-            <Button type="button" variant="outline" className="gap-1.5" onClick={() => generateFacturePdf(facture.id).catch(() => toast.error("Erreur PDF"))}>
-              <Download className="h-4 w-4" /> Télécharger PDF
-            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" className="gap-1.5" onClick={handlePreview} disabled={previewLoading}>
+                {previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />} Aperçu
+              </Button>
+              <Button type="button" variant="outline" className="gap-1.5" onClick={() => generateFacturePdf(facture.id).catch(() => toast.error("Erreur PDF"))}>
+                <Download className="h-4 w-4" /> PDF
+              </Button>
+            </div>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
               <Button type="submit" disabled={mutation.isPending}>
@@ -229,6 +234,14 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
             </div>
           </div>
         </form>
+
+        <GenericPdfPreviewDialog
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          blobUrl={previewData?.blobUrl || null}
+          dataUri={previewData?.dataUri || null}
+          fileName={previewData?.fileName || "facture.pdf"}
+        />
       </DialogContent>
     </Dialog>
   );
