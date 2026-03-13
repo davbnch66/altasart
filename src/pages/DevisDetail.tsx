@@ -286,6 +286,15 @@ const DevisDetail = () => {
           </h1>
         </div>
         <div className="flex gap-1.5 shrink-0">
+          <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={async () => {
+              try {
+                const result = await generateDevisPdf(devis.id, false, true);
+                if (result && typeof result === "object") setPdfPreview(result as any);
+              } catch { toast.error("Erreur PDF"); }
+            }}>
+            <Eye className="h-4 w-4" />
+            {!isMobile && <span className="ml-1">Aperçu</span>}
+          </Button>
           <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => generateDevisPdf(devis.id).catch(() => toast.error("Erreur PDF"))}>
             <Download className="h-4 w-4" />
             {!isMobile && <span className="ml-1">PDF</span>}
