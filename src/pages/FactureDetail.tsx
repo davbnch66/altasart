@@ -41,6 +41,7 @@ const FactureDetail = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [editReglement, setEditReglement] = useState<any>(null);
   const [deleteReglement, setDeleteReglement] = useState<any>(null);
+  const [pdfPreview, setPdfPreview] = useState<{ blobUrl: string; fileName: string; dataUri: string } | null>(null);
 
   const { data: facture, isLoading } = useQuery({
     queryKey: ["facture-detail", id],
