@@ -352,7 +352,15 @@ export async function generateFacturePdf(factureId: string, returnPreview = fals
   // ===================== FOOTER =====================
   drawFooter(doc, company, pageW, marginL, marginR);
 
-  // Save
+  // Save or return preview
   const fileName = `Facture_${facture.code || facture.id.slice(0, 8)}.pdf`;
+
+  if (returnPreview) {
+    const blob = doc.output("blob");
+    const blobUrl = URL.createObjectURL(blob);
+    const dataUri = doc.output("datauristring");
+    return { blobUrl, fileName, dataUri };
+  }
+
   doc.save(fileName);
 }

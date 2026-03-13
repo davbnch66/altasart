@@ -527,6 +527,13 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false, re
 
   const fileName = `Devis_${devis.code || devis.id.slice(0, 8)}.pdf`;
 
+  if (returnPreview) {
+    const blob = doc.output("blob");
+    const blobUrl = URL.createObjectURL(blob);
+    const dataUri = doc.output("datauristring");
+    return { blobUrl, fileName, dataUri };
+  }
+
   if (returnBase64) {
     return doc.output("datauristring").split(",")[1];
   }
