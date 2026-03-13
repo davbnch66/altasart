@@ -713,6 +713,17 @@ export const DossierOperationsTab = ({ dossierId, companyId, initialOperationId 
                     {op.factures?.code && ` · Fact: ${op.factures.code}`}
                   </p>
                 </div>
+                {/* Create facture button - visible when completed and no facture linked */}
+                {op.completed && !op.facture_id && (
+                  <button
+                    onClick={() => createFactureFromOp.mutate(op)}
+                    className="p-1 rounded text-success hover:bg-success/10 transition-colors shrink-0"
+                    title="Créer la facture"
+                    disabled={createFactureFromOp.isPending}
+                  >
+                    <Receipt className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 {/* BT Report button - visible when at least one signature exists */}
                 {(op.operator_signature_url || op.start_signature_url || op.end_signature_url) && (
                   <button
