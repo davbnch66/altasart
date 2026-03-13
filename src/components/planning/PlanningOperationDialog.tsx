@@ -228,6 +228,8 @@ export const PlanningOperationDialog = ({ open, onOpenChange, operationId }: Pro
 
   const [confirmDel, setConfirmDel] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [btPreviewOpen, setBtPreviewOpen] = useState(false);
+  const { companyIds } = useCompany();
 
   const handleDeleteOp = async () => {
     if (!operationId) return;
