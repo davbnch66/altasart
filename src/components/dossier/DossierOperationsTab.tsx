@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Check, Users, X, Pencil, MessageSquare, Warehouse, FileText, HardHat, Pen, Download } from "lucide-react";
+import { Plus, Trash2, Check, Users, X, Pencil, MessageSquare, Warehouse, FileText, HardHat, Pen, Download, Receipt } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MaterielListDisplay } from "@/components/MaterielListDisplay";
