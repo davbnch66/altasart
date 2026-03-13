@@ -42,7 +42,7 @@ interface CreateFactureDialogProps {
   trigger?: React.ReactNode;
 }
 
-export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId, preselectedDossierId, trigger }: CreateFactureDialogProps) => {
+export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId, preselectedDossierId, linkOperationId, trigger }: CreateFactureDialogProps) => {
   const [open, setOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
