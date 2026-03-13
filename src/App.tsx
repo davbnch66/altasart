@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,32 +8,49 @@ import { toast } from "sonner";
 import { CompanyProvider } from "@/contexts/CompanyContext";
 import { useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
-import Dashboard from "@/pages/Dashboard";
-import Clients from "@/pages/Clients";
-import ClientDetail from "@/pages/ClientDetail";
-import Planning from "@/pages/Planning";
-import Dossiers from "@/pages/Dossiers";
-import DossierDetail from "@/pages/DossierDetail";
-import Devis from "@/pages/Devis";
-import DevisDetail from "@/pages/DevisDetail";
-import Visites from "@/pages/Visites";
-import VisiteDetail from "@/pages/VisiteDetail";
-import InboxPage from "@/pages/InboxPage";
-import Finance from "@/pages/Finance";
-import FactureDetail from "@/pages/FactureDetail";
-import Ressources from "@/pages/Ressources";
-import Parametres from "@/pages/Parametres";
-import PipelineKanban from "@/pages/PipelineKanban";
-import FleetPage from "@/pages/FleetPage";
-import StoragePage from "@/pages/StoragePage";
-import Auth from "@/pages/Auth";
-import SignDevis from "@/pages/SignDevis";
-import RentabiliteReport from "@/pages/RentabiliteReport";
-import TerrainPage from "@/pages/TerrainPage";
-import VoiriePage from "@/pages/VoiriePage";
-import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Lazy-loaded pages for code splitting
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Clients = lazy(() => import("@/pages/Clients"));
+const ClientDetail = lazy(() => import("@/pages/ClientDetail"));
+const Planning = lazy(() => import("@/pages/Planning"));
+const Dossiers = lazy(() => import("@/pages/Dossiers"));
+const DossierDetail = lazy(() => import("@/pages/DossierDetail"));
+const Devis = lazy(() => import("@/pages/Devis"));
+const DevisDetail = lazy(() => import("@/pages/DevisDetail"));
+const Visites = lazy(() => import("@/pages/Visites"));
+const VisiteDetail = lazy(() => import("@/pages/VisiteDetail"));
+const InboxPage = lazy(() => import("@/pages/InboxPage"));
+const Finance = lazy(() => import("@/pages/Finance"));
+const FactureDetail = lazy(() => import("@/pages/FactureDetail"));
+const Ressources = lazy(() => import("@/pages/Ressources"));
+const Parametres = lazy(() => import("@/pages/Parametres"));
+const PipelineKanban = lazy(() => import("@/pages/PipelineKanban"));
+const FleetPage = lazy(() => import("@/pages/FleetPage"));
+const StoragePage = lazy(() => import("@/pages/StoragePage"));
+const Auth = lazy(() => import("@/pages/Auth"));
+const SignDevis = lazy(() => import("@/pages/SignDevis"));
+const RentabiliteReport = lazy(() => import("@/pages/RentabiliteReport"));
+const TerrainPage = lazy(() => import("@/pages/TerrainPage"));
+const VoiriePage = lazy(() => import("@/pages/VoiriePage"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000, // 30s before refetch
+      gcTime: 5 * 60_000, // 5min garbage collection
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
+const PageLoader = () => (
+  <div className="flex h-[60vh] items-center justify-center">
+    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+  </div>
+);
 
 const ProtectedRoutes = () => {
   const { session, loading } = useAuth();
@@ -50,32 +67,34 @@ const ProtectedRoutes = () => {
 
   return (
     <CompanyProvider>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/clients" element={<Clients />} />
-          <Route path="/clients/:id" element={<ClientDetail />} />
-          <Route path="/planning" element={<Planning />} />
-          <Route path="/dossiers" element={<Dossiers />} />
-          <Route path="/dossiers/:id" element={<DossierDetail />} />
-          <Route path="/devis" element={<Devis />} />
-          <Route path="/devis/:id" element={<DevisDetail />} />
-          <Route path="/visites" element={<Visites />} />
-          <Route path="/visites/:id" element={<VisiteDetail />} />
-          <Route path="/inbox" element={<InboxPage />} />
-          <Route path="/finance" element={<Finance />} />
-          <Route path="/finance/:id" element={<FactureDetail />} />
-          <Route path="/ressources" element={<Ressources />} />
-          <Route path="/pipeline" element={<PipelineKanban />} />
-          <Route path="/flotte" element={<FleetPage />} />
-          <Route path="/stockage" element={<StoragePage />} />
-          <Route path="/rentabilite" element={<RentabiliteReport />} />
-          <Route path="/terrain" element={<TerrainPage />} />
-          <Route path="/voirie" element={<VoiriePage />} />
-          <Route path="/parametres" element={<Parametres />} />
-        </Route>
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/clients" element={<Clients />} />
+            <Route path="/clients/:id" element={<ClientDetail />} />
+            <Route path="/planning" element={<Planning />} />
+            <Route path="/dossiers" element={<Dossiers />} />
+            <Route path="/dossiers/:id" element={<DossierDetail />} />
+            <Route path="/devis" element={<Devis />} />
+            <Route path="/devis/:id" element={<DevisDetail />} />
+            <Route path="/visites" element={<Visites />} />
+            <Route path="/visites/:id" element={<VisiteDetail />} />
+            <Route path="/inbox" element={<InboxPage />} />
+            <Route path="/finance" element={<Finance />} />
+            <Route path="/finance/:id" element={<FactureDetail />} />
+            <Route path="/ressources" element={<Ressources />} />
+            <Route path="/pipeline" element={<PipelineKanban />} />
+            <Route path="/flotte" element={<FleetPage />} />
+            <Route path="/stockage" element={<StoragePage />} />
+            <Route path="/rentabilite" element={<RentabiliteReport />} />
+            <Route path="/terrain" element={<TerrainPage />} />
+            <Route path="/voirie" element={<VoiriePage />} />
+            <Route path="/parametres" element={<Parametres />} />
+          </Route>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
     </CompanyProvider>
   );
 };
@@ -105,11 +124,13 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<AuthRoute />} />
-            <Route path="/sign/:token" element={<SignDevis />} />
-            <Route path="/*" element={<ProtectedRoutes />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/auth" element={<AuthRoute />} />
+              <Route path="/sign/:token" element={<SignDevis />} />
+              <Route path="/*" element={<ProtectedRoutes />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
