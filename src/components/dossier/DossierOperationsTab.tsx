@@ -283,7 +283,7 @@ export const DossierOperationsTab = ({ dossierId, companyId, initialOperationId 
   const { data: dossier } = useQuery({
     queryKey: ["dossier-for-ops", dossierId],
     queryFn: async () => {
-      const { data } = await supabase.from("dossiers").select("loading_address, loading_postal_code, loading_city, loading_floor, loading_access, loading_elevator, loading_parking_request, loading_comments, delivery_address, delivery_postal_code, delivery_city, delivery_floor, delivery_access, delivery_elevator, delivery_parking_request, delivery_comments").eq("id", dossierId).single();
+      const { data } = await supabase.from("dossiers").select("client_id, amount, loading_address, loading_postal_code, loading_city, loading_floor, loading_access, loading_elevator, loading_parking_request, loading_comments, delivery_address, delivery_postal_code, delivery_city, delivery_floor, delivery_access, delivery_elevator, delivery_parking_request, delivery_comments").eq("id", dossierId).single();
       return data;
     },
   });
