@@ -575,13 +575,34 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
           </Tabs>
 
           <Separator />
-          <div className="flex justify-end gap-2 pt-1">
+          <div className={`flex ${isMobile ? "flex-col" : "justify-end"} gap-2 pt-1`}>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-1.5"
+              disabled={mutation.isPending || previewLoading}
+              onClick={handleSubmit((d) => {
+                wantPreviewRef.current = true;
+                mutation.mutate(d);
+              })}
+            >
+              {previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+              Créer & Aperçu
+            </Button>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? "Création..." : "Créer la facture"}
             </Button>
           </div>
         </form>
+
+        <GenericPdfPreviewDialog
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          blobUrl={previewData?.blobUrl || null}
+          dataUri={previewData?.dataUri || null}
+          fileName={previewData?.fileName || "facture.pdf"}
+        />
       </DialogContent>
     </Dialog>
   );
