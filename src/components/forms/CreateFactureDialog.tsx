@@ -144,6 +144,7 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<{ blobUrl: string; fileName: string; dataUri: string } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [pendingOperationRefresh, setPendingOperationRefresh] = useState(false);
   const wantPreviewRef = useRef(false);
 
   const defaultCompanyId = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || "");
@@ -210,6 +211,19 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
     }
   }, [open, devisList, preselectedDossierId]);
 
+  const invalidateBaseQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["finance"] });
+    queryClient.invalidateQueries({ queryKey: ["finance-factures"] });
+    queryClient.invalidateQueries({ queryKey: ["client-factures"] });
+    queryClient.invalidateQueries({ queryKey: ["dossier-factures"] });
+    queryClient.invalidateQueries({ queryKey: ["dossier-reglements-count"] });
+    queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+  };
+
+  const invalidateOperationsQuery = () => {
+    queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
+  };
+
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
       const { data: facture, error } = await supabase.from("factures").insert({
@@ -231,34 +245,41 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
     },
     onSuccess: async (factureId) => {
       toast.success("Facture créée avec succès");
-      queryClient.invalidateQueries({ queryKey: ["finance"] });
-      queryClient.invalidateQueries({ queryKey: ["finance-factures"] });
-      queryClient.invalidateQueries({ queryKey: ["client-factures"] });
-      queryClient.invalidateQueries({ queryKey: ["dossier-factures"] });
-      queryClient.invalidateQueries({ queryKey: ["dossier-reglements-count"] });
-      queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
 
-      // Auto-open preview if requested (before reset/close)
-      if (wantPreviewRef.current && factureId) {
-        wantPreviewRef.current = false;
-        reset();
-        setOpen(false);
+      const shouldPreview = Boolean(wantPreviewRef.current && factureId);
+      const shouldDeferOperationsRefresh = Boolean(shouldPreview && linkOperationId);
+      wantPreviewRef.current = false;
+
+      reset();
+      setOpen(false);
+      invalidateBaseQueries();
+
+      if (!shouldDeferOperationsRefresh) {
+        invalidateOperationsQuery();
+      } else {
+        setPendingOperationRefresh(true);
+      }
+
+      if (shouldPreview && factureId) {
         setPreviewLoading(true);
         try {
           const result = await generateFacturePdf(factureId, true);
           if (result) {
             setPreviewData(result);
             setPreviewOpen(true);
+          } else if (shouldDeferOperationsRefresh) {
+            invalidateOperationsQuery();
+            setPendingOperationRefresh(false);
           }
         } catch {
+          if (shouldDeferOperationsRefresh) {
+            invalidateOperationsQuery();
+            setPendingOperationRefresh(false);
+          }
           toast.error("Erreur lors de la génération de l'aperçu");
         } finally {
           setPreviewLoading(false);
         }
-      } else {
-        reset();
-        setOpen(false);
       }
     },
     onError: () => toast.error("Erreur lors de la création de la facture"),
@@ -614,7 +635,13 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
 
     <GenericPdfPreviewDialog
       open={previewOpen}
-      onClose={() => setPreviewOpen(false)}
+      onClose={() => {
+        setPreviewOpen(false);
+        if (pendingOperationRefresh) {
+          invalidateOperationsQuery();
+          setPendingOperationRefresh(false);
+        }
+      }}
       blobUrl={previewData?.blobUrl || null}
       dataUri={previewData?.dataUri || null}
       fileName={previewData?.fileName || "facture.pdf"}
