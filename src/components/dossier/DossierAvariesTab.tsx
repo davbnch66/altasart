@@ -117,9 +117,9 @@ export const DossierAvariesTab = ({ dossierId, companyId, clientId }: Props) => 
         <div className="space-y-2">
           {avaries.map((a: any) => (
             <div key={a.id} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
-              <div className="flex items-start justify-between gap-2">
+              <div className={`flex ${isMobile ? "flex-col gap-2" : "items-start justify-between gap-3"}`}>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
                     <span className={`font-medium ${isMobile ? "text-xs" : "text-sm"}`}>{a.title}</span>
                     <span className={`text-[10px] rounded-full px-2 py-0.5 font-medium ${statusStyles[a.status] || ""}`}>
@@ -127,13 +127,13 @@ export const DossierAvariesTab = ({ dossierId, companyId, clientId }: Props) => 
                     </span>
                   </div>
                   {a.description && <p className="text-xs text-muted-foreground mt-1">{a.description}</p>}
-                  <div className="flex gap-3 mt-1.5 text-[11px] text-muted-foreground">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[11px] text-muted-foreground">
                     {a.responsibility && <span>Resp: {a.responsibility}</span>}
                     {a.amount > 0 && <span>Montant: {fmt(a.amount)}</span>}
                     <span>{new Date(a.created_at).toLocaleDateString("fr-FR")}</span>
                   </div>
                 </div>
-                <div className="flex gap-1 shrink-0">
+                <div className="flex gap-1 shrink-0 items-center">
                   <select
                     value={a.status}
                     onChange={(e) => updateStatus.mutate({ id: a.id, status: e.target.value })}
