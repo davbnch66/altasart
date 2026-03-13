@@ -134,6 +134,7 @@ const DevisDetail = () => {
   const [editing, setEditing] = useState(false);
   const [sendingSignature, setSendingSignature] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<{ blobUrl: string; fileName: string; dataUri: string } | null>(null);
   const [creatingDossier, setCreatingDossier] = useState(false);
   const isMobile = useIsMobile();
   const fromClient = (location.state as any)?.fromClient === true;
