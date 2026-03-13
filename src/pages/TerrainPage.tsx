@@ -443,6 +443,7 @@ export default function TerrainPage() {
                    onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)}
                    onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })}
                    onEdit={() => setEditBtId(bt.id)}
+                   onSendReport={() => setReportBtId(bt.id)}
                 />
               ))}
               {completedBTs.length > 0 && (
