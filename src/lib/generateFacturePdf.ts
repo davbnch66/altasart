@@ -111,7 +111,7 @@ function drawFooter(doc: jsPDF, company: any, pageW: number, marginL: number, ma
 
 // ── Main export ──
 
-export async function generateFacturePdf(factureId: string) {
+export async function generateFacturePdf(factureId: string, returnPreview = false): Promise<{ blobUrl: string; fileName: string; dataUri: string } | void> {
   // Fetch facture with relations
   const { data: facture, error: fErr } = await supabase
     .from("factures")
@@ -352,7 +352,15 @@ export async function generateFacturePdf(factureId: string) {
   // ===================== FOOTER =====================
   drawFooter(doc, company, pageW, marginL, marginR);
 
-  // Save
+  // Save or return preview
   const fileName = `Facture_${facture.code || facture.id.slice(0, 8)}.pdf`;
+
+  if (returnPreview) {
+    const blob = doc.output("blob");
+    const blobUrl = URL.createObjectURL(blob);
+    const dataUri = doc.output("datauristring");
+    return { blobUrl, fileName, dataUri };
+  }
+
   doc.save(fileName);
 }

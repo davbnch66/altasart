@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Pencil, Download, DollarSign, CreditCard, CheckCircle2, AlertTriangle, FileText, FolderOpen, ChevronRight, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Download, DollarSign, CreditCard, CheckCircle2, AlertTriangle, FileText, FolderOpen, ChevronRight, Trash2, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useState } from "react";
@@ -17,6 +17,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
 import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
+import { GenericPdfPreviewDialog } from "@/components/shared/GenericPdfPreviewDialog";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(n);
@@ -40,6 +41,7 @@ const FactureDetail = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [editReglement, setEditReglement] = useState<any>(null);
   const [deleteReglement, setDeleteReglement] = useState<any>(null);
+  const [pdfPreview, setPdfPreview] = useState<{ blobUrl: string; fileName: string; dataUri: string } | null>(null);
 
   const { data: facture, isLoading } = useQuery({
     queryKey: ["facture-detail", id],
@@ -128,6 +130,15 @@ const FactureDetail = () => {
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={async () => {
+              try {
+                const result = await generateFacturePdf(facture.id, true);
+                if (result) setPdfPreview(result);
+              } catch { toast.error("Erreur PDF"); }
+            }}>
+            <Eye className="h-4 w-4" />
+            {!isMobile && <span className="ml-1">Aperçu</span>}
+          </Button>
           <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => generateFacturePdf(facture.id).catch(() => toast.error("Erreur PDF"))}>
             <Download className="h-4 w-4" />
             {!isMobile && <span className="ml-1">PDF</span>}
@@ -282,6 +293,13 @@ const FactureDetail = () => {
           isPending={deleteReglementMutation.isPending}
         />
       )}
+      <GenericPdfPreviewDialog
+        open={!!pdfPreview}
+        onClose={() => setPdfPreview(null)}
+        blobUrl={pdfPreview?.blobUrl || null}
+        dataUri={pdfPreview?.dataUri || null}
+        fileName={pdfPreview?.fileName || ""}
+      />
     </div>
   );
 };

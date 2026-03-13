@@ -10,7 +10,10 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Warehouse, X, Loader2, ExternalLink, Trash2 } from "lucide-react";
+import { Warehouse, X, Loader2, ExternalLink, Trash2, Eye } from "lucide-react";
+import { generateBTReportPdf } from "@/lib/generateBTReportPdf";
+import { BTReportPreviewDialog } from "@/components/terrain/BTReportPreviewDialog";
+import { useCompany } from "@/contexts/CompanyContext";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigate } from "react-router-dom";
@@ -225,6 +228,9 @@ export const PlanningOperationDialog = ({ open, onOpenChange, operationId }: Pro
 
   const [confirmDel, setConfirmDel] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [btPreviewOpen, setBtPreviewOpen] = useState(false);
+  const { dbCompanies } = useCompany();
+  const companyIds = dbCompanies.map(c => c.id);
 
   const handleDeleteOp = async () => {
     if (!operationId) return;
@@ -423,12 +429,23 @@ export const PlanningOperationDialog = ({ open, onOpenChange, operationId }: Pro
             <Trash2 className="h-3.5 w-3.5" /> {confirmDel ? "Confirmer ?" : "Supprimer"}
           </Button>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="gap-1" onClick={() => setBtPreviewOpen(true)}>
+              <Eye className="h-3.5 w-3.5" /> Aperçu
+            </Button>
             <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
             <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
               {updateMutation.isPending ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" />Enregistrement…</> : "Enregistrer"}
             </Button>
           </div>
         </div>
+        {operationId && btPreviewOpen && (
+          <BTReportPreviewDialog
+            open={btPreviewOpen}
+            onOpenChange={setBtPreviewOpen}
+            btId={operationId}
+            companyIds={companyIds}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DevisLinesManager } from "@/components/DevisLinesManager";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, Pencil, FileText, Check, X, Send, CalendarPlus, Loader2, FolderOpen, Plus } from "lucide-react";
+import { ArrowLeft, Download, Pencil, FileText, Check, X, Send, CalendarPlus, Loader2, FolderOpen, Plus, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +28,7 @@ import { ScheduleChantierDialog } from "@/components/devis/ScheduleChantierDialo
 import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
 import { GenerateDevisMemoButton } from "@/components/devis/GenerateDevisMemoButton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { GenericPdfPreviewDialog } from "@/components/shared/GenericPdfPreviewDialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -133,6 +134,7 @@ const DevisDetail = () => {
   const [editing, setEditing] = useState(false);
   const [sendingSignature, setSendingSignature] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<{ blobUrl: string; fileName: string; dataUri: string } | null>(null);
   const [creatingDossier, setCreatingDossier] = useState(false);
   const isMobile = useIsMobile();
   const fromClient = (location.state as any)?.fromClient === true;
@@ -285,6 +287,15 @@ const DevisDetail = () => {
           </h1>
         </div>
         <div className="flex gap-1.5 shrink-0">
+          <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={async () => {
+              try {
+                const result = await generateDevisPdf(devis.id, false, true);
+                if (result && typeof result === "object") setPdfPreview(result as any);
+              } catch { toast.error("Erreur PDF"); }
+            }}>
+            <Eye className="h-4 w-4" />
+            {!isMobile && <span className="ml-1">Aperçu</span>}
+          </Button>
           <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => generateDevisPdf(devis.id).catch(() => toast.error("Erreur PDF"))}>
             <Download className="h-4 w-4" />
             {!isMobile && <span className="ml-1">PDF</span>}
@@ -592,6 +603,13 @@ const DevisDetail = () => {
       {scheduling && dossier && (
         <ScheduleChantierDialog devis={devis} dossier={dossier} open={scheduling} onOpenChange={(v) => !v && setScheduling(false)} />
       )}
+      <GenericPdfPreviewDialog
+        open={!!pdfPreview}
+        onClose={() => setPdfPreview(null)}
+        blobUrl={pdfPreview?.blobUrl || null}
+        dataUri={pdfPreview?.dataUri || null}
+        fileName={pdfPreview?.fileName || ""}
+      />
     </div>
   );
 };
