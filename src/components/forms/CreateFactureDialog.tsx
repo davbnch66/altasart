@@ -238,12 +238,12 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
       queryClient.invalidateQueries({ queryKey: ["dossier-reglements-count"] });
       queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      reset();
-      setOpen(false);
 
-      // Auto-open preview if requested
+      // Auto-open preview if requested (before reset/close)
       if (wantPreviewRef.current && factureId) {
         wantPreviewRef.current = false;
+        reset();
+        setOpen(false);
         setPreviewLoading(true);
         try {
           const result = await generateFacturePdf(factureId, true);
@@ -256,6 +256,9 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
         } finally {
           setPreviewLoading(false);
         }
+      } else {
+        reset();
+        setOpen(false);
       }
     },
     onError: () => toast.error("Erreur lors de la création de la facture"),
