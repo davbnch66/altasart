@@ -599,14 +599,22 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
           </div>
         </form>
 
-        <GenericPdfPreviewDialog
-          open={previewOpen}
-          onClose={() => setPreviewOpen(false)}
-          blobUrl={previewData?.blobUrl || null}
-          dataUri={previewData?.dataUri || null}
-          fileName={previewData?.fileName || "facture.pdf"}
-        />
+        {previewLoading && (
+          <div className="flex items-center justify-center gap-2 py-4">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <span className="text-sm text-muted-foreground">Génération de l'aperçu…</span>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
+
+    <GenericPdfPreviewDialog
+      open={previewOpen}
+      onClose={() => setPreviewOpen(false)}
+      blobUrl={previewData?.blobUrl || null}
+      dataUri={previewData?.dataUri || null}
+      fileName={previewData?.fileName || "facture.pdf"}
+    />
+    </>
   );
 };
