@@ -57,6 +57,7 @@ const DossierDetail = () => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const operationFromUrl = searchParams.get("operation");
+  const [activeTab, setActiveTab] = useState(operationFromUrl ? "operations" : "timeline");
   const [editing, setEditing] = useState(false);
   const [deletingFactureId, setDeletingFactureId] = useState<string | null>(null);
   const [deletingDevisId, setDeletingDevisId] = useState<string | null>(null);
