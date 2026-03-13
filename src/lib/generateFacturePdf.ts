@@ -111,7 +111,7 @@ function drawFooter(doc: jsPDF, company: any, pageW: number, marginL: number, ma
 
 // ── Main export ──
 
-export async function generateFacturePdf(factureId: string) {
+export async function generateFacturePdf(factureId: string, returnPreview = false): Promise<{ blobUrl: string; fileName: string; dataUri: string } | void> {
   // Fetch facture with relations
   const { data: facture, error: fErr } = await supabase
     .from("factures")
