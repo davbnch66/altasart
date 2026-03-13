@@ -134,7 +134,7 @@ function useMonthlyEvolution(companyIds: string[]) {
 
 import React from "react";
 
-const ChartTooltipContent = forwardRef<HTMLDivElement, any>(({ active, payload, label }, ref) => {
+const ChartTooltipContent = React.forwardRef<HTMLDivElement, any>(({ active, payload, label }, ref) => {
   if (!active || !payload?.length) return null;
   return (
     <div ref={ref} className="rounded-lg border bg-card p-3 shadow-md text-sm">
