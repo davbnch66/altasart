@@ -1,4 +1,4 @@
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
@@ -55,6 +55,8 @@ const DossierDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const operationFromUrl = searchParams.get("operation");
   const [editing, setEditing] = useState(false);
   const [deletingFactureId, setDeletingFactureId] = useState<string | null>(null);
   const [deletingDevisId, setDeletingDevisId] = useState<string | null>(null);
@@ -388,7 +390,7 @@ const DossierDetail = () => {
         </motion.div>
       )}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-        <Tabs defaultValue="timeline">
+        <Tabs defaultValue={operationFromUrl ? "operations" : "timeline"}>
           {isMobile ? (
             <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-3 px-3 pb-1">
               {tabItems.map((tab) => (
@@ -475,7 +477,7 @@ const DossierDetail = () => {
           </TabsContent>
 
           <TabsContent value="operations">
-            <DossierOperationsTab dossierId={id!} companyId={dossier.company_id} />
+            <DossierOperationsTab dossierId={id!} companyId={dossier.company_id} initialOperationId={operationFromUrl} />
           </TabsContent>
 
           <TabsContent value="factures">

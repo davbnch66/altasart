@@ -19,6 +19,7 @@ import { BTReportPreviewDialog } from "@/components/terrain/BTReportPreviewDialo
 interface Props {
   dossierId: string;
   companyId: string;
+  initialOperationId?: string | null;
 }
 
 const DEPOT_ADDRESS = { address: "12 rue Jean Monnet", postal_code: "95190", city: "Goussainville" };
@@ -227,12 +228,12 @@ const OperationFormContent = ({
 };
 
 /* ──────────────────────────── Main component ──────────────────────────── */
-export const DossierOperationsTab = ({ dossierId, companyId }: Props) => {
+export const DossierOperationsTab = ({ dossierId, companyId, initialOperationId }: Props) => {
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
-  const [editingOpId, setEditingOpId] = useState<string | null>(null);
+  const [editingOpId, setEditingOpId] = useState<string | null>(initialOperationId || null);
   const [editingOpNum, setEditingOpNum] = useState(0);
   const [form, setForm] = useState<OpForm>(emptyForm());
   const [editingResources, setEditingResources] = useState<string | null>(null);
