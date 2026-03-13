@@ -328,6 +328,7 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpen}>
       <DialogTrigger asChild>
         {trigger || (
