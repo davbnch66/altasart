@@ -141,6 +141,10 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [aiLoading, setAiLoading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<{ blobUrl: string; fileName: string; dataUri: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const wantPreviewRef = useRef(false);
 
   const defaultCompanyId = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || "");
   const [selectedCompanyId, setSelectedCompanyId] = useState(defaultCompanyId);
