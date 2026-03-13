@@ -635,7 +635,13 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
 
     <GenericPdfPreviewDialog
       open={previewOpen}
-      onClose={() => setPreviewOpen(false)}
+      onClose={() => {
+        setPreviewOpen(false);
+        if (pendingOperationRefresh) {
+          invalidateOperationsQuery();
+          setPendingOperationRefresh(false);
+        }
+      }}
       blobUrl={previewData?.blobUrl || null}
       dataUri={previewData?.dataUri || null}
       fileName={previewData?.fileName || "facture.pdf"}
