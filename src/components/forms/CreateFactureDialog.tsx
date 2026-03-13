@@ -238,12 +238,12 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
       queryClient.invalidateQueries({ queryKey: ["dossier-reglements-count"] });
       queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      reset();
-      setOpen(false);
 
-      // Auto-open preview if requested
+      // Auto-open preview if requested (before reset/close)
       if (wantPreviewRef.current && factureId) {
         wantPreviewRef.current = false;
+        reset();
+        setOpen(false);
         setPreviewLoading(true);
         try {
           const result = await generateFacturePdf(factureId, true);
@@ -256,6 +256,9 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
         } finally {
           setPreviewLoading(false);
         }
+      } else {
+        reset();
+        setOpen(false);
       }
     },
     onError: () => toast.error("Erreur lors de la création de la facture"),
@@ -325,6 +328,7 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpen}>
       <DialogTrigger asChild>
         {trigger || (
@@ -596,14 +600,22 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
           </div>
         </form>
 
-        <GenericPdfPreviewDialog
-          open={previewOpen}
-          onClose={() => setPreviewOpen(false)}
-          blobUrl={previewData?.blobUrl || null}
-          dataUri={previewData?.dataUri || null}
-          fileName={previewData?.fileName || "facture.pdf"}
-        />
+        {previewLoading && (
+          <div className="flex items-center justify-center gap-2 py-4">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <span className="text-sm text-muted-foreground">Génération de l'aperçu…</span>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
+
+    <GenericPdfPreviewDialog
+      open={previewOpen}
+      onClose={() => setPreviewOpen(false)}
+      blobUrl={previewData?.blobUrl || null}
+      dataUri={previewData?.dataUri || null}
+      fileName={previewData?.fileName || "facture.pdf"}
+    />
+    </>
   );
 };
