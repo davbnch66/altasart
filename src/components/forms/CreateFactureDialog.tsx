@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -19,11 +19,13 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
   Plus, FileText, Euro, StickyNote, Link2, Sparkles, Loader2,
-  MapPin, CalendarDays, Truck, HardHat, Weight, Box, ClipboardCheck,
+  MapPin, CalendarDays, Truck, HardHat, Weight, Box, ClipboardCheck, Eye,
 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { generateFacturePdf } from "@/lib/generateFacturePdf";
+import { GenericPdfPreviewDialog } from "@/components/shared/GenericPdfPreviewDialog";
 
 const fmt = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
 const fmtDate = (d: string | null) => {
@@ -139,6 +141,10 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [aiLoading, setAiLoading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<{ blobUrl: string; fileName: string; dataUri: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const wantPreviewRef = useRef(false);
 
   const defaultCompanyId = preselectedCompanyId || (current !== "global" ? current : dbCompanies[0]?.id || "");
   const [selectedCompanyId, setSelectedCompanyId] = useState(defaultCompanyId);
@@ -221,8 +227,9 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
       if (linkOperationId && facture) {
         await supabase.from("operations").update({ facture_id: facture.id } as any).eq("id", linkOperationId);
       }
+      return facture?.id;
     },
-    onSuccess: () => {
+    onSuccess: async (factureId) => {
       toast.success("Facture créée avec succès");
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       queryClient.invalidateQueries({ queryKey: ["finance-factures"] });
@@ -233,6 +240,23 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       reset();
       setOpen(false);
+
+      // Auto-open preview if requested
+      if (wantPreviewRef.current && factureId) {
+        wantPreviewRef.current = false;
+        setPreviewLoading(true);
+        try {
+          const result = await generateFacturePdf(factureId, true);
+          if (result) {
+            setPreviewData(result);
+            setPreviewOpen(true);
+          }
+        } catch {
+          toast.error("Erreur lors de la génération de l'aperçu");
+        } finally {
+          setPreviewLoading(false);
+        }
+      }
     },
     onError: () => toast.error("Erreur lors de la création de la facture"),
   });
@@ -551,13 +575,34 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
           </Tabs>
 
           <Separator />
-          <div className="flex justify-end gap-2 pt-1">
+          <div className={`flex ${isMobile ? "flex-col" : "justify-end"} gap-2 pt-1`}>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Annuler</Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-1.5"
+              disabled={mutation.isPending || previewLoading}
+              onClick={handleSubmit((d) => {
+                wantPreviewRef.current = true;
+                mutation.mutate(d);
+              })}
+            >
+              {previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+              Créer & Aperçu
+            </Button>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? "Création..." : "Créer la facture"}
             </Button>
           </div>
         </form>
+
+        <GenericPdfPreviewDialog
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          blobUrl={previewData?.blobUrl || null}
+          dataUri={previewData?.dataUri || null}
+          fileName={previewData?.fileName || "facture.pdf"}
+        />
       </DialogContent>
     </Dialog>
   );
