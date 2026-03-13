@@ -55,6 +55,8 @@ const DossierDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const operationFromUrl = searchParams.get("operation");
   const [editing, setEditing] = useState(false);
   const [deletingFactureId, setDeletingFactureId] = useState<string | null>(null);
   const [deletingDevisId, setDeletingDevisId] = useState<string | null>(null);
