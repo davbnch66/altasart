@@ -124,11 +124,13 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/auth" element={<AuthRoute />} />
-            <Route path="/sign/:token" element={<SignDevis />} />
-            <Route path="/*" element={<ProtectedRoutes />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/auth" element={<AuthRoute />} />
+              <Route path="/sign/:token" element={<SignDevis />} />
+              <Route path="/*" element={<ProtectedRoutes />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
