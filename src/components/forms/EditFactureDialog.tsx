@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { generateFacturePdf } from "@/lib/generateFacturePdf";
+import { GenericPdfPreviewDialog } from "@/components/shared/GenericPdfPreviewDialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Euro, StickyNote, Download, CalendarDays } from "lucide-react";
+import { FileText, Euro, StickyNote, Download, CalendarDays, Eye, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -55,6 +56,24 @@ const fmtEur = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency"
 
 export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDialogProps) => {
   const queryClient = useQueryClient();
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<{ blobUrl: string; fileName: string; dataUri: string } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  const handlePreview = async () => {
+    setPreviewLoading(true);
+    try {
+      const result = await generateFacturePdf(facture.id, true);
+      if (result) {
+        setPreviewData(result);
+        setPreviewOpen(true);
+      }
+    } catch {
+      toast.error("Erreur lors de la génération de l'aperçu");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -199,9 +218,14 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
 
           <Separator />
           <div className="flex justify-between gap-2 pt-1">
-            <Button type="button" variant="outline" className="gap-1.5" onClick={() => generateFacturePdf(facture.id).catch(() => toast.error("Erreur PDF"))}>
-              <Download className="h-4 w-4" /> Télécharger PDF
-            </Button>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" className="gap-1.5" onClick={handlePreview} disabled={previewLoading}>
+                {previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />} Aperçu
+              </Button>
+              <Button type="button" variant="outline" className="gap-1.5" onClick={() => generateFacturePdf(facture.id).catch(() => toast.error("Erreur PDF"))}>
+                <Download className="h-4 w-4" /> PDF
+              </Button>
+            </div>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
               <Button type="submit" disabled={mutation.isPending}>
@@ -210,6 +234,14 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
             </div>
           </div>
         </form>
+
+        <GenericPdfPreviewDialog
+          open={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          blobUrl={previewData?.blobUrl || null}
+          dataUri={previewData?.dataUri || null}
+          fileName={previewData?.fileName || "facture.pdf"}
+        />
       </DialogContent>
     </Dialog>
   );
