@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DevisLinesManager } from "@/components/DevisLinesManager";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, Pencil, FileText, Check, X, Send, CalendarPlus, Loader2, FolderOpen, Plus } from "lucide-react";
+import { ArrowLeft, Download, Pencil, FileText, Check, X, Send, CalendarPlus, Loader2, FolderOpen, Plus, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
