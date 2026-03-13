@@ -132,7 +132,7 @@ function useMonthlyEvolution(companyIds: string[]) {
   });
 }
 
-import { forwardRef } from "react";
+import React from "react";
 
 const ChartTooltipContent = forwardRef<HTMLDivElement, any>(({ active, payload, label }, ref) => {
   if (!active || !payload?.length) return null;
