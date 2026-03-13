@@ -152,7 +152,7 @@ function drawFooter(doc: jsPDF, company: any, pageW: number, marginL: number, ma
   }
 }
 
-export async function generateDevisPdf(devisId: string, returnBase64 = false): Promise<string | void> {
+export async function generateDevisPdf(devisId: string, returnBase64 = false, returnPreview = false): Promise<string | { blobUrl: string; fileName: string; dataUri: string } | void> {
   const { data: devis, error } = await supabase
     .from("devis")
     .select("*, clients(name, code, address, city, postal_code, email, contact_name, payment_terms), companies(name, short_name, address, phone, email, siret)")
