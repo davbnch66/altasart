@@ -179,6 +179,7 @@ const DossierDetail = () => {
     onSuccess: () => {
       toast.success("Facture supprimée");
       queryClient.invalidateQueries({ queryKey: ["dossier-factures"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
       queryClient.invalidateQueries({ queryKey: ["dossier-reglements-count"] });
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       setDeletingFactureId(null);

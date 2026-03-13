@@ -186,6 +186,8 @@ const Finance = () => {
 
   const deleteFactureMutation = useMutation({
     mutationFn: async (id: string) => {
+      // Unlink operations referencing this facture
+      await supabase.from("operations").update({ facture_id: null } as any).eq("facture_id", id);
       const { error } = await supabase.from("factures").delete().eq("id", id);
       if (error) throw error;
     },
@@ -194,6 +196,7 @@ const Finance = () => {
       queryClient.invalidateQueries({ queryKey: ["finance"] });
       queryClient.invalidateQueries({ queryKey: ["client-factures"] });
       queryClient.invalidateQueries({ queryKey: ["dossier-factures"] });
+      queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
       queryClient.invalidateQueries({ queryKey: ["dossier-reglements-count"] });
       setDeleteFacture(null);
     },
