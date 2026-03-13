@@ -58,6 +58,14 @@ const DossierDetail = () => {
   const [searchParams] = useSearchParams();
   const operationFromUrl = searchParams.get("operation");
   const [activeTab, setActiveTab] = useState(operationFromUrl ? "operations" : "timeline");
+  
+  // React to URL changes (e.g. clicking a notification while already on the page)
+  useEffect(() => {
+    if (operationFromUrl) {
+      setActiveTab("operations");
+    }
+  }, [operationFromUrl]);
+
   const [editing, setEditing] = useState(false);
   const [deletingFactureId, setDeletingFactureId] = useState<string | null>(null);
   const [deletingDevisId, setDeletingDevisId] = useState<string | null>(null);
