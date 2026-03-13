@@ -415,36 +415,6 @@ export const DossierOperationsTab = ({ dossierId, companyId, initialOperationId 
 
   const getResourcesForOp = (opId: string) => opResources.filter((or: any) => or.operation_id === opId);
 
-  const createFactureFromOp = useMutation({
-    mutationFn: async (op: any) => {
-      if (!dossier?.client_id) throw new Error("Client introuvable");
-      const amount = dossier.amount || 0;
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 30);
-      const { data: facture, error: fErr } = await supabase.from("factures").insert({
-        company_id: companyId,
-        client_id: dossier.client_id,
-        dossier_id: dossierId,
-        amount,
-        status: "brouillon" as any,
-        due_date: dueDate.toISOString().split("T")[0],
-        notes: `Facture créée depuis Op. ${op.operation_number} — ${op.type}`,
-      } as any).select("id").single();
-      if (fErr) throw fErr;
-      // Link operation to facture
-      const { error: uErr } = await supabase.from("operations").update({ facture_id: facture.id } as any).eq("id", op.id);
-      if (uErr) throw uErr;
-      return facture;
-    },
-    onSuccess: () => {
-      toast.success("Facture créée et liée à l'opération");
-      queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
-      queryClient.invalidateQueries({ queryKey: ["dossier-factures"] });
-      queryClient.invalidateQueries({ queryKey: ["finance"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-    },
-    onError: () => toast.error("Erreur lors de la création de la facture"),
-  });
 
   const openCreate = () => {
     const f = emptyForm();
