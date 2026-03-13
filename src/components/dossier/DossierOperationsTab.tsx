@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { MaterielListDisplay } from "@/components/MaterielListDisplay";
 import { BTReportPreviewDialog } from "@/components/terrain/BTReportPreviewDialog";
+import { CreateFactureDialog } from "@/components/forms/CreateFactureDialog";
 
 interface Props {
   dossierId: string;
