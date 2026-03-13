@@ -50,16 +50,16 @@ export const DossierSituationTab = ({ dossierId, dossierAmount, dossierCost }: P
       {/* Situation facturation */}
       <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
         <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Facturation</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg border p-3 text-center">
-            <p className="text-[10px] text-muted-foreground">Reste à facturer</p>
-            <p className={`font-bold ${isMobile ? "text-sm" : "text-lg"} ${resteAFacturer > 0 ? "text-warning" : "text-success"}`}>
+        <div className={`grid gap-3 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
+          <div className="rounded-lg border p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Reste à facturer</p>
+            <p className={`font-bold ${isMobile ? "text-base" : "text-xl"} ${resteAFacturer > 0 ? "text-warning" : "text-success"}`}>
               {fmt(resteAFacturer)}
             </p>
           </div>
-          <div className="rounded-lg border p-3 text-center">
-            <p className="text-[10px] text-muted-foreground">Reste à recevoir</p>
-            <p className={`font-bold ${isMobile ? "text-sm" : "text-lg"} ${resteARecevoir > 0 ? "text-destructive" : "text-success"}`}>
+          <div className="rounded-lg border p-4 text-center">
+            <p className="text-xs text-muted-foreground mb-1">Reste à recevoir</p>
+            <p className={`font-bold ${isMobile ? "text-base" : "text-xl"} ${resteARecevoir > 0 ? "text-destructive" : "text-success"}`}>
               {fmt(resteARecevoir)}
             </p>
           </div>
@@ -69,23 +69,23 @@ export const DossierSituationTab = ({ dossierId, dossierAmount, dossierCost }: P
       {/* Tableau marge */}
       <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
         <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">Marge</h3>
-        <div className="rounded-lg border overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-lg border overflow-x-auto">
+          <table className="w-full text-sm min-w-[280px]">
             <thead>
               <tr className="border-b bg-muted/50">
-                <th className="text-left px-3 py-2 text-xs font-medium text-muted-foreground"></th>
-                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground">Prévue</th>
-                <th className="text-right px-3 py-2 text-xs font-medium text-muted-foreground">En cours</th>
+                <th className="text-left px-3 py-2.5 text-xs font-medium text-muted-foreground w-1/3"></th>
+                <th className="text-right px-3 py-2.5 text-xs font-medium text-muted-foreground">Prévue</th>
+                <th className="text-right px-3 py-2.5 text-xs font-medium text-muted-foreground">En cours</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.label} className={`border-b last:border-b-0 ${row.highlight ? "bg-primary/5" : ""}`}>
-                  <td className={`px-3 py-2 text-xs font-medium ${row.highlight ? "text-primary font-semibold" : ""}`}>{row.label}</td>
-                  <td className={`px-3 py-2 text-right text-xs ${row.highlight ? "font-bold text-primary" : ""}`}>
+                  <td className={`px-3 py-2.5 text-xs font-medium ${row.highlight ? "text-primary font-semibold" : ""}`}>{row.label}</td>
+                  <td className={`px-3 py-2.5 text-right text-xs whitespace-nowrap ${row.highlight ? "font-bold text-primary" : ""}`}>
                     {row.prevuPct || fmt(row.prevu || 0)}
                   </td>
-                  <td className={`px-3 py-2 text-right text-xs ${row.highlight ? "font-bold text-primary" : ""}`}>
+                  <td className={`px-3 py-2.5 text-right text-xs whitespace-nowrap ${row.highlight ? "font-bold text-primary" : ""}`}>
                     {row.enCoursPct || fmt(row.enCours || 0)}
                   </td>
                 </tr>

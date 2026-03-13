@@ -412,9 +412,9 @@ const DossierDetail = () => {
               ))}
             </div>
           ) : (
-            <TabsList>
+            <TabsList className="w-full flex overflow-x-auto scrollbar-none">
               {tabItems.map((tab) => (
-                <TabsTrigger key={tab.key} value={tab.key} className="gap-1.5">
+                <TabsTrigger key={tab.key} value={tab.key} className="gap-1.5 shrink-0 text-xs px-2.5">
                   <tab.icon className="h-3.5 w-3.5" /> {tab.label}{tab.count !== null ? ` (${tab.count})` : ""}
                 </TabsTrigger>
               ))}
