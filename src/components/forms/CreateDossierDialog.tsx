@@ -89,6 +89,8 @@ interface CreateDossierDialogProps {
 
 export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId, trigger }: CreateDossierDialogProps) => {
   const [open, setOpen] = useState(false);
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
 
