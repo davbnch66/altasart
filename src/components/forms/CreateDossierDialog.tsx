@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,9 +15,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, FileText, MapPin, ClipboardList, Warehouse } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { Plus, FileText, MapPin, ClipboardList, Warehouse, ChevronsUpDown, Check, UserPlus } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { ContactSelect } from "@/components/client/ContactSelect";
+import { CreateClientDialog } from "@/components/forms/CreateClientDialog";
+import { cn } from "@/lib/utils";
 
 const DEPOT_ADDRESS = { address: "12 rue Jean Monnet", postal_code: "95190", city: "Goussainville" };
 const executionOptions = ["Route", "Maritime", "Aérien", "Ferroviaire", "Mixte"];
@@ -85,6 +89,8 @@ interface CreateDossierDialogProps {
 
 export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId, trigger }: CreateDossierDialogProps) => {
   const [open, setOpen] = useState(false);
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
 
@@ -231,12 +237,49 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
                   </div>
                   <div>
                     <Label>Client *</Label>
-                    <Select value={watch("client_id")} onValueChange={handleClientChange}>
-                      <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
-                      <SelectContent>
-                        {clients.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" role="combobox" aria-expanded={clientPopoverOpen} className="w-full justify-between font-normal h-10">
+                          {watch("client_id") ? clients.find(c => c.id === watch("client_id"))?.name || "Sélectionner" : "Rechercher un client..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput placeholder="Taper pour rechercher..." value={clientSearch} onValueChange={setClientSearch} />
+                          <CommandList>
+                            <CommandEmpty className="py-2 px-3 text-sm text-muted-foreground">
+                              Aucun client trouvé
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {clients
+                                .filter(c => !clientSearch || c.name.toLowerCase().includes(clientSearch.toLowerCase()))
+                                .slice(0, 50)
+                                .map((c) => (
+                                  <CommandItem
+                                    key={c.id}
+                                    value={c.id}
+                                    onSelect={() => { handleClientChange(c.id); setClientPopoverOpen(false); setClientSearch(""); }}
+                                  >
+                                    <Check className={cn("mr-2 h-4 w-4", watch("client_id") === c.id ? "opacity-100" : "opacity-0")} />
+                                    {c.name}
+                                  </CommandItem>
+                                ))}
+                            </CommandGroup>
+                            <CommandGroup>
+                              <CreateClientDialog
+                                trigger={
+                                  <CommandItem onSelect={() => {}} className="text-primary cursor-pointer">
+                                    <UserPlus className="mr-2 h-4 w-4" />
+                                    Créer un nouveau client
+                                  </CommandItem>
+                                }
+                              />
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     {errors.client_id && <p className="text-xs text-destructive mt-1">{errors.client_id.message}</p>}
                   </div>
                   {watch("client_id") && (
