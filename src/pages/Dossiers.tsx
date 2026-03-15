@@ -1,18 +1,21 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, FolderOpen, Pencil, Trash2, ChevronRight, MapPin, Euro, Plus } from "lucide-react";
+import { Search, FolderOpen, Pencil, Trash2, ChevronRight, MapPin, Euro, Plus, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { CreateDossierDialog } from "@/components/forms/CreateDossierDialog";
 import { EditDossierDialog } from "@/components/forms/EditDossierDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+
+type SortKey = "title" | "code" | "updated_at" | "created_at" | "amount" | "client" | "stage";
+type SortDir = "asc" | "desc";
 
 const pipelineStages = [
   { key: "prospect", label: "Prospect" },
