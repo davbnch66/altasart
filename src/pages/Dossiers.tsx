@@ -246,56 +246,56 @@ const Dossiers = () => {
           ))}
         </motion.div>
       ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="grid gap-2">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="grid gap-2 overflow-x-auto">
           {/* Sort header */}
-          <div className="flex items-center gap-4 px-5 py-2 text-xs font-medium text-muted-foreground select-none">
-            <div className="w-10 shrink-0" />
-            <button onClick={() => toggleSort("title")} className="flex-1 flex items-center gap-1 hover:text-foreground transition-colors text-left min-w-0">
+          <div className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-muted-foreground select-none min-w-0">
+            <div className="w-9 shrink-0" />
+            <button onClick={() => toggleSort("title")} className="flex-1 min-w-[180px] flex items-center gap-1 hover:text-foreground transition-colors text-left">
               Nom <SortIcon col="title" />
             </button>
-            <button onClick={() => toggleSort("code")} className="w-20 shrink-0 flex items-center gap-1 hover:text-foreground transition-colors">
+            <button onClick={() => toggleSort("code")} className="w-[72px] shrink-0 flex items-center gap-1 hover:text-foreground transition-colors">
               N° <SortIcon col="code" />
             </button>
-            <button onClick={() => toggleSort("client")} className="w-28 shrink-0 hidden lg:flex items-center gap-1 hover:text-foreground transition-colors">
+            <button onClick={() => toggleSort("client")} className="w-20 shrink-0 hidden lg:flex items-center gap-1 hover:text-foreground transition-colors">
               Société <SortIcon col="client" />
             </button>
-            <button onClick={() => toggleSort("stage")} className="w-24 shrink-0 flex items-center gap-1 hover:text-foreground transition-colors">
+            <button onClick={() => toggleSort("stage")} className="w-[76px] shrink-0 flex items-center gap-1 hover:text-foreground transition-colors">
               Statut <SortIcon col="stage" />
             </button>
-            <button onClick={() => toggleSort("amount")} className="w-24 shrink-0 flex items-center gap-1 justify-end hover:text-foreground transition-colors">
+            <button onClick={() => toggleSort("amount")} className="w-[80px] shrink-0 flex items-center gap-1 justify-end hover:text-foreground transition-colors">
               Montant <SortIcon col="amount" />
             </button>
-            <button onClick={() => toggleSort("updated_at")} className="w-20 shrink-0 hidden xl:flex items-center gap-1 hover:text-foreground transition-colors">
+            <button onClick={() => toggleSort("updated_at")} className="w-[68px] shrink-0 hidden xl:flex items-center gap-1 hover:text-foreground transition-colors">
               Modifié <SortIcon col="updated_at" />
             </button>
-            <div className="w-16 shrink-0" />
+            <div className="w-[52px] shrink-0" />
           </div>
           {filtered.map((dossier) => (
-            <div key={dossier.id} onClick={() => navigate(`/dossiers/${dossier.id}`)} className="flex items-center gap-4 rounded-xl border bg-card px-5 py-3 hover:shadow-sm transition-shadow cursor-pointer">
-              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                <FolderOpen className="h-5 w-5 text-muted-foreground" />
+            <div key={dossier.id} onClick={() => navigate(`/dossiers/${dossier.id}`)} className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 hover:shadow-sm transition-shadow cursor-pointer min-w-0">
+              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                <FolderOpen className="h-4 w-4 text-muted-foreground" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{dossier.title}</p>
+              <div className="flex-1 min-w-[180px]">
+                <p className="font-medium text-sm truncate">{dossier.title}</p>
                 <p className="text-xs text-muted-foreground truncate">{(dossier.clients as any)?.name || "—"}</p>
               </div>
-              <span className="w-20 shrink-0 text-xs font-mono text-muted-foreground truncate">{dossier.code || "—"}</span>
-              <span className="w-28 shrink-0 text-xs text-muted-foreground truncate hidden lg:block">
+              <span className="w-[72px] shrink-0 text-[11px] font-mono text-muted-foreground truncate">{dossier.code || "—"}</span>
+              <span className="w-20 shrink-0 text-xs text-muted-foreground truncate hidden lg:block">
                 {(dossier.companies as any)?.short_name}
               </span>
-              <span className={`w-24 shrink-0 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${stageStyles[dossier.stage]}`}>
+              <span className={`w-[76px] shrink-0 inline-flex justify-center rounded-full px-2 py-0.5 text-[11px] font-medium ${stageStyles[dossier.stage]}`}>
                 {pipelineStages.find((s) => s.key === dossier.stage)?.label}
               </span>
-              <span className="w-24 shrink-0 text-sm font-semibold whitespace-nowrap text-right">{formatAmount(dossier.amount)}</span>
-              <span className="w-20 shrink-0 text-xs text-muted-foreground hidden xl:block">
+              <span className="w-[80px] shrink-0 text-sm font-semibold whitespace-nowrap text-right">{formatAmount(dossier.amount)}</span>
+              <span className="w-[68px] shrink-0 text-[11px] text-muted-foreground hidden xl:block">
                 {new Date(dossier.updated_at).toLocaleDateString("fr-FR")}
               </span>
-              <div className="w-16 shrink-0 flex gap-1 justify-end">
+              <div className="w-[52px] shrink-0 flex gap-0.5 justify-end">
                 <button onClick={(e) => { e.stopPropagation(); setEditingDossier(dossier); }} className="p-1 rounded hover:bg-muted" title="Modifier">
-                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); setDeletingDossier(dossier); }} className="p-1 rounded hover:bg-muted" title="Supprimer">
-                  <Trash2 className="h-4 w-4 text-destructive" />
+                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
                 </button>
               </div>
             </div>
