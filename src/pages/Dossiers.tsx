@@ -108,14 +108,34 @@ const Dossiers = () => {
     },
   });
 
-  const filtered = dossiers.filter((d) => {
-    const matchSearch = !search ||
-      d.title.toLowerCase().includes(search.toLowerCase()) ||
-      d.code?.toLowerCase().includes(search.toLowerCase()) ||
-      (d.clients as any)?.name?.toLowerCase().includes(search.toLowerCase());
-    const matchStage = stageFilter === "all" || d.stage === stageFilter;
-    return matchSearch && matchStage;
-  });
+  const filtered = useMemo(() => {
+    const base = dossiers.filter((d) => {
+      const matchSearch = !search ||
+        d.title.toLowerCase().includes(search.toLowerCase()) ||
+        d.code?.toLowerCase().includes(search.toLowerCase()) ||
+        (d.clients as any)?.name?.toLowerCase().includes(search.toLowerCase());
+      const matchStage = stageFilter === "all" || d.stage === stageFilter;
+      return matchSearch && matchStage;
+    });
+
+    return base.sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "title": cmp = (a.title || "").localeCompare(b.title || "", "fr"); break;
+        case "code": cmp = (a.code || "").localeCompare(b.code || "", "fr"); break;
+        case "client": cmp = ((a.clients as any)?.name || "").localeCompare((b.clients as any)?.name || "", "fr"); break;
+        case "amount": cmp = (a.amount || 0) - (b.amount || 0); break;
+        case "stage": {
+          const order = pipelineStages.map(s => s.key);
+          cmp = order.indexOf(a.stage) - order.indexOf(b.stage);
+          break;
+        }
+        case "updated_at": cmp = (a.updated_at || "").localeCompare(b.updated_at || ""); break;
+        case "created_at": cmp = (a.created_at || "").localeCompare(b.created_at || ""); break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [dossiers, search, stageFilter, sortKey, sortDir]);
 
   const counts: Record<string, number> = { all: dossiers.length };
   for (const s of pipelineStages) {
