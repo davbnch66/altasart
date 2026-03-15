@@ -91,6 +91,7 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
   const [open, setOpen] = useState(false);
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
+  const [createClientOpen, setCreateClientOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
 
@@ -186,6 +187,7 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => {
       setOpen(v);
       if (v) {
@@ -267,14 +269,16 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
                                 ))}
                             </CommandGroup>
                             <CommandGroup>
-                              <CreateClientDialog
-                                trigger={
-                                  <CommandItem onSelect={() => {}} className="text-primary cursor-pointer">
-                                    <UserPlus className="mr-2 h-4 w-4" />
-                                    Créer un nouveau client
-                                  </CommandItem>
-                                }
-                              />
+                              <CommandItem
+                                onSelect={() => {
+                                  setClientPopoverOpen(false);
+                                  setTimeout(() => setCreateClientOpen(true), 150);
+                                }}
+                                className="text-primary cursor-pointer"
+                              >
+                                <UserPlus className="mr-2 h-4 w-4" />
+                                Créer un nouveau client
+                              </CommandItem>
                             </CommandGroup>
                           </CommandList>
                         </Command>
@@ -463,5 +467,13 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
         </form>
       </DialogContent>
     </Dialog>
+    <CreateClientDialog
+      open={createClientOpen}
+      onOpenChange={setCreateClientOpen}
+      onClientCreated={(clientId) => {
+        handleClientChange(clientId);
+      }}
+    />
+    </>
   );
 };
