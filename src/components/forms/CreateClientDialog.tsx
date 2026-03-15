@@ -178,13 +178,15 @@ export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange
 
   return (
     <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { reset({ company_id: defaultCompanyId, client_type: "societe", status: "nouveau_lead", tags: [], country: "France", credit_limit: 0, invoice_by_email: false }); } }}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button className="flex items-center gap-2">
-            <Plus className="h-4 w-4" /> Nouveau client
-          </Button>
-        )}
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          {trigger || (
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" /> Nouveau client
+            </Button>
+          )}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Nouveau client</DialogTitle>
