@@ -1,18 +1,21 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, FolderOpen, Pencil, Trash2, ChevronRight, MapPin, Euro, Plus } from "lucide-react";
+import { Search, FolderOpen, Pencil, Trash2, ChevronRight, MapPin, Euro, Plus, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { CreateDossierDialog } from "@/components/forms/CreateDossierDialog";
 import { EditDossierDialog } from "@/components/forms/EditDossierDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+
+type SortKey = "title" | "code" | "updated_at" | "created_at" | "amount" | "client" | "stage";
+type SortDir = "asc" | "desc";
 
 const pipelineStages = [
   { key: "prospect", label: "Prospect" },
@@ -36,17 +39,6 @@ const stageStyles: Record<string, string> = {
   paye: "bg-success/10 text-success",
 };
 
-const stageBorderColors: Record<string, string> = {
-  prospect: "border-muted-foreground/30",
-  devis: "border-info/50",
-  accepte: "border-success/50",
-  planifie: "border-primary/50",
-  en_cours: "border-warning/50",
-  termine: "border-success/50",
-  facture: "border-info/50",
-  paye: "border-success/50",
-};
-
 const formatAmount = (amount: number | null) => {
   if (!amount) return "—";
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(amount);
@@ -59,8 +51,20 @@ const Dossiers = () => {
   const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
+  const [sortKey, setSortKey] = useState<SortKey>("updated_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [editingDossier, setEditingDossier] = useState<any>(null);
   const [deletingDossier, setDeletingDossier] = useState<any>(null);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -82,25 +86,42 @@ const Dossiers = () => {
         .from("dossiers")
         .select("*, clients(name), companies(short_name, color)")
         .order("created_at", { ascending: false });
-
       if (current !== "global") {
         query = query.eq("company_id", current);
       }
-
       const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
   });
 
-  const filtered = dossiers.filter((d) => {
-    const matchSearch = !search ||
-      d.title.toLowerCase().includes(search.toLowerCase()) ||
-      d.code?.toLowerCase().includes(search.toLowerCase()) ||
-      (d.clients as any)?.name?.toLowerCase().includes(search.toLowerCase());
-    const matchStage = stageFilter === "all" || d.stage === stageFilter;
-    return matchSearch && matchStage;
-  });
+  const filtered = useMemo(() => {
+    const base = dossiers.filter((d) => {
+      const matchSearch = !search ||
+        d.title.toLowerCase().includes(search.toLowerCase()) ||
+        d.code?.toLowerCase().includes(search.toLowerCase()) ||
+        (d.clients as any)?.name?.toLowerCase().includes(search.toLowerCase());
+      const matchStage = stageFilter === "all" || d.stage === stageFilter;
+      return matchSearch && matchStage;
+    });
+    return base.sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "title": cmp = (a.title || "").localeCompare(b.title || "", "fr"); break;
+        case "code": cmp = (a.code || "").localeCompare(b.code || "", "fr"); break;
+        case "client": cmp = ((a.clients as any)?.name || "").localeCompare((b.clients as any)?.name || "", "fr"); break;
+        case "amount": cmp = (a.amount || 0) - (b.amount || 0); break;
+        case "stage": {
+          const order = pipelineStages.map(s => s.key);
+          cmp = order.indexOf(a.stage) - order.indexOf(b.stage);
+          break;
+        }
+        case "updated_at": cmp = (a.updated_at || "").localeCompare(b.updated_at || ""); break;
+        case "created_at": cmp = (a.created_at || "").localeCompare(b.created_at || ""); break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [dossiers, search, stageFilter, sortKey, sortDir]);
 
   const counts: Record<string, number> = { all: dossiers.length };
   for (const s of pipelineStages) {
@@ -155,6 +176,29 @@ const Dossiers = () => {
         />
       </div>
 
+      {/* Sort bar mobile */}
+      {isMobile && (
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-1 px-1">
+          {([
+            { key: "updated_at" as SortKey, label: "Modifié" },
+            { key: "title" as SortKey, label: "Nom" },
+            { key: "code" as SortKey, label: "N°" },
+            { key: "client" as SortKey, label: "Client" },
+            { key: "amount" as SortKey, label: "Montant" },
+          ]).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => toggleSort(key)}
+              className={`shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                sortKey === key ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {label} <SortIcon col={key} />
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* List */}
       {isLoading ? (
         <div className="space-y-3">
@@ -163,14 +207,9 @@ const Dossiers = () => {
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">Aucun dossier trouvé</div>
       ) : isMobile ? (
-        /* Mobile cards */
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid gap-3">
           {filtered.map((dossier) => (
-            <div
-              key={dossier.id}
-              onClick={() => navigate(`/dossiers/${dossier.id}`)}
-              className="rounded-xl border bg-card p-3 active:bg-muted/50 transition-colors cursor-pointer"
-            >
+            <div key={dossier.id} onClick={() => navigate(`/dossiers/${dossier.id}`)} className="rounded-xl border bg-card p-3 active:bg-muted/50 transition-colors cursor-pointer">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <FolderOpen className="h-4 w-4 text-muted-foreground" />
@@ -194,9 +233,6 @@ const Dossiers = () => {
                         {formatAmount(dossier.amount)}
                       </span>
                     ) : null}
-                    {(dossier.companies as any)?.short_name && (
-                      <span className="shrink-0">{(dossier.companies as any).short_name}</span>
-                    )}
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
@@ -210,25 +246,51 @@ const Dossiers = () => {
           ))}
         </motion.div>
       ) : (
-        /* Desktop list */
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="grid gap-3">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="grid gap-2">
+          {/* Sort header */}
+          <div className="flex items-center gap-4 px-5 py-2 text-xs font-medium text-muted-foreground select-none">
+            <div className="w-10 shrink-0" />
+            <button onClick={() => toggleSort("title")} className="flex-1 flex items-center gap-1 hover:text-foreground transition-colors text-left min-w-0">
+              Nom <SortIcon col="title" />
+            </button>
+            <button onClick={() => toggleSort("code")} className="w-20 shrink-0 flex items-center gap-1 hover:text-foreground transition-colors">
+              N° <SortIcon col="code" />
+            </button>
+            <button onClick={() => toggleSort("client")} className="w-28 shrink-0 hidden lg:flex items-center gap-1 hover:text-foreground transition-colors">
+              Société <SortIcon col="client" />
+            </button>
+            <button onClick={() => toggleSort("stage")} className="w-24 shrink-0 flex items-center gap-1 hover:text-foreground transition-colors">
+              Statut <SortIcon col="stage" />
+            </button>
+            <button onClick={() => toggleSort("amount")} className="w-24 shrink-0 flex items-center gap-1 justify-end hover:text-foreground transition-colors">
+              Montant <SortIcon col="amount" />
+            </button>
+            <button onClick={() => toggleSort("updated_at")} className="w-20 shrink-0 hidden xl:flex items-center gap-1 hover:text-foreground transition-colors">
+              Modifié <SortIcon col="updated_at" />
+            </button>
+            <div className="w-16 shrink-0" />
+          </div>
           {filtered.map((dossier) => (
-            <div key={dossier.id} onClick={() => navigate(`/dossiers/${dossier.id}`)} className="flex items-center gap-4 rounded-xl border bg-card px-5 py-4 hover:shadow-sm transition-shadow cursor-pointer">
-              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center">
+            <div key={dossier.id} onClick={() => navigate(`/dossiers/${dossier.id}`)} className="flex items-center gap-4 rounded-xl border bg-card px-5 py-3 hover:shadow-sm transition-shadow cursor-pointer">
+              <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
                 <FolderOpen className="h-5 w-5 text-muted-foreground" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{dossier.title}</p>
-                <p className="text-xs text-muted-foreground">{(dossier.clients as any)?.name || "—"}</p>
+                <p className="text-xs text-muted-foreground truncate">{(dossier.clients as any)?.name || "—"}</p>
               </div>
-              <span className="text-xs text-muted-foreground hidden md:block">
+              <span className="w-20 shrink-0 text-xs font-mono text-muted-foreground truncate">{dossier.code || "—"}</span>
+              <span className="w-28 shrink-0 text-xs text-muted-foreground truncate hidden lg:block">
                 {(dossier.companies as any)?.short_name}
               </span>
-              <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${stageStyles[dossier.stage]}`}>
+              <span className={`w-24 shrink-0 inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${stageStyles[dossier.stage]}`}>
                 {pipelineStages.find((s) => s.key === dossier.stage)?.label}
               </span>
-              <span className="text-sm font-semibold whitespace-nowrap">{formatAmount(dossier.amount)}</span>
-              <div className="flex gap-1">
+              <span className="w-24 shrink-0 text-sm font-semibold whitespace-nowrap text-right">{formatAmount(dossier.amount)}</span>
+              <span className="w-20 shrink-0 text-xs text-muted-foreground hidden xl:block">
+                {new Date(dossier.updated_at).toLocaleDateString("fr-FR")}
+              </span>
+              <div className="w-16 shrink-0 flex gap-1 justify-end">
                 <button onClick={(e) => { e.stopPropagation(); setEditingDossier(dossier); }} className="p-1 rounded hover:bg-muted" title="Modifier">
                   <Pencil className="h-4 w-4 text-muted-foreground" />
                 </button>
