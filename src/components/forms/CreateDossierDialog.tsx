@@ -268,14 +268,16 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
                                 ))}
                             </CommandGroup>
                             <CommandGroup>
-                              <CreateClientDialog
-                                trigger={
-                                  <CommandItem onSelect={() => {}} className="text-primary cursor-pointer">
-                                    <UserPlus className="mr-2 h-4 w-4" />
-                                    Créer un nouveau client
-                                  </CommandItem>
-                                }
-                              />
+                              <CommandItem
+                                onSelect={() => {
+                                  setClientPopoverOpen(false);
+                                  setTimeout(() => setCreateClientOpen(true), 150);
+                                }}
+                                className="text-primary cursor-pointer"
+                              >
+                                <UserPlus className="mr-2 h-4 w-4" />
+                                Créer un nouveau client
+                              </CommandItem>
                             </CommandGroup>
                           </CommandList>
                         </Command>
