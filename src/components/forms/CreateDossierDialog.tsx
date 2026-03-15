@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,9 +15,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, FileText, MapPin, ClipboardList, Warehouse } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { Plus, FileText, MapPin, ClipboardList, Warehouse, ChevronsUpDown, Check, UserPlus } from "lucide-react";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { ContactSelect } from "@/components/client/ContactSelect";
+import { CreateClientDialog } from "@/components/forms/CreateClientDialog";
+import { cn } from "@/lib/utils";
 
 const DEPOT_ADDRESS = { address: "12 rue Jean Monnet", postal_code: "95190", city: "Goussainville" };
 const executionOptions = ["Route", "Maritime", "Aérien", "Ferroviaire", "Mixte"];
