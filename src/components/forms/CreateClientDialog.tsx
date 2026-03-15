@@ -163,10 +163,13 @@ export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange
           is_default: true,
         });
       }
+      return newClient?.id;
     },
-    onSuccess: () => {
+    onSuccess: (clientId) => {
       toast.success("Client créé avec succès");
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["clients-for-select"] });
+      if (clientId && onClientCreated) onClientCreated(clientId);
       reset();
       setOpen(false);
     },
