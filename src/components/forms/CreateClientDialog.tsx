@@ -84,10 +84,16 @@ type FormData = z.infer<typeof schema>;
 
 interface CreateClientDialogProps {
   trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onClientCreated?: (clientId: string) => void;
 }
 
-export const CreateClientDialog = ({ trigger }: CreateClientDialogProps) => {
-  const [open, setOpen] = useState(false);
+export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange, onClientCreated }: CreateClientDialogProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (v: boolean) => { if (onOpenChange) onOpenChange(v); if (!isControlled) setInternalOpen(v); };
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
   const nameDropdownRef = useRef<HTMLDivElement>(null);
