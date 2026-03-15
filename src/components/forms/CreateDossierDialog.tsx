@@ -91,6 +91,7 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
   const [open, setOpen] = useState(false);
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
+  const [createClientOpen, setCreateClientOpen] = useState(false);
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
 
