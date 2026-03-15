@@ -268,20 +268,21 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
                                   </CommandItem>
                                 ))}
                             </CommandGroup>
-                            <CommandGroup>
-                              <CommandItem
-                                onSelect={() => {
-                                  setClientPopoverOpen(false);
-                                  setTimeout(() => setCreateClientOpen(true), 150);
-                                }}
-                                className="text-primary cursor-pointer"
-                              >
-                                <UserPlus className="mr-2 h-4 w-4" />
-                                Créer un nouveau client
-                              </CommandItem>
-                            </CommandGroup>
                           </CommandList>
                         </Command>
+                        <div className="border-t p-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setClientPopoverOpen(false);
+                              setTimeout(() => setCreateClientOpen(true), 150);
+                            }}
+                            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-primary hover:bg-accent cursor-pointer"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                            Créer un nouveau client
+                          </button>
+                        </div>
                       </PopoverContent>
                     </Popover>
                     {errors.client_id && <p className="text-xs text-destructive mt-1">{errors.client_id.message}</p>}
