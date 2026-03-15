@@ -187,6 +187,7 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => {
       setOpen(v);
       if (v) {
