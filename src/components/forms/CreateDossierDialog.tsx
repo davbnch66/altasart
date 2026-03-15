@@ -466,5 +466,13 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
         </form>
       </DialogContent>
     </Dialog>
+    <CreateClientDialog
+      open={createClientOpen}
+      onOpenChange={setCreateClientOpen}
+      onClientCreated={(clientId) => {
+        handleClientChange(clientId);
+      }}
+    />
+    </>
   );
 };
