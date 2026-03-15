@@ -268,7 +268,6 @@ export const CreateDossierDialog = ({ preselectedClientId, preselectedCompanyId,
                             </CommandGroup>
                             <CommandGroup>
                               <CreateClientDialog
-                                preselectedCompanyId={selectedCompanyId}
                                 trigger={
                                   <CommandItem onSelect={() => {}} className="text-primary cursor-pointer">
                                     <UserPlus className="mr-2 h-4 w-4" />
