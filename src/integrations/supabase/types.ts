@@ -1973,37 +1973,46 @@ export type Database = {
       }
       ppsps: {
         Row: {
+          attachments: Json | null
           company_id: string
           content: Json
           created_by: string | null
+          custom_sections: Json | null
           devis_id: string
           dossier_id: string | null
           generated_at: string
           id: string
+          images: Json | null
           status: string
           updated_at: string
           version: number
         }
         Insert: {
+          attachments?: Json | null
           company_id: string
           content?: Json
           created_by?: string | null
+          custom_sections?: Json | null
           devis_id: string
           dossier_id?: string | null
           generated_at?: string
           id?: string
+          images?: Json | null
           status?: string
           updated_at?: string
           version?: number
         }
         Update: {
+          attachments?: Json | null
           company_id?: string
           content?: Json
           created_by?: string | null
+          custom_sections?: Json | null
           devis_id?: string
           dossier_id?: string | null
           generated_at?: string
           id?: string
+          images?: Json | null
           status?: string
           updated_at?: string
           version?: number

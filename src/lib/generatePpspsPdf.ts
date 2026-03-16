@@ -6,7 +6,13 @@ const DARK = [30, 30, 30] as const;
 const GRAY = [100, 100, 100] as const;
 const LIGHT_BG = [245, 245, 245] as const;
 
-export const generatePpspsPdf = async (content: any, devis: any, options?: { compress?: boolean }) => {
+interface PpspsPdfOptions {
+  compress?: boolean;
+  customSections?: { id: string; title: string; content: string; position: string }[];
+  images?: { id: string; storagePath: string; caption: string; url?: string }[];
+}
+
+export const generatePpspsPdf = async (content: any, devis: any, options?: PpspsPdfOptions) => {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: options?.compress ?? true, putOnlyUsedFonts: true });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
@@ -240,6 +246,56 @@ export const generatePpspsPdf = async (content: any, devis: any, options?: { com
       content.analyse_risques.map((r: any) => [r.situation_dangereuse, r.risques, r.mesures_prevention, r.moyens_protection || "—"]),
       margin, y, maxW, [40, 35, 45, 40]);
     y += 5;
+  }
+
+  // Custom sections
+  const customSections = options?.customSections || [];
+  for (const section of customSections) {
+    checkPageBreak(20);
+    y = addSectionTitle(doc, section.title.toUpperCase(), margin, y, maxW);
+    y = addWrappedText(doc, section.content, margin + 2, y, maxW - 4, checkPageBreak);
+    y += 5;
+  }
+
+  // Embedded images (annexes)
+  const pdfImages = options?.images || [];
+  if (pdfImages.length > 0) {
+    checkPageBreak(20);
+    y = addSectionTitle(doc, "ANNEXES — PHOTOS ET DOCUMENTS", margin, y, maxW);
+    for (const img of pdfImages) {
+      if (!img.url) continue;
+      try {
+        const response = await fetch(img.url);
+        const blob = await response.blob();
+        const dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        const imgEl = new Image();
+        await new Promise<void>((resolve, reject) => {
+          imgEl.onload = () => resolve();
+          imgEl.onerror = reject;
+          imgEl.src = dataUrl;
+        });
+        const ratio = imgEl.width / imgEl.height;
+        const imgW = Math.min(maxW - 10, 120);
+        const imgH = imgW / ratio;
+        checkPageBreak(imgH + 12);
+        doc.addImage(dataUrl, "JPEG", margin + 5, y, imgW, imgH);
+        y += imgH + 3;
+        if (img.caption) {
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(7);
+          doc.setTextColor(...GRAY);
+          doc.text(img.caption, margin + 5, y);
+          doc.setTextColor(...DARK);
+          y += 5;
+        }
+      } catch {
+        // Skip failed images
+      }
+    }
   }
 
   addFooter(doc, pageW, pageH);
