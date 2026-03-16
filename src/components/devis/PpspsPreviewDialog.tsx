@@ -29,7 +29,14 @@ export const PpspsPreviewDialog = ({ open, onOpenChange, content, devis, onRegen
 
   const handleDownloadPdf = async () => {
     try {
-      await generatePpspsPdf(content, devis);
+      const result = await generatePpspsPdf(content, devis);
+      const a = document.createElement("a");
+      a.href = result.blobUrl;
+      a.download = result.fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(result.blobUrl), 5000);
       toast.success("PDF téléchargé");
     } catch (e: any) {
       toast.error("Erreur PDF : " + (e.message || ""));
