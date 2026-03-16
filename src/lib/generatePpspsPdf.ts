@@ -248,6 +248,56 @@ export const generatePpspsPdf = async (content: any, devis: any, options?: Ppsps
     y += 5;
   }
 
+  // Custom sections
+  const customSections = options?.customSections || [];
+  for (const section of customSections) {
+    checkPageBreak(20);
+    y = addSectionTitle(doc, section.title.toUpperCase(), margin, y, maxW);
+    y = addWrappedText(doc, section.content, margin + 2, y, maxW - 4, checkPageBreak);
+    y += 5;
+  }
+
+  // Embedded images (annexes)
+  const pdfImages = options?.images || [];
+  if (pdfImages.length > 0) {
+    checkPageBreak(20);
+    y = addSectionTitle(doc, "ANNEXES — PHOTOS ET DOCUMENTS", margin, y, maxW);
+    for (const img of pdfImages) {
+      if (!img.url) continue;
+      try {
+        const response = await fetch(img.url);
+        const blob = await response.blob();
+        const dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        const imgEl = new Image();
+        await new Promise<void>((resolve, reject) => {
+          imgEl.onload = () => resolve();
+          imgEl.onerror = reject;
+          imgEl.src = dataUrl;
+        });
+        const ratio = imgEl.width / imgEl.height;
+        const imgW = Math.min(maxW - 10, 120);
+        const imgH = imgW / ratio;
+        checkPageBreak(imgH + 12);
+        doc.addImage(dataUrl, "JPEG", margin + 5, y, imgW, imgH);
+        y += imgH + 3;
+        if (img.caption) {
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(7);
+          doc.setTextColor(...GRAY);
+          doc.text(img.caption, margin + 5, y);
+          doc.setTextColor(...DARK);
+          y += 5;
+        }
+      } catch {
+        // Skip failed images
+      }
+    }
+  }
+
   addFooter(doc, pageW, pageH);
 
   const fileName = `PPSPS_${devis.code || devis.id?.slice(0, 8)}.pdf`;
