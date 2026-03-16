@@ -21,20 +21,28 @@ import { EditDevisDialog } from "@/components/forms/EditDevisDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { ClientExchangesTab } from "@/components/client/ClientExchangesTab";
-import { ClientReplyForm } from "@/components/client/ClientReplyForm";
-import { ClientNotesTab } from "@/components/client/ClientNotesTab";
+import { ClientCommunicationPanel } from "@/components/client/ClientCommunicationPanel";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
 
-type TabKey = "infos" | "contacts" | "dossiers" | "chantiers" | "echanges" | "notes" | "factures" | "devis" | "reglements" | "visites";
+type TabKey = "infos" | "contacts" | "dossiers" | "chantiers" | "echanges" | "factures" | "devis" | "reglements" | "visites";
 
-const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
+const desktopTabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
+  { key: "infos", label: "Infos", icon: User },
+  { key: "contacts", label: "Contacts", icon: Users },
+  { key: "dossiers", label: "Dossiers", icon: FolderOpen },
+  { key: "chantiers", label: "Chantiers", icon: HardHat },
+  { key: "factures", label: "Factures", icon: Receipt },
+  { key: "devis", label: "Devis", icon: FileText },
+  { key: "reglements", label: "Règlements", icon: CreditCard },
+  { key: "visites", label: "Visites", icon: ClipboardCheck },
+];
+
+const mobileTabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: "infos", label: "Infos", icon: User },
   { key: "contacts", label: "Contacts", icon: Users },
   { key: "dossiers", label: "Dossiers", icon: FolderOpen },
   { key: "chantiers", label: "Chantiers", icon: HardHat },
   { key: "echanges", label: "Échanges", icon: MessageSquare },
-  { key: "notes", label: "Notes", icon: StickyNote },
   { key: "factures", label: "Factures", icon: Receipt },
   { key: "devis", label: "Devis", icon: FileText },
   { key: "reglements", label: "Règlements", icon: CreditCard },
@@ -208,8 +216,10 @@ const ClientDetail = () => {
   const solde = totalFacture - totalRegle;
   const soldeColor = solde > 0 ? "text-destructive" : "text-success";
 
+  const tabs = isMobile ? mobileTabs : desktopTabs;
+
   return (
-    <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`mx-auto ${isMobile ? "p-3 pb-20 space-y-3 max-w-7xl" : "p-6 lg:p-8 space-y-6 max-w-[1600px]"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
         <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -331,7 +341,7 @@ const ClientDetail = () => {
               <Receipt className="h-3.5 w-3.5 mr-1" /> Facture
             </Button>
           } />
-          <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={() => setActiveTab("notes")}>
+          <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={() => isMobile ? setActiveTab("echanges") : undefined}>
             <StickyNote className="h-3.5 w-3.5 mr-1" /> Note
           </Button>
           {client.email && (
@@ -344,26 +354,30 @@ const ClientDetail = () => {
         </div>
       </motion.div>
 
-      {/* Tabs */}
-      <div className={`flex gap-1 overflow-x-auto scrollbar-none ${isMobile ? "-mx-3 px-3 pb-1" : "border-b"}`}>
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-1.5 shrink-0 font-medium transition-colors ${
-              isMobile
-                ? `px-3 py-1.5 rounded-full text-xs ${activeTab === tab.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`
-                : `px-4 py-2.5 text-sm border-b-2 ${activeTab === tab.key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`
-            }`}
-          >
-            <tab.icon className={isMobile ? "h-3.5 w-3.5" : "h-4 w-4"} />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      {/* Two-column layout: tabs+content left, communication panel right */}
+      <div className={isMobile ? "space-y-3" : "flex gap-6 items-start"}>
+        {/* Left column: Tabs + Tab content */}
+        <div className={isMobile ? "" : "flex-1 min-w-0 space-y-4"}>
+          {/* Tabs */}
+          <div className={`flex gap-1 overflow-x-auto scrollbar-none ${isMobile ? "-mx-3 px-3 pb-1" : "border-b"}`}>
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-1.5 shrink-0 font-medium transition-colors ${
+                  isMobile
+                    ? `px-3 py-1.5 rounded-full text-xs ${activeTab === tab.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`
+                    : `px-4 py-2.5 text-sm border-b-2 ${activeTab === tab.key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`
+                }`}
+              >
+                <tab.icon className={isMobile ? "h-3.5 w-3.5" : "h-4 w-4"} />
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-      {/* Tab content */}
-      <motion.div key={activeTab} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
+          {/* Tab content */}
+          <motion.div key={activeTab} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
         {activeTab === "infos" && (
           <div className={`grid gap-4 ${isMobile ? "grid-cols-1" : "md:grid-cols-2 gap-6"}`}>
             <div className={`rounded-xl border bg-card space-y-3 ${isMobile ? "p-3" : "p-5 space-y-4"}`}>
@@ -522,21 +536,11 @@ const ClientDetail = () => {
           );
         })()}
 
-        {activeTab === "echanges" && (
-          <div className="space-y-4">
-            <ClientReplyForm
-              clientId={id!}
-              clientName={client?.name || ""}
-              clientEmail={client?.email}
-              onSent={() => queryClient.invalidateQueries({ queryKey: ["client-messages", id] })}
-            />
-            <ClientExchangesTab clientId={id!} />
-          </div>
-        )}
-
-        {activeTab === "notes" && (
-          <ClientNotesTab
+        {activeTab === "echanges" && isMobile && (
+          <ClientCommunicationPanel
             clientId={id!}
+            clientName={client?.name || ""}
+            clientEmail={client?.email}
             companyId={client.company_id}
             dossiers={dossiers.map((d) => ({ id: d.id, title: d.title, code: d.code }))}
           />
@@ -771,6 +775,21 @@ const ClientDetail = () => {
           </div>
         )}
       </motion.div>
+        </div>
+
+        {/* Right column: Communication panel (desktop only) */}
+        {!isMobile && (
+          <div className="w-[420px] shrink-0 sticky top-4">
+            <ClientCommunicationPanel
+              clientId={id!}
+              clientName={client?.name || ""}
+              clientEmail={client?.email}
+              companyId={client.company_id}
+              dossiers={dossiers.map((d) => ({ id: d.id, title: d.title, code: d.code }))}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Edit/Delete Dialogs */}
       <EditClientDialog client={client} open={editClientOpen} onOpenChange={setEditClientOpen} />
