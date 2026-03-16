@@ -341,7 +341,7 @@ const ClientDetail = () => {
               <Receipt className="h-3.5 w-3.5 mr-1" /> Facture
             </Button>
           } />
-          <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={() => setActiveTab("notes")}>
+          <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={() => isMobile ? setActiveTab("echanges") : undefined}>
             <StickyNote className="h-3.5 w-3.5 mr-1" /> Note
           </Button>
           {client.email && (
