@@ -6,7 +6,13 @@ const DARK = [30, 30, 30] as const;
 const GRAY = [100, 100, 100] as const;
 const LIGHT_BG = [245, 245, 245] as const;
 
-export const generatePpspsPdf = async (content: any, devis: any, options?: { compress?: boolean }) => {
+interface PpspsPdfOptions {
+  compress?: boolean;
+  customSections?: { id: string; title: string; content: string; position: string }[];
+  images?: { id: string; storagePath: string; caption: string; url?: string }[];
+}
+
+export const generatePpspsPdf = async (content: any, devis: any, options?: PpspsPdfOptions) => {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: options?.compress ?? true, putOnlyUsedFonts: true });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
