@@ -245,7 +245,10 @@ export const generatePpspsPdf = async (content: any, devis: any) => {
   addFooter(doc, pageW, pageH);
 
   const fileName = `PPSPS_${devis.code || devis.id?.slice(0, 8)}.pdf`;
-  doc.save(fileName);
+  const blob = doc.output("blob");
+  const blobUrl = URL.createObjectURL(blob);
+  const dataUri = doc.output("datauristring");
+  return { blobUrl, fileName, dataUri };
 };
 
 function addFooter(doc: jsPDF, pageW: number, pageH: number) {
