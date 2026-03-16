@@ -216,8 +216,10 @@ const ClientDetail = () => {
   const solde = totalFacture - totalRegle;
   const soldeColor = solde > 0 ? "text-destructive" : "text-success";
 
+  const tabs = isMobile ? mobileTabs : desktopTabs;
+
   return (
-    <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`mx-auto ${isMobile ? "p-3 pb-20 space-y-3 max-w-7xl" : "p-6 lg:p-8"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
         <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
