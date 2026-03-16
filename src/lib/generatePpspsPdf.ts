@@ -311,52 +311,81 @@ function addBulletList(doc: jsPDF, items: string[], margin: number, y: number, m
 function addTable(doc: jsPDF, headers: string[], rows: string[][], x: number, y: number, maxW: number, colWidths: number[]): number {
   const totalDefined = colWidths.reduce((a, b) => a + b, 0);
   const scale = maxW / totalDefined;
-  const scaledWidths = colWidths.map(w => w * scale);
-  const rowHeight = 5;
+  const scaledWidths = colWidths.map((w) => w * scale);
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const lineHeight = 3.6;
+  const cellPaddingX = 1.5;
+  const cellPaddingTop = 2.6;
+  const cellPaddingBottom = 2.2;
+  const headerPaddingTop = 2.8;
+  const headerPaddingBottom = 2.2;
 
-  // Header
-  doc.setFillColor(...LIGHT_BG);
-  doc.rect(x, y - 3.5, maxW, rowHeight + 1, "F");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(7); doc.setTextColor(...DARK);
-  let cx = x;
-  for (let i = 0; i < headers.length; i++) {
-    doc.text(headers[i], cx + 1, y, { maxWidth: scaledWidths[i] - 2 });
-    cx += scaledWidths[i];
-  }
-  y += rowHeight;
+  const normalizeCellText = (value: string) => String(value || "—").replace(/\s*\n\s*/g, " ").trim() || "—";
 
-  doc.setFont("helvetica", "normal"); doc.setFontSize(7);
-  for (const row of rows) {
-    // Calculate row height based on content
-    let maxLines = 1;
-    const cellLines: string[][] = [];
-    for (let i = 0; i < row.length; i++) {
-      const lines = doc.splitTextToSize(String(row[i] || ""), scaledWidths[i] - 2);
-      cellLines.push(lines);
-      if (lines.length > maxLines) maxLines = lines.length;
-    }
-    const rh = maxLines * 3.5 + 1;
+  const renderHeader = (startY: number) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(...DARK);
 
-    if (y + rh > doc.internal.pageSize.getHeight() - 25) {
-      addFooter(doc, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight());
-      doc.addPage();
-      y = 20;
-    }
+    const headerLines = headers.map((header, index) =>
+      doc.splitTextToSize(header, Math.max(8, scaledWidths[index] - cellPaddingX * 2))
+    );
+    const maxHeaderLines = Math.max(...headerLines.map((lines) => Math.max(lines.length, 1)));
+    const headerHeight = headerPaddingTop + maxHeaderLines * lineHeight + headerPaddingBottom;
 
-    // Draw row border
-    doc.setDrawColor(220, 220, 220);
-    doc.line(x, y + rh - 1, x + maxW, y + rh - 1);
+    doc.setFillColor(...LIGHT_BG);
+    doc.rect(x, startY, maxW, headerHeight, "F");
 
-    cx = x;
-    for (let i = 0; i < cellLines.length; i++) {
-      let ly = y;
-      for (const line of cellLines[i]) {
-        doc.text(line, cx + 1, ly);
-        ly += 3.5;
+    let cx = x;
+    for (let i = 0; i < headers.length; i++) {
+      let ly = startY + headerPaddingTop + lineHeight - 0.8;
+      for (const line of headerLines[i]) {
+        doc.text(line, cx + cellPaddingX, ly);
+        ly += lineHeight;
       }
       cx += scaledWidths[i];
     }
-    y += rh;
+
+    doc.setDrawColor(220, 220, 220);
+    doc.line(x, startY + headerHeight, x + maxW, startY + headerHeight);
+
+    return startY + headerHeight;
+  };
+
+  y = renderHeader(y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+
+  for (const row of rows) {
+    const cellLines = row.map((cell, index) =>
+      doc.splitTextToSize(normalizeCellText(cell), Math.max(8, scaledWidths[index] - cellPaddingX * 2))
+    );
+    const maxLines = Math.max(...cellLines.map((lines) => Math.max(lines.length, 1)));
+    const rowHeight = cellPaddingTop + maxLines * lineHeight + cellPaddingBottom;
+
+    if (y + rowHeight > pageH - 25) {
+      addFooter(doc, pageW, pageH);
+      doc.addPage();
+      y = renderHeader(20);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+    }
+
+    let cx = x;
+    for (let i = 0; i < cellLines.length; i++) {
+      let ly = y + cellPaddingTop + lineHeight - 0.8;
+      for (const line of cellLines[i]) {
+        doc.text(line, cx + cellPaddingX, ly);
+        ly += lineHeight;
+      }
+      cx += scaledWidths[i];
+    }
+
+    doc.setDrawColor(220, 220, 220);
+    doc.line(x, y + rowHeight, x + maxW, y + rowHeight);
+    y += rowHeight;
   }
+
   return y;
 }
