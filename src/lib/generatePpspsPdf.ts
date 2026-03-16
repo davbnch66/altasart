@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import { loadLogoForPdf } from "./pdfLogoHelper";
+import { loadCompanyLogo } from "./pdfLogoHelper";
 
 const ORANGE = [200, 80, 30] as const;
 const DARK = [30, 30, 30] as const;
