@@ -6,8 +6,8 @@ const DARK = [30, 30, 30] as const;
 const GRAY = [100, 100, 100] as const;
 const LIGHT_BG = [245, 245, 245] as const;
 
-export const generatePpspsPdf = async (content: any, devis: any) => {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+export const generatePpspsPdf = async (content: any, devis: any, options?: { compress?: boolean }) => {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: options?.compress ?? true, putOnlyUsedFonts: true });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 15;
