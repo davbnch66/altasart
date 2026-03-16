@@ -16,7 +16,7 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   content: any;
-  onContentChange: (updated: any) => void;
+  onContentChange: (updated: any) => Promise<void> | void;
   devis: any;
   onRegenerate: () => void;
   regenerating: boolean;
@@ -146,11 +146,16 @@ export const PpspsPreviewDialog = ({
     toast.success("PDF téléchargé");
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
     // Auto-save if there are unsaved changes
     if (dirty && editedContent) {
-      onContentChange(editedContent);
-      toast.success("Modifications enregistrées automatiquement");
+      try {
+        await onContentChange(editedContent);
+        toast.success("Modifications enregistrées automatiquement");
+      } catch (e) {
+        toast.error("Erreur lors de la sauvegarde");
+        return;
+      }
     }
     if (pdfData?.blobUrl) URL.revokeObjectURL(pdfData.blobUrl);
     setPdfData(null);

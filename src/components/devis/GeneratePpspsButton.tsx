@@ -112,7 +112,12 @@ export const GeneratePpspsButton = ({ devis, isMobile }: Props) => {
   const handleContentChange = async (updated: any) => {
     setPpspsContent(updated);
     if (existingPpsps) {
-      await supabase.from("ppsps").update({ content: updated }).eq("id", existingPpsps.id);
+      const { error } = await supabase.from("ppsps").update({ content: updated, updated_at: new Date().toISOString() }).eq("id", existingPpsps.id);
+      if (error) {
+        console.error("Save error:", error);
+        throw error;
+      }
+      setExistingPpsps({ ...existingPpsps, content: updated });
     }
   };
 
