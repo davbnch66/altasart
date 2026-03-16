@@ -56,7 +56,7 @@ export const PpspsPreviewDialog = ({ open, onOpenChange, content, devis, onRegen
           </div>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0 px-6 pb-6">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 pb-6">
           <div className="space-y-6 text-sm">
             {/* I. Renseignements Généraux */}
             <Section title="I. Renseignements Généraux">
@@ -242,7 +242,7 @@ export const PpspsPreviewDialog = ({ open, onOpenChange, content, devis, onRegen
               </Section>
             )}
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );
