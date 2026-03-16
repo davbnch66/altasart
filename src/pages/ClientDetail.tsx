@@ -21,20 +21,28 @@ import { EditDevisDialog } from "@/components/forms/EditDevisDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { ClientExchangesTab } from "@/components/client/ClientExchangesTab";
-import { ClientReplyForm } from "@/components/client/ClientReplyForm";
-import { ClientNotesTab } from "@/components/client/ClientNotesTab";
+import { ClientCommunicationPanel } from "@/components/client/ClientCommunicationPanel";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
 
-type TabKey = "infos" | "contacts" | "dossiers" | "chantiers" | "echanges" | "notes" | "factures" | "devis" | "reglements" | "visites";
+type TabKey = "infos" | "contacts" | "dossiers" | "chantiers" | "echanges" | "factures" | "devis" | "reglements" | "visites";
 
-const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
+const desktopTabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
+  { key: "infos", label: "Infos", icon: User },
+  { key: "contacts", label: "Contacts", icon: Users },
+  { key: "dossiers", label: "Dossiers", icon: FolderOpen },
+  { key: "chantiers", label: "Chantiers", icon: HardHat },
+  { key: "factures", label: "Factures", icon: Receipt },
+  { key: "devis", label: "Devis", icon: FileText },
+  { key: "reglements", label: "Règlements", icon: CreditCard },
+  { key: "visites", label: "Visites", icon: ClipboardCheck },
+];
+
+const mobileTabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: "infos", label: "Infos", icon: User },
   { key: "contacts", label: "Contacts", icon: Users },
   { key: "dossiers", label: "Dossiers", icon: FolderOpen },
   { key: "chantiers", label: "Chantiers", icon: HardHat },
   { key: "echanges", label: "Échanges", icon: MessageSquare },
-  { key: "notes", label: "Notes", icon: StickyNote },
   { key: "factures", label: "Factures", icon: Receipt },
   { key: "devis", label: "Devis", icon: FileText },
   { key: "reglements", label: "Règlements", icon: CreditCard },
