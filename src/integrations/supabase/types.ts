@@ -1971,6 +1971,74 @@ export type Database = {
           },
         ]
       }
+      ppsps: {
+        Row: {
+          company_id: string
+          content: Json
+          created_by: string | null
+          devis_id: string
+          dossier_id: string | null
+          generated_at: string
+          id: string
+          status: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          company_id: string
+          content?: Json
+          created_by?: string | null
+          devis_id: string
+          dossier_id?: string | null
+          generated_at?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          company_id?: string
+          content?: Json
+          created_by?: string | null
+          devis_id?: string
+          dossier_id?: string | null
+          generated_at?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ppsps_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ppsps_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ppsps_devis_id_fkey"
+            columns: ["devis_id"]
+            isOneToOne: false
+            referencedRelation: "devis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ppsps_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
