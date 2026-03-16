@@ -147,6 +147,11 @@ export const PpspsPreviewDialog = ({
   };
 
   const handleClose = () => {
+    // Auto-save if there are unsaved changes
+    if (dirty && editedContent) {
+      onContentChange(editedContent);
+      toast.success("Modifications enregistrées automatiquement");
+    }
     if (pdfData?.blobUrl) URL.revokeObjectURL(pdfData.blobUrl);
     setPdfData(null);
     onOpenChange(false);
