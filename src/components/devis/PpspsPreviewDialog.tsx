@@ -242,7 +242,8 @@ export const PpspsPreviewDialog = ({ open, onOpenChange, content, devis, onRegen
               </Section>
             )}
           </div>
-        </ScrollArea>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
