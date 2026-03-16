@@ -532,21 +532,11 @@ const ClientDetail = () => {
           );
         })()}
 
-        {activeTab === "echanges" && (
-          <div className="space-y-4">
-            <ClientReplyForm
-              clientId={id!}
-              clientName={client?.name || ""}
-              clientEmail={client?.email}
-              onSent={() => queryClient.invalidateQueries({ queryKey: ["client-messages", id] })}
-            />
-            <ClientExchangesTab clientId={id!} />
-          </div>
-        )}
-
-        {activeTab === "notes" && (
-          <ClientNotesTab
+        {activeTab === "echanges" && isMobile && (
+          <ClientCommunicationPanel
             clientId={id!}
+            clientName={client?.name || ""}
+            clientEmail={client?.email}
             companyId={client.company_id}
             dossiers={dossiers.map((d) => ({ id: d.id, title: d.title, code: d.code }))}
           />
