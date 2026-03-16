@@ -4,6 +4,7 @@ import { Loader2, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PpspsPreviewDialog } from "./PpspsPreviewDialog";
+import { CustomSection, PpspsImage, PpspsAttachment } from "./PpspsEditor";
 
 interface Props {
   devis: any;
@@ -15,6 +16,9 @@ export const GeneratePpspsButton = ({ devis, isMobile }: Props) => {
   const [ppspsContent, setPpspsContent] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [existingPpsps, setExistingPpsps] = useState<any>(null);
+  const [customSections, setCustomSections] = useState<CustomSection[]>([]);
+  const [images, setImages] = useState<PpspsImage[]>([]);
+  const [attachments, setAttachments] = useState<PpspsAttachment[]>([]);
 
   const loadExisting = async () => {
     const { data } = await supabase
@@ -27,6 +31,9 @@ export const GeneratePpspsButton = ({ devis, isMobile }: Props) => {
     if (data) {
       setExistingPpsps(data);
       setPpspsContent(data.content);
+      setCustomSections((data as any).custom_sections || []);
+      setImages((data as any).images || []);
+      setAttachments((data as any).attachments || []);
       setDialogOpen(true);
       return true;
     }
@@ -34,26 +41,23 @@ export const GeneratePpspsButton = ({ devis, isMobile }: Props) => {
   };
 
   const handleClick = async () => {
-    // First check if a PPSPS already exists
     const exists = await loadExisting();
     if (exists) return;
 
-    // Generate new
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-ppsps", {
         body: { devis_id: devis.id },
       });
       if (error) throw error;
-      if (data?.error) {
-        toast.error(data.error);
-        return;
-      }
+      if (data?.error) { toast.error(data.error); return; }
       if (data?.content) {
         setPpspsContent(data.content);
+        setCustomSections([]);
+        setImages([]);
+        setAttachments([]);
         setDialogOpen(true);
 
-        // Save to DB
         const { data: { user } } = await supabase.auth.getUser();
         const { data: saved, error: saveErr } = await supabase
           .from("ppsps")
@@ -88,7 +92,6 @@ export const GeneratePpspsButton = ({ devis, isMobile }: Props) => {
       if (data?.error) { toast.error(data.error); return; }
       if (data?.content) {
         setPpspsContent(data.content);
-        // Update existing or insert new version
         if (existingPpsps) {
           await supabase.from("ppsps").update({
             content: data.content,
@@ -103,6 +106,34 @@ export const GeneratePpspsButton = ({ devis, isMobile }: Props) => {
       toast.error(e.message || "Erreur");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleContentChange = async (updated: any) => {
+    setPpspsContent(updated);
+    if (existingPpsps) {
+      await supabase.from("ppsps").update({ content: updated }).eq("id", existingPpsps.id);
+    }
+  };
+
+  const handleCustomSectionsChange = async (sections: CustomSection[]) => {
+    setCustomSections(sections);
+    if (existingPpsps) {
+      await supabase.from("ppsps").update({ custom_sections: sections as any }).eq("id", existingPpsps.id);
+    }
+  };
+
+  const handleImagesChange = async (imgs: PpspsImage[]) => {
+    setImages(imgs);
+    if (existingPpsps) {
+      await supabase.from("ppsps").update({ images: imgs as any }).eq("id", existingPpsps.id);
+    }
+  };
+
+  const handleAttachmentsChange = async (atts: PpspsAttachment[]) => {
+    setAttachments(atts);
+    if (existingPpsps) {
+      await supabase.from("ppsps").update({ attachments: atts as any }).eq("id", existingPpsps.id);
     }
   };
 
@@ -123,16 +154,18 @@ export const GeneratePpspsButton = ({ devis, isMobile }: Props) => {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         content={ppspsContent}
-        onContentChange={async (updated) => {
-          setPpspsContent(updated);
-          if (existingPpsps) {
-            await supabase.from("ppsps").update({ content: updated }).eq("id", existingPpsps.id);
-          }
-        }}
+        onContentChange={handleContentChange}
         devis={devis}
         onRegenerate={handleRegenerate}
         regenerating={loading}
         version={existingPpsps?.version || 1}
+        ppspsId={existingPpsps?.id}
+        customSections={customSections}
+        onCustomSectionsChange={handleCustomSectionsChange}
+        images={images}
+        onImagesChange={handleImagesChange}
+        attachments={attachments}
+        onAttachmentsChange={handleAttachmentsChange}
       />
     </>
   );
