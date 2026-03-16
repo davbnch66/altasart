@@ -13,6 +13,7 @@ const TYPE_LABELS: Record<string, string> = {
   devis_relance_2: "deuxième relance commerciale (7 jours après envoi du devis)",
   devis_relance_3: "troisième et dernière relance commerciale (14 jours après envoi du devis)",
   rapport_visite: "envoi du rapport de visite technique PDF",
+  ppsps: "envoi du Plan Particulier de Sécurité et de Protection de la Santé (PPSPS) en pièce jointe, document obligatoire avant intervention sur chantier",
   suivi_client: "suivi post-déménagement et demande d'avis client",
 };
 
