@@ -775,6 +775,21 @@ const ClientDetail = () => {
           </div>
         )}
       </motion.div>
+        </div>
+
+        {/* Right column: Communication panel (desktop only) */}
+        {!isMobile && (
+          <div className="w-[420px] shrink-0 sticky top-4">
+            <ClientCommunicationPanel
+              clientId={id!}
+              clientName={client?.name || ""}
+              clientEmail={client?.email}
+              companyId={client.company_id}
+              dossiers={dossiers.map((d) => ({ id: d.id, title: d.title, code: d.code }))}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Edit/Delete Dialogs */}
       <EditClientDialog client={client} open={editClientOpen} onOpenChange={setEditClientOpen} />
