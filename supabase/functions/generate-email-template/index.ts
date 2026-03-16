@@ -252,6 +252,12 @@ serve(async (req) => {
       }
     }
 
+    // Fallback: use body-level fields if not populated from DB
+    if (!vars.client_name && clientNameFromBody) vars.client_name = clientNameFromBody;
+    if (!vars.contact_name && vars.client_name) vars.contact_name = vars.client_name;
+    if (!vars.devis_code && documentCode) vars.devis_code = documentCode;
+    if (!vars.devis_objet && documentTitle) vars.devis_objet = documentTitle;
+
     // Build the prompt with actual values as examples so AI writes naturally
     const typeLabel = TYPE_LABELS[emailType] || emailType;
     const toneLabel = TONE_LABELS[tone] || tone;
