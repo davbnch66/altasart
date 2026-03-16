@@ -13,6 +13,7 @@ const TYPE_LABELS: Record<string, string> = {
   devis_relance_2: "deuxième relance commerciale (7 jours après envoi du devis)",
   devis_relance_3: "troisième et dernière relance commerciale (14 jours après envoi du devis)",
   rapport_visite: "envoi du rapport de visite technique PDF",
+  ppsps: "envoi du Plan Particulier de Sécurité et de Protection de la Santé (PPSPS) en pièce jointe, document obligatoire avant intervention sur chantier",
   suivi_client: "suivi post-déménagement et demande d'avis client",
 };
 
@@ -30,6 +31,7 @@ const VARIABLES_BY_TYPE: Record<string, string[]> = {
   devis_relance_2: ["{{contact_name}}", "{{client_name}}", "{{devis_code}}", "{{devis_objet}}", "{{devis_amount}}", "{{devis_valid_until}}", "{{devis_sent_at}}", "{{signature_url}}", "{{sender_name}}", "{{company_name}}"],
   devis_relance_3: ["{{contact_name}}", "{{client_name}}", "{{devis_code}}", "{{devis_objet}}", "{{devis_amount}}", "{{devis_valid_until}}", "{{devis_sent_at}}", "{{signature_url}}", "{{sender_name}}", "{{company_name}}"],
   rapport_visite: ["{{contact_name}}", "{{client_name}}", "{{visite_title}}", "{{visite_date}}", "{{visite_address}}", "{{dossier_code}}", "{{dossier_title}}", "{{sender_name}}", "{{company_name}}"],
+  ppsps: ["{{contact_name}}", "{{client_name}}", "{{devis_code}}", "{{devis_objet}}", "{{dossier_code}}", "{{dossier_title}}", "{{sender_name}}", "{{company_name}}"],
   suivi_client: ["{{contact_name}}", "{{client_name}}", "{{dossier_title}}", "{{dossier_code}}", "{{dossier_end_date}}", "{{sender_name}}", "{{company_name}}"],
 };
 
@@ -56,6 +58,9 @@ serve(async (req) => {
     const companyId = body.companyId;
     const devisId = body.devisId;
     const visiteId = body.visiteId;
+    const clientNameFromBody = body.clientName || "";
+    const documentCode = body.documentCode || "";
+    const documentTitle = body.documentTitle || "";
     const resolveSafeAppBaseUrl = (candidate: unknown): string => {
       const fallback = "https://altasart.lovable.app";
       if (typeof candidate !== "string" || !candidate.trim()) return fallback;
@@ -246,6 +251,12 @@ serve(async (req) => {
         }
       }
     }
+
+    // Fallback: use body-level fields if not populated from DB
+    if (!vars.client_name && clientNameFromBody) vars.client_name = clientNameFromBody;
+    if (!vars.contact_name && vars.client_name) vars.contact_name = vars.client_name;
+    if (!vars.devis_code && documentCode) vars.devis_code = documentCode;
+    if (!vars.devis_objet && documentTitle) vars.devis_objet = documentTitle;
 
     // Build the prompt with actual values as examples so AI writes naturally
     const typeLabel = TYPE_LABELS[emailType] || emailType;

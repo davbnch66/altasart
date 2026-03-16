@@ -166,6 +166,7 @@ export const PpspsPreviewDialog = ({ open, onOpenChange, content, devis, onRegen
         visiteCode={devis.code}
         visiteTitle={devis.objet}
         companyId={devis.company_id}
+        documentType="ppsps"
       />
     </>
   );
