@@ -25,6 +25,7 @@ import { DevisApplyTemplateDialog } from "@/components/devis/ApplyTemplateDialog
 import { SendSignatureDialog } from "@/components/devis/SendSignatureDialog";
 import { DevisRelancesSection } from "@/components/devis/DevisRelancesSection";
 import { ScheduleChantierDialog } from "@/components/devis/ScheduleChantierDialog";
+import { GeneratePpspsButton } from "@/components/devis/GeneratePpspsButton";
 import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
 import { GenerateDevisMemoButton } from "@/components/devis/GenerateDevisMemoButton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -315,6 +316,9 @@ const DevisDetail = () => {
             <Pencil className="h-4 w-4" />
             {!isMobile && <span className="ml-1">Modifier</span>}
           </Button>
+          {devis.status === "accepte" && (
+            <GeneratePpspsButton devis={devis} isMobile={isMobile} />
+          )}
           {devis.status === "accepte" && dossier && (
             <Button size={isMobile ? "icon" : "sm"} onClick={() => setScheduling(true)}>
               <CalendarPlus className="h-4 w-4" />

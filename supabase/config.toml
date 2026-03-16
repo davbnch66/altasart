@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.generate-visite-memo]
 verify_jwt = false
+
+[functions.generate-ppsps]
+verify_jwt = false
