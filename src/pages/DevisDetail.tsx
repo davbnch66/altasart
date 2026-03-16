@@ -316,6 +316,9 @@ const DevisDetail = () => {
             <Pencil className="h-4 w-4" />
             {!isMobile && <span className="ml-1">Modifier</span>}
           </Button>
+          {devis.status === "accepte" && (
+            <GeneratePpspsButton devis={devis} isMobile={isMobile} />
+          )}
           {devis.status === "accepte" && dossier && (
             <Button size={isMobile ? "icon" : "sm"} onClick={() => setScheduling(true)}>
               <CalendarPlus className="h-4 w-4" />
