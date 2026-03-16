@@ -28,9 +28,13 @@ export const generatePpspsPdf = async (content: any, devis: any) => {
 
   // Try to load logo
   try {
-    const logoData = await loadLogoForPdf(devis.company_id);
+    const shortName = company.short_name || "ART";
+    const logoData = await loadCompanyLogo(shortName);
     if (logoData) {
-      doc.addImage(logoData, "PNG", margin, y, 40, 15);
+      const ratio = logoData.width / logoData.height;
+      const logoH = 15;
+      const logoW = logoH * ratio;
+      doc.addImage(logoData.dataUrl, "PNG", margin, y, Math.min(logoW, 50), logoH);
     }
   } catch {}
 
