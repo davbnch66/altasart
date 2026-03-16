@@ -295,19 +295,17 @@ export const ClientCommunicationPanel = ({
       });
       if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
 
-      if (current && current !== "global") {
-        await supabase.from("messages").insert({
-          company_id: current,
-          client_id: clientId,
-          channel: "email",
-          direction: "outbound",
-          sender: user?.email || "Moi",
-          subject,
-          body,
-          is_read: true,
-          created_by: user?.id,
-        });
-      }
+      await supabase.from("messages").insert({
+        company_id: companyId,
+        client_id: clientId,
+        channel: "email",
+        direction: "outbound",
+        sender: user?.email || "Moi",
+        subject,
+        body,
+        is_read: true,
+        created_by: user?.id,
+      });
 
       toast.success("Email envoyé");
       setSubject("");
