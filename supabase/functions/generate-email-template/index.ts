@@ -31,6 +31,7 @@ const VARIABLES_BY_TYPE: Record<string, string[]> = {
   devis_relance_2: ["{{contact_name}}", "{{client_name}}", "{{devis_code}}", "{{devis_objet}}", "{{devis_amount}}", "{{devis_valid_until}}", "{{devis_sent_at}}", "{{signature_url}}", "{{sender_name}}", "{{company_name}}"],
   devis_relance_3: ["{{contact_name}}", "{{client_name}}", "{{devis_code}}", "{{devis_objet}}", "{{devis_amount}}", "{{devis_valid_until}}", "{{devis_sent_at}}", "{{signature_url}}", "{{sender_name}}", "{{company_name}}"],
   rapport_visite: ["{{contact_name}}", "{{client_name}}", "{{visite_title}}", "{{visite_date}}", "{{visite_address}}", "{{dossier_code}}", "{{dossier_title}}", "{{sender_name}}", "{{company_name}}"],
+  ppsps: ["{{contact_name}}", "{{client_name}}", "{{devis_code}}", "{{devis_objet}}", "{{dossier_code}}", "{{dossier_title}}", "{{sender_name}}", "{{company_name}}"],
   suivi_client: ["{{contact_name}}", "{{client_name}}", "{{dossier_title}}", "{{dossier_code}}", "{{dossier_end_date}}", "{{sender_name}}", "{{company_name}}"],
 };
 
