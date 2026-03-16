@@ -58,6 +58,9 @@ serve(async (req) => {
     const companyId = body.companyId;
     const devisId = body.devisId;
     const visiteId = body.visiteId;
+    const clientNameFromBody = body.clientName || "";
+    const documentCode = body.documentCode || "";
+    const documentTitle = body.documentTitle || "";
     const resolveSafeAppBaseUrl = (candidate: unknown): string => {
       const fallback = "https://altasart.lovable.app";
       if (typeof candidate !== "string" || !candidate.trim()) return fallback;
