@@ -9,6 +9,41 @@ import { Loader2, Mail, Send, Sparkles, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
+type DocumentType = "rapport_visite" | "ppsps" | "devis" | "facture" | "generic";
+
+const DOCUMENT_LABELS: Record<DocumentType, { dialogTitle: string; placeholder: string; templateType: string; aiType: string }> = {
+  rapport_visite: {
+    dialogTitle: "Envoyer le rapport par email",
+    placeholder: "Bonjour,\n\nVeuillez trouver ci-joint le rapport de visite technique.\n\nCordialement,",
+    templateType: "rapport_visite",
+    aiType: "rapport_visite",
+  },
+  ppsps: {
+    dialogTitle: "Envoyer le PPSPS par email",
+    placeholder: "Bonjour,\n\nVeuillez trouver ci-joint le Plan Particulier de Sécurité et de Protection de la Santé (PPSPS) relatif à notre intervention.\n\nCordialement,",
+    templateType: "ppsps",
+    aiType: "ppsps",
+  },
+  devis: {
+    dialogTitle: "Envoyer le devis par email",
+    placeholder: "Bonjour,\n\nVeuillez trouver ci-joint notre devis.\n\nCordialement,",
+    templateType: "devis",
+    aiType: "devis",
+  },
+  facture: {
+    dialogTitle: "Envoyer la facture par email",
+    placeholder: "Bonjour,\n\nVeuillez trouver ci-joint notre facture.\n\nCordialement,",
+    templateType: "facture",
+    aiType: "facture",
+  },
+  generic: {
+    dialogTitle: "Envoyer le document par email",
+    placeholder: "Bonjour,\n\nVeuillez trouver ci-joint le document.\n\nCordialement,",
+    templateType: "generic",
+    aiType: "generic",
+  },
+};
+
 interface SendEmailDialogProps {
   open: boolean;
   onClose: () => void;
@@ -21,11 +56,16 @@ interface SendEmailDialogProps {
   visiteTitle?: string;
   visiteId?: string;
   companyId?: string;
+  documentType?: DocumentType;
+  /** Additional context for AI generation (e.g. devis code, address) */
+  aiContext?: Record<string, string>;
 }
 
 export function SendEmailDialog({
   open, onClose, defaultTo, defaultSubject, pdfBlobUrl, fileName,
   clientName, visiteCode, visiteTitle, visiteId, companyId,
+  documentType = "rapport_visite",
+  aiContext,
 }: SendEmailDialogProps) {
   const [to, setTo] = useState(defaultTo || "");
   const [subject, setSubject] = useState(defaultSubject || "");
@@ -34,6 +74,8 @@ export function SendEmailDialog({
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [aiTone, setAiTone] = useState("cordial");
   const [generatingAi, setGeneratingAi] = useState(false);
+
+  const labels = DOCUMENT_LABELS[documentType] || DOCUMENT_LABELS.generic;
 
   useEffect(() => {
     if (open) {
@@ -48,7 +90,7 @@ export function SendEmailDialog({
     setLoadingTemplate(true);
     try {
       const { data, error } = await supabase.functions.invoke("resolve-email-template", {
-        body: { templateType: "rapport_visite", companyId, visiteId },
+        body: { templateType: labels.templateType, companyId, visiteId },
       });
       if (error) throw error;
       if (data?.found) {
@@ -68,10 +110,14 @@ export function SendEmailDialog({
     try {
       const { data, error } = await supabase.functions.invoke("generate-email-template", {
         body: {
-          type: "rapport_visite",
+          type: labels.aiType,
           tone: aiTone,
           companyId,
           visiteId,
+          clientName,
+          documentTitle: visiteTitle,
+          documentCode: visiteCode,
+          ...aiContext,
         },
       });
       if (error) throw error;
@@ -137,7 +183,7 @@ export function SendEmailDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5 text-primary" />
-            Envoyer le rapport par email
+            {labels.dialogTitle}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
@@ -147,7 +193,7 @@ export function SendEmailDialog({
           </div>
           <div>
             <Label>Objet</Label>
-            <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Rapport de visite technique" />
+            <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={defaultSubject || "Objet de l'email"} />
           </div>
 
           {/* IA generation */}
@@ -187,7 +233,7 @@ export function SendEmailDialog({
             <Textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              placeholder={loadingTemplate ? "Chargement du modèle..." : "Bonjour,\n\nVeuillez trouver ci-joint le rapport de visite technique.\n\nCordialement,"}
+              placeholder={loadingTemplate ? "Chargement du modèle..." : labels.placeholder}
               rows={8}
               className={loadingTemplate || generatingAi ? "opacity-50" : ""}
             />
@@ -195,7 +241,7 @@ export function SendEmailDialog({
           </div>
           {pdfBlobUrl && (
             <p className="text-xs text-muted-foreground flex items-center gap-1">
-              📎 {fileName || "rapport.pdf"} sera joint à l'email
+              📎 {fileName || "document.pdf"} sera joint à l'email
             </p>
           )}
           <div className="flex justify-end gap-2">
