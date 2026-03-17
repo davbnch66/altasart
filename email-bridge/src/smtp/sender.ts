@@ -1,8 +1,54 @@
-import nodemailer from 'nodemailer';
+import nodemailer, { Transporter } from 'nodemailer';
 import { SaasApi, OutboxEmail } from '../api/supabase';
 import { BridgeConfig } from '../config';
 import { safeDecrypt } from '../utils/crypto';
 import { logger } from '../utils/logger';
+import { EmailAccount } from '../api/supabase';
+
+/**
+ * Build a nodemailer transporter from an EmailAccount.
+ * Returns null if SMTP config is incomplete.
+ */
+export function buildSmtpTransport(account: EmailAccount, encryptionKey: string): Transporter | null {
+  if (!account.smtp_host) return null;
+
+  const password = safeDecrypt(account.smtp_password_encrypted, encryptionKey);
+  if (!password) return null;
+
+  const security = (account.smtp_security || 'STARTTLS').toUpperCase();
+  const config: any = {
+    host: account.smtp_host,
+    port: account.smtp_port || 587,
+    secure: security === 'SSL',
+    auth: {
+      user: account.smtp_username || account.email_address,
+      pass: password,
+    },
+  };
+
+  if (security === 'STARTTLS') {
+    config.secure = false;
+    config.requireTLS = true;
+  }
+  if (security === 'NONE') {
+    config.secure = false;
+    config.ignoreTLS = true;
+  }
+
+  return nodemailer.createTransport(config);
+}
+
+/**
+ * Test SMTP connection by verifying the transport.
+ */
+export async function testSmtpConnection(transport: Transporter): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await transport.verify();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
 
 export class SmtpSender {
   private api: SaasApi;
