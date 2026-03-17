@@ -84,6 +84,42 @@ export type Database = {
           },
         ]
       }
+      client_companies: {
+        Row: {
+          client_id: string
+          company_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          client_id: string
+          company_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          client_id?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_companies_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_companies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_contacts: {
         Row: {
           civility: string | null
@@ -3551,6 +3587,7 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: undefined
       }
+      get_my_client_ids: { Args: never; Returns: string[] }
       get_my_company_ids: { Args: never; Returns: string[] }
       get_or_create_signature_token: {
         Args: { p_devis_id: string }
