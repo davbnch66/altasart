@@ -608,6 +608,13 @@ const Dashboard = () => {
           <CreateFactureDialog />
         </motion.div>
       )}
+      <GenericPdfPreviewDialog
+        open={previewState.open}
+        onClose={() => setPreviewState({ open: false, blobUrl: null, dataUri: null, fileName: "" })}
+        blobUrl={previewState.blobUrl}
+        dataUri={previewState.dataUri}
+        fileName={previewState.fileName}
+      />
     </div>
   );
 };
