@@ -704,6 +704,46 @@ export const ClientCommunicationPanel = ({
               </Button>
             </div>
           </>
+        ) : composeMode === "sms" || composeMode === "whatsapp" ? (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium">
+                {composeMode === "whatsapp" ? "💬 WhatsApp" : "📱 SMS"} → {clientMobile || clientPhone}
+              </span>
+              <button onClick={() => { setComposeMode("none"); setBody(""); }} className="text-[10px] text-muted-foreground hover:underline">
+                Annuler
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <Textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder={`Écrire un ${composeMode === "whatsapp" ? "WhatsApp" : "SMS"}…`}
+                rows={2}
+                className="text-xs flex-1 resize-none min-h-[56px]"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && body.trim()) {
+                    handleSendSmsWhatsapp(composeMode);
+                  }
+                }}
+              />
+              <Button
+                size="icon"
+                className="h-14 w-10 shrink-0"
+                onClick={() => handleSendSmsWhatsapp(composeMode)}
+                disabled={sending || !body.trim()}
+              >
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            {!clientPhone && !clientMobile && (
+              <p className="text-[10px] text-destructive">⚠ Aucun numéro renseigné pour ce client.</p>
+            )}
+          </>
         ) : (
           <>
             <div className="flex items-center justify-between">
