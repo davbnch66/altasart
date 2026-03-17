@@ -311,7 +311,7 @@ export const DossierTimeline: React.FC<Props> = ({ dossierId, dossier, devis, fa
 
               {/* Doc actions */}
               {hasDoc && (
-                <div className={`flex items-center gap-1 shrink-0 ${isMobile ? "" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
+                <div className="flex items-center gap-1 shrink-0">
                   <Button
                     variant="ghost"
                     size="icon"
