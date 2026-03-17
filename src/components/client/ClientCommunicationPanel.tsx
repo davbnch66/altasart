@@ -321,6 +321,41 @@ export const ClientCommunicationPanel = ({
     }
   };
 
+  // Send SMS or WhatsApp
+  const handleSendSmsWhatsapp = async (channel: "sms" | "whatsapp") => {
+    const phoneNumber = clientMobile || clientPhone;
+    if (!phoneNumber) {
+      toast.error("Aucun numéro de téléphone pour ce client");
+      return;
+    }
+    if (!body.trim()) {
+      toast.error("Message requis");
+      return;
+    }
+    setSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-sms-whatsapp", {
+        body: {
+          channel,
+          to: phoneNumber,
+          body: body.trim(),
+          clientId,
+          companyId,
+        },
+      });
+      if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
+
+      toast.success(`${channel === "whatsapp" ? "WhatsApp" : "SMS"} envoyé`);
+      setBody("");
+      setComposeMode("none");
+      queryClient.invalidateQueries({ queryKey: ["client-messages", clientId] });
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors de l'envoi");
+    } finally {
+      setSending(false);
+    }
+  };
+
   // Add note
   const addNoteMutation = useMutation({
     mutationFn: async () => {
