@@ -58,7 +58,8 @@ export class SaasApi {
       throw new Error(`Sync push failed [${res.status}]: ${text}`);
     }
 
-    return res.json();
+    const json = (await res.json()) as { inserted: number; skipped: number; linked: number };
+    return json;
   }
 
   async pollOutbox(): Promise<OutboxEmail[]> {
