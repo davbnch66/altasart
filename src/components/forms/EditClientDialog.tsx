@@ -92,6 +92,29 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
   const { dbCompanies } = useCompany();
   const queryClient = useQueryClient();
   const nameDropdownRef = useRef<HTMLDivElement>(null);
+  const [additionalCompanyIds, setAdditionalCompanyIds] = useState<string[]>([]);
+
+  // Fetch existing company links
+  const { data: existingLinks = [] } = useQuery({
+    queryKey: ["client-companies", client?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("client_companies")
+        .select("company_id")
+        .eq("client_id", client.id);
+      return data || [];
+    },
+    enabled: !!client?.id && open,
+  });
+
+  useEffect(() => {
+    if (existingLinks.length > 0 && client) {
+      const otherIds = existingLinks
+        .map(l => l.company_id)
+        .filter(id => id !== client.company_id);
+      setAdditionalCompanyIds(otherIds);
+    }
+  }, [existingLinks, client]);
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
