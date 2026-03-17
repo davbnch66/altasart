@@ -204,10 +204,10 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
       if (error) throw error;
 
       // Sync client_companies: delete all, re-insert
-      await supabase.from("client_companies").delete().eq("client_id", client.id);
+      await supabase.from("client_companies" as any).delete().eq("client_id", client.id);
       const allCompanyIds = [data.company_id, ...additionalCompanyIds.filter(id => id !== data.company_id)];
       const links = allCompanyIds.map(cid => ({ client_id: client.id, company_id: cid }));
-      await supabase.from("client_companies").insert(links);
+      await supabase.from("client_companies" as any).insert(links);
 
       if (data.contact_name) {
         const { data: existing } = await supabase
