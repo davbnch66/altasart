@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield, ChevronDown, ChevronUp, FileText, Upload, Paintbrush } from "lucide-react";
+import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield, ChevronDown, ChevronUp, FileText, Upload, Paintbrush, Server } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { EmailTemplatesTab } from "@/components/settings/EmailTemplatesTab";
+import { EmailAccountsTab } from "@/components/settings/EmailAccountsTab";
 import { DocumentTemplatesTab } from "@/components/settings/DocumentTemplatesTab";
 import { ImportDataTab } from "@/components/settings/ImportDataTab";
 import { AppearanceSettingsTab } from "@/components/settings/AppearanceSettingsTab";
@@ -383,7 +384,8 @@ const Parametres = () => {
           <TabsTrigger value="profile" className="text-xs gap-1.5"><User className="h-3.5 w-3.5" /> Profil</TabsTrigger>
           <TabsTrigger value="companies" className="text-xs gap-1.5"><Building2 className="h-3.5 w-3.5" /> Sociétés</TabsTrigger>
           <TabsTrigger value="team" className="text-xs gap-1.5"><Users className="h-3.5 w-3.5" /> Équipe</TabsTrigger>
-          <TabsTrigger value="emails" className="text-xs gap-1.5"><Mail className="h-3.5 w-3.5" /> Emails</TabsTrigger>
+          <TabsTrigger value="email-accounts" className="text-xs gap-1.5"><Server className="h-3.5 w-3.5" /> Connexions</TabsTrigger>
+          <TabsTrigger value="emails" className="text-xs gap-1.5"><Mail className="h-3.5 w-3.5" /> Modèles</TabsTrigger>
           <TabsTrigger value="documents" className="text-xs gap-1.5"><FileText className="h-3.5 w-3.5" /> Documents</TabsTrigger>
           <TabsTrigger value="roles" className="text-xs gap-1.5"><Shield className="h-3.5 w-3.5" /> Rôles</TabsTrigger>
           <TabsTrigger value="import" className="text-xs gap-1.5"><Upload className="h-3.5 w-3.5" /> Import</TabsTrigger>
@@ -588,6 +590,13 @@ const Parametres = () => {
                 )}
               </div>
             </div>
+          </motion.div>
+        </TabsContent>
+
+        {/* Email Accounts Tab */}
+        <TabsContent value="email-accounts">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <EmailAccountsTab />
           </motion.div>
         </TabsContent>
 

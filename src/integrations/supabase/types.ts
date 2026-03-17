@@ -1022,6 +1022,110 @@ export type Database = {
           },
         ]
       }
+      email_accounts: {
+        Row: {
+          auth_method: Database["public"]["Enums"]["email_auth_method"]
+          auto_link_clients: boolean
+          company_id: string
+          created_at: string
+          email_address: string
+          id: string
+          imap_host: string | null
+          imap_password_encrypted: string | null
+          imap_port: number | null
+          imap_security: string | null
+          imap_username: string | null
+          is_default: boolean
+          label: string
+          last_error: string | null
+          last_sync_at: string | null
+          oauth_access_token_encrypted: string | null
+          oauth_client_id: string | null
+          oauth_refresh_token_encrypted: string | null
+          oauth_token_expires_at: string | null
+          provider: Database["public"]["Enums"]["email_provider"]
+          smtp_host: string | null
+          smtp_password_encrypted: string | null
+          smtp_port: number | null
+          smtp_security: string | null
+          smtp_username: string | null
+          status: Database["public"]["Enums"]["email_account_status"]
+          sync_enabled: boolean
+          sync_from_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          auth_method?: Database["public"]["Enums"]["email_auth_method"]
+          auto_link_clients?: boolean
+          company_id: string
+          created_at?: string
+          email_address: string
+          id?: string
+          imap_host?: string | null
+          imap_password_encrypted?: string | null
+          imap_port?: number | null
+          imap_security?: string | null
+          imap_username?: string | null
+          is_default?: boolean
+          label: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          oauth_access_token_encrypted?: string | null
+          oauth_client_id?: string | null
+          oauth_refresh_token_encrypted?: string | null
+          oauth_token_expires_at?: string | null
+          provider?: Database["public"]["Enums"]["email_provider"]
+          smtp_host?: string | null
+          smtp_password_encrypted?: string | null
+          smtp_port?: number | null
+          smtp_security?: string | null
+          smtp_username?: string | null
+          status?: Database["public"]["Enums"]["email_account_status"]
+          sync_enabled?: boolean
+          sync_from_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auth_method?: Database["public"]["Enums"]["email_auth_method"]
+          auto_link_clients?: boolean
+          company_id?: string
+          created_at?: string
+          email_address?: string
+          id?: string
+          imap_host?: string | null
+          imap_password_encrypted?: string | null
+          imap_port?: number | null
+          imap_security?: string | null
+          imap_username?: string | null
+          is_default?: boolean
+          label?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          oauth_access_token_encrypted?: string | null
+          oauth_client_id?: string | null
+          oauth_refresh_token_encrypted?: string | null
+          oauth_token_expires_at?: string | null
+          provider?: Database["public"]["Enums"]["email_provider"]
+          smtp_host?: string | null
+          smtp_password_encrypted?: string | null
+          smtp_port?: number | null
+          smtp_security?: string | null
+          smtp_username?: string | null
+          status?: Database["public"]["Enums"]["email_account_status"]
+          sync_enabled?: boolean
+          sync_from_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_accounts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_actions: {
         Row: {
           action_type: Database["public"]["Enums"]["email_action_type"]
@@ -1076,6 +1180,101 @@ export type Database = {
             columns: ["inbound_email_id"]
             isOneToOne: false
             referencedRelation: "inbound_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_outbox: {
+        Row: {
+          account_id: string
+          attachments: Json | null
+          bcc_recipients: Json | null
+          body_html: string | null
+          body_text: string | null
+          cc_recipients: Json | null
+          client_id: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          dossier_id: string | null
+          error: string | null
+          id: string
+          reply_to_message_id: string | null
+          sent_at: string | null
+          sent_message_id: string | null
+          status: string
+          subject: string | null
+          to_recipients: Json
+        }
+        Insert: {
+          account_id: string
+          attachments?: Json | null
+          bcc_recipients?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_recipients?: Json | null
+          client_id?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          dossier_id?: string | null
+          error?: string | null
+          id?: string
+          reply_to_message_id?: string | null
+          sent_at?: string | null
+          sent_message_id?: string | null
+          status?: string
+          subject?: string | null
+          to_recipients?: Json
+        }
+        Update: {
+          account_id?: string
+          attachments?: Json | null
+          bcc_recipients?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_recipients?: Json | null
+          client_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          dossier_id?: string | null
+          error?: string | null
+          id?: string
+          reply_to_message_id?: string | null
+          sent_at?: string | null
+          sent_message_id?: string | null
+          status?: string
+          subject?: string | null
+          to_recipients?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_outbox_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbox_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbox_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbox_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
             referencedColumns: ["id"]
           },
         ]
@@ -2662,6 +2861,104 @@ export type Database = {
           },
         ]
       }
+      synced_emails: {
+        Row: {
+          attachments: Json | null
+          body_html: string | null
+          body_text: string | null
+          cc_emails: Json | null
+          client_id: string | null
+          company_id: string
+          created_at: string
+          direction: string
+          dossier_id: string | null
+          email_account_id: string
+          folder: string | null
+          from_email: string | null
+          from_name: string | null
+          id: string
+          is_read: boolean
+          message_id: string
+          raw_headers: Json | null
+          received_at: string
+          subject: string | null
+          to_emails: Json | null
+        }
+        Insert: {
+          attachments?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_emails?: Json | null
+          client_id?: string | null
+          company_id: string
+          created_at?: string
+          direction?: string
+          dossier_id?: string | null
+          email_account_id: string
+          folder?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          is_read?: boolean
+          message_id: string
+          raw_headers?: Json | null
+          received_at?: string
+          subject?: string | null
+          to_emails?: Json | null
+        }
+        Update: {
+          attachments?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_emails?: Json | null
+          client_id?: string | null
+          company_id?: string
+          created_at?: string
+          direction?: string
+          dossier_id?: string | null
+          email_account_id?: string
+          folder?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          id?: string
+          is_read?: boolean
+          message_id?: string
+          raw_headers?: Json | null
+          received_at?: string
+          subject?: string | null
+          to_emails?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "synced_emails_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "synced_emails_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "synced_emails_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "synced_emails_email_account_id_fkey"
+            columns: ["email_account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_theme_settings: {
         Row: {
           border_radius: string
@@ -3622,6 +3919,7 @@ export type Database = {
         | "termine"
         | "facture"
         | "paye"
+      email_account_status: "active" | "error" | "disconnected" | "testing"
       email_action_status: "suggested" | "accepted" | "rejected"
       email_action_type:
         | "create_client"
@@ -3633,6 +3931,16 @@ export type Database = {
         | "attach_voirie_plan"
         | "attach_pv_roc"
         | "attach_arrete"
+      email_auth_method: "password" | "oauth2"
+      email_provider:
+        | "generic"
+        | "gandi"
+        | "gmail"
+        | "outlook"
+        | "ovh"
+        | "zoho"
+        | "ionos"
+        | "yahoo"
       facture_status:
         | "brouillon"
         | "envoyee"
@@ -3811,6 +4119,7 @@ export const Constants = {
         "facture",
         "paye",
       ],
+      email_account_status: ["active", "error", "disconnected", "testing"],
       email_action_status: ["suggested", "accepted", "rejected"],
       email_action_type: [
         "create_client",
@@ -3822,6 +4131,17 @@ export const Constants = {
         "attach_voirie_plan",
         "attach_pv_roc",
         "attach_arrete",
+      ],
+      email_auth_method: ["password", "oauth2"],
+      email_provider: [
+        "generic",
+        "gandi",
+        "gmail",
+        "outlook",
+        "ovh",
+        "zoho",
+        "ionos",
+        "yahoo",
       ],
       facture_status: [
         "brouillon",
