@@ -22,6 +22,8 @@ interface Props {
   clientId: string;
   clientName: string;
   clientEmail?: string | null;
+  clientPhone?: string | null;
+  clientMobile?: string | null;
   companyId: string;
   dossiers?: { id: string; title: string; code: string | null }[];
 }
