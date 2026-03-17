@@ -593,6 +593,13 @@ const Parametres = () => {
           </motion.div>
         </TabsContent>
 
+        {/* Email Accounts Tab */}
+        <TabsContent value="email-accounts">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <EmailAccountsTab />
+          </motion.div>
+        </TabsContent>
+
         {/* Email Templates Tab */}
         <TabsContent value="emails">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
