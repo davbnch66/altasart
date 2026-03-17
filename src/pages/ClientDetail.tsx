@@ -103,12 +103,29 @@ const ClientDetail = () => {
     enabled: !!id,
   });
 
-  // Redirect to clients list if switching to a company that doesn't own this client
+  // Fetch all companies linked to this client
+  const { data: clientCompanyLinks = [] } = useQuery({
+    queryKey: ["client-companies", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("client_companies")
+        .select("company_id, companies(short_name, color)")
+        .eq("client_id", id!);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
+  // Redirect to clients list if switching to a company that doesn't have this client
   useEffect(() => {
-    if (client && current && current !== "global" && client.company_id !== current) {
-      navigate("/clients", { replace: true });
+    if (client && current && current !== "global" && clientCompanyLinks.length > 0) {
+      const linkedCompanyIds = clientCompanyLinks.map(l => l.company_id);
+      if (!linkedCompanyIds.includes(current)) {
+        navigate("/clients", { replace: true });
+      }
     }
-  }, [client, current, navigate]);
+  }, [client, current, clientCompanyLinks, navigate]);
 
   const { data: dossiers = [] } = useQuery({
     queryKey: ["client-dossiers", id],
