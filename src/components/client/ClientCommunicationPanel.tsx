@@ -349,7 +349,7 @@ export const ClientCommunicationPanel = ({
       const { data, error } = await supabase.functions.invoke("send-sms-whatsapp", {
         body: {
           channel,
-          to: phoneNumber,
+          to: normalizePhone(rawPhone),
           body: body.trim(),
           clientId,
           companyId,
