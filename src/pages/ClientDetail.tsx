@@ -363,41 +363,6 @@ const ClientDetail = () => {
         </div>
       </motion.div>
 
-      {/* Quick actions */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
-        <div className={`flex gap-2 overflow-x-auto scrollbar-none ${isMobile ? "-mx-3 px-3" : ""}`}>
-          <CreateDossierDialog preselectedClientId={id} preselectedCompanyId={client.company_id} trigger={
-            <Button variant="outline" size="sm" className="shrink-0 text-xs">
-              <FolderOpen className="h-3.5 w-3.5 mr-1" /> Dossier
-            </Button>
-          } />
-          <CreateDevisDialog preselectedClientId={id} preselectedCompanyId={client.company_id} trigger={
-            <Button variant="outline" size="sm" className="shrink-0 text-xs">
-              <FileText className="h-3.5 w-3.5 mr-1" /> Devis
-            </Button>
-          } />
-          <CreateVisiteDialog preselectedClientId={id} preselectedCompanyId={client.company_id} trigger={
-            <Button variant="outline" size="sm" className="shrink-0 text-xs">
-              <ClipboardCheck className="h-3.5 w-3.5 mr-1" /> Visite
-            </Button>
-          } />
-          <CreateFactureDialog preselectedClientId={id} preselectedCompanyId={client.company_id} trigger={
-            <Button variant="outline" size="sm" className="shrink-0 text-xs">
-              <Receipt className="h-3.5 w-3.5 mr-1" /> Facture
-            </Button>
-          } />
-          <Button variant="outline" size="sm" className="shrink-0 text-xs" onClick={() => isMobile ? setActiveTab("echanges") : undefined}>
-            <StickyNote className="h-3.5 w-3.5 mr-1" /> Note
-          </Button>
-          {client.email && (
-            <a href={`mailto:${client.email}`}>
-              <Button variant="outline" size="sm" className="shrink-0 text-xs">
-                <Send className="h-3.5 w-3.5 mr-1" /> Email
-              </Button>
-            </a>
-          )}
-        </div>
-      </motion.div>
 
       {/* Two-column layout: tabs+content left, communication panel right */}
       <div className={isMobile ? "space-y-3" : "flex gap-6 items-start"}>
