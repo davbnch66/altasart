@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ClientCommunicationPanel } from "@/components/client/ClientCommunicationPanel";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
+import { useCompany } from "@/contexts/CompanyContext";
 
 type TabKey = "infos" | "contacts" | "dossiers" | "chantiers" | "echanges" | "factures" | "devis" | "reglements" | "visites";
 
