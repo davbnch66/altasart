@@ -24,9 +24,15 @@ import { useCompany, type CompanyId } from "@/contexts/CompanyContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { GenericPdfPreviewDialog } from "@/components/shared/GenericPdfPreviewDialog";
+import { generateDevisPdf } from "@/lib/generateDevisPdf";
+import { generateFacturePdf } from "@/lib/generateFacturePdf";
+import { toast } from "sonner";
+import { Loader2, Download as DownloadIcon } from "lucide-react";
 
 const companyDot: Record<string, string> = {
   global: "bg-primary",
