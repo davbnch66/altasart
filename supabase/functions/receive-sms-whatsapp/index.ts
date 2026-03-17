@@ -46,7 +46,7 @@ serve(async (req) => {
 
     // Determine channel
     const isWhatsApp = fromNumber.startsWith("whatsapp:");
-    const channel = isWhatsApp ? "whatsapp" : "email"; // 'email' as fallback for SMS since enum constraint
+    const channel = isWhatsApp ? "whatsapp" : "sms";
     const cleanFrom = fromNumber.replace("whatsapp:", "");
 
     // Use service role to store message

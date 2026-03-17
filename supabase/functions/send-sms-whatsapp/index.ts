@@ -128,7 +128,7 @@ serve(async (req) => {
     await adminClient.from("messages").insert({
       company_id: companyId,
       client_id: clientId || null,
-      channel: channel === "whatsapp" ? "whatsapp" : "email", // Use 'email' for SMS since enum may not have 'sms' yet
+      channel: channel === "whatsapp" ? "whatsapp" : "sms",
       direction: "outbound",
       sender: "Vous",
       body: messageBody,
