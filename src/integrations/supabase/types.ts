@@ -3604,7 +3604,7 @@ export type Database = {
         | "annulee"
         | "partielle"
       inbound_email_status: "pending" | "processing" | "processed" | "error"
-      message_channel: "email" | "whatsapp" | "phone" | "internal"
+      message_channel: "email" | "whatsapp" | "phone" | "internal" | "sms"
       notification_type:
         | "new_lead"
         | "materiel_detected"
@@ -3795,7 +3795,7 @@ export const Constants = {
         "partielle",
       ],
       inbound_email_status: ["pending", "processing", "processed", "error"],
-      message_channel: ["email", "whatsapp", "phone", "internal"],
+      message_channel: ["email", "whatsapp", "phone", "internal", "sms"],
       notification_type: [
         "new_lead",
         "materiel_detected",

@@ -22,6 +22,8 @@ interface Props {
   clientId: string;
   clientName: string;
   clientEmail?: string | null;
+  clientPhone?: string | null;
+  clientMobile?: string | null;
   companyId: string;
   dossiers?: { id: string; title: string; code: string | null }[];
 }
@@ -93,7 +95,7 @@ const formatDateGroup = (dateStr: string) => {
 };
 
 export const ClientCommunicationPanel = ({
-  clientId, clientName, clientEmail, companyId, dossiers = [],
+  clientId, clientName, clientEmail, clientPhone, clientMobile, companyId, dossiers = [],
 }: Props) => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -107,7 +109,7 @@ export const ClientCommunicationPanel = ({
   const [showFilters, setShowFilters] = useState(false);
 
   // Compose state
-  const [composeMode, setComposeMode] = useState<"none" | "email" | "note">("none");
+  const [composeMode, setComposeMode] = useState<"none" | "email" | "note" | "sms" | "whatsapp">("none");
   const [noteType, setNoteType] = useState("note");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -309,6 +311,41 @@ export const ClientCommunicationPanel = ({
 
       toast.success("Email envoyé");
       setSubject("");
+      setBody("");
+      setComposeMode("none");
+      queryClient.invalidateQueries({ queryKey: ["client-messages", clientId] });
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors de l'envoi");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Send SMS or WhatsApp
+  const handleSendSmsWhatsapp = async (channel: "sms" | "whatsapp") => {
+    const phoneNumber = clientMobile || clientPhone;
+    if (!phoneNumber) {
+      toast.error("Aucun numéro de téléphone pour ce client");
+      return;
+    }
+    if (!body.trim()) {
+      toast.error("Message requis");
+      return;
+    }
+    setSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-sms-whatsapp", {
+        body: {
+          channel,
+          to: phoneNumber,
+          body: body.trim(),
+          clientId,
+          companyId,
+        },
+      });
+      if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
+
+      toast.success(`${channel === "whatsapp" ? "WhatsApp" : "SMS"} envoyé`);
       setBody("");
       setComposeMode("none");
       queryClient.invalidateQueries({ queryKey: ["client-messages", clientId] });
@@ -564,7 +601,7 @@ export const ClientCommunicationPanel = ({
       {/* Compose area */}
       <div className="shrink-0 border-t bg-card px-3 py-2.5 space-y-2">
         {composeMode === "none" ? (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               variant="outline"
               size="sm"
@@ -573,6 +610,26 @@ export const ClientCommunicationPanel = ({
             >
               <Mail className="h-3.5 w-3.5 mr-1.5" />
               Email
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs h-9"
+              onClick={() => setComposeMode("sms")}
+              disabled={!clientPhone && !clientMobile}
+            >
+              <Phone className="h-3.5 w-3.5 mr-1.5" />
+              SMS
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs h-9"
+              onClick={() => setComposeMode("whatsapp")}
+              disabled={!clientPhone && !clientMobile}
+            >
+              <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
+              WhatsApp
             </Button>
             <Button
               variant="outline"
@@ -646,6 +703,46 @@ export const ClientCommunicationPanel = ({
                 )}
               </Button>
             </div>
+          </>
+        ) : composeMode === "sms" || composeMode === "whatsapp" ? (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium">
+                {composeMode === "whatsapp" ? "💬 WhatsApp" : "📱 SMS"} → {clientMobile || clientPhone}
+              </span>
+              <button onClick={() => { setComposeMode("none"); setBody(""); }} className="text-[10px] text-muted-foreground hover:underline">
+                Annuler
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <Textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder={`Écrire un ${composeMode === "whatsapp" ? "WhatsApp" : "SMS"}…`}
+                rows={2}
+                className="text-xs flex-1 resize-none min-h-[56px]"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && body.trim()) {
+                    handleSendSmsWhatsapp(composeMode);
+                  }
+                }}
+              />
+              <Button
+                size="icon"
+                className="h-14 w-10 shrink-0"
+                onClick={() => handleSendSmsWhatsapp(composeMode)}
+                disabled={sending || !body.trim()}
+              >
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+            {!clientPhone && !clientMobile && (
+              <p className="text-[10px] text-destructive">⚠ Aucun numéro renseigné pour ce client.</p>
+            )}
           </>
         ) : (
           <>

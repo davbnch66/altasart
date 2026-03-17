@@ -541,6 +541,8 @@ const ClientDetail = () => {
             clientId={id!}
             clientName={client?.name || ""}
             clientEmail={client?.email}
+            clientPhone={client?.phone}
+            clientMobile={client?.mobile}
             companyId={client.company_id}
             dossiers={dossiers.map((d) => ({ id: d.id, title: d.title, code: d.code }))}
           />
@@ -784,6 +786,8 @@ const ClientDetail = () => {
               clientId={id!}
               clientName={client?.name || ""}
               clientEmail={client?.email}
+              clientPhone={client?.phone}
+              clientMobile={client?.mobile}
               companyId={client.company_id}
               dossiers={dossiers.map((d) => ({ id: d.id, title: d.title, code: d.code }))}
             />

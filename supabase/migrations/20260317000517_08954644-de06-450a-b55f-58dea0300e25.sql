@@ -1,0 +1,1 @@
+ALTER TYPE public.message_channel ADD VALUE IF NOT EXISTS 'sms';
