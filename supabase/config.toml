@@ -68,3 +68,9 @@ verify_jwt = false
 
 [functions.email-bridge-test]
 verify_jwt = false
+
+[functions.email-bridge-accounts]
+verify_jwt = false
+
+[functions.encrypt-email-password]
+verify_jwt = false
