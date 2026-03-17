@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -24,9 +25,15 @@ import { useCompany, type CompanyId } from "@/contexts/CompanyContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { GenericPdfPreviewDialog } from "@/components/shared/GenericPdfPreviewDialog";
+import { generateDevisPdf } from "@/lib/generateDevisPdf";
+import { generateFacturePdf } from "@/lib/generateFacturePdf";
+import { toast } from "sonner";
+import { Loader2, Download as DownloadIcon } from "lucide-react";
 
 const companyDot: Record<string, string> = {
   global: "bg-primary",
@@ -288,6 +295,49 @@ const Dashboard = () => {
   const { data: stats, isLoading: statsLoading } = useStats(companyIds);
   const { data: activity, isLoading: activityLoading } = useRecentActivity(companyIds);
   const isMobile = useIsMobile();
+  const [loadingDoc, setLoadingDoc] = useState<string | null>(null);
+  const [previewState, setPreviewState] = useState<{ open: boolean; blobUrl: string | null; dataUri: string | null; fileName: string }>({
+    open: false, blobUrl: null, dataUri: null, fileName: "",
+  });
+
+  const handlePreview = async (docType: string, docId: string) => {
+    const key = `${docType}-${docId}`;
+    setLoadingDoc(key);
+    try {
+      if (docType === "devis") {
+        const result = await generateDevisPdf(docId, false, true);
+        if (result && typeof result === "object" && "blobUrl" in result) {
+          setPreviewState({ open: true, blobUrl: result.blobUrl, dataUri: result.dataUri, fileName: result.fileName });
+        }
+      } else if (docType === "facture") {
+        const result = await generateFacturePdf(docId, true);
+        if (result && typeof result === "object" && "blobUrl" in result) {
+          setPreviewState({ open: true, blobUrl: result.blobUrl, dataUri: result.dataUri, fileName: result.fileName });
+        }
+      }
+    } catch {
+      toast.error("Erreur lors de la génération du document");
+    } finally {
+      setLoadingDoc(null);
+    }
+  };
+
+  const handleDownload = async (docType: string, docId: string) => {
+    const key = `dl-${docType}-${docId}`;
+    setLoadingDoc(key);
+    try {
+      if (docType === "devis") {
+        await generateDevisPdf(docId);
+      } else if (docType === "facture") {
+        await generateFacturePdf(docId);
+      }
+      toast.success("Document téléchargé");
+    } catch {
+      toast.error("Erreur lors du téléchargement");
+    } finally {
+      setLoadingDoc(null);
+    }
+  };
 
   // Top dossiers rentabilité
   const { data: topDossiers } = useQuery({
@@ -454,6 +504,9 @@ const Dashboard = () => {
                 facture: `/finance/${item.id}`,
                 visite: `/visites/${item.id}`,
               };
+              const hasDoc = item.type === "devis" || item.type === "facture";
+              const previewKey = `${item.type}-${item.id}`;
+              const dlKey = `dl-${item.type}-${item.id}`;
               return (
                 <div
                   key={i}
@@ -465,12 +518,35 @@ const Dashboard = () => {
                     <p className={`font-medium truncate ${isMobile ? "text-xs" : "text-sm"}`}>{item.label}</p>
                     <p className="text-xs text-muted-foreground">{item.client}</p>
                   </div>
-                  {isMobile ? (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                  ) : (
+                  {hasDoc && (
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={loadingDoc === previewKey}
+                        onClick={(e) => { e.stopPropagation(); handlePreview(item.type, item.id); }}
+                      >
+                        {loadingDoc === previewKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={loadingDoc === dlKey}
+                        onClick={(e) => { e.stopPropagation(); handleDownload(item.type, item.id); }}
+                      >
+                        {loadingDoc === dlKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadIcon className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                  )}
+                  {!isMobile && (
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
                       {formatRelativeTime(item.time)}
                     </span>
+                  )}
+                  {isMobile && !hasDoc && (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                   )}
                 </div>
               );
@@ -532,6 +608,13 @@ const Dashboard = () => {
           <CreateFactureDialog />
         </motion.div>
       )}
+      <GenericPdfPreviewDialog
+        open={previewState.open}
+        onClose={() => setPreviewState({ open: false, blobUrl: null, dataUri: null, fileName: "" })}
+        blobUrl={previewState.blobUrl}
+        dataUri={previewState.dataUri}
+        fileName={previewState.fileName}
+      />
     </div>
   );
 };
