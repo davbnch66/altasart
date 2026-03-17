@@ -158,9 +158,14 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
   const { data: clients = [] } = useQuery({
     queryKey: ["clients-for-select", selectedCompanyId],
     queryFn: async () => {
-      let query = supabase.from("clients").select("id, name, address, city, postal_code, email, phone, payment_terms, payment_method").order("name");
-      if (selectedCompanyId) query = query.eq("company_id", selectedCompanyId);
-      const { data } = await query;
+      if (selectedCompanyId) {
+        const { data: links } = await supabase.from("client_companies").select("client_id").eq("company_id", selectedCompanyId);
+        const ids = links?.map(l => l.client_id) || [];
+        if (ids.length === 0) return [];
+        const { data } = await supabase.from("clients").select("id, name, address, city, postal_code, email, phone, payment_terms, payment_method").in("id", ids).order("name");
+        return data || [];
+      }
+      const { data } = await supabase.from("clients").select("id, name, address, city, postal_code, email, phone, payment_terms, payment_method").order("name");
       return data || [];
     },
     enabled: open,
