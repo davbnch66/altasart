@@ -153,7 +153,7 @@ export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange
       if (newClient) {
         const allCompanyIds = [data.company_id, ...additionalCompanyIds.filter(id => id !== data.company_id)];
         const links = allCompanyIds.map(cid => ({ client_id: newClient.id, company_id: cid }));
-        await supabase.from("client_companies").insert(links);
+        await supabase.from("client_companies" as any).insert(links);
       }
 
       if (data.contact_name && newClient) {
