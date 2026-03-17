@@ -3,7 +3,10 @@ import { logger } from '../utils/logger';
 
 export interface EmailAccount {
   id: string;
+  company_id?: string;
   email_address: string;
+  provider: string;
+  auth_method: string;
   smtp_host: string | null;
   smtp_port: number | null;
   smtp_security: string | null;
@@ -14,6 +17,14 @@ export interface EmailAccount {
   imap_security: string | null;
   imap_username: string | null;
   imap_password_encrypted: string | null;
+  oauth_access_token_encrypted: string | null;
+  oauth_refresh_token_encrypted: string | null;
+  oauth_token_expires_at: string | null;
+  oauth_client_id: string | null;
+  last_sync_at: string | null;
+  sync_enabled: boolean;
+  auto_link_clients: boolean;
+  status: string;
 }
 
 export interface OutboxEmail {
