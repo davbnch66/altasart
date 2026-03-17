@@ -311,10 +311,10 @@ const ClientDetail = () => {
                   <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${clientStatusStyles[client.status] || ""}`}>
                     {clientStatusLabels[client.status] || client.status}
                   </span>
-                  {clientCompanyLinks.map((link) => (
-                    <span key={link.company_id} className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground border">
+                  {linkedCompanyNames.map((lc) => (
+                    <span key={lc.company_id} className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground border">
                       <Building2 className="h-3 w-3" />
-                      {(link.companies as any)?.short_name}
+                      {lc.short_name}
                     </span>
                   ))}
                 </div>
