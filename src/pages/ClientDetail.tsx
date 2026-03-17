@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ClientContactsTab } from "@/components/client/ClientContactsTab";
 import { useParams, useNavigate } from "react-router-dom";
