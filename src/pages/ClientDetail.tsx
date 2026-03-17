@@ -264,12 +264,12 @@ const ClientDetail = () => {
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0 ${clientStatusStyles[client.status] || ""}`}>
                     {clientStatusLabels[client.status] || client.status}
                   </span>
-                  {client.companies && (
-                    <span className="inline-flex items-center gap-0.5 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground border shrink-0">
+                  {clientCompanyLinks.map((link) => (
+                    <span key={link.company_id} className="inline-flex items-center gap-0.5 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground border shrink-0">
                       <Building2 className="h-2.5 w-2.5" />
-                      {(client.companies as any).short_name}
+                      {(link.companies as any)?.short_name}
                     </span>
-                  )}
+                  ))}
                 </div>
                 <p className="text-xs text-muted-foreground break-words">
                   {client.code || "—"} · {client.contact_name || "—"}
