@@ -38,10 +38,10 @@ const Clients = () => {
       if (current !== "global") {
         // Get client IDs linked to the selected company via junction table
         const { data: links } = await supabase
-          .from("client_companies")
+          .from("client_companies" as any)
           .select("client_id")
           .eq("company_id", current);
-        const clientIds = links?.map(l => l.client_id) || [];
+        const clientIds = (links as any[])?.map((l: any) => l.client_id) || [];
         if (clientIds.length === 0) return [];
         const { data, error } = await supabase
           .from("clients")

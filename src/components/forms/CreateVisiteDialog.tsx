@@ -60,8 +60,8 @@ export const CreateVisiteDialog = ({ trigger, preselectedClientId, preselectedCo
     queryKey: ["clients-for-visite", selectedCompanyId],
     queryFn: async () => {
       if (!selectedCompanyId) return [];
-      const { data: links } = await supabase.from("client_companies").select("client_id").eq("company_id", selectedCompanyId);
-      const ids = links?.map(l => l.client_id) || [];
+      const { data: links } = await supabase.from("client_companies" as any).select("client_id").eq("company_id", selectedCompanyId);
+      const ids = (links as any[])?.map((l: any) => l.client_id) || [];
       if (ids.length === 0) return [];
       const { data } = await supabase
         .from("clients")

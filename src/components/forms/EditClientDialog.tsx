@@ -99,10 +99,10 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
     queryKey: ["client-companies", client?.id],
     queryFn: async () => {
       const { data } = await supabase
-        .from("client_companies")
+        .from("client_companies" as any)
         .select("company_id")
         .eq("client_id", client.id);
-      return data || [];
+      return (data as unknown as { company_id: string }[]) || [];
     },
     enabled: !!client?.id && open,
   });
