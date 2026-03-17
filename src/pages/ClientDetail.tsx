@@ -108,13 +108,20 @@ const ClientDetail = () => {
     queryKey: ["client-companies", id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("client_companies")
-        .select("company_id, companies(short_name, color)")
+        .from("client_companies" as any)
+        .select("company_id")
         .eq("client_id", id!);
       if (error) throw error;
-      return data || [];
+      return (data || []) as { company_id: string }[];
     },
     enabled: !!id,
+  });
+
+  // Resolve company names from context
+  const { dbCompanies } = useCompany();
+  const linkedCompanyNames = clientCompanyLinks.map(link => {
+    const company = dbCompanies.find(c => c.id === link.company_id);
+    return { company_id: link.company_id, short_name: company?.shortName || "?" };
   });
 
   // Redirect to clients list if switching to a company that doesn't have this client
