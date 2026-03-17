@@ -103,6 +103,13 @@ const ClientDetail = () => {
     enabled: !!id,
   });
 
+  // Redirect to clients list if switching to a company that doesn't own this client
+  useEffect(() => {
+    if (client && current && current.id !== "global" && client.company_id !== current.id) {
+      navigate("/clients", { replace: true });
+    }
+  }, [client, current, navigate]);
+
   const { data: dossiers = [] } = useQuery({
     queryKey: ["client-dossiers", id],
     queryFn: async () => {
