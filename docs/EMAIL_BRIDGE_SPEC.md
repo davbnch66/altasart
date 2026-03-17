@@ -61,6 +61,10 @@
 | `MAX_EMAILS_PER_SYNC` | Emails max par sync | `50` |
 | `IMAP_FETCH_DAYS_BACK` | Jours en arrière au 1er sync | `7` |
 | `LOG_LEVEL` | Niveau de log | `info` |
+| `GOOGLE_CLIENT_ID` | Client ID OAuth Google | (optionnel si pas de Gmail) |
+| `GOOGLE_CLIENT_SECRET` | Client Secret OAuth Google | (optionnel si pas de Gmail) |
+| `MICROSOFT_CLIENT_ID` | Client ID OAuth Microsoft | (optionnel si pas de Outlook) |
+| `MICROSOFT_CLIENT_SECRET` | Client Secret OAuth Microsoft | (optionnel si pas de Outlook) |
 
 ### 3. Déploiement
 
