@@ -109,7 +109,7 @@ export const ClientCommunicationPanel = ({
   const [showFilters, setShowFilters] = useState(false);
 
   // Compose state
-  const [composeMode, setComposeMode] = useState<"none" | "email" | "note">("none");
+  const [composeMode, setComposeMode] = useState<"none" | "email" | "note" | "sms" | "whatsapp">("none");
   const [noteType, setNoteType] = useState("note");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
