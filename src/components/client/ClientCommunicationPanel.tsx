@@ -95,7 +95,7 @@ const formatDateGroup = (dateStr: string) => {
 };
 
 export const ClientCommunicationPanel = ({
-  clientId, clientName, clientEmail, companyId, dossiers = [],
+  clientId, clientName, clientEmail, clientPhone, clientMobile, companyId, dossiers = [],
 }: Props) => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
