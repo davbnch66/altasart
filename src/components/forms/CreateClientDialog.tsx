@@ -187,7 +187,7 @@ export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange
   });
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { reset({ company_id: defaultCompanyId, client_type: "societe", status: "nouveau_lead", tags: [], country: "France", credit_limit: 0, invoice_by_email: false }); } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { reset({ company_id: defaultCompanyId, client_type: "societe", status: "nouveau_lead", tags: [], country: "France", credit_limit: 0, invoice_by_email: false }); setAdditionalCompanyIds([]); } }}>
       {!isControlled && (
         <DialogTrigger asChild>
           {trigger || (
