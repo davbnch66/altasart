@@ -232,12 +232,18 @@ const ClientDetail = () => {
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
                 {client.name.substring(0, 2).toUpperCase()}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-lg font-bold tracking-tight break-words">{client.name}</h1>
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0 ${clientStatusStyles[client.status] || ""}`}>
                     {clientStatusLabels[client.status] || client.status}
                   </span>
+                  {client.companies && (
+                    <span className="inline-flex items-center gap-0.5 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground border shrink-0">
+                      <Building2 className="h-2.5 w-2.5" />
+                      {(client.companies as any).short_name}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground break-words">
                   {client.code || "—"} · {client.contact_name || "—"}
