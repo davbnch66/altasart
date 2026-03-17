@@ -107,7 +107,8 @@ serve(async (req) => {
       twilioTo = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
       twilioFrom = `whatsapp:${waNumber}`;
     } else {
-      twilioFrom = from || TWILIO_PHONE_NUMBER;
+      const smsFrom = Deno.env.get("TWILIO_WHATSAPP_NUMBER");
+      twilioFrom = from || (smsFrom ? smsFrom.replace(/[\s.\-()]/g, "") : TWILIO_PHONE_NUMBER);
     }
 
     const params: Record<string, string> = {
