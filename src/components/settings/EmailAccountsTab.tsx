@@ -159,6 +159,7 @@ export function EmailAccountsTab() {
       if (!companyId) throw new Error("Aucune société sélectionnée");
       if (!form.email_address.trim()) throw new Error("L'adresse email est requise");
 
+      // Use the encrypt-email-password edge function to encrypt & save
       const payload: any = {
         company_id: companyId,
         label: form.label.trim() || form.email_address.trim(),
@@ -169,28 +170,29 @@ export function EmailAccountsTab() {
         smtp_port: form.smtp_port || 587,
         smtp_security: form.smtp_security,
         smtp_username: form.smtp_username.trim() || form.email_address.trim(),
-        smtp_password_encrypted: form.smtp_password || null,
         imap_host: form.imap_host.trim() || null,
         imap_port: form.imap_port || 993,
         imap_security: form.imap_security,
         imap_username: form.imap_username.trim() || form.email_address.trim(),
-        imap_password_encrypted: form.imap_password || null,
         is_default: form.is_default,
         auto_link_clients: form.auto_link_clients,
         sync_enabled: form.sync_enabled,
         status: "disconnected",
       };
 
-      if (editingId) {
-        // Don't overwrite password if not changed
-        if (!form.smtp_password) delete payload.smtp_password_encrypted;
-        if (!form.imap_password) delete payload.imap_password_encrypted;
-        const { error } = await supabase.from("email_accounts").update(payload).eq("id", editingId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("email_accounts").insert(payload);
-        if (error) throw error;
+      // Passwords sent in clear to the edge function (HTTPS), which encrypts them server-side
+      if (form.smtp_password) payload.smtp_password = form.smtp_password;
+      if (form.imap_password) payload.imap_password = form.imap_password;
+      if (editingId) payload.account_id = editingId;
+
+      const { data, error } = await supabase.functions.invoke("encrypt-email-password", {
+        body: payload,
+      });
+      if (error) {
+        const msg = typeof error === "object" && "message" in error ? (error as any).message : String(error);
+        throw new Error(msg);
       }
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
       toast.success(editingId ? "Compte email modifié" : "Compte email ajouté");
