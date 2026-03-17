@@ -101,7 +101,7 @@ export class SaasApi {
     });
 
     if (!res.ok) return [];
-    const data = await res.json();
+    const data = (await res.json()) as { accounts?: EmailAccount[] };
     return data.accounts || [];
   }
 

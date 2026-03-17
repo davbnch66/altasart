@@ -48,7 +48,7 @@ export class ImapPoller {
         throw new Error(`Account list failed [${res.status}]`);
       }
 
-      const data = await res.json();
+      const data = (await res.json()) as { accounts?: any[] };
       const accounts = data.accounts || [];
 
       for (const account of accounts) {
