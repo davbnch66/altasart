@@ -1,187 +1,144 @@
-# Email Bridge — Service Externe Node.js
+# Email Bridge — Guide de déploiement
 
 ## Architecture
 
 ```
-┌─────────────────────┐     HTTPS/REST      ┌──────────────────┐     IMAP/SMTP     ┌──────────────┐
-│   SaaS (Lovable)    │ ◄──────────────────► │   Email Bridge   │ ◄───────────────► │  Mail Servers │
-│                     │                      │  (Node.js)       │                   │  Gandi, Gmail │
-│  - email_accounts   │  POST /sync          │  - IMAP polling  │                   │  OVH, etc.    │
-│  - synced_emails    │  GET /send?poll       │  - SMTP sending  │                   └──────────────┘
-│  - email_outbox     │  POST /send?confirm   │  - Connection    │
-│  - Edge Functions   │  GET /test?poll       │    testing       │
-└─────────────────────┘  POST /test?result    └──────────────────┘
+┌──────────────────────┐    HTTPS/REST     ┌──────────────────┐    IMAP/SMTP    ┌──────────────┐
+│  SaaS (Lovable Cloud)│ ◄────────────────► │  Email Bridge    │ ◄──────────────► │ Mail Servers │
+│                      │                    │  (Node.js)       │                  │ Gandi, Gmail │
+│  email_accounts      │ ←── sync push      │  IMAP polling    │                  │ OVH, Outlook │
+│  synced_emails       │ ←── outbox poll    │  SMTP sending    │                  │ Zoho, etc.   │
+│  email_outbox        │ ←── test results   │  Connection test │                  └──────────────┘
+│  Edge Functions ×5   │                    └──────────────────┘
+└──────────────────────┘
 ```
 
-## Endpoints API (Edge Functions)
+## Ce qui est prêt dans le SaaS
 
-Toutes les URLs sont :  
-`https://bsqqdtqzxajecgxgulce.supabase.co/functions/v1/{function}`
+### Base de données
+- ✅ `email_accounts` — Configuration IMAP/SMTP par société avec chiffrement AES-256-GCM
+- ✅ `synced_emails` — Stockage des emails synchronisés + rattachement client automatique
+- ✅ `email_outbox` — File d'attente des emails à envoyer
+- ✅ RLS strict sur toutes les tables (company-scoped)
 
-### Authentication Bridge
-Toutes les requêtes du bridge doivent inclure :
-```
-X-Bridge-Secret: <votre EMAIL_BRIDGE_SECRET>
-```
+### Edge Functions (déployées)
+- ✅ `encrypt-email-password` — Chiffre les mots de passe avant stockage
+- ✅ `email-bridge-accounts` — Fournit la liste des comptes actifs au bridge
+- ✅ `email-bridge-sync` — Reçoit les emails synchronisés par le bridge
+- ✅ `email-bridge-send` — Queue d'envoi + polling + confirmation
+- ✅ `email-bridge-test` — Test de connexion IMAP/SMTP
+
+### Interface
+- ✅ Onglet "Connexions" dans Paramètres
+- ✅ Formulaire complet avec presets fournisseurs
+- ✅ Mots de passe jamais affichés (masqués côté UI)
+- ✅ Statut de connexion en temps réel
+- ✅ Bouton tester / modifier / supprimer
+
+### Sécurité
+- ✅ Mots de passe chiffrés AES-256-GCM côté serveur
+- ✅ Aucun secret en clair dans les logs (pino redact)
+- ✅ Aucun secret réaffiché dans l'interface
+- ✅ Auth webhook par `X-Bridge-Secret`
+- ✅ Auth JWT pour les endpoints frontend
 
 ---
 
-### 1. `email-bridge-sync` — Pousser des emails reçus
+## Déploiement du bridge sur Railway
 
-**POST** `/functions/v1/email-bridge-sync`
+### 1. Prérequis
+- Compte Railway (https://railway.app)
+- Le dossier `email-bridge/` du projet
 
-```json
-{
-  "account_id": "uuid-du-compte-email",
-  "emails": [
-    {
-      "message_id": "<abc123@mail.example.com>",
-      "direction": "inbound",
-      "from_email": "client@example.com",
-      "from_name": "Jean Dupont",
-      "to_emails": [{ "email": "inbox@entreprise.fr", "name": "Entreprise" }],
-      "cc_emails": [],
-      "subject": "Demande de devis",
-      "body_text": "Bonjour, je souhaite...",
-      "body_html": "<p>Bonjour, je souhaite...</p>",
-      "attachments": [
-        { "filename": "plan.pdf", "content_type": "application/pdf", "size": 12345 }
-      ],
-      "received_at": "2026-03-17T10:30:00Z",
-      "folder": "INBOX"
-    }
-  ]
-}
-```
+### 2. Variables d'environnement à configurer sur Railway
 
-**Réponse** : `{ "success": true, "inserted": 5, "skipped": 0, "linked": 3 }`
+| Variable | Description | Exemple |
+|---|---|---|
+| `SUPABASE_FUNCTIONS_URL` | URL des Edge Functions | `https://bsqqdtqzxajecgxgulce.supabase.co/functions/v1` |
+| `EMAIL_BRIDGE_SECRET` | Secret partagé avec le SaaS | Même valeur que dans Lovable Cloud |
+| `ENCRYPTION_KEY` | Clé AES-256 (64 chars hex) | Même valeur que `EMAIL_ENCRYPTION_KEY` dans Lovable Cloud |
+| `POLL_INTERVAL_MS` | Intervalle de polling (ms) | `60000` (1 minute) |
+| `MAX_EMAILS_PER_SYNC` | Emails max par sync | `50` |
+| `IMAP_FETCH_DAYS_BACK` | Jours en arrière au 1er sync | `7` |
+| `LOG_LEVEL` | Niveau de log | `info` |
 
----
+### 3. Déploiement
 
-### 2. `email-bridge-send` — Récupérer les emails à envoyer
-
-**GET** `/functions/v1/email-bridge-send?action=poll`  
-Headers : `X-Bridge-Secret: xxx`
-
-**Réponse** :
-```json
-{
-  "emails": [
-    {
-      "id": "outbox-uuid",
-      "account_id": "account-uuid",
-      "to_recipients": [{ "email": "dest@example.com" }],
-      "subject": "Votre devis",
-      "body_html": "<p>...</p>",
-      "email_accounts": {
-        "smtp_host": "mail.gandi.net",
-        "smtp_port": 587,
-        "smtp_security": "STARTTLS",
-        "smtp_username": "inbox@entreprise.fr",
-        "smtp_password_encrypted": "password-en-clair"
-      }
-    }
-  ]
-}
-```
-
-**POST** `/functions/v1/email-bridge-send?action=confirm`
-```json
-{
-  "queue_id": "outbox-uuid",
-  "success": true,
-  "sent_message_id": "<generated-id@mail.example.com>"
-}
-```
-
----
-
-### 3. `email-bridge-test` — Tester une connexion
-
-**GET** `/functions/v1/email-bridge-test?action=poll`  
-Retourne les comptes en statut `testing`.
-
-**POST** `/functions/v1/email-bridge-test?action=result`
-```json
-{
-  "account_id": "uuid",
-  "smtp_ok": true,
-  "imap_ok": true,
-  "error": null
-}
-```
-
----
-
-## Structure du Service Node.js
-
-```
-email-bridge/
-├── package.json
-├── src/
-│   ├── index.ts              # Entry point, orchestrateur
-│   ├── config.ts             # Env vars, constants
-│   ├── api/
-│   │   └── supabase.ts       # Client API vers les Edge Functions
-│   ├── imap/
-│   │   ├── connector.ts      # Connexion IMAP générique
-│   │   └── poller.ts         # Polling loop par compte
-│   ├── smtp/
-│   │   └── sender.ts         # Envoi SMTP via nodemailer
-│   ├── test/
-│   │   └── tester.ts         # Test IMAP+SMTP pour un compte
-│   └── utils/
-│       ├── parser.ts         # Parse MIME emails
-│       └── logger.ts         # Structured logging
-└── Dockerfile
-```
-
-### Dépendances recommandées
-- `imapflow` — Client IMAP moderne
-- `nodemailer` — Envoi SMTP
-- `mailparser` — Parse MIME
-- `node-cron` — Scheduling interne
-
-### Boucle principale
-```
-toutes les 60 secondes :
-  1. GET /email-bridge-test?action=poll → tester les comptes
-  2. Pour chaque compte actif avec sync_enabled :
-     - Connecter IMAP
-     - Fetch les nouveaux messages (depuis last_sync_at)
-     - POST /email-bridge-sync avec les emails
-  3. GET /email-bridge-send?action=poll → récupérer la queue
-  4. Pour chaque email en queue :
-     - Envoyer via SMTP
-     - POST /email-bridge-send?action=confirm
-```
-
-### Variables d'environnement du bridge
-```
-SUPABASE_FUNCTIONS_URL=https://bsqqdtqzxajecgxgulce.supabase.co/functions/v1
-EMAIL_BRIDGE_SECRET=<même valeur que dans Lovable Cloud>
-POLL_INTERVAL_MS=60000
-```
-
-## Sécurité
-- Les mots de passe sont stockés en clair dans `email_accounts` (champ `*_password_encrypted`). 
-  À terme, implémenter un chiffrement AES avec une clé stockée dans Vault.
-- Le bridge secret empêche les appels non autorisés aux Edge Functions.
-- Le bridge ne doit jamais exposer les credentials en logs.
-
-## Déploiement Railway
 ```bash
+cd email-bridge
+npm install
+npm run build
+
+# Sur Railway :
 railway init
 railway up
 ```
 
-Ou Dockerfile :
-```dockerfile
-FROM node:20-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-CMD ["node", "dist/index.js"]
+Ou via le Dockerfile inclus :
+- Railway détecte automatiquement le `Dockerfile`
+- Build command: `docker build -t email-bridge .`
+- Start command: `node dist/index.js`
+
+### 4. Vérification
+
+Une fois déployé, le bridge :
+1. Log `Email Bridge starting` au démarrage
+2. Interroge les comptes actifs toutes les 60s
+3. Synchronise les emails IMAP → SaaS
+4. Envoie les emails en queue SMTP
+5. Traite les demandes de test de connexion
+
+---
+
+## Flux complets
+
+### Réception d'un email
+1. Le bridge se connecte en IMAP au serveur mail
+2. Récupère les messages depuis `last_sync_at`
+3. Parse les emails (headers, corps, pièces jointes)
+4. Déduplique par `message_id`
+5. POST vers `email-bridge-sync` → stockage dans `synced_emails`
+6. Rattachement automatique au client si l'email correspond
+
+### Envoi d'un email
+1. L'utilisateur compose un email dans le SaaS
+2. Le frontend appelle `email-bridge-send` (POST, JWT)
+3. L'email est mis en queue dans `email_outbox`
+4. Le bridge poll `email-bridge-send?action=poll`
+5. Envoie via SMTP avec nodemailer
+6. Confirme via `email-bridge-send?action=confirm`
+7. L'email est enregistré dans `synced_emails` + `messages`
+
+### Test de connexion
+1. L'utilisateur clique "Tester" dans l'interface
+2. POST vers `email-bridge-test` → statut passe à `testing`
+3. Le bridge poll les comptes en test
+4. Teste SMTP (verify) et IMAP (connect + list)
+5. POST résultat → statut passe à `active` ou `error`
+
+---
+
+## Structure du service
+
+```
+email-bridge/
+├── package.json
+├── tsconfig.json
+├── Dockerfile
+└── src/
+    ├── index.ts           # Point d'entrée + cron
+    ├── config.ts          # Variables d'environnement
+    ├── api/
+    │   └── supabase.ts    # Client API vers Edge Functions
+    ├── imap/
+    │   ├── connector.ts   # Connexion IMAP + fetch + test
+    │   └── poller.ts      # Polling multi-comptes + dédup
+    ├── smtp/
+    │   └── sender.ts      # Envoi SMTP via nodemailer
+    ├── test/
+    │   └── tester.ts      # Test IMAP + SMTP
+    └── utils/
+        ├── crypto.ts      # AES-256-GCM encrypt/decrypt
+        ├── logger.ts      # Pino avec redaction des secrets
+        └── parser.ts      # Parse MIME emails
 ```
