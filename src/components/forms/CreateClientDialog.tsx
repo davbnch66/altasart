@@ -149,6 +149,13 @@ export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange
       const { data: newClient, error } = await supabase.from("clients").insert(insertData).select("id").single();
       if (error) throw error;
 
+      // Insert into client_companies junction table (primary + additional)
+      if (newClient) {
+        const allCompanyIds = [data.company_id, ...additionalCompanyIds.filter(id => id !== data.company_id)];
+        const links = allCompanyIds.map(cid => ({ client_id: newClient.id, company_id: cid }));
+        await supabase.from("client_companies").insert(links);
+      }
+
       if (data.contact_name && newClient) {
         const nameParts = data.contact_name.trim().split(/\s+/);
         const lastName = nameParts.pop() || data.contact_name;
