@@ -80,6 +80,7 @@ const ClientDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const { current } = useCompany();
   const [activeTab, setActiveTab] = useState<TabKey>("infos");
   const [editClientOpen, setEditClientOpen] = useState(false);
   const [deleteClientOpen, setDeleteClientOpen] = useState(false);
