@@ -35,16 +35,26 @@ const Clients = () => {
   const { data: clients = [], isLoading } = useQuery({
     queryKey: ["clients", current],
     queryFn: async () => {
-      let query = supabase
+      if (current !== "global") {
+        // Get client IDs linked to the selected company via junction table
+        const { data: links } = await supabase
+          .from("client_companies")
+          .select("client_id")
+          .eq("company_id", current);
+        const clientIds = links?.map(l => l.client_id) || [];
+        if (clientIds.length === 0) return [];
+        const { data, error } = await supabase
+          .from("clients")
+          .select("*, companies(short_name, color)")
+          .in("id", clientIds)
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        return data || [];
+      }
+      const { data, error } = await supabase
         .from("clients")
         .select("*, companies(short_name, color)")
         .order("created_at", { ascending: false });
-
-      if (current !== "global") {
-        query = query.eq("company_id", current);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
