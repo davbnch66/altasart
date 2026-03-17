@@ -294,6 +294,49 @@ const Dashboard = () => {
   const { data: stats, isLoading: statsLoading } = useStats(companyIds);
   const { data: activity, isLoading: activityLoading } = useRecentActivity(companyIds);
   const isMobile = useIsMobile();
+  const [loadingDoc, setLoadingDoc] = useState<string | null>(null);
+  const [previewState, setPreviewState] = useState<{ open: boolean; blobUrl: string | null; dataUri: string | null; fileName: string }>({
+    open: false, blobUrl: null, dataUri: null, fileName: "",
+  });
+
+  const handlePreview = async (docType: string, docId: string) => {
+    const key = `${docType}-${docId}`;
+    setLoadingDoc(key);
+    try {
+      if (docType === "devis") {
+        const result = await generateDevisPdf(docId, false, true);
+        if (result && typeof result === "object" && "blobUrl" in result) {
+          setPreviewState({ open: true, blobUrl: result.blobUrl, dataUri: result.dataUri, fileName: result.fileName });
+        }
+      } else if (docType === "facture") {
+        const result = await generateFacturePdf(docId, true);
+        if (result && typeof result === "object" && "blobUrl" in result) {
+          setPreviewState({ open: true, blobUrl: result.blobUrl, dataUri: result.dataUri, fileName: result.fileName });
+        }
+      }
+    } catch {
+      toast.error("Erreur lors de la génération du document");
+    } finally {
+      setLoadingDoc(null);
+    }
+  };
+
+  const handleDownload = async (docType: string, docId: string) => {
+    const key = `dl-${docType}-${docId}`;
+    setLoadingDoc(key);
+    try {
+      if (docType === "devis") {
+        await generateDevisPdf(docId);
+      } else if (docType === "facture") {
+        await generateFacturePdf(docId);
+      }
+      toast.success("Document téléchargé");
+    } catch {
+      toast.error("Erreur lors du téléchargement");
+    } finally {
+      setLoadingDoc(null);
+    }
+  };
 
   // Top dossiers rentabilité
   const { data: topDossiers } = useQuery({
