@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ClientContactsTab } from "@/components/client/ClientContactsTab";
 import { useParams, useNavigate } from "react-router-dom";
@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ClientCommunicationPanel } from "@/components/client/ClientCommunicationPanel";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
+import { useCompany } from "@/contexts/CompanyContext";
 
 type TabKey = "infos" | "contacts" | "dossiers" | "chantiers" | "echanges" | "factures" | "devis" | "reglements" | "visites";
 
@@ -79,6 +80,7 @@ const ClientDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
+  const { current } = useCompany();
   const [activeTab, setActiveTab] = useState<TabKey>("infos");
   const [editClientOpen, setEditClientOpen] = useState(false);
   const [deleteClientOpen, setDeleteClientOpen] = useState(false);
@@ -100,6 +102,13 @@ const ClientDetail = () => {
     },
     enabled: !!id,
   });
+
+  // Redirect to clients list if switching to a company that doesn't own this client
+  useEffect(() => {
+    if (client && current && current !== "global" && client.company_id !== current) {
+      navigate("/clients", { replace: true });
+    }
+  }, [client, current, navigate]);
 
   const { data: dossiers = [] } = useQuery({
     queryKey: ["client-dossiers", id],
