@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { EmailTemplatesTab } from "@/components/settings/EmailTemplatesTab";
+import { EmailAccountsTab } from "@/components/settings/EmailAccountsTab";
 import { DocumentTemplatesTab } from "@/components/settings/DocumentTemplatesTab";
 import { ImportDataTab } from "@/components/settings/ImportDataTab";
 import { AppearanceSettingsTab } from "@/components/settings/AppearanceSettingsTab";

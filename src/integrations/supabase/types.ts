@@ -1184,6 +1184,101 @@ export type Database = {
           },
         ]
       }
+      email_outbox: {
+        Row: {
+          account_id: string
+          attachments: Json | null
+          bcc_recipients: Json | null
+          body_html: string | null
+          body_text: string | null
+          cc_recipients: Json | null
+          client_id: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          dossier_id: string | null
+          error: string | null
+          id: string
+          reply_to_message_id: string | null
+          sent_at: string | null
+          sent_message_id: string | null
+          status: string
+          subject: string | null
+          to_recipients: Json
+        }
+        Insert: {
+          account_id: string
+          attachments?: Json | null
+          bcc_recipients?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_recipients?: Json | null
+          client_id?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          dossier_id?: string | null
+          error?: string | null
+          id?: string
+          reply_to_message_id?: string | null
+          sent_at?: string | null
+          sent_message_id?: string | null
+          status?: string
+          subject?: string | null
+          to_recipients?: Json
+        }
+        Update: {
+          account_id?: string
+          attachments?: Json | null
+          bcc_recipients?: Json | null
+          body_html?: string | null
+          body_text?: string | null
+          cc_recipients?: Json | null
+          client_id?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          dossier_id?: string | null
+          error?: string | null
+          id?: string
+          reply_to_message_id?: string | null
+          sent_at?: string | null
+          sent_message_id?: string | null
+          status?: string
+          subject?: string | null
+          to_recipients?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_outbox_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbox_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbox_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_outbox_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_templates: {
         Row: {
           body: string
