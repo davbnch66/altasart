@@ -601,7 +601,7 @@ export const ClientCommunicationPanel = ({
       {/* Compose area */}
       <div className="shrink-0 border-t bg-card px-3 py-2.5 space-y-2">
         {composeMode === "none" ? (
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               variant="outline"
               size="sm"
@@ -610,6 +610,26 @@ export const ClientCommunicationPanel = ({
             >
               <Mail className="h-3.5 w-3.5 mr-1.5" />
               Email
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs h-9"
+              onClick={() => setComposeMode("sms")}
+              disabled={!clientPhone && !clientMobile}
+            >
+              <Phone className="h-3.5 w-3.5 mr-1.5" />
+              SMS
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs h-9"
+              onClick={() => setComposeMode("whatsapp")}
+              disabled={!clientPhone && !clientMobile}
+            >
+              <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
+              WhatsApp
             </Button>
             <Button
               variant="outline"
