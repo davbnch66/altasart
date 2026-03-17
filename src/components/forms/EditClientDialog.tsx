@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { toast } from "sonner";
@@ -92,6 +92,29 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
   const { dbCompanies } = useCompany();
   const queryClient = useQueryClient();
   const nameDropdownRef = useRef<HTMLDivElement>(null);
+  const [additionalCompanyIds, setAdditionalCompanyIds] = useState<string[]>([]);
+
+  // Fetch existing company links
+  const { data: existingLinks = [] } = useQuery({
+    queryKey: ["client-companies", client?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("client_companies")
+        .select("company_id")
+        .eq("client_id", client.id);
+      return data || [];
+    },
+    enabled: !!client?.id && open,
+  });
+
+  useEffect(() => {
+    if (existingLinks.length > 0 && client) {
+      const otherIds = existingLinks
+        .map(l => l.company_id)
+        .filter(id => id !== client.company_id);
+      setAdditionalCompanyIds(otherIds);
+    }
+  }, [existingLinks, client]);
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -180,6 +203,12 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
       }).eq("id", client.id);
       if (error) throw error;
 
+      // Sync client_companies: delete all, re-insert
+      await supabase.from("client_companies").delete().eq("client_id", client.id);
+      const allCompanyIds = [data.company_id, ...additionalCompanyIds.filter(id => id !== data.company_id)];
+      const links = allCompanyIds.map(cid => ({ client_id: client.id, company_id: cid }));
+      await supabase.from("client_companies").insert(links);
+
       if (data.contact_name) {
         const { data: existing } = await supabase
           .from("client_contacts").select("id")
@@ -205,6 +234,7 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
       toast.success("Client modifié avec succès");
       queryClient.invalidateQueries({ queryKey: ["client", client.id] });
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["client-companies", client.id] });
       queryClient.invalidateQueries({ queryKey: ["client-contacts", client.id] });
       onOpenChange(false);
     },
@@ -305,7 +335,7 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
                     </Select>
                   </div>
                   <div>
-                    <Label>Société interne *</Label>
+                    <Label>Société principale *</Label>
                     <Select value={watch("company_id")} onValueChange={(v) => setValue("company_id", v)}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -314,6 +344,27 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
                     </Select>
                     {errors.company_id && <p className="text-xs text-destructive mt-1">{errors.company_id.message}</p>}
                   </div>
+                  {dbCompanies.length > 1 && (
+                    <div className="col-span-2">
+                      <Label>Sociétés supplémentaires</Label>
+                      <div className="flex flex-wrap gap-2 mt-1.5">
+                        {dbCompanies.filter(c => c.id !== watch("company_id")).map((c) => (
+                          <label key={c.id} className="inline-flex items-center gap-1.5 text-sm cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="rounded border-input"
+                              checked={additionalCompanyIds.includes(c.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) setAdditionalCompanyIds(prev => [...prev, c.id]);
+                                else setAdditionalCompanyIds(prev => prev.filter(id => id !== c.id));
+                              }}
+                            />
+                            {c.name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <Label htmlFor="edit-siret">SIRET</Label>
                     <div className="flex gap-1.5">

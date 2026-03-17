@@ -80,7 +80,10 @@ const StoragePage = () => {
   const { data: clients = [] } = useQuery({
     queryKey: ["clients-list", companyIds],
     queryFn: async () => {
-      const { data, error } = await supabase.from("clients").select("id, name").in("company_id", companyIds).order("name");
+      const { data: links } = await supabase.from("client_companies").select("client_id").in("company_id", companyIds);
+      const ids = [...new Set(links?.map(l => l.client_id) || [])];
+      if (ids.length === 0) return [];
+      const { data, error } = await supabase.from("clients").select("id, name").in("id", ids).order("name");
       if (error) throw error;
       return data || [];
     },

@@ -97,6 +97,7 @@ export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
   const nameDropdownRef = useRef<HTMLDivElement>(null);
+  const [additionalCompanyIds, setAdditionalCompanyIds] = useState<string[]>([]);
 
   const defaultCompanyId = current !== "global" ? current : dbCompanies[0]?.id || "";
 
@@ -148,6 +149,13 @@ export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange
       const { data: newClient, error } = await supabase.from("clients").insert(insertData).select("id").single();
       if (error) throw error;
 
+      // Insert into client_companies junction table (primary + additional)
+      if (newClient) {
+        const allCompanyIds = [data.company_id, ...additionalCompanyIds.filter(id => id !== data.company_id)];
+        const links = allCompanyIds.map(cid => ({ client_id: newClient.id, company_id: cid }));
+        await supabase.from("client_companies").insert(links);
+      }
+
       if (data.contact_name && newClient) {
         const nameParts = data.contact_name.trim().split(/\s+/);
         const lastName = nameParts.pop() || data.contact_name;
@@ -169,15 +177,17 @@ export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange
       toast.success("Client créé avec succès");
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       queryClient.invalidateQueries({ queryKey: ["clients-for-select"] });
+      queryClient.invalidateQueries({ queryKey: ["client-companies"] });
       if (clientId && onClientCreated) onClientCreated(clientId);
       reset();
+      setAdditionalCompanyIds([]);
       setOpen(false);
     },
     onError: () => toast.error("Erreur lors de la création du client"),
   });
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { reset({ company_id: defaultCompanyId, client_type: "societe", status: "nouveau_lead", tags: [], country: "France", credit_limit: 0, invoice_by_email: false }); } }}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (v) { reset({ company_id: defaultCompanyId, client_type: "societe", status: "nouveau_lead", tags: [], country: "France", credit_limit: 0, invoice_by_email: false }); setAdditionalCompanyIds([]); } }}>
       {!isControlled && (
         <DialogTrigger asChild>
           {trigger || (
@@ -280,7 +290,7 @@ export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange
                     </Select>
                   </div>
                   <div>
-                    <Label>Société interne *</Label>
+                    <Label>Société principale *</Label>
                     <Select value={watch("company_id")} onValueChange={(v) => setValue("company_id", v)}>
                       <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                       <SelectContent>
@@ -289,6 +299,27 @@ export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange
                     </Select>
                     {errors.company_id && <p className="text-xs text-destructive mt-1">{errors.company_id.message}</p>}
                   </div>
+                  {dbCompanies.length > 1 && (
+                    <div className="col-span-2">
+                      <Label>Sociétés supplémentaires</Label>
+                      <div className="flex flex-wrap gap-2 mt-1.5">
+                        {dbCompanies.filter(c => c.id !== watch("company_id")).map((c) => (
+                          <label key={c.id} className="inline-flex items-center gap-1.5 text-sm cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="rounded border-input"
+                              checked={additionalCompanyIds.includes(c.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) setAdditionalCompanyIds(prev => [...prev, c.id]);
+                                else setAdditionalCompanyIds(prev => prev.filter(id => id !== c.id));
+                              }}
+                            />
+                            {c.name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <Label htmlFor="siret">SIRET</Label>
                     <div className="flex gap-1.5">

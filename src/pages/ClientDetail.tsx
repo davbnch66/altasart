@@ -103,12 +103,29 @@ const ClientDetail = () => {
     enabled: !!id,
   });
 
-  // Redirect to clients list if switching to a company that doesn't own this client
+  // Fetch all companies linked to this client
+  const { data: clientCompanyLinks = [] } = useQuery({
+    queryKey: ["client-companies", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("client_companies")
+        .select("company_id, companies(short_name, color)")
+        .eq("client_id", id!);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
+  // Redirect to clients list if switching to a company that doesn't have this client
   useEffect(() => {
-    if (client && current && current !== "global" && client.company_id !== current) {
-      navigate("/clients", { replace: true });
+    if (client && current && current !== "global" && clientCompanyLinks.length > 0) {
+      const linkedCompanyIds = clientCompanyLinks.map(l => l.company_id);
+      if (!linkedCompanyIds.includes(current)) {
+        navigate("/clients", { replace: true });
+      }
     }
-  }, [client, current, navigate]);
+  }, [client, current, clientCompanyLinks, navigate]);
 
   const { data: dossiers = [] } = useQuery({
     queryKey: ["client-dossiers", id],
@@ -247,12 +264,12 @@ const ClientDetail = () => {
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0 ${clientStatusStyles[client.status] || ""}`}>
                     {clientStatusLabels[client.status] || client.status}
                   </span>
-                  {client.companies && (
-                    <span className="inline-flex items-center gap-0.5 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground border shrink-0">
+                  {clientCompanyLinks.map((link) => (
+                    <span key={link.company_id} className="inline-flex items-center gap-0.5 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground border shrink-0">
                       <Building2 className="h-2.5 w-2.5" />
-                      {(client.companies as any).short_name}
+                      {(link.companies as any)?.short_name}
                     </span>
-                  )}
+                  ))}
                 </div>
                 <p className="text-xs text-muted-foreground break-words">
                   {client.code || "—"} · {client.contact_name || "—"}
@@ -287,12 +304,12 @@ const ClientDetail = () => {
                   <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${clientStatusStyles[client.status] || ""}`}>
                     {clientStatusLabels[client.status] || client.status}
                   </span>
-                  {client.companies && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground border">
+                  {clientCompanyLinks.map((link) => (
+                    <span key={link.company_id} className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground border">
                       <Building2 className="h-3 w-3" />
-                      {(client.companies as any).short_name}
+                      {(link.companies as any)?.short_name}
                     </span>
-                  )}
+                  ))}
                 </div>
                 <p className="text-muted-foreground text-sm">
                   Code : {client.code || "—"} · {client.contact_name || "—"}
