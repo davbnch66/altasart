@@ -112,7 +112,7 @@ const ClientDetail = () => {
         .select("company_id")
         .eq("client_id", id!);
       if (error) throw error;
-      return (data || []) as { company_id: string }[];
+      return (data as unknown as { company_id: string }[]) || [];
     },
     enabled: !!id,
   });
