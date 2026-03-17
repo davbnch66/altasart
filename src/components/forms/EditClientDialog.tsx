@@ -203,6 +203,12 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
       }).eq("id", client.id);
       if (error) throw error;
 
+      // Sync client_companies: delete all, re-insert
+      await supabase.from("client_companies").delete().eq("client_id", client.id);
+      const allCompanyIds = [data.company_id, ...additionalCompanyIds.filter(id => id !== data.company_id)];
+      const links = allCompanyIds.map(cid => ({ client_id: client.id, company_id: cid }));
+      await supabase.from("client_companies").insert(links);
+
       if (data.contact_name) {
         const { data: existing } = await supabase
           .from("client_contacts").select("id")
@@ -228,6 +234,7 @@ export const EditClientDialog = ({ client, open, onOpenChange }: EditClientDialo
       toast.success("Client modifié avec succès");
       queryClient.invalidateQueries({ queryKey: ["client", client.id] });
       queryClient.invalidateQueries({ queryKey: ["clients"] });
+      queryClient.invalidateQueries({ queryKey: ["client-companies", client.id] });
       queryClient.invalidateQueries({ queryKey: ["client-contacts", client.id] });
       onOpenChange(false);
     },
