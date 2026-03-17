@@ -504,6 +504,9 @@ const Dashboard = () => {
                 facture: `/finance/${item.id}`,
                 visite: `/visites/${item.id}`,
               };
+              const hasDoc = item.type === "devis" || item.type === "facture";
+              const previewKey = `${item.type}-${item.id}`;
+              const dlKey = `dl-${item.type}-${item.id}`;
               return (
                 <div
                   key={i}
@@ -515,12 +518,35 @@ const Dashboard = () => {
                     <p className={`font-medium truncate ${isMobile ? "text-xs" : "text-sm"}`}>{item.label}</p>
                     <p className="text-xs text-muted-foreground">{item.client}</p>
                   </div>
-                  {isMobile ? (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                  ) : (
+                  {hasDoc && (
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={loadingDoc === previewKey}
+                        onClick={(e) => { e.stopPropagation(); handlePreview(item.type, item.id); }}
+                      >
+                        {loadingDoc === previewKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={loadingDoc === dlKey}
+                        onClick={(e) => { e.stopPropagation(); handleDownload(item.type, item.id); }}
+                      >
+                        {loadingDoc === dlKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadIcon className="h-3.5 w-3.5" />}
+                      </Button>
+                    </div>
+                  )}
+                  {!isMobile && (
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
                       {formatRelativeTime(item.time)}
                     </span>
+                  )}
+                  {isMobile && !hasDoc && (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                   )}
                 </div>
               );
