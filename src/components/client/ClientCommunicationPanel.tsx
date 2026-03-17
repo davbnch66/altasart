@@ -321,10 +321,22 @@ export const ClientCommunicationPanel = ({
     }
   };
 
+  // Normalize phone to E.164 format (French default)
+  const normalizePhone = (phone: string): string => {
+    let cleaned = phone.replace(/[\s.\-()]/g, "");
+    if (cleaned.startsWith("0") && cleaned.length === 10) {
+      cleaned = "+33" + cleaned.slice(1);
+    }
+    if (!cleaned.startsWith("+")) {
+      cleaned = "+" + cleaned;
+    }
+    return cleaned;
+  };
+
   // Send SMS or WhatsApp
   const handleSendSmsWhatsapp = async (channel: "sms" | "whatsapp") => {
-    const phoneNumber = clientMobile || clientPhone;
-    if (!phoneNumber) {
+    const rawPhone = clientMobile || clientPhone;
+    if (!rawPhone) {
       toast.error("Aucun numéro de téléphone pour ce client");
       return;
     }
