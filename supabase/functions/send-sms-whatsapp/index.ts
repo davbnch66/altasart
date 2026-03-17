@@ -81,25 +81,29 @@ serve(async (req) => {
       });
     }
 
+    // Get Twilio phone number from secrets
+    const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER");
+    if (!TWILIO_PHONE_NUMBER) {
+      return new Response(JSON.stringify({ error: "TWILIO_PHONE_NUMBER is not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Build Twilio params
     let twilioTo = to;
-    let twilioFrom = from;
+    let twilioFrom = from || TWILIO_PHONE_NUMBER;
 
     if (channel === "whatsapp") {
-      // WhatsApp requires whatsapp: prefix
       twilioTo = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
-      twilioFrom = from
-        ? (from.startsWith("whatsapp:") ? from : `whatsapp:${from}`)
-        : undefined;
+      twilioFrom = twilioFrom.startsWith("whatsapp:") ? twilioFrom : `whatsapp:${twilioFrom}`;
     }
 
     const params: Record<string, string> = {
       To: twilioTo,
+      From: twilioFrom,
       Body: messageBody,
     };
-    if (twilioFrom) {
-      params.From = twilioFrom;
-    }
 
     // Send via Twilio Gateway
     const response = await fetch(`${GATEWAY_URL}/Messages.json`, {
