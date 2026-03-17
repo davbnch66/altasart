@@ -290,7 +290,7 @@ export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange
                     </Select>
                   </div>
                   <div>
-                    <Label>Société interne *</Label>
+                    <Label>Société principale *</Label>
                     <Select value={watch("company_id")} onValueChange={(v) => setValue("company_id", v)}>
                       <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
                       <SelectContent>
@@ -299,6 +299,27 @@ export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange
                     </Select>
                     {errors.company_id && <p className="text-xs text-destructive mt-1">{errors.company_id.message}</p>}
                   </div>
+                  {dbCompanies.length > 1 && (
+                    <div className="col-span-2">
+                      <Label>Sociétés supplémentaires</Label>
+                      <div className="flex flex-wrap gap-2 mt-1.5">
+                        {dbCompanies.filter(c => c.id !== watch("company_id")).map((c) => (
+                          <label key={c.id} className="inline-flex items-center gap-1.5 text-sm cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="rounded border-input"
+                              checked={additionalCompanyIds.includes(c.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) setAdditionalCompanyIds(prev => [...prev, c.id]);
+                                else setAdditionalCompanyIds(prev => prev.filter(id => id !== c.id));
+                              }}
+                            />
+                            {c.name}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <Label htmlFor="siret">SIRET</Label>
                     <div className="flex gap-1.5">
