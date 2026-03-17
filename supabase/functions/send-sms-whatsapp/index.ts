@@ -93,11 +93,21 @@ serve(async (req) => {
 
     // Build Twilio params
     let twilioTo = to;
-    let twilioFrom = from || TWILIO_PHONE_NUMBER;
+    let twilioFrom: string;
 
     if (channel === "whatsapp") {
+      const RAW_WA_NUMBER = Deno.env.get("TWILIO_WHATSAPP_NUMBER");
+      if (!RAW_WA_NUMBER) {
+        return new Response(JSON.stringify({ error: "TWILIO_WHATSAPP_NUMBER is not configured" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const waNumber = RAW_WA_NUMBER.replace(/[\s.\-()]/g, "");
       twilioTo = to.startsWith("whatsapp:") ? to : `whatsapp:${to}`;
-      twilioFrom = twilioFrom.startsWith("whatsapp:") ? twilioFrom : `whatsapp:${twilioFrom}`;
+      twilioFrom = `whatsapp:${waNumber}`;
+    } else {
+      twilioFrom = from || TWILIO_PHONE_NUMBER;
     }
 
     const params: Record<string, string> = {
