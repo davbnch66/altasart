@@ -105,7 +105,7 @@ const ClientDetail = () => {
 
   // Redirect to clients list if switching to a company that doesn't own this client
   useEffect(() => {
-    if (client && current && current.id !== "global" && client.company_id !== current.id) {
+    if (client && current && current !== "global" && client.company_id !== current) {
       navigate("/clients", { replace: true });
     }
   }, [client, current, navigate]);
