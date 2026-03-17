@@ -97,6 +97,7 @@ export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
   const nameDropdownRef = useRef<HTMLDivElement>(null);
+  const [additionalCompanyIds, setAdditionalCompanyIds] = useState<string[]>([]);
 
   const defaultCompanyId = current !== "global" ? current : dbCompanies[0]?.id || "";
 
