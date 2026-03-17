@@ -177,8 +177,10 @@ export const CreateClientDialog = ({ trigger, open: controlledOpen, onOpenChange
       toast.success("Client créé avec succès");
       queryClient.invalidateQueries({ queryKey: ["clients"] });
       queryClient.invalidateQueries({ queryKey: ["clients-for-select"] });
+      queryClient.invalidateQueries({ queryKey: ["client-companies"] });
       if (clientId && onClientCreated) onClientCreated(clientId);
       reset();
+      setAdditionalCompanyIds([]);
       setOpen(false);
     },
     onError: () => toast.error("Erreur lors de la création du client"),
