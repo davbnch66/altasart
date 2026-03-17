@@ -73,7 +73,7 @@ export class SaasApi {
       throw new Error(`Outbox poll failed [${res.status}]: ${text}`);
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as { emails?: OutboxEmail[] };
     return data.emails || [];
   }
 
