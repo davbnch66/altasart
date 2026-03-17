@@ -82,13 +82,14 @@ serve(async (req) => {
     }
 
     // Get Twilio phone number from secrets
-    const TWILIO_PHONE_NUMBER = Deno.env.get("TWILIO_PHONE_NUMBER");
-    if (!TWILIO_PHONE_NUMBER) {
+    const RAW_TWILIO_PHONE = Deno.env.get("TWILIO_PHONE_NUMBER");
+    if (!RAW_TWILIO_PHONE) {
       return new Response(JSON.stringify({ error: "TWILIO_PHONE_NUMBER is not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const TWILIO_PHONE_NUMBER = RAW_TWILIO_PHONE.replace(/[\s.\-()]/g, "");
 
     // Build Twilio params
     let twilioTo = to;
