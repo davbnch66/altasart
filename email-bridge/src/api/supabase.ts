@@ -58,7 +58,8 @@ export class SaasApi {
       throw new Error(`Sync push failed [${res.status}]: ${text}`);
     }
 
-    return res.json();
+    const json = (await res.json()) as { inserted: number; skipped: number; linked: number };
+    return json;
   }
 
   async pollOutbox(): Promise<OutboxEmail[]> {
@@ -72,7 +73,7 @@ export class SaasApi {
       throw new Error(`Outbox poll failed [${res.status}]: ${text}`);
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as { emails?: OutboxEmail[] };
     return data.emails || [];
   }
 
@@ -100,7 +101,7 @@ export class SaasApi {
     });
 
     if (!res.ok) return [];
-    const data = await res.json();
+    const data = (await res.json()) as { accounts?: EmailAccount[] };
     return data.accounts || [];
   }
 
