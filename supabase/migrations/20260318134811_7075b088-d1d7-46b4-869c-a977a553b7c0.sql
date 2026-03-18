@@ -1,0 +1,1 @@
+UPDATE email_accounts SET status = 'active' WHERE id = 'fd6452ce-da0f-4b5c-816b-02ff9c13cbd8' AND status = 'testing';
