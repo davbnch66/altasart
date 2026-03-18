@@ -146,12 +146,12 @@ const FleetPage = () => {
   ] as const;
 
   return (
-    <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`max-w-7xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Flotte & Engins</h1>
+          <h1 className={`page-title ${isMobile ? "!text-lg" : ""}`}>Flotte & Engins</h1>
           {!isMobile && (
-            <p className="text-muted-foreground mt-1">
+            <p className="page-subtitle">
               {allResources.length} engin{allResources.length !== 1 ? "s" : ""}
               {totalAlerts > 0 && ` — ${totalAlerts} alerte${totalAlerts > 1 ? "s" : ""}`}
               {" — Cliquez pour gérer"}
@@ -175,10 +175,10 @@ const FleetPage = () => {
             <button
               key={f.key}
               onClick={() => setTypeFilter(f.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+              className={`filter-chip ${
                 typeFilter === f.key
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card text-muted-foreground border-border hover:bg-muted"
+                  ? "filter-chip-active"
+                  : "filter-chip-inactive"
               }`}
             >
               {f.label} <span className="opacity-60">({f.count})</span>
@@ -210,7 +210,7 @@ const FleetPage = () => {
               <div
                 key={r.id}
                 onClick={() => setSelectedResource(r)}
-                className="rounded-xl border bg-card overflow-hidden hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group"
+                className="card-interactive overflow-hidden group"
               >
                 {/* Photo banner or placeholder */}
                 {photoPath ? (

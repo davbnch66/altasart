@@ -304,11 +304,11 @@ const StoragePage = () => {
   };
 
   return (
-    <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`max-w-7xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Garde-meuble</h1>
-          {!isMobile && <p className="text-muted-foreground mt-1">Gestion des espaces de stockage</p>}
+          <h1 className={`page-title ${isMobile ? "!text-lg" : ""}`}>Garde-meuble</h1>
+          {!isMobile && <p className="page-subtitle">Gestion des espaces de stockage</p>}
         </div>
         <div className="flex items-center gap-2">
           {/* View toggle */}

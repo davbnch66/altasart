@@ -229,12 +229,12 @@ const Finance = () => {
   ];
 
   return (
-    <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20 space-y-4" : "p-6 lg:p-8 space-y-8"}`}>
+    <div className={`max-w-7xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-4" : "p-6 lg:p-8 space-y-8"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Finance</h1>
-          {!isMobile && <p className="text-muted-foreground mt-1">Suivi facturation et paiements</p>}
+          <h1 className={`page-title ${isMobile ? "!text-lg" : ""}`}>Finance</h1>
+          {!isMobile && <p className="page-subtitle">Suivi facturation et paiements</p>}
         </div>
         <div className="flex items-center gap-2">
           <CreateReglementDialog />
@@ -246,14 +246,14 @@ const Finance = () => {
       <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"}`}>
         {statCards.map((stat, i) => (
           <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * i }}
-            className={`rounded-xl border bg-card space-y-1 ${isMobile ? "p-3" : "p-5 space-y-3"}`}
+            className={`stat-card ${isMobile ? "!p-3 !space-y-1" : ""}`}
           >
             <div className="flex items-center justify-between">
-              <span className={`text-muted-foreground ${isMobile ? "text-[11px]" : "text-sm"}`}>{stat.label}</span>
+              <span className={`stat-label ${isMobile ? "!text-[11px]" : ""}`}>{stat.label}</span>
               {!isMobile && <stat.icon className="h-4 w-4 text-muted-foreground" />}
             </div>
             {statsLoading ? <Skeleton className={`${isMobile ? "h-6 w-16" : "h-8 w-24"}`} /> : (
-              <p className={`font-bold tracking-tight ${isMobile ? "text-base" : "text-2xl"}`}>{stat.value}</p>
+              <p className={`stat-value ${isMobile ? "!text-base" : ""}`}>{stat.value}</p>
             )}
             <div className="flex items-center gap-1 text-[11px]">
               {stat.positive ? <ArrowUpRight className="h-3 w-3 text-success" /> : <ArrowDownRight className="h-3 w-3 text-destructive" />}
@@ -264,7 +264,7 @@ const Finance = () => {
       </div>
 
       {/* Chart */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className={`card-elevated ${isMobile ? "p-3" : "p-5"}`}>
         <div className="flex items-center justify-between mb-3">
           <h2 className={`font-semibold ${isMobile ? "text-sm" : ""}`}>Évolution 12 mois</h2>
           <select
@@ -349,17 +349,17 @@ const Finance = () => {
             </div>
           ) : (
             /* Desktop factures table */
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border bg-card">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card-elevated">
               <div className="p-5 border-b"><h2 className="font-semibold">Dernières factures</h2></div>
-              <table className="w-full text-sm">
+              <table className="w-full table-premium">
                 <thead>
-                  <tr className="border-b bg-muted/30">
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">N°</th>
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Client</th>
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Montant</th>
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Date</th>
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Statut</th>
-                    <th className="text-right font-medium text-muted-foreground px-5 py-3">Actions</th>
+                  <tr className="border-b">
+                    <th>N°</th>
+                    <th>Client</th>
+                    <th>Montant</th>
+                    <th>Date</th>
+                    <th>Statut</th>
+                    <th className="!text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -442,18 +442,18 @@ const Finance = () => {
             </div>
           ) : (
             /* Desktop reglements table */
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border bg-card">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card-elevated">
               <div className="p-5 border-b"><h2 className="font-semibold">Derniers règlements</h2></div>
-              <table className="w-full text-sm">
+              <table className="w-full table-premium">
                 <thead>
-                  <tr className="border-b bg-muted/30">
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Code</th>
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Facture</th>
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Client</th>
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Montant</th>
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Date</th>
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Banque</th>
-                    <th className="text-right font-medium text-muted-foreground px-5 py-3">Actions</th>
+                  <tr className="border-b">
+                    <th>Code</th>
+                    <th>Facture</th>
+                    <th>Client</th>
+                    <th>Montant</th>
+                    <th>Date</th>
+                    <th>Banque</th>
+                    <th className="!text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">

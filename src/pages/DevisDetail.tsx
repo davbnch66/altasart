@@ -269,7 +269,7 @@ const DevisDetail = () => {
   const dossier = devis.dossiers as any;
 
   return (
-    <div className={`max-w-5xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`max-w-5xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Breadcrumb */}
       <DetailBreadcrumb items={[
         ...(fromClient && client?.id ? [{ label: client.name, path: `/clients/${client.id}` }] : []),
@@ -366,8 +366,8 @@ const DevisDetail = () => {
       </motion.div>
 
       {/* Objet — editable inline */}
-      <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
-        <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Objet</h3>
+      <div className={`card-elevated ${isMobile ? "p-3" : "p-4"}`}>
+        <h3 className="section-label mb-1">Objet</h3>
         <div className={isMobile ? "text-sm" : "text-base"}>
           <InlineEdit
             value={devis.objet}
@@ -379,14 +379,14 @@ const DevisDetail = () => {
 
       {/* Status + montant */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4 gap-4"}`}>
-        <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
-          <p className="text-[11px] text-muted-foreground">Statut</p>
+        <div className={`stat-card ${isMobile ? "!p-3" : ""}`}>
+          <p className="stat-label">Statut</p>
           <div className="mt-1">
             <DevisStatusSelect devisId={devis.id} currentStatus={devis.status} />
           </div>
         </div>
-        <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
-          <p className="text-[11px] text-muted-foreground">Montant global</p>
+        <div className={`stat-card ${isMobile ? "!p-3" : ""}`}>
+          <p className="stat-label">Montant global</p>
           <div className={`font-bold mt-0.5 ${isMobile ? "text-sm" : "text-lg"}`}>
             <InlineEdit
               value={String(devis.amount)}

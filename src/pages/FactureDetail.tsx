@@ -101,7 +101,7 @@ const FactureDetail = () => {
   const devis = facture.devis as any;
 
   return (
-    <div className={`max-w-5xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`max-w-5xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Breadcrumb */}
       <DetailBreadcrumb items={[
         ...(fromClient && client?.id ? [{ label: client.name, path: `/clients/${client.id}` }] : []),
@@ -159,28 +159,28 @@ const FactureDetail = () => {
 
       {/* Financial summary */}
       <div className={`grid gap-3 ${isMobile ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-3 gap-4"}`}>
-        <div className={`rounded-xl border bg-card space-y-0.5 ${isMobile ? "p-3" : "p-5 space-y-1"}`}>
+        <div className={`stat-card ${isMobile ? "!p-3 !space-y-0.5" : "!space-y-1"}`}>
           <div className={`flex items-center gap-1.5 text-muted-foreground ${isMobile ? "text-[10px]" : "text-sm"}`}>
             <DollarSign className="h-3.5 w-3.5" /> Montant
           </div>
-          <p className={`font-bold ${isMobile ? "text-sm" : "text-2xl"}`}>{fmt(Number(facture.amount))}</p>
+          <p className={`stat-value ${isMobile ? "!text-sm" : ""}`}>{fmt(Number(facture.amount))}</p>
         </div>
-        <div className={`rounded-xl border bg-card space-y-0.5 ${isMobile ? "p-3" : "p-5 space-y-1"}`}>
+        <div className={`stat-card ${isMobile ? "!p-3 !space-y-0.5" : "!space-y-1"}`}>
           <div className={`flex items-center gap-1.5 text-muted-foreground ${isMobile ? "text-[10px]" : "text-sm"}`}>
             <CheckCircle2 className="h-3.5 w-3.5 text-success" /> Réglé
           </div>
-          <p className={`font-bold text-success ${isMobile ? "text-sm" : "text-2xl"}`}>{fmt(paidAmount)}</p>
+          <p className={`stat-value text-success ${isMobile ? "!text-sm" : ""}`}>{fmt(paidAmount)}</p>
         </div>
-        <div className={`rounded-xl border bg-card space-y-0.5 ${isMobile ? "p-3" : "p-5 space-y-1"}`}>
+        <div className={`stat-card ${isMobile ? "!p-3 !space-y-0.5" : "!space-y-1"}`}>
           <div className={`flex items-center gap-1.5 text-muted-foreground ${isMobile ? "text-[10px]" : "text-sm"}`}>
             {solde > 0 ? <AlertTriangle className="h-3.5 w-3.5 text-warning" /> : <CheckCircle2 className="h-3.5 w-3.5 text-success" />} Solde
           </div>
-          <p className={`font-bold ${solde > 0 ? "text-warning" : "text-success"} ${isMobile ? "text-sm" : "text-2xl"}`}>{fmt(solde)}</p>
+          <p className={`stat-value ${solde > 0 ? "text-warning" : "text-success"} ${isMobile ? "!text-sm" : ""}`}>{fmt(solde)}</p>
         </div>
       </div>
 
       {/* Info grid */}
-      <div className={`rounded-xl border bg-card grid gap-3 ${isMobile ? "p-3 grid-cols-2 text-xs" : "p-5 grid-cols-2 md:grid-cols-4 gap-4 text-sm"}`}>
+      <div className={`card-elevated grid gap-3 ${isMobile ? "p-3 grid-cols-2 text-xs" : "p-5 grid-cols-2 md:grid-cols-4 gap-4 text-sm"}`}>
         <div>
           <span className="text-muted-foreground">Création</span>
           <p className="font-medium">{format(new Date(facture.created_at), isMobile ? "d MMM yy" : "d MMMM yyyy", { locale: fr })}</p>
@@ -214,7 +214,7 @@ const FactureDetail = () => {
       </div>
 
       {/* Reglements */}
-      <div className="rounded-xl border bg-card">
+      <div className="card-elevated">
         <div className={`border-b flex items-center justify-between ${isMobile ? "px-3 py-2" : "p-5"}`}>
           <h2 className={`font-semibold flex items-center gap-2 ${isMobile ? "text-sm" : ""}`}>
             <CreditCard className="h-4 w-4" /> Règlements ({reglements?.length ?? 0})
@@ -245,15 +245,15 @@ const FactureDetail = () => {
               ))}
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full table-premium">
               <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="text-left font-medium text-muted-foreground px-5 py-3">Code</th>
-                  <th className="text-left font-medium text-muted-foreground px-5 py-3">Montant</th>
-                  <th className="text-left font-medium text-muted-foreground px-5 py-3">Date paiement</th>
-                  <th className="text-left font-medium text-muted-foreground px-5 py-3">Banque</th>
-                  <th className="text-left font-medium text-muted-foreground px-5 py-3">Référence</th>
-                  <th className="text-right font-medium text-muted-foreground px-5 py-3">Actions</th>
+                <tr className="border-b">
+                  <th>Code</th>
+                  <th>Montant</th>
+                  <th>Date paiement</th>
+                  <th>Banque</th>
+                  <th>Référence</th>
+                  <th className="!text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y">

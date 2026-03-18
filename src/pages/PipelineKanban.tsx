@@ -215,12 +215,12 @@ const PipelineKanban = () => {
   }
 
   return (
-    <div className={`max-w-full mx-auto ${isMobile ? "p-3 pb-20" : "p-6"}`}>
+    <div className={`max-w-full mx-auto animate-fade-in ${isMobile ? "p-3 pb-20" : "p-6"}`}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-4">
         <div>
-          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Pipeline</h1>
+          <h1 className={`page-title ${isMobile ? "!text-lg" : ""}`}>Pipeline</h1>
           {!isMobile && (
-            <p className="text-muted-foreground mt-1">
+            <p className="page-subtitle">
               {dossiers.length} dossiers — {fmt(dossiers.reduce((s, d) => s + (d.amount || 0), 0))} total
             </p>
           )}

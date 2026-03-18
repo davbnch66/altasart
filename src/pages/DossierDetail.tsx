@@ -257,7 +257,7 @@ const DossierDetail = () => {
   ];
 
   return (
-    <div className={`max-w-5xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`max-w-5xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Breadcrumb */}
       <DetailBreadcrumb items={[
         ...(fromPipeline ? [{ label: "Pipeline", path: "/pipeline" }] : fromClient && client?.id ? [{ label: client.name, path: `/clients/${client.id}` }] : [{ label: "Dossiers", path: "/dossiers" }]),
@@ -283,7 +283,7 @@ const DossierDetail = () => {
       </motion.div>
 
       {/* Pipeline */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className={`card-elevated ${isMobile ? "p-3" : "p-4"}`}>
         <div className="flex gap-0.5">
           {stageKeys.map((key, i) => (
             <div key={key} className={`flex-1 h-1.5 rounded-full transition-colors ${i <= currentStageIdx ? "bg-primary" : "bg-muted"}`} />
@@ -306,9 +306,9 @@ const DossierDetail = () => {
           { label: "Réglé", value: formatAmount(totalRegle), className: "text-success" },
           { label: "Solde", value: formatAmount(totalFacture - totalRegle), className: totalFacture - totalRegle > 0 ? "text-destructive" : "text-success" },
         ].map((card) => (
-          <div key={card.label} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
-            <p className="text-[11px] text-muted-foreground">{card.label}</p>
-            <p className={`font-bold mt-0.5 ${isMobile ? "text-sm" : "text-lg"} ${card.className || ""}`}>{card.value}</p>
+          <div key={card.label} className={`stat-card ${isMobile ? "!p-3" : ""}`}>
+            <p className="stat-label">{card.label}</p>
+            <p className={`stat-value ${isMobile ? "!text-sm" : "!text-lg"} ${card.className || ""}`}>{card.value}</p>
           </div>
         ))}
       </motion.div>
@@ -324,8 +324,8 @@ const DossierDetail = () => {
 
       {/* Info cards */}
       <div className={`grid gap-3 ${isMobile ? "" : "lg:grid-cols-2 gap-4"}`}>
-        <div className={`rounded-xl border bg-card space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
-          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+        <div className={`card-elevated space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
+          <h3 className="section-label flex items-center gap-1.5">
             <User className="h-3.5 w-3.5" /> Client
           </h3>
           <p className={`font-medium cursor-pointer hover:text-primary transition-colors ${isMobile ? "text-sm" : ""}`} onClick={() => client?.id && navigate(`/clients/${client.id}`)}>
@@ -335,8 +335,8 @@ const DossierDetail = () => {
           {client?.email && <p className="text-xs text-muted-foreground truncate">{client.email}</p>}
           {client?.phone && <p className="text-xs text-muted-foreground">{client.phone}</p>}
         </div>
-        <div className={`rounded-xl border bg-card space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
-          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+        <div className={`card-elevated space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
+          <h3 className="section-label flex items-center gap-1.5">
             <Building2 className="h-3.5 w-3.5" /> Informations
           </h3>
           <div className={`grid grid-cols-2 gap-2 ${isMobile ? "text-xs" : "text-sm"}`}>

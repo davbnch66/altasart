@@ -138,11 +138,11 @@ export default function Ressources() {
   }
 
   return (
-    <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`max-w-7xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Ressources</h1>
-          {!isMobile && <p className="text-muted-foreground mt-1">Personnel et équipements — cliquez pour gérer</p>}
+          <h1 className={`page-title ${isMobile ? "!text-lg" : ""}`}>Ressources</h1>
+          {!isMobile && <p className="page-subtitle">Personnel et équipements — cliquez pour gérer</p>}
         </div>
         <Button size={isMobile ? "sm" : "default"} onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4 mr-1" />
@@ -224,7 +224,7 @@ export default function Ressources() {
                   <div
                     key={res.id}
                     onClick={() => setSelectedResource(res)}
-                    className={`rounded-xl border bg-card hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group ${isMobile ? "p-3" : "p-5"}`}
+                    className={`card-interactive group ${isMobile ? "!p-3" : ""}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3">

@@ -132,10 +132,10 @@ const InboxPage = () => {
   }
 
   return (
-    <div className={`max-w-7xl mx-auto h-full overflow-y-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`max-w-7xl mx-auto h-full overflow-y-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Inbox</h1>
-        {!isMobile && <p className="text-muted-foreground mt-1">Emails entrants et actions suggérées par l'IA</p>}
+        <h1 className={`page-title ${isMobile ? "!text-lg" : ""}`}>Inbox</h1>
+        {!isMobile && <p className="page-subtitle">Emails entrants et actions suggérées par l'IA</p>}
       </motion.div>
 
       {/* Category Tabs — Gmail-style */}
@@ -215,7 +215,7 @@ const InboxPage = () => {
             </div>
           )}
 
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="rounded-xl border bg-card divide-y">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="card-elevated divide-y">
             {filteredEmails.map((email: any) => {
               const analysis = email.ai_analysis;
               const hasActions = analysis?.type_demande?.length > 0 && analysis.type_demande.some((t: string) => t !== "autre");

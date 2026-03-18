@@ -97,12 +97,12 @@ const Visites = () => {
   };
 
   return (
-    <div className={`max-w-7xl mx-auto space-y-4 ${isMobile ? "p-3 pb-20" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`max-w-7xl mx-auto animate-fade-in space-y-4 ${isMobile ? "p-3 pb-20" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Visites techniques</h1>
-          {!isMobile && <p className="text-muted-foreground mt-1">Planification et comptes rendus</p>}
+          <h1 className={`page-title ${isMobile ? "!text-lg" : ""}`}>Visites techniques</h1>
+          {!isMobile && <p className="page-subtitle">Planification et comptes rendus</p>}
         </div>
         <CreateVisiteDialog
           trigger={isMobile ? (
@@ -124,10 +124,10 @@ const Visites = () => {
           <button
             key={key}
             onClick={() => setStatusFilter(key)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            className={`filter-chip ${
               statusFilter === key
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                ? "filter-chip-active"
+                : "filter-chip-inactive"
             }`}
           >
             {label} ({counts[key]})
@@ -231,7 +231,7 @@ const Visites = () => {
               <div
                 key={visite.id}
                 onClick={() => navigate(`/visites/${visite.id}`)}
-                className="rounded-xl border bg-card p-5 hover:shadow-sm transition-shadow cursor-pointer"
+                className="card-interactive p-5"
               >
                 <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4 min-w-0 flex-1">
