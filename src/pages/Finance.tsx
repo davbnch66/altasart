@@ -264,7 +264,7 @@ const Finance = () => {
       </div>
 
       {/* Chart */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className={`card-elevated ${isMobile ? "p-3" : "p-5"}`}>
         <div className="flex items-center justify-between mb-3">
           <h2 className={`font-semibold ${isMobile ? "text-sm" : ""}`}>Évolution 12 mois</h2>
           <select
