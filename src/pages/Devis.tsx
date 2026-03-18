@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Search, FileText, Pencil, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, X, ChevronRight, Euro, Plus } from "lucide-react";
+import { Search, FileText, Pencil, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, X, ChevronRight, Euro, Plus, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
