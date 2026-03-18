@@ -350,6 +350,9 @@ export const ClientCommunicationPanel = ({
     }
   }, [filteredEntries.length, isLoading]);
 
+  const selectedAccount = emailAccounts.find(a => a.id === selectedAccountId);
+  const hasBridgeAccount = emailAccounts.length > 0 && !!selectedAccountId;
+
   // Send email
   const handleSendEmail = async () => {
     if (!clientEmail) {
@@ -362,36 +365,51 @@ export const ClientCommunicationPanel = ({
     }
     setSending(true);
     try {
-      // Convert attachments to base64
       const emailAttachments = attachedFiles.length > 0 ? await filesToBase64(attachedFiles) : undefined;
 
-      const { data, error } = await supabase.functions.invoke("send-visite-email", {
-        body: { 
-          to: clientEmail, 
-          subject, 
-          body, 
-          companyId,
-          ...(emailAttachments?.length ? { attachments: emailAttachments } : {}),
-        },
-      });
-      if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
+      if (hasBridgeAccount) {
+        // Send via email bridge (user's own SMTP/OAuth account)
+        const bodyHtml = `<div style="font-family:sans-serif;white-space:pre-wrap;color:#333;font-size:15px;line-height:1.7;">${body.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>`;
+        const { data, error } = await supabase.functions.invoke("email-bridge-send", {
+          body: {
+            account_id: selectedAccountId,
+            to: [{ email: clientEmail }],
+            subject,
+            body_html: bodyHtml,
+            body_text: body,
+            client_id: clientId,
+            ...(emailAttachments?.length ? { attachments: emailAttachments } : {}),
+          },
+        });
+        if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
+      } else {
+        // Fallback: send via Resend (noreply)
+        const { data, error } = await supabase.functions.invoke("send-visite-email", {
+          body: {
+            to: clientEmail,
+            subject,
+            body,
+            companyId,
+            ...(emailAttachments?.length ? { attachments: emailAttachments } : {}),
+          },
+        });
+        if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
 
-      // Save message metadata for attachments display
-      const attachmentsMeta = attachedFiles.map(f => ({ filename: f.name, content_type: f.type, size: f.size }));
-
-      await supabase.from("messages").insert({
-        company_id: companyId,
-        client_id: clientId,
-        channel: "email",
-        direction: "outbound",
-        sender: user?.email || "Moi",
-        subject,
-        body,
-        is_read: true,
-        created_by: user?.id,
-        delivery_status: "sent",
-        attachments: attachmentsMeta.length > 0 ? attachmentsMeta : [],
-      } as any);
+        const attachmentsMeta = attachedFiles.map(f => ({ filename: f.name, content_type: f.type, size: f.size }));
+        await supabase.from("messages").insert({
+          company_id: companyId,
+          client_id: clientId,
+          channel: "email",
+          direction: "outbound",
+          sender: user?.email || "Moi",
+          subject,
+          body,
+          is_read: true,
+          created_by: user?.id,
+          delivery_status: "sent",
+          attachments: attachmentsMeta.length > 0 ? attachmentsMeta : [],
+        } as any);
+      }
 
       toast.success("Email envoyé");
       setSubject("");
