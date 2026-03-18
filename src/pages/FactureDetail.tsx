@@ -180,7 +180,7 @@ const FactureDetail = () => {
       </div>
 
       {/* Info grid */}
-      <div className={`rounded-xl border bg-card grid gap-3 ${isMobile ? "p-3 grid-cols-2 text-xs" : "p-5 grid-cols-2 md:grid-cols-4 gap-4 text-sm"}`}>
+      <div className={`card-elevated grid gap-3 ${isMobile ? "p-3 grid-cols-2 text-xs" : "p-5 grid-cols-2 md:grid-cols-4 gap-4 text-sm"}`}>
         <div>
           <span className="text-muted-foreground">Création</span>
           <p className="font-medium">{format(new Date(facture.created_at), isMobile ? "d MMM yy" : "d MMMM yyyy", { locale: fr })}</p>
