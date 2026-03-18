@@ -196,20 +196,16 @@ export function EmailAccountsTab() {
     try {
       const functionName = provider === "gmail" ? "oauth-gmail-callback" : "oauth-outlook-callback";
 
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: { company_id: companyId },
-        headers: { "x-action": "init" },
-      });
-
-      // Fallback: construct URL manually
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const initUrl = `https://${projectId}.supabase.co/functions/v1/${functionName}?action=init`;
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session) throw new Error("Vous devez être connecté");
 
       const res = await fetch(initUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ company_id: companyId }),
       });
