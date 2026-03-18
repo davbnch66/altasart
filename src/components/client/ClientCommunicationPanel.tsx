@@ -853,7 +853,7 @@ export const ClientCommunicationPanel = ({
           <>
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium">Nouvel email</span>
-              <button onClick={() => { setComposeMode("none"); setBody(""); setSubject(""); }} className="text-[10px] text-muted-foreground hover:underline">
+              <button onClick={() => { setComposeMode("none"); setBody(""); setSubject(""); setAttachedFiles([]); }} className="text-[10px] text-muted-foreground hover:underline">
                 Annuler
               </button>
             </div>
@@ -870,7 +870,42 @@ export const ClientCommunicationPanel = ({
               rows={3}
               className="text-xs resize-none min-h-[72px]"
             />
+
+            {/* Attached files list */}
+            {attachedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {attachedFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-[10px]">
+                    <File className="h-3 w-3 text-muted-foreground" />
+                    <span className="max-w-[120px] truncate">{f.name}</span>
+                    <span className="text-muted-foreground">({(f.size / 1024).toFixed(0)}KB)</span>
+                    <button onClick={() => removeFile(i)} className="ml-0.5 hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.zip,.csv,.txt"
+            />
+
             <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[10px] px-2"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Paperclip className="h-3 w-3 mr-1" />
+                Joindre
+              </Button>
               <Select value={tone} onValueChange={setTone}>
                 <SelectTrigger className="w-[100px] h-7 text-[10px]">
                   <SelectValue />
