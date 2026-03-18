@@ -545,6 +545,39 @@ export const ClientCommunicationPanel = ({
               Voir dans l'inbox
             </div>
           )}
+
+          {/* Delivery status */}
+          {isOutbound && entry.type === "message" && (
+            <div className="flex justify-end mt-1">
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center gap-0.5">
+                      {entry.delivery_status === "read" ? (
+                        <CheckCheck className="h-3.5 w-3.5 text-blue-400" />
+                      ) : entry.delivery_status === "delivered" ? (
+                        <CheckCheck className="h-3.5 w-3.5 text-primary-foreground/60" />
+                      ) : entry.delivery_status === "failed" ? (
+                        <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5 text-primary-foreground/60" />
+                      )}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="text-xs">
+                    {entry.delivery_status === "read" && entry.read_at
+                      ? `Lu le ${new Date(entry.read_at).toLocaleString("fr-FR")}`
+                      : entry.delivery_status === "delivered" && entry.delivered_at
+                        ? `Remis le ${new Date(entry.delivered_at).toLocaleString("fr-FR")}`
+                        : entry.delivery_status === "failed"
+                          ? "Échec d'envoi"
+                          : "Envoyé"
+                    }
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          )}
         </div>
       </div>
     );
