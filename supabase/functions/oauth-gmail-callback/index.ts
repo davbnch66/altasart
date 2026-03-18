@@ -229,7 +229,6 @@ serve(async (req) => {
   }
 });
 
-function renderCallbackHtml(success: boolean, detail: string): string {
   return `<!DOCTYPE html>
 <html>
 <head><title>Connexion Gmail</title>
