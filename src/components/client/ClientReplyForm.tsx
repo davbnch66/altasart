@@ -43,12 +43,12 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, companyId, 
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
 
   useEffect(() => {
-    if (!expanded || !current || current === "global") return;
+    if (!expanded || !companyId) return;
     const fetchAccounts = async () => {
       const { data } = await supabase
         .from("email_accounts")
         .select("id, label, email_address, is_default, status")
-        .eq("company_id", current)
+        .eq("company_id", companyId)
         .eq("status", "active")
         .order("is_default", { ascending: false });
       if (data && data.length > 0) {
@@ -61,7 +61,7 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, companyId, 
       }
     };
     fetchAccounts();
-  }, [expanded, current]);
+  }, [expanded, companyId]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
