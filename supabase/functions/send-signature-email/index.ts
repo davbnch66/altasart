@@ -146,7 +146,7 @@ serve(async (req) => {
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;">
   <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
     <div style="background:#1a1a2e;padding:32px;text-align:center;">
-      <h1 style="color:#ffffff;margin:0;font-size:22px;">${companyName || "Votre prestataire"}</h1>
+      <h1 style="color:#ffffff;margin:0;font-size:22px;">${companyName || "Altasart"}</h1>
     </div>
     <div style="padding:32px;">
       <div style="white-space:pre-wrap;color:#333;font-size:15px;line-height:1.7;">${escapeHtml(cleanedBody).replace(/\n/g, "<br>")}</div>
