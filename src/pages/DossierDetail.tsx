@@ -324,8 +324,8 @@ const DossierDetail = () => {
 
       {/* Info cards */}
       <div className={`grid gap-3 ${isMobile ? "" : "lg:grid-cols-2 gap-4"}`}>
-        <div className={`rounded-xl border bg-card space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
-          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+        <div className={`card-elevated space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
+          <h3 className="section-label flex items-center gap-1.5">
             <User className="h-3.5 w-3.5" /> Client
           </h3>
           <p className={`font-medium cursor-pointer hover:text-primary transition-colors ${isMobile ? "text-sm" : ""}`} onClick={() => client?.id && navigate(`/clients/${client.id}`)}>
