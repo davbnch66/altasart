@@ -47,7 +47,9 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const action = url.searchParams.get("action");
+    // Auto-detect action: POST = init, GET with code/error = callback
+    const action = url.searchParams.get("action") 
+      || (req.method === "POST" ? "init" : "callback");
 
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
     const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
