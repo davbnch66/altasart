@@ -203,7 +203,7 @@ const ClientList = ({ filtered, isMobile, navigate }: { filtered: any[]; isMobil
               </tr>
             </thead>
             <tbody className="divide-y">
-              {filtered.map((client) => (
+              {visibleItems.map((client) => (
                 <tr
                   key={client.id}
                   onClick={() => navigate(`/clients/${client.id}`)}
