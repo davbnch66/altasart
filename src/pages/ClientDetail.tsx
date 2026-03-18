@@ -252,7 +252,7 @@ const ClientDetail = () => {
   const tabs = isMobile ? mobileTabs : desktopTabs;
 
   return (
-    <div className={`mx-auto ${isMobile ? "p-3 pb-20 space-y-3 max-w-7xl" : "p-6 lg:p-8 space-y-6 max-w-[1600px]"}`}>
+    <div className={`mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3 max-w-7xl" : "p-6 lg:p-8 space-y-6 max-w-[1600px]"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
         <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
