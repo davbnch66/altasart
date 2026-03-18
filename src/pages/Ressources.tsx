@@ -224,7 +224,7 @@ export default function Ressources() {
                   <div
                     key={res.id}
                     onClick={() => setSelectedResource(res)}
-                    className={`rounded-xl border bg-card hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group ${isMobile ? "p-3" : "p-5"}`}
+                    className={`card-interactive group ${isMobile ? "!p-3" : ""}`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-3">

@@ -210,7 +210,7 @@ const FleetPage = () => {
               <div
                 key={r.id}
                 onClick={() => setSelectedResource(r)}
-                className="rounded-xl border bg-card overflow-hidden hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group"
+                className="card-interactive overflow-hidden group"
               >
                 {/* Photo banner or placeholder */}
                 {photoPath ? (
