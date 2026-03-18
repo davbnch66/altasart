@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from "react";
-import { Send, Sparkles, Loader2, Paperclip, X, File } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Send, Sparkles, Loader2, Paperclip, X, File, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,6 +8,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useCompany } from "@/contexts/CompanyContext";
+
+interface EmailAccount {
+  id: string;
+  label: string;
+  email_address: string;
+  is_default: boolean;
+  status: string;
+}
 
 interface ClientReplyFormProps {
   clientId: string;
@@ -28,6 +36,31 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: C
   const [expanded, setExpanded] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Email accounts
+  const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+
+  useEffect(() => {
+    if (!expanded || !current || current === "global") return;
+    const fetchAccounts = async () => {
+      const { data } = await supabase
+        .from("email_accounts")
+        .select("id, label, email_address, is_default, status")
+        .eq("company_id", current)
+        .eq("status", "active")
+        .order("is_default", { ascending: false });
+      if (data && data.length > 0) {
+        setEmailAccounts(data);
+        const def = data.find(a => a.is_default) || data[0];
+        setSelectedAccountId(def.id);
+      } else {
+        setEmailAccounts([]);
+        setSelectedAccountId("");
+      }
+    };
+    fetchAccounts();
+  }, [expanded, current]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -79,6 +112,9 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: C
     }
   };
 
+  const selectedAccount = emailAccounts.find(a => a.id === selectedAccountId);
+  const hasBridgeAccount = emailAccounts.length > 0 && selectedAccountId;
+
   const handleSend = async () => {
     if (!clientEmail) {
       toast.error("Aucun email de contact pour ce client");
@@ -92,33 +128,52 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: C
     try {
       const emailAttachments = attachedFiles.length > 0 ? await filesToBase64(attachedFiles) : undefined;
 
-      const { data, error } = await supabase.functions.invoke("send-visite-email", {
-        body: {
-          to: clientEmail,
-          subject,
-          body,
-          companyId: current && current !== "global" ? current : undefined,
-          ...(emailAttachments?.length ? { attachments: emailAttachments } : {}),
-        },
-      });
-      if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
+      if (hasBridgeAccount) {
+        // Send via email bridge (user's own SMTP/OAuth account)
+        const bodyHtml = `<div style="font-family:sans-serif;white-space:pre-wrap;color:#333;font-size:15px;line-height:1.7;">${body.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>`;
+        
+        const { data, error } = await supabase.functions.invoke("email-bridge-send", {
+          body: {
+            account_id: selectedAccountId,
+            to: [{ email: clientEmail }],
+            subject,
+            body_html: bodyHtml,
+            body_text: body,
+            client_id: clientId,
+            ...(emailAttachments?.length ? { attachments: emailAttachments } : {}),
+          },
+        });
+        if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
+      } else {
+        // Fallback: send via Resend (noreply@altasart.fr)
+        const { data, error } = await supabase.functions.invoke("send-visite-email", {
+          body: {
+            to: clientEmail,
+            subject,
+            body,
+            companyId: current && current !== "global" ? current : undefined,
+            ...(emailAttachments?.length ? { attachments: emailAttachments } : {}),
+          },
+        });
+        if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
 
-      const attachmentsMeta = attachedFiles.map(f => ({ filename: f.name, content_type: f.type, size: f.size }));
-
-      if (current && current !== "global") {
-        await supabase.from("messages").insert({
-          company_id: current,
-          client_id: clientId,
-          channel: "email",
-          direction: "outbound",
-          sender: user?.email || "Moi",
-          subject,
-          body,
-          is_read: true,
-          created_by: user?.id,
-          delivery_status: "sent",
-          attachments: attachmentsMeta.length > 0 ? attachmentsMeta : [],
-        } as any);
+        // Record in messages for timeline (bridge does this automatically via confirm)
+        const attachmentsMeta = attachedFiles.map(f => ({ filename: f.name, content_type: f.type, size: f.size }));
+        if (current && current !== "global") {
+          await supabase.from("messages").insert({
+            company_id: current,
+            client_id: clientId,
+            channel: "email",
+            direction: "outbound",
+            sender: user?.email || "Moi",
+            subject,
+            body,
+            is_read: true,
+            created_by: user?.id,
+            delivery_status: "sent",
+            attachments: attachmentsMeta.length > 0 ? attachmentsMeta : [],
+          } as any);
+        }
       }
 
       toast.success("Email envoyé avec succès");
@@ -151,6 +206,35 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: C
           Annuler
         </button>
       </div>
+
+      {/* Email account selector */}
+      {emailAccounts.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+            <SelectTrigger className="h-8 text-xs flex-1">
+              <SelectValue placeholder="Choisir un compte…" />
+            </SelectTrigger>
+            <SelectContent>
+              {emailAccounts.map(acc => (
+                <SelectItem key={acc.id} value={acc.id}>
+                  <span className="flex items-center gap-1.5">
+                    <span>{acc.label}</span>
+                    <span className="text-muted-foreground">({acc.email_address})</span>
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {emailAccounts.length === 0 && expanded && (
+        <p className="text-xs text-muted-foreground flex items-center gap-1">
+          <Mail className="h-3 w-3" />
+          Aucun compte email configuré — envoi via adresse par défaut
+        </p>
+      )}
 
       <Input
         placeholder="Objet"
@@ -237,6 +321,7 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: C
         <Button size="sm" onClick={handleSend} disabled={sending || !body.trim() || !subject.trim()}>
           {sending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
           Envoyer
+          {selectedAccount && <span className="ml-1 text-xs opacity-70">via {selectedAccount.email_address}</span>}
         </Button>
       </div>
 
