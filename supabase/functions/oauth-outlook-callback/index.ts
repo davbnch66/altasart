@@ -232,7 +232,7 @@ serve(async (req) => {
 function renderCallbackHtml(success: boolean, detail: string): string {
   return `<!DOCTYPE html>
 <html>
-<head><title>Connexion Outlook</title>
+<head><meta charset="UTF-8"><title>Connexion Outlook</title>
 <style>
   body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8f9fa; }
   .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
