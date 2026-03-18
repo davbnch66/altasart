@@ -245,21 +245,36 @@ serve(async (req) => {
       html: htmlBody,
     };
 
+    // Build attachments list
+    const allAttachments: any[] = [];
+
     if (storageSignedUrl) {
-      // Use Resend's URL-based attachment — no memory needed
-      emailPayload.attachments = [
-        {
-          filename: String(fileName || "rapport.pdf").slice(0, 100),
-          path: storageSignedUrl,
-        },
-      ];
+      allAttachments.push({
+        filename: String(fileName || "rapport.pdf").slice(0, 100),
+        path: storageSignedUrl,
+      });
     } else if (pdfBase64) {
-      emailPayload.attachments = [
-        {
-          filename: String(fileName || "rapport.pdf").slice(0, 100),
-          content: pdfBase64,
-        },
-      ];
+      allAttachments.push({
+        filename: String(fileName || "rapport.pdf").slice(0, 100),
+        content: pdfBase64,
+      });
+    }
+
+    // Support additional inline attachments from client
+    const clientAttachments = body.attachments;
+    if (Array.isArray(clientAttachments)) {
+      for (const att of clientAttachments.slice(0, 5)) {
+        if (att.content_base64 && att.filename) {
+          allAttachments.push({
+            filename: String(att.filename).slice(0, 100),
+            content: att.content_base64,
+          });
+        }
+      }
+    }
+
+    if (allAttachments.length > 0) {
+      emailPayload.attachments = allAttachments;
     }
 
     const resendResponse = await fetch("https://api.resend.com/emails", {

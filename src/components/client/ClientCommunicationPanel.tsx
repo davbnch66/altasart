@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   Mail, Phone, MessageSquare, StickyNote, ArrowDownLeft, ArrowUpRight,
   Paperclip, Search, X, Send, Sparkles, Loader2, ExternalLink, Filter,
+  Check, CheckCheck, AlertCircle, FileIcon, Image as ImageIcon, File,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,9 +15,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigate } from "react-router-dom";
+
+
 
 interface Props {
   clientId: string;
@@ -44,6 +48,9 @@ interface UnifiedEntry {
   dossier?: { code: string | null; title: string } | null;
   author?: { full_name: string | null; email: string | null } | null;
   noteType?: string;
+  delivery_status?: string | null;
+  delivered_at?: string | null;
+  read_at?: string | null;
 }
 
 const channelIcons: Record<string, React.ElementType> = {
@@ -117,6 +124,38 @@ export const ClientCommunicationPanel = ({
   const [dossierId, setDossierId] = useState("");
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const maxSize = 10 * 1024 * 1024; // 10MB per file
+    const valid = files.filter(f => {
+      if (f.size > maxSize) {
+        toast.error(`${f.name} dépasse 10MB`);
+        return false;
+      }
+      return true;
+    });
+    setAttachedFiles(prev => [...prev, ...valid].slice(0, 5));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
+  const removeFile = useCallback((index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const filesToBase64 = async (files: File[]): Promise<Array<{ filename: string; content_type: string; content_base64: string; size: number }>> => {
+    return Promise.all(files.map(f => new Promise<{ filename: string; content_type: string; content_base64: string; size: number }>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1] || "";
+        resolve({ filename: f.name, content_type: f.type || "application/octet-stream", content_base64: base64, size: f.size });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(f);
+    })));
+  };
 
   // Fetch messages
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
@@ -175,6 +214,11 @@ export const ClientCommunicationPanel = ({
     // Messages
     const messageEmailIds = new Set(messages.map((m: any) => m.inbound_email_id).filter(Boolean));
     messages.forEach((m: any) => {
+      const msgAttachments = m.attachments && Array.isArray(m.attachments) && m.attachments.length > 0
+        ? m.attachments
+        : m.inbound_emails?.attachments
+          ? (Array.isArray(m.inbound_emails.attachments) ? m.inbound_emails.attachments : [])
+          : [];
       entries.push({
         id: m.id,
         type: "message",
@@ -185,9 +229,10 @@ export const ClientCommunicationPanel = ({
         body: m.body,
         created_at: m.created_at,
         inbound_email_id: m.inbound_email_id,
-        attachments: m.inbound_emails?.attachments
-          ? (Array.isArray(m.inbound_emails.attachments) ? m.inbound_emails.attachments : [])
-          : [],
+        attachments: msgAttachments,
+        delivery_status: m.delivery_status || null,
+        delivered_at: m.delivered_at || null,
+        read_at: m.read_at || null,
       });
     });
 
@@ -292,10 +337,22 @@ export const ClientCommunicationPanel = ({
     }
     setSending(true);
     try {
+      // Convert attachments to base64
+      const emailAttachments = attachedFiles.length > 0 ? await filesToBase64(attachedFiles) : undefined;
+
       const { data, error } = await supabase.functions.invoke("send-visite-email", {
-        body: { to: clientEmail, subject, body },
+        body: { 
+          to: clientEmail, 
+          subject, 
+          body, 
+          companyId,
+          ...(emailAttachments?.length ? { attachments: emailAttachments } : {}),
+        },
       });
       if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
+
+      // Save message metadata for attachments display
+      const attachmentsMeta = attachedFiles.map(f => ({ filename: f.name, content_type: f.type, size: f.size }));
 
       await supabase.from("messages").insert({
         company_id: companyId,
@@ -307,11 +364,14 @@ export const ClientCommunicationPanel = ({
         body,
         is_read: true,
         created_by: user?.id,
-      });
+        delivery_status: "sent",
+        attachments: attachmentsMeta.length > 0 ? attachmentsMeta : [],
+      } as any);
 
       toast.success("Email envoyé");
       setSubject("");
       setBody("");
+      setAttachedFiles([]);
       setComposeMode("none");
       queryClient.invalidateQueries({ queryKey: ["client-messages", clientId] });
     } catch (e: any) {
@@ -498,6 +558,39 @@ export const ClientCommunicationPanel = ({
             <div className={`flex items-center gap-1 mt-1 text-[10px] ${isOutbound ? "text-primary-foreground/70" : "text-info"}`}>
               <ExternalLink className="h-3 w-3" />
               Voir dans l'inbox
+            </div>
+          )}
+
+          {/* Delivery status */}
+          {isOutbound && entry.type === "message" && (
+            <div className="flex justify-end mt-1">
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center gap-0.5">
+                      {entry.delivery_status === "read" ? (
+                        <CheckCheck className="h-3.5 w-3.5 text-blue-400" />
+                      ) : entry.delivery_status === "delivered" ? (
+                        <CheckCheck className="h-3.5 w-3.5 text-primary-foreground/60" />
+                      ) : entry.delivery_status === "failed" ? (
+                        <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5 text-primary-foreground/60" />
+                      )}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="text-xs">
+                    {entry.delivery_status === "read" && entry.read_at
+                      ? `Lu le ${new Date(entry.read_at).toLocaleString("fr-FR")}`
+                      : entry.delivery_status === "delivered" && entry.delivered_at
+                        ? `Remis le ${new Date(entry.delivered_at).toLocaleString("fr-FR")}`
+                        : entry.delivery_status === "failed"
+                          ? "Échec d'envoi"
+                          : "Envoyé"
+                    }
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           )}
         </div>
@@ -760,7 +853,7 @@ export const ClientCommunicationPanel = ({
           <>
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium">Nouvel email</span>
-              <button onClick={() => { setComposeMode("none"); setBody(""); setSubject(""); }} className="text-[10px] text-muted-foreground hover:underline">
+              <button onClick={() => { setComposeMode("none"); setBody(""); setSubject(""); setAttachedFiles([]); }} className="text-[10px] text-muted-foreground hover:underline">
                 Annuler
               </button>
             </div>
@@ -777,7 +870,42 @@ export const ClientCommunicationPanel = ({
               rows={3}
               className="text-xs resize-none min-h-[72px]"
             />
+
+            {/* Attached files list */}
+            {attachedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {attachedFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-[10px]">
+                    <File className="h-3 w-3 text-muted-foreground" />
+                    <span className="max-w-[120px] truncate">{f.name}</span>
+                    <span className="text-muted-foreground">({(f.size / 1024).toFixed(0)}KB)</span>
+                    <button onClick={() => removeFile(i)} className="ml-0.5 hover:text-destructive">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.zip,.csv,.txt"
+            />
+
             <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[10px] px-2"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Paperclip className="h-3 w-3 mr-1" />
+                Joindre
+              </Button>
               <Select value={tone} onValueChange={setTone}>
                 <SelectTrigger className="w-[100px] h-7 text-[10px]">
                   <SelectValue />

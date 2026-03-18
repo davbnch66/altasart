@@ -1661,13 +1661,17 @@ export type Database = {
       }
       messages: {
         Row: {
+          attachments: Json | null
           body: string | null
           channel: Database["public"]["Enums"]["message_channel"]
           client_id: string | null
           company_id: string
           created_at: string
           created_by: string | null
+          delivered_at: string | null
+          delivery_status: string | null
           direction: string
+          external_id: string | null
           id: string
           inbound_email_id: string | null
           is_read: boolean
@@ -1676,13 +1680,17 @@ export type Database = {
           subject: string | null
         }
         Insert: {
+          attachments?: Json | null
           body?: string | null
           channel?: Database["public"]["Enums"]["message_channel"]
           client_id?: string | null
           company_id: string
           created_at?: string
           created_by?: string | null
+          delivered_at?: string | null
+          delivery_status?: string | null
           direction?: string
+          external_id?: string | null
           id?: string
           inbound_email_id?: string | null
           is_read?: boolean
@@ -1691,13 +1699,17 @@ export type Database = {
           subject?: string | null
         }
         Update: {
+          attachments?: Json | null
           body?: string | null
           channel?: Database["public"]["Enums"]["message_channel"]
           client_id?: string | null
           company_id?: string
           created_at?: string
           created_by?: string | null
+          delivered_at?: string | null
+          delivery_status?: string | null
           direction?: string
+          external_id?: string | null
           id?: string
           inbound_email_id?: string | null
           is_read?: boolean
