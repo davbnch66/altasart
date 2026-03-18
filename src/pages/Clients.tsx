@@ -185,6 +185,7 @@ const ClientList = ({ filtered, isMobile, navigate }: { filtered: any[]; isMobil
               </div>
             </div>
           ))}
+          <ScrollSentinel sentinelRef={sentinelRef} hasMore={hasMore} />
         </motion.div>
       ) : (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card-elevated rounded-xl overflow-hidden">
