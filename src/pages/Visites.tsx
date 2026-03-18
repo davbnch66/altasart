@@ -231,7 +231,7 @@ const Visites = () => {
               <div
                 key={visite.id}
                 onClick={() => navigate(`/visites/${visite.id}`)}
-                className="rounded-xl border bg-card p-5 hover:shadow-sm transition-shadow cursor-pointer"
+                className="card-interactive p-5"
               >
                 <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4 min-w-0 flex-1">

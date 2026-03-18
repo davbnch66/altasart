@@ -313,33 +313,33 @@ const Devis = () => {
         </motion.div>
       ) : (
         /* Desktop table */
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="rounded-xl border bg-card overflow-hidden">
-          <table className="w-full text-sm">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="card-elevated overflow-hidden">
+          <table className="w-full table-premium">
             <thead>
-              <tr className="border-b bg-muted/30">
-                <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("code")}>
+              <tr className="border-b">
+                <th className="cursor-pointer select-none" onClick={() => toggleSort("code")}>
                   <span className="flex items-center">N° <SortIcon field="code" /></span>
                 </th>
                 {current === "global" && (
-                  <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("company")}>
+                  <th className="cursor-pointer select-none" onClick={() => toggleSort("company")}>
                     <span className="flex items-center">Société <SortIcon field="company" /></span>
                   </th>
                 )}
-                <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("client")}>
+                <th className="cursor-pointer select-none" onClick={() => toggleSort("client")}>
                   <span className="flex items-center">Client <SortIcon field="client" /></span>
                 </th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3 hidden lg:table-cell">Objet</th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3 hidden md:table-cell cursor-pointer select-none" onClick={() => toggleSort("date")}>
+                <th className="hidden lg:table-cell">Objet</th>
+                <th className="hidden md:table-cell cursor-pointer select-none" onClick={() => toggleSort("date")}>
                   <span className="flex items-center">Date <SortIcon field="date" /></span>
                 </th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3 hidden md:table-cell">Validité</th>
-                <th className="text-right font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("amount")}>
+                <th className="hidden md:table-cell">Validité</th>
+                <th className="!text-right cursor-pointer select-none" onClick={() => toggleSort("amount")}>
                   <span className="flex items-center justify-end">Montant <SortIcon field="amount" /></span>
                 </th>
-                <th className="text-left font-medium text-muted-foreground px-5 py-3 cursor-pointer select-none" onClick={() => toggleSort("status")}>
+                <th className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
                   <span className="flex items-center">Statut <SortIcon field="status" /></span>
                 </th>
-                <th className="px-5 py-3"></th>
+                <th></th>
               </tr>
             </thead>
             <tbody className="divide-y">

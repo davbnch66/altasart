@@ -442,18 +442,18 @@ const Finance = () => {
             </div>
           ) : (
             /* Desktop reglements table */
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border bg-card">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card-elevated">
               <div className="p-5 border-b"><h2 className="font-semibold">Derniers règlements</h2></div>
-              <table className="w-full text-sm">
+              <table className="w-full table-premium">
                 <thead>
-                  <tr className="border-b bg-muted/30">
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Code</th>
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Facture</th>
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Client</th>
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Montant</th>
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Date</th>
-                    <th className="text-left font-medium text-muted-foreground px-5 py-3">Banque</th>
-                    <th className="text-right font-medium text-muted-foreground px-5 py-3">Actions</th>
+                  <tr className="border-b">
+                    <th>Code</th>
+                    <th>Facture</th>
+                    <th>Client</th>
+                    <th>Montant</th>
+                    <th>Date</th>
+                    <th>Banque</th>
+                    <th className="!text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
