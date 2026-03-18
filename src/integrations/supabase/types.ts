@@ -2889,6 +2889,7 @@ export type Database = {
           from_email: string | null
           from_name: string | null
           id: string
+          in_reply_to: string | null
           is_read: boolean
           message_id: string
           raw_headers: Json | null
@@ -2911,6 +2912,7 @@ export type Database = {
           from_email?: string | null
           from_name?: string | null
           id?: string
+          in_reply_to?: string | null
           is_read?: boolean
           message_id: string
           raw_headers?: Json | null
@@ -2933,6 +2935,7 @@ export type Database = {
           from_email?: string | null
           from_name?: string | null
           id?: string
+          in_reply_to?: string | null
           is_read?: boolean
           message_id?: string
           raw_headers?: Json | null

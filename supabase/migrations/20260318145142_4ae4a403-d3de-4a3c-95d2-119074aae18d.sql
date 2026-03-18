@@ -1,0 +1,1 @@
+UPDATE email_accounts SET last_sync_at = NULL WHERE sync_enabled = true;

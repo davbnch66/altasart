@@ -10,82 +10,133 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Webhook authentication via shared secret
-    const webhookSecret = req.headers.get("X-Webhook-Secret");
-    const expectedSecret = Deno.env.get("INBOUND_EMAIL_WEBHOOK_SECRET");
-    if (!expectedSecret || webhookSecret !== expectedSecret) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const body = await req.json();
 
-    const fromEmail = body.from_email || body.from?.address || body.from;
-    const fromName = body.from_name || body.from?.name || fromEmail;
-    const toEmail = body.to_email || (Array.isArray(body.to) ? body.to[0] : body.to);
-    const subject = body.subject || "(sans objet)";
-    const bodyText = body.body_text || body.text || body.body || "";
-    const bodyHtml = body.body_html || body.html || "";
-    const attachments = body.attachments || [];
-    const companyId = body.company_id;
-
-    // Input validation
-    if (!companyId || typeof companyId !== "string") {
-      return new Response(JSON.stringify({ error: "company_id is required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Auth: internal call (inbound_email_id) skips webhook check
+    // External webhook requires X-Webhook-Secret
+    if (!body.inbound_email_id) {
+      const webhookSecret = req.headers.get("X-Webhook-Secret");
+      const expectedSecret = Deno.env.get("INBOUND_EMAIL_WEBHOOK_SECRET");
+      if (!expectedSecret || webhookSecret !== expectedSecret) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(companyId)) {
-      return new Response(JSON.stringify({ error: "company_id invalide" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    // Limit text sizes
-    const safeSubject = String(subject).slice(0, 1000);
-    const safeBodyText = String(bodyText).slice(0, 100000);
-    const safeBodyHtml = String(bodyHtml).slice(0, 200000);
-    const safeFromEmail = fromEmail ? String(fromEmail).slice(0, 320) : null;
-    const safeFromName = fromName ? String(fromName).slice(0, 200) : null;
-    const safeToEmail = toEmail ? String(toEmail).slice(0, 320) : null;
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Verify company exists
-    const { data: company, error: companyErr } = await supabase
-      .from("companies")
-      .select("id")
-      .eq("id", companyId)
-      .maybeSingle();
-    if (companyErr || !company) {
-      return new Response(JSON.stringify({ error: "Société introuvable" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Mode 1: Called with inbound_email_id (from poll-email-accounts)
+    // Mode 2: Called with raw email data (from webhook)
+    let emailId: string;
+    let companyId: string;
+    let safeFromEmail: string | null;
+    let safeFromName: string | null;
+    let safeToEmail: string | null;
+    let safeSubject: string;
+    let safeBodyText: string;
+    let safeBodyHtml: string;
+    let attachments: any[];
+
+    if (body.inbound_email_id) {
+      // Mode 1: fetch existing inbound_email
+      const { data: existing, error: fetchErr } = await supabase
+        .from("inbound_emails")
+        .select("*")
+        .eq("id", body.inbound_email_id)
+        .single();
+
+      if (fetchErr || !existing) {
+        return new Response(JSON.stringify({ error: "Inbound email not found" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Skip if already processed
+      if (existing.status === "processed") {
+        return new Response(JSON.stringify({ success: true, already_processed: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      emailId = existing.id;
+      companyId = existing.company_id;
+      safeFromEmail = existing.from_email;
+      safeFromName = existing.from_name;
+      safeToEmail = existing.to_email;
+      safeSubject = existing.subject || "(sans objet)";
+      safeBodyText = existing.body_text || "";
+      safeBodyHtml = existing.body_html || "";
+      attachments = Array.isArray(existing.attachments) ? existing.attachments : [];
+
+      // Mark as processing
+      await supabase.from("inbound_emails").update({ status: "processing" }).eq("id", emailId);
+
+    } else {
+      // Mode 2: raw webhook data
+      const fromEmail = body.from_email || body.from?.address || body.from;
+      const fromName = body.from_name || body.from?.name || fromEmail;
+      const toEmail = body.to_email || (Array.isArray(body.to) ? body.to[0] : body.to);
+      const subject = body.subject || "(sans objet)";
+      const bodyText = body.body_text || body.text || body.body || "";
+      const bodyHtml = body.body_html || body.html || "";
+      attachments = body.attachments || [];
+      companyId = body.company_id;
+
+      if (!companyId || typeof companyId !== "string") {
+        return new Response(JSON.stringify({ error: "company_id is required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(companyId)) {
+        return new Response(JSON.stringify({ error: "company_id invalide" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      safeSubject = String(subject).slice(0, 1000);
+      safeBodyText = String(bodyText).slice(0, 100000);
+      safeBodyHtml = String(bodyHtml).slice(0, 200000);
+      safeFromEmail = fromEmail ? String(fromEmail).slice(0, 320) : null;
+      safeFromName = fromName ? String(fromName).slice(0, 200) : null;
+      safeToEmail = toEmail ? String(toEmail).slice(0, 320) : null;
+
+      // Verify company exists
+      const { data: company, error: companyErr } = await supabase
+        .from("companies")
+        .select("id")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (companyErr || !company) {
+        return new Response(JSON.stringify({ error: "Société introuvable" }), {
+          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Store the inbound email
+      const { data: emailRow, error: insertErr } = await supabase
+        .from("inbound_emails")
+        .insert({
+          company_id: companyId,
+          from_email: safeFromEmail,
+          from_name: safeFromName,
+          to_email: safeToEmail,
+          subject: safeSubject,
+          body_text: safeBodyText,
+          body_html: safeBodyHtml,
+          attachments: Array.isArray(attachments) ? attachments.slice(0, 20) : [],
+          status: "processing",
+        })
+        .select("id")
+        .single();
+
+      if (insertErr) throw insertErr;
+      emailId = emailRow.id;
     }
-
-    // 1. Store the inbound email
-    const { data: emailRow, error: insertErr } = await supabase
-      .from("inbound_emails")
-      .insert({
-        company_id: companyId,
-        from_email: safeFromEmail,
-        from_name: safeFromName,
-        to_email: safeToEmail,
-        subject: safeSubject,
-        body_text: safeBodyText,
-        body_html: safeBodyHtml,
-        attachments: Array.isArray(attachments) ? attachments.slice(0, 20) : [],
-        status: "processing",
-      })
-      .select("id")
-      .single();
-
-    if (insertErr) throw insertErr;
-    const emailId = emailRow.id;
 
     // Build attachment info for AI analysis
     const attachmentNames = (Array.isArray(attachments) ? attachments : [])
