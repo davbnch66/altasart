@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     }
 
     const company = devis.companies as any;
-    const companyName = company?.name || company?.short_name || "Votre prestataire";
+    const companyName = company?.name || company?.short_name || "Altasart";
 
     // Fetch sender name from logged-in user's profile
     const { data: senderProfile } = await serviceSupabase
