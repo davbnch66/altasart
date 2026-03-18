@@ -181,9 +181,7 @@ serve(async (req) => {
       // Encrypt tokens
       const encryptionKey = Deno.env.get("EMAIL_ENCRYPTION_KEY");
       if (!encryptionKey) {
-        return new Response(renderCallbackHtml(false, "Encryption key not configured"), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, "Encryption key not configured"), 302);
       }
 
       const encAccessToken = await encryptValue(tokens.access_token, encryptionKey);
@@ -214,14 +212,10 @@ serve(async (req) => {
 
       if (insertErr) {
         console.error("Insert error:", insertErr);
-        return new Response(renderCallbackHtml(false, insertErr.message), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, insertErr.message), 302);
       }
 
-      return new Response(renderCallbackHtml(true, emailAddress), {
-        headers: { ...corsHeaders, "Content-Type": "text/html" },
-      });
+      return Response.redirect(buildRedirect(true, emailAddress), 302);
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), {
