@@ -106,7 +106,7 @@ serve(async (req) => {
       visite_title: "",
       visite_date: "",
       visite_address: "",
-      company_name: companyName || "Votre prestataire",
+      company_name: companyName || "Altasart",
       signature_url: signatureUrl,
       sender_name: senderName,
     };
