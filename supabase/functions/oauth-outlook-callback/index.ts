@@ -171,6 +171,17 @@ serve(async (req) => {
         });
       }
 
+      console.log("EMAIL_ENCRYPTION_KEY length:", encryptionKey.length, "chars (need 64 hex chars for 32 bytes)");
+
+      // Validate key length before attempting encryption
+      if (encryptionKey.length !== 64) {
+        const msg = `EMAIL_ENCRYPTION_KEY must be exactly 64 hex characters (got ${encryptionKey.length})`;
+        console.error(msg);
+        return new Response(renderCallbackHtml(false, msg), {
+          headers: { ...corsHeaders, "Content-Type": "text/html" },
+        });
+      }
+
       const encAccessToken = await encryptValue(tokens.access_token, encryptionKey);
       const encRefreshToken = tokens.refresh_token
         ? await encryptValue(tokens.refresh_token, encryptionKey)
