@@ -86,15 +86,17 @@ serve(async (req) => {
       }
 
       const body = await req.json();
+      const body = await req.json();
       const companyId = body.company_id;
+      const returnUrl = body.return_url || null;
       if (!companyId) {
         return new Response(JSON.stringify({ error: "company_id required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // State encodes user/company info for the callback
-      const state = btoa(JSON.stringify({ user_id: user.id, company_id: companyId }));
+      // State encodes user/company info + return URL for the callback
+      const state = btoa(JSON.stringify({ user_id: user.id, company_id: companyId, return_url: returnUrl }));
 
       const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
       authUrl.searchParams.set("client_id", clientId);

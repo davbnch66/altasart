@@ -81,13 +81,14 @@ serve(async (req) => {
 
       const body = await req.json();
       const companyId = body.company_id;
+      const returnUrl = body.return_url || null;
       if (!companyId) {
         return new Response(JSON.stringify({ error: "company_id required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const state = btoa(JSON.stringify({ user_id: user.id, company_id: companyId }));
+      const state = btoa(JSON.stringify({ user_id: user.id, company_id: companyId, return_url: returnUrl }));
 
       const authUrl = new URL("https://login.microsoftonline.com/common/oauth2/v2.0/authorize");
       authUrl.searchParams.set("client_id", clientId);
