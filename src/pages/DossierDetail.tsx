@@ -257,7 +257,7 @@ const DossierDetail = () => {
   ];
 
   return (
-    <div className={`max-w-5xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`max-w-5xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Breadcrumb */}
       <DetailBreadcrumb items={[
         ...(fromPipeline ? [{ label: "Pipeline", path: "/pipeline" }] : fromClient && client?.id ? [{ label: client.name, path: `/clients/${client.id}` }] : [{ label: "Dossiers", path: "/dossiers" }]),
