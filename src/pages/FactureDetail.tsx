@@ -214,7 +214,7 @@ const FactureDetail = () => {
       </div>
 
       {/* Reglements */}
-      <div className="rounded-xl border bg-card">
+      <div className="card-elevated">
         <div className={`border-b flex items-center justify-between ${isMobile ? "px-3 py-2" : "p-5"}`}>
           <h2 className={`font-semibold flex items-center gap-2 ${isMobile ? "text-sm" : ""}`}>
             <CreditCard className="h-4 w-4" /> Règlements ({reglements?.length ?? 0})
