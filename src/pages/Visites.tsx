@@ -124,10 +124,10 @@ const Visites = () => {
           <button
             key={key}
             onClick={() => setStatusFilter(key)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+            className={`filter-chip ${
               statusFilter === key
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                ? "filter-chip-active"
+                : "filter-chip-inactive"
             }`}
           >
             {label} ({counts[key]})
