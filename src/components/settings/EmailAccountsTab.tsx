@@ -164,24 +164,59 @@ export function EmailAccountsTab() {
     const params = new URLSearchParams(window.location.search);
     const oauthResult = params.get("oauth_result");
     const oauthProvider = params.get("oauth_provider");
+    const detail = params.get("oauth_detail");
 
-    if (oauthResult) {
-      // Clean URL
-      const cleanUrl = new URL(window.location.href);
-      cleanUrl.searchParams.delete("oauth_result");
-      cleanUrl.searchParams.delete("oauth_provider");
-      cleanUrl.searchParams.delete("oauth_detail");
-      window.history.replaceState({}, "", cleanUrl.toString());
+    if (!oauthResult) return;
 
-      if (oauthResult === "success") {
-        toast.success(`Compte ${oauthProvider === "gmail" ? "Gmail" : "Outlook"} connecté !`);
+    const payload = {
+      type: "email-oauth-complete",
+      provider: oauthProvider,
+      result: oauthResult,
+      detail,
+    };
+
+    if (window.opener && window.opener !== window) {
+      window.opener.postMessage(payload, window.location.origin);
+      window.close();
+      return;
+    }
+
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete("oauth_result");
+    cleanUrl.searchParams.delete("oauth_provider");
+    cleanUrl.searchParams.delete("oauth_detail");
+    window.history.replaceState({}, "", cleanUrl.toString());
+    setOauthLoading(null);
+
+    if (oauthResult === "success") {
+      toast.success(`Compte ${oauthProvider === "gmail" ? "Gmail" : "Outlook"} connecté !`);
+      queryClient.invalidateQueries({ queryKey: ["email-accounts"] });
+      setMode("choose");
+      return;
+    }
+
+    toast.error(detail || "Erreur lors de la connexion OAuth");
+  }, [queryClient]);
+
+  useEffect(() => {
+    const handleOAuthMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== "email-oauth-complete") return;
+
+      setOauthLoading(null);
+
+      if (event.data.result === "success") {
+        toast.success(`Compte ${event.data.provider === "gmail" ? "Gmail" : "Outlook"} connecté !`);
         queryClient.invalidateQueries({ queryKey: ["email-accounts"] });
         setMode("choose");
-      } else {
-        const detail = params.get("oauth_detail");
-        toast.error(detail || "Erreur lors de la connexion OAuth");
+        return;
       }
-    }
+
+      toast.error(event.data.detail || "Erreur lors de la connexion OAuth");
+    };
+
+    window.addEventListener("message", handleOAuthMessage);
+    return () => window.removeEventListener("message", handleOAuthMessage);
   }, [queryClient]);
 
   const setField = (key: keyof FormData, value: any) => setForm(f => ({ ...f, [key]: value }));
@@ -194,7 +229,7 @@ export function EmailAccountsTab() {
     }
   };
 
-  // ─── OAuth handlers (redirect-based for Safari compatibility) ───
+  // ─── OAuth handlers (iframe-safe for preview + redirect-based elsewhere) ───
   const startOAuth = async (provider: "gmail" | "outlook") => {
     if (!companyId) {
       toast.error("Aucune société sélectionnée");
@@ -202,13 +237,32 @@ export function EmailAccountsTab() {
     }
 
     setOauthLoading(provider);
+
+    let popupWindow: Window | null = null;
+
     try {
       const functionName = provider === "gmail" ? "oauth-gmail-callback" : "oauth-outlook-callback";
+      const isEmbedded = (() => {
+        try {
+          return window.self !== window.top;
+        } catch {
+          return true;
+        }
+      })();
+
+      if (isEmbedded) {
+        popupWindow = window.open("about:blank", `${provider}-oauth`, "popup=yes,width=560,height=720");
+      }
 
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const initUrl = `https://${projectId}.supabase.co/functions/v1/${functionName}?action=init`;
       const session = (await supabase.auth.getSession()).data.session;
       if (!session) throw new Error("Vous devez être connecté");
+
+      const returnUrl = new URL(window.location.href);
+      returnUrl.searchParams.delete("oauth_result");
+      returnUrl.searchParams.delete("oauth_provider");
+      returnUrl.searchParams.delete("oauth_detail");
 
       const res = await fetch(initUrl, {
         method: "POST",
@@ -216,7 +270,7 @@ export function EmailAccountsTab() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ company_id: companyId, return_url: window.location.href }),
+        body: JSON.stringify({ company_id: companyId, return_url: returnUrl.toString() }),
       });
 
       if (!res.ok) {
@@ -227,9 +281,15 @@ export function EmailAccountsTab() {
       const result = await res.json();
       if (!result.auth_url) throw new Error("URL d'authentification manquante");
 
-      // Use full-page redirect instead of popup (Safari COOP fix)
+      if (popupWindow) {
+        popupWindow.location.href = result.auth_url;
+        popupWindow.focus();
+        return;
+      }
+
       window.location.href = result.auth_url;
     } catch (err: any) {
+      popupWindow?.close();
       setOauthLoading(null);
       toast.error(err.message || "Erreur lors de la connexion OAuth");
     }
