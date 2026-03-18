@@ -117,24 +117,35 @@ serve(async (req) => {
         state = { user_id: "", company_id: "", return_url: undefined };
       }
 
-      const buildRedirect = (success: boolean, detail: string) => {
-        const base = state.return_url || "/parametres";
-        const redirectUrl = new URL(base, base.startsWith("http") ? undefined : "https://placeholder.com");
-        redirectUrl.searchParams.set("oauth_result", success ? "success" : "error");
-        redirectUrl.searchParams.set("oauth_provider", "gmail");
-        if (!success) redirectUrl.searchParams.set("oauth_detail", detail);
-        if (state.return_url?.startsWith("http")) {
-          return redirectUrl.toString();
+      const respondOAuthResult = (success: boolean, detail: string, errorStatus = 400) => {
+        const base = state.return_url;
+
+        if (base?.startsWith("http")) {
+          const redirectUrl = new URL(base);
+          redirectUrl.searchParams.set("oauth_result", success ? "success" : "error");
+          redirectUrl.searchParams.set("oauth_provider", "gmail");
+          if (!success) {
+            redirectUrl.searchParams.set("oauth_detail", detail);
+          }
+          return Response.redirect(redirectUrl.toString(), 302);
         }
-        return redirectUrl.pathname + redirectUrl.search;
+
+        return new Response(JSON.stringify({
+          success,
+          provider: "gmail",
+          detail,
+        }), {
+          status: success ? 200 : errorStatus,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       };
 
       if (error) {
-        return Response.redirect(buildRedirect(false, `Google OAuth error: ${error}`), 302);
+        return respondOAuthResult(false, `Google OAuth error: ${error}`);
       }
 
       if (!code || !stateParam) {
-        return Response.redirect(buildRedirect(false, "Missing code or state"), 302);
+        return respondOAuthResult(false, "Missing code or state");
       }
 
       const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
@@ -152,7 +163,7 @@ serve(async (req) => {
       if (!tokenRes.ok) {
         const text = await tokenRes.text();
         console.error("Google token exchange failed:", text);
-        return Response.redirect(buildRedirect(false, "Token exchange failed"), 302);
+        return respondOAuthResult(false, "Token exchange failed", tokenRes.status);
       }
 
       const tokens = await tokenRes.json() as {
@@ -169,7 +180,7 @@ serve(async (req) => {
 
       const encryptionKey = Deno.env.get("EMAIL_ENCRYPTION_KEY");
       if (!encryptionKey) {
-        return Response.redirect(buildRedirect(false, "Encryption key not configured"), 302);
+        return respondOAuthResult(false, "Encryption key not configured", 500);
       }
 
       const encAccessToken = await encryptValue(tokens.access_token, encryptionKey);
@@ -198,10 +209,10 @@ serve(async (req) => {
 
       if (insertErr) {
         console.error("Insert error:", insertErr);
-        return Response.redirect(buildRedirect(false, insertErr.message), 302);
+        return respondOAuthResult(false, insertErr.message, 500);
       }
 
-      return Response.redirect(buildRedirect(true, emailAddress), 302);
+      return respondOAuthResult(true, emailAddress);
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), {
