@@ -184,8 +184,8 @@ const Devis = () => {
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className={`font-bold tracking-tight ${isMobile ? "text-base" : "text-2xl"}`}>Devis / Cotations</h1>
-          {!isMobile && <p className="text-muted-foreground mt-1">{filtered.length} devis{filtered.length !== devis.length ? ` sur ${devis.length}` : ""}</p>}
+          <h1 className={`page-title ${isMobile ? "!text-base" : ""}`}>Devis / Cotations</h1>
+          {!isMobile && <p className="page-subtitle">{filtered.length} devis{filtered.length !== devis.length ? ` sur ${devis.length}` : ""}</p>}
         </div>
         <CreateDevisDialog
           trigger={isMobile ? (
