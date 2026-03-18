@@ -307,8 +307,8 @@ const DossierDetail = () => {
           { label: "Solde", value: formatAmount(totalFacture - totalRegle), className: totalFacture - totalRegle > 0 ? "text-destructive" : "text-success" },
         ].map((card) => (
           <div key={card.label} className={`stat-card ${isMobile ? "!p-3" : ""}`}>
-            <p className="text-[11px] text-muted-foreground">{card.label}</p>
-            <p className={`font-bold mt-0.5 ${isMobile ? "text-sm" : "text-lg"} ${card.className || ""}`}>{card.value}</p>
+            <p className="stat-label">{card.label}</p>
+            <p className={`stat-value ${isMobile ? "!text-sm" : "!text-lg"} ${card.className || ""}`}>{card.value}</p>
           </div>
         ))}
       </motion.div>
