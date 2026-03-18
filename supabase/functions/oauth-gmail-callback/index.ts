@@ -228,8 +228,6 @@ serve(async (req) => {
     });
   }
 });
-
-  return `<!DOCTYPE html>
 <html>
 <head><title>Connexion Gmail</title>
 <style>
