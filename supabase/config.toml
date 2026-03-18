@@ -74,3 +74,9 @@ verify_jwt = false
 
 [functions.encrypt-email-password]
 verify_jwt = false
+
+[functions.oauth-gmail-callback]
+verify_jwt = false
+
+[functions.oauth-outlook-callback]
+verify_jwt = false
