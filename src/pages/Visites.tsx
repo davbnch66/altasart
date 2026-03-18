@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CreateVisiteDialog } from "@/components/forms/CreateVisiteDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useProgressiveList } from "@/hooks/useProgressiveList";
 
 const statusLabels: Record<string, string> = {
   planifiee: "Planifiée",
