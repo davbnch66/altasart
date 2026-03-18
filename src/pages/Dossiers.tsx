@@ -13,6 +13,7 @@ import { EditDossierDialog } from "@/components/forms/EditDossierDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useProgressiveList } from "@/hooks/useProgressiveList";
 
 type SortKey = "title" | "code" | "updated_at" | "created_at" | "amount" | "client" | "stage";
 type SortDir = "asc" | "desc";
