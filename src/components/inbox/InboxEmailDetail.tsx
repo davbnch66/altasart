@@ -51,7 +51,7 @@ export const InboxEmailDetail = ({ email, actions, onBack, onActionExecuted }: P
   const isMobile = useIsMobile();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-6rem)] pb-8">
       <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
         <ArrowLeft className="h-4 w-4" /> Retour
       </button>

@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, Search, Inbox, ChevronDown, Loader2 } from "lucide-react";
+import { Mail, Search, Inbox, MailWarning, Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +12,7 @@ import { InboxEmailDetail } from "@/components/inbox/InboxEmailDetail";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
-type StatusFilter = "all" | "pending" | "processed" | "error";
+type CategoryTab = "principal" | "autre";
 
 const PAGE_SIZE = 30;
 
@@ -30,6 +30,13 @@ const statusStyles: Record<string, string> = {
   error: "bg-destructive/10 text-destructive",
 };
 
+/** Returns true if the email is business-relevant based on AI analysis */
+const isBusinessRelevant = (email: any): boolean => {
+  const types: string[] = email.ai_analysis?.type_demande || [];
+  if (types.length === 0) return true; // not analyzed yet → show in principal
+  return types.some((t: string) => t !== "autre");
+};
+
 const InboxPage = () => {
   const isMobile = useIsMobile();
   const { current, dbCompanies } = useCompany();
@@ -38,38 +45,31 @@ const InboxPage = () => {
   const selectedEmailId = searchParams.get("email");
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [category, setCategory] = useState<CategoryTab>("principal");
   const [page, setPage] = useState(0);
 
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
     : [current];
 
-  // Fetch inbound emails with pagination
+  // Fetch all inbound emails
   const { data: emailsData, isLoading, isError } = useQuery({
-    queryKey: ["inbound-emails", companyIds, statusFilter, page],
+    queryKey: ["inbound-emails", companyIds, page],
     queryFn: async () => {
-      let query = supabase
+      const { data, error, count } = await supabase
         .from("inbound_emails")
         .select("*, clients(name, id)", { count: "exact" })
         .in("company_id", companyIds)
         .order("created_at", { ascending: false })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-      if (statusFilter !== "all") {
-        query = query.eq("status", statusFilter);
-      }
-
-      const { data, error, count } = await query;
       if (error) throw error;
       return { emails: data || [], totalCount: count || 0 };
     },
     enabled: companyIds.length > 0,
   });
 
-  const emails = emailsData?.emails || [];
-  const totalCount = emailsData?.totalCount || 0;
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const allEmails = emailsData?.emails || [];
 
   // Fetch actions for selected email
   const { data: emailActions = [] } = useQuery({
@@ -86,8 +86,14 @@ const InboxPage = () => {
     enabled: !!selectedEmailId,
   });
 
-  // Filter by search (subject, from, AND client name)
-  const filteredEmails = emails.filter((e: any) => {
+  // Split into categories
+  const principalEmails = allEmails.filter(isBusinessRelevant);
+  const autreEmails = allEmails.filter((e: any) => !isBusinessRelevant(e));
+
+  const currentEmails = category === "principal" ? principalEmails : autreEmails;
+
+  // Filter by search
+  const filteredEmails = currentEmails.filter((e: any) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -98,7 +104,10 @@ const InboxPage = () => {
     );
   });
 
-  const selectedEmail = emails.find((e: any) => e.id === selectedEmailId);
+  const totalCount = emailsData?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+
+  const selectedEmail = allEmails.find((e: any) => e.id === selectedEmailId);
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
@@ -111,7 +120,7 @@ const InboxPage = () => {
 
   if (selectedEmail) {
     return (
-      <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20" : "p-6 lg:p-8"}`}>
+      <div className={`max-w-7xl mx-auto h-full overflow-y-auto ${isMobile ? "p-3 pb-20" : "p-6 lg:p-8"}`}>
         <InboxEmailDetail
           email={selectedEmail}
           actions={emailActions}
@@ -123,13 +132,49 @@ const InboxPage = () => {
   }
 
   return (
-    <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`max-w-7xl mx-auto h-full overflow-y-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Inbox</h1>
         {!isMobile && <p className="text-muted-foreground mt-1">Emails entrants et actions suggérées par l'IA</p>}
       </motion.div>
 
-      {/* Search & Filters */}
+      {/* Category Tabs — Gmail-style */}
+      <div className="flex gap-1 border-b">
+        <button
+          onClick={() => { setCategory("principal"); setPage(0); }}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            category === "principal"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+          }`}
+        >
+          <Inbox className="h-4 w-4" />
+          Principal
+          {principalEmails.length > 0 && (
+            <Badge variant="secondary" className="text-[10px] py-0 px-1.5 ml-1">
+              {principalEmails.length}
+            </Badge>
+          )}
+        </button>
+        <button
+          onClick={() => { setCategory("autre"); setPage(0); }}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            category === "autre"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+          }`}
+        >
+          <MailWarning className="h-4 w-4" />
+          Autre
+          {autreEmails.length > 0 && (
+            <Badge variant="outline" className="text-[10px] py-0 px-1.5 ml-1 text-muted-foreground">
+              {autreEmails.length}
+            </Badge>
+          )}
+        </button>
+      </div>
+
+      {/* Search */}
       <div className="flex gap-2 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -141,21 +186,6 @@ const InboxPage = () => {
             className={`w-full rounded-lg border bg-card pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring ${isMobile ? "py-2 text-xs" : "py-2.5"}`}
           />
         </div>
-        <div className="flex gap-1">
-          {(["all", "pending", "processed", "error"] as StatusFilter[]).map((s) => (
-            <button
-              key={s}
-              onClick={() => { setStatusFilter(s); setPage(0); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                statusFilter === s
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              {s === "all" ? "Tous" : statusLabels[s]}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Email List */}
@@ -166,15 +196,29 @@ const InboxPage = () => {
       ) : filteredEmails.length === 0 ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-16 text-center">
           <Inbox className="h-12 w-12 text-muted-foreground/30 mb-3" />
-          <p className="text-muted-foreground text-sm">Aucun email entrant</p>
-          <p className="text-muted-foreground/60 text-xs mt-1">Les emails envoyés à votre adresse dédiée apparaîtront ici</p>
+          <p className="text-muted-foreground text-sm">
+            {category === "autre" ? "Aucun email non pertinent" : "Aucun email entrant"}
+          </p>
+          {category === "principal" && (
+            <p className="text-muted-foreground/60 text-xs mt-1">Les emails envoyés à votre adresse dédiée apparaîtront ici</p>
+          )}
+          {category === "autre" && (
+            <p className="text-muted-foreground/60 text-xs mt-1">Les newsletters, notifications et spam triés par l'IA apparaissent ici</p>
+          )}
         </motion.div>
       ) : (
         <>
+          {category === "autre" && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 text-xs text-muted-foreground">
+              <MailWarning className="h-3.5 w-3.5 shrink-0" />
+              Ces emails ont été classés par l'IA comme non liés à vos métiers. Vérifiez si certains sont pertinents.
+            </div>
+          )}
+
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="rounded-xl border bg-card divide-y">
             {filteredEmails.map((email: any) => {
               const analysis = email.ai_analysis;
-              const hasActions = analysis?.type_demande?.length > 0;
+              const hasActions = analysis?.type_demande?.length > 0 && analysis.type_demande.some((t: string) => t !== "autre");
               return (
                 <div
                   key={email.id}
@@ -202,8 +246,8 @@ const InboxPage = () => {
                       <p className="text-xs text-muted-foreground truncate mt-0.5">{analysis.resume}</p>
                     )}
                     {hasActions && (
-                      <div className="flex gap-1 mt-1">
-                        {analysis.type_demande.slice(0, 3).map((t: string) => (
+                      <div className="flex gap-1 mt-1 flex-wrap">
+                        {analysis.type_demande.filter((t: string) => t !== "autre").slice(0, 3).map((t: string) => (
                           <Badge key={t} variant="secondary" className="text-[10px] py-0 px-1.5">
                             {t}
                           </Badge>
