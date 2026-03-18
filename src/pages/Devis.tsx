@@ -17,6 +17,7 @@ import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { generateDevisPdf } from "@/lib/generateDevisPdf";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useProgressiveList } from "@/hooks/useProgressiveList";
 
 const statusLabels: Record<string, string> = {
   brouillon: "Brouillon",
