@@ -281,118 +281,7 @@ const Devis = () => {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">Aucun devis trouvé</div>
-      ) : isMobile ? (
-        /* Mobile cards */
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid gap-1.5">
-          {filtered.map((d) => {
-            const comp = d.companies as any;
-            return (
-              <div
-                key={d.id}
-                onClick={() => navigate(`/devis/${d.id}`)}
-                className="rounded-lg border bg-card px-2.5 py-2 active:bg-muted/50 transition-colors cursor-pointer overflow-hidden"
-              >
-                <div className="flex items-center gap-2 w-full overflow-hidden">
-                  <div className="flex-1 min-w-0 overflow-hidden">
-                    <p className="font-medium text-xs truncate">{d.objet}</p>
-                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground overflow-hidden">
-                      <span className="truncate">{(d.clients as any)?.name || "—"}</span>
-                      {d.code && <span className="font-mono shrink-0">{d.code}</span>}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-0.5 shrink-0 ml-auto">
-                    <span className="text-xs font-semibold whitespace-nowrap">{formatAmount(d.amount)}</span>
-                    <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none whitespace-nowrap ${statusStyles[d.status] || "bg-muted text-muted-foreground"}`}>
-                      {statusLabels[d.status] || d.status}
-                    </span>
-                  </div>
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                </div>
-              </div>
-            );
-          })}
-        </motion.div>
-      ) : (
-        /* Desktop table */
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="card-elevated overflow-hidden">
-          <table className="w-full table-premium">
-            <thead>
-              <tr className="border-b">
-                <th className="cursor-pointer select-none" onClick={() => toggleSort("code")}>
-                  <span className="flex items-center">N° <SortIcon field="code" /></span>
-                </th>
-                {current === "global" && (
-                  <th className="cursor-pointer select-none" onClick={() => toggleSort("company")}>
-                    <span className="flex items-center">Société <SortIcon field="company" /></span>
-                  </th>
-                )}
-                <th className="cursor-pointer select-none" onClick={() => toggleSort("client")}>
-                  <span className="flex items-center">Client <SortIcon field="client" /></span>
-                </th>
-                <th className="hidden lg:table-cell">Objet</th>
-                <th className="hidden md:table-cell cursor-pointer select-none" onClick={() => toggleSort("date")}>
-                  <span className="flex items-center">Date <SortIcon field="date" /></span>
-                </th>
-                <th className="hidden md:table-cell">Validité</th>
-                <th className="!text-right cursor-pointer select-none" onClick={() => toggleSort("amount")}>
-                  <span className="flex items-center justify-end">Montant <SortIcon field="amount" /></span>
-                </th>
-                <th className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
-                  <span className="flex items-center">Statut <SortIcon field="status" /></span>
-                </th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {filtered.map((d) => {
-                const comp = d.companies as any;
-                return (
-                  <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/devis/${d.id}`)}>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <span className="font-mono text-xs">{d.code || d.id.slice(0, 8)}</span>
-                      </div>
-                    </td>
-                    {current === "global" && (
-                      <td className="px-5 py-3">
-                        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${companyColors[comp?.color] || "bg-muted text-muted-foreground"}`}>
-                          {comp?.short_name || "—"}
-                        </span>
-                      </td>
-                    )}
-                    <td className="px-5 py-3"><span className="font-medium">{(d.clients as any)?.name || "—"}</span></td>
-                    <td className="px-5 py-3 text-muted-foreground hidden lg:table-cell max-w-[200px] truncate">{d.objet}</td>
-                    <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{formatDate(d.created_at)}</td>
-                    <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{formatDate(d.valid_until)}</td>
-                    <td className="px-5 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
-                    <td className="px-5 py-3">
-                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[d.status] || ""}`}>
-                        {statusLabels[d.status] || d.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                        <button onClick={() => generateDevisPdf(d.id).catch(() => toast.error("Erreur PDF"))} className="p-1 rounded hover:bg-primary/10" title="Télécharger PDF">
-                          <Download className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
-                        </button>
-                        <button onClick={() => setEditingDevis(d)} className="p-1 rounded hover:bg-muted" title="Modifier">
-                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                        </button>
-                        <button onClick={() => setDeletingDevis(d)} className="p-1 rounded hover:bg-muted" title="Supprimer">
-                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </motion.div>
-      )}
+      ) : <DevisList filtered={filtered} isMobile={isMobile} navigate={navigate} current={current} statusLabels={statusLabels} statusStyles={statusStyles} companyColors={companyColors} formatAmount={formatAmount} formatDate={formatDate} toggleSort={toggleSort} SortIcon={SortIcon} setEditingDevis={setEditingDevis} setDeletingDevis={setDeletingDevis} />}
 
       {editingDevis && (
         <EditDevisDialog devis={editingDevis} open={!!editingDevis} onOpenChange={(v) => !v && setEditingDevis(null)} />
@@ -406,6 +295,134 @@ const Devis = () => {
         isPending={deleteMutation.isPending}
       />
     </div>
+  );
+};
+
+const DevisList = ({ filtered, isMobile, navigate, current, statusLabels, statusStyles, companyColors, formatAmount, formatDate, toggleSort, SortIcon, setEditingDevis, setDeletingDevis }: any) => {
+  const { visibleItems, sentinelRef, hasMore } = useProgressiveList(filtered);
+
+  return isMobile ? (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid gap-1.5">
+      {visibleItems.map((d: any) => (
+        <div
+          key={d.id}
+          onClick={() => navigate(`/devis/${d.id}`)}
+          className="rounded-lg border bg-card px-2.5 py-2 active:bg-muted/50 transition-colors cursor-pointer overflow-hidden"
+        >
+          <div className="flex items-center gap-2 w-full overflow-hidden">
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <p className="font-medium text-xs truncate">{d.objet}</p>
+              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground overflow-hidden">
+                <span className="truncate">{(d.clients as any)?.name || "—"}</span>
+                {d.code && <span className="font-mono shrink-0">{d.code}</span>}
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-0.5 shrink-0 ml-auto">
+              <span className="text-xs font-semibold whitespace-nowrap">{formatAmount(d.amount)}</span>
+              <span className={`inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none whitespace-nowrap ${statusStyles[d.status] || "bg-muted text-muted-foreground"}`}>
+                {statusLabels[d.status] || d.status}
+              </span>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          </div>
+        </div>
+      ))}
+      <div ref={sentinelRef} className="flex items-center justify-center py-3">
+        {hasMore && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Chargement…
+          </div>
+        )}
+      </div>
+    </motion.div>
+  ) : (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="card-elevated overflow-hidden">
+      <table className="w-full table-premium">
+        <thead>
+          <tr className="border-b">
+            <th className="cursor-pointer select-none" onClick={() => toggleSort("code")}>
+              <span className="flex items-center">N° <SortIcon field="code" /></span>
+            </th>
+            {current === "global" && (
+              <th className="cursor-pointer select-none" onClick={() => toggleSort("company")}>
+                <span className="flex items-center">Société <SortIcon field="company" /></span>
+              </th>
+            )}
+            <th className="cursor-pointer select-none" onClick={() => toggleSort("client")}>
+              <span className="flex items-center">Client <SortIcon field="client" /></span>
+            </th>
+            <th className="hidden lg:table-cell">Objet</th>
+            <th className="hidden md:table-cell cursor-pointer select-none" onClick={() => toggleSort("date")}>
+              <span className="flex items-center">Date <SortIcon field="date" /></span>
+            </th>
+            <th className="hidden md:table-cell">Validité</th>
+            <th className="!text-right cursor-pointer select-none" onClick={() => toggleSort("amount")}>
+              <span className="flex items-center justify-end">Montant <SortIcon field="amount" /></span>
+            </th>
+            <th className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
+              <span className="flex items-center">Statut <SortIcon field="status" /></span>
+            </th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {visibleItems.map((d: any) => {
+            const comp = d.companies as any;
+            return (
+              <tr key={d.id} className="hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => navigate(`/devis/${d.id}`)}>
+                <td className="px-5 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <span className="font-mono text-xs">{d.code || d.id.slice(0, 8)}</span>
+                  </div>
+                </td>
+                {current === "global" && (
+                  <td className="px-5 py-3">
+                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${companyColors[comp?.color] || "bg-muted text-muted-foreground"}`}>
+                      {comp?.short_name || "—"}
+                    </span>
+                  </td>
+                )}
+                <td className="px-5 py-3"><span className="font-medium">{(d.clients as any)?.name || "—"}</span></td>
+                <td className="px-5 py-3 text-muted-foreground hidden lg:table-cell max-w-[200px] truncate">{d.objet}</td>
+                <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{formatDate(d.created_at)}</td>
+                <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{formatDate(d.valid_until)}</td>
+                <td className="px-5 py-3 text-right font-semibold">{formatAmount(d.amount)}</td>
+                <td className="px-5 py-3">
+                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyles[d.status] || ""}`}>
+                    {statusLabels[d.status] || d.status}
+                  </span>
+                </td>
+                <td className="px-5 py-3">
+                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => generateDevisPdf(d.id).catch(() => toast.error("Erreur PDF"))} className="p-1 rounded hover:bg-primary/10" title="Télécharger PDF">
+                      <Download className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
+                    </button>
+                    <button onClick={() => setEditingDevis(d)} className="p-1 rounded hover:bg-muted" title="Modifier">
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                    <button onClick={() => setDeletingDevis(d)} className="p-1 rounded hover:bg-muted" title="Supprimer">
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <div ref={sentinelRef} className="flex items-center justify-center py-3">
+        {hasMore && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Chargement…
+          </div>
+        )}
+      </div>
+    </motion.div>
   );
 };
 
