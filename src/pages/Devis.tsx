@@ -180,7 +180,7 @@ const Devis = () => {
   const hasActiveFilters = statusFilter || companyFilter;
 
   return (
-    <div className={`max-w-7xl mx-auto ${isMobile ? "p-2 pb-20 space-y-2" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`max-w-7xl mx-auto animate-fade-in ${isMobile ? "p-2 pb-20 space-y-2" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
