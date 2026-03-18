@@ -249,7 +249,7 @@ const Finance = () => {
             className={`stat-card ${isMobile ? "!p-3 !space-y-1" : ""}`}
           >
             <div className="flex items-center justify-between">
-              <span className={`text-muted-foreground ${isMobile ? "text-[11px]" : "text-sm"}`}>{stat.label}</span>
+              <span className={`stat-label ${isMobile ? "!text-[11px]" : ""}`}>{stat.label}</span>
               {!isMobile && <stat.icon className="h-4 w-4 text-muted-foreground" />}
             </div>
             {statsLoading ? <Skeleton className={`${isMobile ? "h-6 w-16" : "h-8 w-24"}`} /> : (
