@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Search, Users, Phone, MapPin, ChevronRight, Plus, Building2 } from "lucide-react";
+import { Search, Users, Phone, MapPin, ChevronRight, Plus, Building2, Loader2 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { CreateClientDialog } from "@/components/forms/CreateClientDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useProgressiveList } from "@/hooks/useProgressiveList";
 
 const statusLabels: Record<string, string> = {
   nouveau_lead: "Lead",
@@ -136,9 +137,17 @@ const Clients = () => {
           <p className="text-sm font-medium">Aucun client trouvé</p>
           <p className="text-xs mt-1">Modifiez vos filtres ou créez un nouveau client</p>
         </div>
-      ) : isMobile ? (
+      ) : <ClientList filtered={filtered} isMobile={isMobile} navigate={navigate} />}
+    </div>
+  );
+};
+
+const ClientList = ({ filtered, isMobile, navigate }: { filtered: any[]; isMobile: boolean; navigate: any }) => {
+  const { visibleItems, sentinelRef, hasMore } = useProgressiveList(filtered);
+
+  return isMobile ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-1.5">
-          {filtered.map((client) => (
+          {visibleItems.map((client) => (
             <div
               key={client.id}
               onClick={() => navigate(`/clients/${client.id}`)}
@@ -176,6 +185,7 @@ const Clients = () => {
               </div>
             </div>
           ))}
+          <ScrollSentinel sentinelRef={sentinelRef} hasMore={hasMore} />
         </motion.div>
       ) : (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card-elevated rounded-xl overflow-hidden">
@@ -193,7 +203,7 @@ const Clients = () => {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {filtered.map((client) => (
+              {visibleItems.map((client) => (
                 <tr
                   key={client.id}
                   onClick={() => navigate(`/clients/${client.id}`)}
@@ -231,10 +241,20 @@ const Clients = () => {
               ))}
             </tbody>
           </table>
+          <ScrollSentinel sentinelRef={sentinelRef} hasMore={hasMore} />
         </motion.div>
-      )}
-    </div>
-  );
+      );
 };
+
+const ScrollSentinel = ({ sentinelRef, hasMore }: { sentinelRef: (node: HTMLDivElement | null) => void; hasMore: boolean }) => (
+  <div ref={sentinelRef} className="flex items-center justify-center py-3">
+    {hasMore && (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Chargement…
+      </div>
+    )}
+  </div>
+);
 
 export default Clients;
