@@ -48,6 +48,9 @@ interface UnifiedEntry {
   dossier?: { code: string | null; title: string } | null;
   author?: { full_name: string | null; email: string | null } | null;
   noteType?: string;
+  delivery_status?: string | null;
+  delivered_at?: string | null;
+  read_at?: string | null;
 }
 
 const channelIcons: Record<string, React.ElementType> = {
