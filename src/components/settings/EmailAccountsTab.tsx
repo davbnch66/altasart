@@ -161,18 +161,31 @@ export function EmailAccountsTab() {
 
   // Listen for OAuth popup completion
   useEffect(() => {
-    const handler = (event: MessageEvent) => {
-      if (event.data?.type === "oauth-complete") {
-        setOauthLoading(null);
-        if (event.data.success) {
-          toast.success(`Compte ${event.data.provider === "gmail" ? "Gmail" : "Outlook"} connecté !`);
-          queryClient.invalidateQueries({ queryKey: ["email-accounts"] });
-          setMode("choose");
-        }
+    const handleOAuthComplete = (payload: { type?: string; success?: boolean; provider?: string }) => {
+      if (payload?.type !== "oauth-complete") return;
+
+      setOauthLoading(null);
+
+      if (payload.success) {
+        toast.success(`Compte ${payload.provider === "gmail" ? "Gmail" : "Outlook"} connecté !`);
+        queryClient.invalidateQueries({ queryKey: ["email-accounts"] });
+        setMode("choose");
       }
     };
+
+    const handler = (event: MessageEvent) => handleOAuthComplete(event.data ?? {});
     window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
+
+    let channel: BroadcastChannel | null = null;
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      channel = new BroadcastChannel("oauth-complete");
+      channel.onmessage = (event) => handleOAuthComplete(event.data ?? {});
+    }
+
+    return () => {
+      window.removeEventListener("message", handler);
+      channel?.close();
+    };
   }, [queryClient]);
 
   const setField = (key: keyof FormData, value: any) => setForm(f => ({ ...f, [key]: value }));
@@ -218,7 +231,6 @@ export function EmailAccountsTab() {
       const result = await res.json();
       if (!result.auth_url) throw new Error("URL d'authentification manquante");
 
-      // Open popup
       const width = 600;
       const height = 700;
       const left = window.screenX + (window.innerWidth - width) / 2;
@@ -229,16 +241,21 @@ export function EmailAccountsTab() {
         `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no`,
       );
 
-      // Poll for popup close
-      if (popup) {
-        const timer = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(timer);
-            setOauthLoading(null);
-            queryClient.invalidateQueries({ queryKey: ["email-accounts"] });
-          }
-        }, 500);
+      if (!popup) {
+        setOauthLoading(null);
+        toast.error("La fenêtre de connexion a été bloquée par le navigateur. Autorisez les popups puis réessayez.");
+        return;
       }
+
+      popup.focus();
+
+      const timer = window.setInterval(() => {
+        if (popup.closed) {
+          window.clearInterval(timer);
+          setOauthLoading(null);
+          queryClient.invalidateQueries({ queryKey: ["email-accounts"] });
+        }
+      }, 500);
     } catch (err: any) {
       setOauthLoading(null);
       toast.error(err.message || "Erreur lors de la connexion OAuth");

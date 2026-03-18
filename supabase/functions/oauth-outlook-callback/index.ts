@@ -236,12 +236,21 @@ function renderCallbackHtml(success: boolean, detail: string): string {
 <div class="card">
   <h2 class="${success ? "success" : "error"}">${success ? "✓ Connexion réussie" : "✗ Erreur"}</h2>
   <p>${success ? `Compte ${detail} connecté avec succès.` : detail}</p>
-  <button class="close-btn" onclick="window.close(); if(!window.closed) window.opener?.postMessage({type:'oauth-complete',success:${success}}, '*');">
+  <button class="close-btn" onclick="window.close()">
     Fermer
   </button>
 </div>
 <script>
-  window.opener?.postMessage({ type: 'oauth-complete', success: ${success}, provider: 'outlook' }, '*');
+  const payload = { type: 'oauth-complete', success: ${success}, provider: 'outlook' };
+  try { window.opener?.postMessage(payload, '*'); } catch {}
+  try {
+    const channel = new BroadcastChannel('oauth-complete');
+    channel.postMessage(payload);
+    channel.close();
+  } catch {}
+  setTimeout(() => {
+    try { window.close(); } catch {}
+  }, 150);
 </script>
 </body>
 </html>`;
