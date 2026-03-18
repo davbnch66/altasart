@@ -97,7 +97,7 @@ const Visites = () => {
   };
 
   return (
-    <div className={`max-w-7xl mx-auto space-y-4 ${isMobile ? "p-3 pb-20" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`max-w-7xl mx-auto animate-fade-in space-y-4 ${isMobile ? "p-3 pb-20" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
