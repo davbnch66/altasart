@@ -172,11 +172,12 @@ serve(async (req) => {
         expires_in: number;
       };
 
-      const profileRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
+      // Use userinfo endpoint (doesn't require Gmail API to be enabled)
+      const profileRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       });
-      const profile = await profileRes.json() as { emailAddress?: string };
-      const emailAddress = profile.emailAddress || "unknown@gmail.com";
+      const profile = await profileRes.json() as { email?: string };
+      const emailAddress = profile.email || "unknown@gmail.com";
 
       const encryptionKey = Deno.env.get("EMAIL_ENCRYPTION_KEY");
       if (!encryptionKey) {
