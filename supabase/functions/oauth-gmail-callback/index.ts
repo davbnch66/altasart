@@ -228,7 +228,6 @@ serve(async (req) => {
     });
   }
 });
-<head><title>Connexion Gmail</title>
 <style>
   body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8f9fa; }
   .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
