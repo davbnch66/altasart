@@ -379,8 +379,8 @@ const DevisDetail = () => {
 
       {/* Status + montant */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4 gap-4"}`}>
-        <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
-          <p className="text-[11px] text-muted-foreground">Statut</p>
+        <div className={`stat-card ${isMobile ? "!p-3" : ""}`}>
+          <p className="stat-label">Statut</p>
           <div className="mt-1">
             <DevisStatusSelect devisId={devis.id} currentStatus={devis.status} />
           </div>
