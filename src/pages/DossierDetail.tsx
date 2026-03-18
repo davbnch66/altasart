@@ -283,7 +283,7 @@ const DossierDetail = () => {
       </motion.div>
 
       {/* Pipeline */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className={`card-elevated ${isMobile ? "p-3" : "p-4"}`}>
         <div className="flex gap-0.5">
           {stageKeys.map((key, i) => (
             <div key={key} className={`flex-1 h-1.5 rounded-full transition-colors ${i <= currentStageIdx ? "bg-primary" : "bg-muted"}`} />
