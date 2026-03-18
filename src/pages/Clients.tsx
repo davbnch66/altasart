@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Search, Users, Phone, MapPin, ChevronRight, Plus, Building2 } from "lucide-react";
+import { Search, Users, Phone, MapPin, ChevronRight, Plus, Building2, Loader2 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { CreateClientDialog } from "@/components/forms/CreateClientDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useProgressiveList } from "@/hooks/useProgressiveList";
 
 const statusLabels: Record<string, string> = {
   nouveau_lead: "Lead",
