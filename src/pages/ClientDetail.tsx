@@ -339,17 +339,17 @@ const ClientDetail = () => {
 
       {/* Financial summary + prochaine action */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className={`grid gap-3 md:gap-4 ${isMobile ? "grid-cols-2" : "grid-cols-4"}`}>
-        <div className={`rounded-xl border bg-card text-center ${isMobile ? "p-2.5" : "p-4"}`}>
-          <p className="text-[10px] md:text-xs text-muted-foreground mb-0.5">Facturé</p>
-          <p className={`font-bold text-foreground ${isMobile ? "text-sm" : "text-xl"}`}>{formatAmount(totalFacture)}</p>
+        <div className={`stat-card ${isMobile ? "!p-2.5" : ""}`}>
+          <p className="stat-label">Facturé</p>
+          <p className={`stat-value ${isMobile ? "!text-sm" : "!text-xl"}`}>{formatAmount(totalFacture)}</p>
         </div>
-        <div className={`rounded-xl border bg-card text-center ${isMobile ? "p-2.5" : "p-4"}`}>
-          <p className="text-[10px] md:text-xs text-muted-foreground mb-0.5">Réglé</p>
-          <p className={`font-bold text-info ${isMobile ? "text-sm" : "text-xl"}`}>{formatAmount(totalRegle)}</p>
+        <div className={`stat-card ${isMobile ? "!p-2.5" : ""}`}>
+          <p className="stat-label">Réglé</p>
+          <p className={`stat-value text-info ${isMobile ? "!text-sm" : "!text-xl"}`}>{formatAmount(totalRegle)}</p>
         </div>
-        <div className={`rounded-xl border bg-card text-center ${isMobile ? "p-2.5" : "p-4"}`}>
-          <p className="text-[10px] md:text-xs text-muted-foreground mb-0.5">Solde</p>
-          <p className={`font-bold ${soldeColor} ${isMobile ? "text-sm" : "text-xl"}`}>{formatAmount(solde)}</p>
+        <div className={`stat-card ${isMobile ? "!p-2.5" : ""}`}>
+          <p className="stat-label">Solde</p>
+          <p className={`stat-value ${soldeColor} ${isMobile ? "!text-sm" : "!text-xl"}`}>{formatAmount(solde)}</p>
         </div>
         <div className={`rounded-xl border bg-card text-center ${isMobile ? "p-2.5 col-span-2" : "p-4"}`}>
           <p className="text-[10px] md:text-xs text-muted-foreground mb-0.5">Prochaine action</p>

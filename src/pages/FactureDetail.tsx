@@ -245,15 +245,15 @@ const FactureDetail = () => {
               ))}
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full table-premium">
               <thead>
-                <tr className="border-b bg-muted/30">
-                  <th className="text-left font-medium text-muted-foreground px-5 py-3">Code</th>
-                  <th className="text-left font-medium text-muted-foreground px-5 py-3">Montant</th>
-                  <th className="text-left font-medium text-muted-foreground px-5 py-3">Date paiement</th>
-                  <th className="text-left font-medium text-muted-foreground px-5 py-3">Banque</th>
-                  <th className="text-left font-medium text-muted-foreground px-5 py-3">Référence</th>
-                  <th className="text-right font-medium text-muted-foreground px-5 py-3">Actions</th>
+                <tr className="border-b">
+                  <th>Code</th>
+                  <th>Montant</th>
+                  <th>Date paiement</th>
+                  <th>Banque</th>
+                  <th>Référence</th>
+                  <th className="!text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y">

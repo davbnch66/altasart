@@ -335,8 +335,8 @@ const DossierDetail = () => {
           {client?.email && <p className="text-xs text-muted-foreground truncate">{client.email}</p>}
           {client?.phone && <p className="text-xs text-muted-foreground">{client.phone}</p>}
         </div>
-        <div className={`rounded-xl border bg-card space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
-          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+        <div className={`card-elevated space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
+          <h3 className="section-label flex items-center gap-1.5">
             <Building2 className="h-3.5 w-3.5" /> Informations
           </h3>
           <div className={`grid grid-cols-2 gap-2 ${isMobile ? "text-xs" : "text-sm"}`}>

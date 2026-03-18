@@ -385,8 +385,8 @@ const DevisDetail = () => {
             <DevisStatusSelect devisId={devis.id} currentStatus={devis.status} />
           </div>
         </div>
-        <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
-          <p className="text-[11px] text-muted-foreground">Montant global</p>
+        <div className={`stat-card ${isMobile ? "!p-3" : ""}`}>
+          <p className="stat-label">Montant global</p>
           <div className={`font-bold mt-0.5 ${isMobile ? "text-sm" : "text-lg"}`}>
             <InlineEdit
               value={String(devis.amount)}
