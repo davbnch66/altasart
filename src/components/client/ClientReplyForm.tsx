@@ -21,6 +21,7 @@ interface ClientReplyFormProps {
   clientId: string;
   clientName: string;
   clientEmail?: string | null;
+  companyId: string;
   onSent?: () => void;
 }
 
