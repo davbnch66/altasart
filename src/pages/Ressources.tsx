@@ -141,8 +141,8 @@ export default function Ressources() {
     <div className={`max-w-7xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Ressources</h1>
-          {!isMobile && <p className="text-muted-foreground mt-1">Personnel et équipements — cliquez pour gérer</p>}
+          <h1 className={`page-title ${isMobile ? "!text-lg" : ""}`}>Ressources</h1>
+          {!isMobile && <p className="page-subtitle">Personnel et équipements — cliquez pour gérer</p>}
         </div>
         <Button size={isMobile ? "sm" : "default"} onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4 mr-1" />
