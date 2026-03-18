@@ -160,9 +160,9 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, companyId, 
 
         // Record in messages for timeline (bridge does this automatically via confirm)
         const attachmentsMeta = attachedFiles.map(f => ({ filename: f.name, content_type: f.type, size: f.size }));
-        if (current && current !== "global") {
+        if (companyId) {
           await supabase.from("messages").insert({
-            company_id: current,
+            company_id: companyId,
             client_id: clientId,
             channel: "email",
             direction: "outbound",
