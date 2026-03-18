@@ -62,7 +62,7 @@ const Dossiers = () => {
   };
 
   const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-40" />;
+    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-30" />;
     return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
   };
 
@@ -129,60 +129,56 @@ const Dossiers = () => {
   }
 
   return (
-    <div className={`max-w-7xl mx-auto space-y-4 ${isMobile ? "p-3 pb-20" : "p-6 lg:p-8 space-y-6"}`}>
+    <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-5"}`}>
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="page-header">
         <div>
-          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Dossiers</h1>
-          {!isMobile && <p className="text-muted-foreground mt-1">{filtered.length} dossiers</p>}
+          <h1 className={`font-semibold tracking-tight ${isMobile ? "text-lg" : "page-title"}`}>Dossiers</h1>
+          {!isMobile && <p className="page-subtitle">{filtered.length} dossiers</p>}
         </div>
         <CreateDossierDialog
           trigger={isMobile ? (
-            <Button size="icon" className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg">
+            <Button size="icon" className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-premium-lg">
               <Plus className="h-6 w-6" />
             </Button>
           ) : undefined}
         />
       </motion.div>
 
-      {/* Stage filter chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-        {([
-          { key: "all", label: "Tous" },
-          ...pipelineStages.filter((s) => counts[s.key] > 0 || !isMobile),
-        ]).map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setStageFilter(key)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-              stageFilter === key
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-          >
-            {label} ({counts[key] || 0})
-          </button>
-        ))}
-      </div>
-
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Rechercher un dossier..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 h-9"
-        />
+      {/* Filters */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+          {([
+            { key: "all", label: "Tous" },
+            ...pipelineStages.filter((s) => counts[s.key] > 0 || !isMobile),
+          ]).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setStageFilter(key)}
+              className={`filter-chip ${stageFilter === key ? "filter-chip-active" : "filter-chip-inactive"}`}
+            >
+              {label}
+              <span className={`ml-1 ${stageFilter === key ? "opacity-60" : "opacity-40"}`}>{counts[key] || 0}</span>
+            </button>
+          ))}
+        </div>
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher un dossier..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-9 text-sm"
+          />
+        </div>
       </div>
 
       {/* Sort bar mobile */}
       {isMobile && (
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-1 px-1">
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
           {([
             { key: "updated_at" as SortKey, label: "Modifié" },
             { key: "title" as SortKey, label: "Nom" },
-            { key: "code" as SortKey, label: "N°" },
             { key: "client" as SortKey, label: "Client" },
             { key: "amount" as SortKey, label: "Montant" },
           ]).map(({ key, label }) => (
@@ -201,15 +197,18 @@ const Dossiers = () => {
 
       {/* List */}
       {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className={`w-full rounded-xl ${isMobile ? "h-20" : "h-16"}`} />)}
+        <div className="space-y-2">
+          {[1, 2, 3, 4].map((i) => <Skeleton key={i} className={`w-full rounded-lg ${isMobile ? "h-16" : "h-14"}`} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">Aucun dossier trouvé</div>
+        <div className="text-center py-16 text-muted-foreground">
+          <FolderOpen className="h-10 w-10 mx-auto mb-3 opacity-30" />
+          <p className="text-sm font-medium">Aucun dossier trouvé</p>
+        </div>
       ) : isMobile ? (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid gap-3">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-1.5">
           {filtered.map((dossier) => (
-            <div key={dossier.id} onClick={() => navigate(`/dossiers/${dossier.id}`)} className="rounded-xl border bg-card p-3 active:bg-muted/50 transition-colors cursor-pointer">
+            <div key={dossier.id} onClick={() => navigate(`/dossiers/${dossier.id}`)} className="card-interactive rounded-lg p-3">
               <div className="flex items-center gap-3">
                 <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <FolderOpen className="h-4 w-4 text-muted-foreground" />
@@ -217,89 +216,89 @@ const Dossiers = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-sm truncate">{dossier.title}</p>
-                    {dossier.code && <span className="text-[10px] font-mono text-muted-foreground shrink-0">{dossier.code}</span>}
+                    {dossier.code && <span className="text-2xs font-mono text-muted-foreground shrink-0">{dossier.code}</span>}
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{(dossier.clients as any)?.name || "—"}</p>
-                  <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
-                    {dossier.address && (
-                      <span className="flex items-center gap-0.5 truncate">
-                        <MapPin className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{dossier.address.length > 20 ? dossier.address.slice(0, 20) + "…" : dossier.address}</span>
-                      </span>
-                    )}
+                  <div className="flex items-center gap-2.5 mt-0.5 text-2xs text-muted-foreground">
                     {dossier.amount ? (
-                      <span className="flex items-center gap-0.5 shrink-0 font-medium">
-                        <Euro className="h-3 w-3" />
-                        {formatAmount(dossier.amount)}
-                      </span>
+                      <span className="font-medium">{formatAmount(dossier.amount)}</span>
                     ) : null}
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${stageStyles[dossier.stage] || "bg-muted text-muted-foreground"}`}>
+                  <span className={`badge-status ${stageStyles[dossier.stage] || "bg-muted text-muted-foreground"}`}>
                     {pipelineStages.find((s) => s.key === dossier.stage)?.label}
                   </span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30" />
                 </div>
               </div>
             </div>
           ))}
         </motion.div>
       ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="grid gap-2 overflow-x-auto">
-          {/* Sort header */}
-          <div className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-muted-foreground select-none min-w-0">
-            <div className="w-9 shrink-0" />
-            <button onClick={() => toggleSort("title")} className="flex-1 min-w-[180px] flex items-center gap-1 hover:text-foreground transition-colors text-left">
-              Nom <SortIcon col="title" />
-            </button>
-            <button onClick={() => toggleSort("code")} className="w-[72px] shrink-0 flex items-center gap-1 hover:text-foreground transition-colors">
-              N° <SortIcon col="code" />
-            </button>
-            <button onClick={() => toggleSort("client")} className="w-20 shrink-0 hidden lg:flex items-center gap-1 hover:text-foreground transition-colors">
-              Société <SortIcon col="client" />
-            </button>
-            <button onClick={() => toggleSort("stage")} className="w-[76px] shrink-0 flex items-center gap-1 hover:text-foreground transition-colors">
-              Statut <SortIcon col="stage" />
-            </button>
-            <button onClick={() => toggleSort("amount")} className="w-[80px] shrink-0 flex items-center gap-1 justify-end hover:text-foreground transition-colors">
-              Montant <SortIcon col="amount" />
-            </button>
-            <button onClick={() => toggleSort("updated_at")} className="w-[68px] shrink-0 hidden xl:flex items-center gap-1 hover:text-foreground transition-colors">
-              Modifié <SortIcon col="updated_at" />
-            </button>
-            <div className="w-[52px] shrink-0" />
-          </div>
-          {filtered.map((dossier) => (
-            <div key={dossier.id} onClick={() => navigate(`/dossiers/${dossier.id}`)} className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 hover:shadow-sm transition-shadow cursor-pointer min-w-0">
-              <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                <FolderOpen className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-w-[180px]">
-                <p className="font-medium text-sm truncate">{dossier.title}</p>
-                <p className="text-xs text-muted-foreground truncate">{(dossier.clients as any)?.name || "—"}</p>
-              </div>
-              <span className="w-[72px] shrink-0 text-[11px] font-mono text-muted-foreground truncate">{dossier.code || "—"}</span>
-              <span className="w-20 shrink-0 text-xs text-muted-foreground truncate hidden lg:block">
-                {(dossier.companies as any)?.short_name}
-              </span>
-              <span className={`w-[76px] shrink-0 inline-flex justify-center rounded-full px-2 py-0.5 text-[11px] font-medium ${stageStyles[dossier.stage]}`}>
-                {pipelineStages.find((s) => s.key === dossier.stage)?.label}
-              </span>
-              <span className="w-[80px] shrink-0 text-sm font-semibold whitespace-nowrap text-right">{formatAmount(dossier.amount)}</span>
-              <span className="w-[68px] shrink-0 text-[11px] text-muted-foreground hidden xl:block">
-                {new Date(dossier.updated_at).toLocaleDateString("fr-FR")}
-              </span>
-              <div className="w-[52px] shrink-0 flex gap-0.5 justify-end">
-                <button onClick={(e) => { e.stopPropagation(); setEditingDossier(dossier); }} className="p-1 rounded hover:bg-muted" title="Modifier">
-                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); setDeletingDossier(dossier); }} className="p-1 rounded hover:bg-muted" title="Supprimer">
-                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                </button>
-              </div>
-            </div>
-          ))}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card-elevated rounded-xl overflow-hidden">
+          <table className="w-full table-premium">
+            <thead>
+              <tr className="border-b bg-muted/30">
+                <th className="text-left w-10"></th>
+                <th className="text-left cursor-pointer select-none" onClick={() => toggleSort("title")}>
+                  <span className="flex items-center gap-1">Dossier <SortIcon col="title" /></span>
+                </th>
+                <th className="text-left cursor-pointer select-none w-[80px]" onClick={() => toggleSort("code")}>
+                  <span className="flex items-center gap-1">N° <SortIcon col="code" /></span>
+                </th>
+                <th className="text-left cursor-pointer select-none hidden lg:table-cell" onClick={() => toggleSort("client")}>
+                  <span className="flex items-center gap-1">Client <SortIcon col="client" /></span>
+                </th>
+                <th className="text-left cursor-pointer select-none w-[90px]" onClick={() => toggleSort("stage")}>
+                  <span className="flex items-center gap-1">Statut <SortIcon col="stage" /></span>
+                </th>
+                <th className="text-right cursor-pointer select-none w-[100px]" onClick={() => toggleSort("amount")}>
+                  <span className="flex items-center gap-1 justify-end">Montant <SortIcon col="amount" /></span>
+                </th>
+                <th className="text-left hidden xl:table-cell cursor-pointer select-none w-[80px]" onClick={() => toggleSort("updated_at")}>
+                  <span className="flex items-center gap-1">Modifié <SortIcon col="updated_at" /></span>
+                </th>
+                <th className="w-[60px]"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {filtered.map((dossier) => (
+                <tr key={dossier.id} onClick={() => navigate(`/dossiers/${dossier.id}`)} className="cursor-pointer">
+                  <td>
+                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center">
+                      <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
+                  </td>
+                  <td>
+                    <p className="font-medium text-sm truncate">{dossier.title}</p>
+                    <p className="text-xs text-muted-foreground truncate lg:hidden">{(dossier.clients as any)?.name || "—"}</p>
+                  </td>
+                  <td className="font-mono text-xs text-muted-foreground">{dossier.code || "—"}</td>
+                  <td className="text-sm text-muted-foreground truncate hidden lg:table-cell">{(dossier.clients as any)?.name || "—"}</td>
+                  <td>
+                    <span className={`badge-status ${stageStyles[dossier.stage]}`}>
+                      {pipelineStages.find((s) => s.key === dossier.stage)?.label}
+                    </span>
+                  </td>
+                  <td className="text-right font-semibold text-sm">{formatAmount(dossier.amount)}</td>
+                  <td className="text-xs text-muted-foreground hidden xl:table-cell">
+                    {new Date(dossier.updated_at).toLocaleDateString("fr-FR")}
+                  </td>
+                  <td>
+                    <div className="flex gap-0.5 justify-end">
+                      <button onClick={(e) => { e.stopPropagation(); setEditingDossier(dossier); }} className="p-1.5 rounded-md hover:bg-muted transition-colors" title="Modifier">
+                        <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); setDeletingDossier(dossier); }} className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors" title="Supprimer">
+                        <Trash2 className="h-3.5 w-3.5 text-destructive/70" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </motion.div>
       )}
 
