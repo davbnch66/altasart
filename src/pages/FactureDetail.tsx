@@ -159,23 +159,23 @@ const FactureDetail = () => {
 
       {/* Financial summary */}
       <div className={`grid gap-3 ${isMobile ? "grid-cols-3" : "grid-cols-1 sm:grid-cols-3 gap-4"}`}>
-        <div className={`rounded-xl border bg-card space-y-0.5 ${isMobile ? "p-3" : "p-5 space-y-1"}`}>
+        <div className={`stat-card ${isMobile ? "!p-3 !space-y-0.5" : "!space-y-1"}`}>
           <div className={`flex items-center gap-1.5 text-muted-foreground ${isMobile ? "text-[10px]" : "text-sm"}`}>
             <DollarSign className="h-3.5 w-3.5" /> Montant
           </div>
-          <p className={`font-bold ${isMobile ? "text-sm" : "text-2xl"}`}>{fmt(Number(facture.amount))}</p>
+          <p className={`stat-value ${isMobile ? "!text-sm" : ""}`}>{fmt(Number(facture.amount))}</p>
         </div>
-        <div className={`rounded-xl border bg-card space-y-0.5 ${isMobile ? "p-3" : "p-5 space-y-1"}`}>
+        <div className={`stat-card ${isMobile ? "!p-3 !space-y-0.5" : "!space-y-1"}`}>
           <div className={`flex items-center gap-1.5 text-muted-foreground ${isMobile ? "text-[10px]" : "text-sm"}`}>
             <CheckCircle2 className="h-3.5 w-3.5 text-success" /> Réglé
           </div>
-          <p className={`font-bold text-success ${isMobile ? "text-sm" : "text-2xl"}`}>{fmt(paidAmount)}</p>
+          <p className={`stat-value text-success ${isMobile ? "!text-sm" : ""}`}>{fmt(paidAmount)}</p>
         </div>
-        <div className={`rounded-xl border bg-card space-y-0.5 ${isMobile ? "p-3" : "p-5 space-y-1"}`}>
+        <div className={`stat-card ${isMobile ? "!p-3 !space-y-0.5" : "!space-y-1"}`}>
           <div className={`flex items-center gap-1.5 text-muted-foreground ${isMobile ? "text-[10px]" : "text-sm"}`}>
             {solde > 0 ? <AlertTriangle className="h-3.5 w-3.5 text-warning" /> : <CheckCircle2 className="h-3.5 w-3.5 text-success" />} Solde
           </div>
-          <p className={`font-bold ${solde > 0 ? "text-warning" : "text-success"} ${isMobile ? "text-sm" : "text-2xl"}`}>{fmt(solde)}</p>
+          <p className={`stat-value ${solde > 0 ? "text-warning" : "text-success"} ${isMobile ? "!text-sm" : ""}`}>{fmt(solde)}</p>
         </div>
       </div>
 
