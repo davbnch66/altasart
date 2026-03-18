@@ -246,7 +246,7 @@ const Finance = () => {
       <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"}`}>
         {statCards.map((stat, i) => (
           <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * i }}
-            className={`rounded-xl border bg-card space-y-1 ${isMobile ? "p-3" : "p-5 space-y-3"}`}
+            className={`stat-card ${isMobile ? "!p-3 !space-y-1" : ""}`}
           >
             <div className="flex items-center justify-between">
               <span className={`text-muted-foreground ${isMobile ? "text-[11px]" : "text-sm"}`}>{stat.label}</span>
