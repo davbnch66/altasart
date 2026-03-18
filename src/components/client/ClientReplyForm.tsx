@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Send, Sparkles, Loader2 } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { Send, Sparkles, Loader2, Paperclip, X, File } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -26,6 +26,35 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: C
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const maxSize = 10 * 1024 * 1024;
+    const valid = files.filter(f => {
+      if (f.size > maxSize) { toast.error(`${f.name} dépasse 10MB`); return false; }
+      return true;
+    });
+    setAttachedFiles(prev => [...prev, ...valid].slice(0, 5));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
+  const removeFile = useCallback((index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const filesToBase64 = async (files: File[]) => {
+    return Promise.all(files.map(f => new Promise<{ filename: string; content_type: string; content_base64: string; size: number }>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1] || "";
+        resolve({ filename: f.name, content_type: f.type || "application/octet-stream", content_base64: base64, size: f.size });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(f);
+    })));
+  };
 
   const handleDraft = async () => {
     setDrafting(true);
@@ -61,13 +90,21 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: C
     }
     setSending(true);
     try {
-      // Send email via Resend
+      const emailAttachments = attachedFiles.length > 0 ? await filesToBase64(attachedFiles) : undefined;
+
       const { data, error } = await supabase.functions.invoke("send-visite-email", {
-        body: { to: clientEmail, subject, body },
+        body: {
+          to: clientEmail,
+          subject,
+          body,
+          companyId: current && current !== "global" ? current : undefined,
+          ...(emailAttachments?.length ? { attachments: emailAttachments } : {}),
+        },
       });
       if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
 
-      // Save message in history
+      const attachmentsMeta = attachedFiles.map(f => ({ filename: f.name, content_type: f.type, size: f.size }));
+
       if (current && current !== "global") {
         await supabase.from("messages").insert({
           company_id: current,
@@ -79,12 +116,15 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: C
           body,
           is_read: true,
           created_by: user?.id,
-        });
+          delivery_status: "sent",
+          attachments: attachmentsMeta.length > 0 ? attachmentsMeta : [],
+        } as any);
       }
 
       toast.success("Email envoyé avec succès");
       setSubject("");
       setBody("");
+      setAttachedFiles([]);
       setExpanded(false);
       onSent?.();
     } catch (e: any) {
@@ -107,7 +147,7 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: C
     <div className="rounded-xl border bg-card p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-semibold">Nouveau message</h4>
-        <button onClick={() => setExpanded(false)} className="text-xs text-muted-foreground hover:underline">
+        <button onClick={() => { setExpanded(false); setAttachedFiles([]); }} className="text-xs text-muted-foreground hover:underline">
           Annuler
         </button>
       </div>
@@ -127,8 +167,43 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: C
         className="text-sm resize-none"
       />
 
+      {/* Attached files */}
+      {attachedFiles.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {attachedFiles.map((f, i) => (
+            <div key={i} className="flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-[10px]">
+              <File className="h-3 w-3 text-muted-foreground" />
+              <span className="max-w-[120px] truncate">{f.name}</span>
+              <span className="text-muted-foreground">({(f.size / 1024).toFixed(0)}KB)</span>
+              <button onClick={() => removeFile(i)} className="ml-0.5 hover:text-destructive">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={handleFileSelect}
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.zip,.csv,.txt"
+      />
+
       {/* AI draft controls */}
       <div className="flex items-center gap-2 flex-wrap">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 text-xs px-2"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Paperclip className="h-3 w-3 mr-1" />
+          Joindre
+        </Button>
+
         <Select value={tone} onValueChange={setTone}>
           <SelectTrigger className="w-[120px] h-8 text-xs">
             <SelectValue />
