@@ -127,6 +127,31 @@ export const ClientCommunicationPanel = ({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Email accounts for bridge sending
+  const [emailAccounts, setEmailAccounts] = useState<Array<{ id: string; label: string; email_address: string; is_default: boolean; status: string }>>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+
+  useEffect(() => {
+    if (composeMode !== "email" || !current || current === "global") return;
+    const fetchAccounts = async () => {
+      const { data } = await supabase
+        .from("email_accounts")
+        .select("id, label, email_address, is_default, status")
+        .eq("company_id", current)
+        .eq("status", "active")
+        .order("is_default", { ascending: false });
+      if (data && data.length > 0) {
+        setEmailAccounts(data);
+        const def = data.find(a => a.is_default) || data[0];
+        setSelectedAccountId(def.id);
+      } else {
+        setEmailAccounts([]);
+        setSelectedAccountId("");
+      }
+    };
+    fetchAccounts();
+  }, [composeMode, current]);
+
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const maxSize = 10 * 1024 * 1024; // 10MB per file
@@ -325,6 +350,9 @@ export const ClientCommunicationPanel = ({
     }
   }, [filteredEntries.length, isLoading]);
 
+  const selectedAccount = emailAccounts.find(a => a.id === selectedAccountId);
+  const hasBridgeAccount = emailAccounts.length > 0 && !!selectedAccountId;
+
   // Send email
   const handleSendEmail = async () => {
     if (!clientEmail) {
@@ -337,36 +365,51 @@ export const ClientCommunicationPanel = ({
     }
     setSending(true);
     try {
-      // Convert attachments to base64
       const emailAttachments = attachedFiles.length > 0 ? await filesToBase64(attachedFiles) : undefined;
 
-      const { data, error } = await supabase.functions.invoke("send-visite-email", {
-        body: { 
-          to: clientEmail, 
-          subject, 
-          body, 
-          companyId,
-          ...(emailAttachments?.length ? { attachments: emailAttachments } : {}),
-        },
-      });
-      if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
+      if (hasBridgeAccount) {
+        // Send via email bridge (user's own SMTP/OAuth account)
+        const bodyHtml = `<div style="font-family:sans-serif;white-space:pre-wrap;color:#333;font-size:15px;line-height:1.7;">${body.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div>`;
+        const { data, error } = await supabase.functions.invoke("email-bridge-send", {
+          body: {
+            account_id: selectedAccountId,
+            to: [{ email: clientEmail }],
+            subject,
+            body_html: bodyHtml,
+            body_text: body,
+            client_id: clientId,
+            ...(emailAttachments?.length ? { attachments: emailAttachments } : {}),
+          },
+        });
+        if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
+      } else {
+        // Fallback: send via Resend (noreply)
+        const { data, error } = await supabase.functions.invoke("send-visite-email", {
+          body: {
+            to: clientEmail,
+            subject,
+            body,
+            companyId,
+            ...(emailAttachments?.length ? { attachments: emailAttachments } : {}),
+          },
+        });
+        if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
 
-      // Save message metadata for attachments display
-      const attachmentsMeta = attachedFiles.map(f => ({ filename: f.name, content_type: f.type, size: f.size }));
-
-      await supabase.from("messages").insert({
-        company_id: companyId,
-        client_id: clientId,
-        channel: "email",
-        direction: "outbound",
-        sender: user?.email || "Moi",
-        subject,
-        body,
-        is_read: true,
-        created_by: user?.id,
-        delivery_status: "sent",
-        attachments: attachmentsMeta.length > 0 ? attachmentsMeta : [],
-      } as any);
+        const attachmentsMeta = attachedFiles.map(f => ({ filename: f.name, content_type: f.type, size: f.size }));
+        await supabase.from("messages").insert({
+          company_id: companyId,
+          client_id: clientId,
+          channel: "email",
+          direction: "outbound",
+          sender: user?.email || "Moi",
+          subject,
+          body,
+          is_read: true,
+          created_by: user?.id,
+          delivery_status: "sent",
+          attachments: attachmentsMeta.length > 0 ? attachmentsMeta : [],
+        } as any);
+      }
 
       toast.success("Email envoyé");
       setSubject("");
@@ -857,6 +900,35 @@ export const ClientCommunicationPanel = ({
                 Annuler
               </button>
             </div>
+
+            {/* Email account selector */}
+            {emailAccounts.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                  <SelectTrigger className="h-7 text-[10px] flex-1">
+                    <SelectValue placeholder="Compte…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {emailAccounts.map(acc => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        <span className="flex items-center gap-1">
+                          <span>{acc.label}</span>
+                          <span className="text-muted-foreground">({acc.email_address})</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {emailAccounts.length === 0 && (
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Mail className="h-3 w-3" />
+                Aucun compte configuré — envoi via adresse par défaut
+              </p>
+            )}
+
             <Input
               placeholder="Objet"
               value={subject}
@@ -929,6 +1001,7 @@ export const ClientCommunicationPanel = ({
               >
                 {sending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
                 Envoyer
+                {selectedAccount && <span className="ml-1 text-[10px] opacity-70">via {selectedAccount.email_address}</span>}
               </Button>
             </div>
             {!clientEmail && (
