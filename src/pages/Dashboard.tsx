@@ -2,19 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  FolderOpen,
-  Users,
-  CalendarDays,
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  AlertTriangle,
-  CheckCircle2,
-  FileText,
-  Eye,
-  ChevronRight,
-  BarChart3,
+  FolderOpen, Users, CalendarDays, DollarSign, TrendingUp, TrendingDown,
+  Clock, AlertTriangle, CheckCircle2, FileText, Eye, ChevronRight, BarChart3,
 } from "lucide-react";
 import { CreateClientDialog } from "@/components/forms/CreateClientDialog";
 import { CreateDevisDialog } from "@/components/forms/CreateDevisDialog";
@@ -35,10 +24,6 @@ import { generateFacturePdf } from "@/lib/generateFacturePdf";
 import { toast } from "sonner";
 import { Loader2, Download as DownloadIcon } from "lucide-react";
 
-const companyDot: Record<string, string> = {
-  global: "bg-primary",
-};
-
 const statusIcon: Record<string, React.ReactNode> = {
   devis: <FileText className="h-4 w-4 text-info" />,
   dossier: <FolderOpen className="h-4 w-4 text-primary" />,
@@ -49,10 +34,7 @@ const statusIcon: Record<string, React.ReactNode> = {
 
 function useCompanyFilter() {
   const { current, dbCompanies } = useCompany();
-  const companyIds = current === "global"
-    ? dbCompanies.map((c) => c.id)
-    : [current];
-  return companyIds;
+  return current === "global" ? dbCompanies.map((c) => c.id) : [current];
 }
 
 function useStats(companyIds: string[]) {
@@ -66,102 +48,39 @@ function useStats(companyIds: string[]) {
     queryKey: ["dashboard-stats", companyIds],
     queryFn: async () => {
       const [
-        { count: dossiersActifs },
-        { count: totalClients },
-        { count: eventsThisWeek },
-        { data: facturesThisMonth },
-        { data: facturesPrevMonth },
-        { count: clientsPrevMonth },
-        { count: totalDevis },
-        { count: devisAcceptes },
-        { data: allDossiers },
-        { data: allCosts },
+        { count: dossiersActifs }, { count: totalClients }, { count: eventsThisWeek },
+        { data: facturesThisMonth }, { data: facturesPrevMonth }, { count: clientsPrevMonth },
+        { count: totalDevis }, { count: devisAcceptes }, { data: allDossiers }, { data: allCosts },
       ] = await Promise.all([
-        supabase
-          .from("dossiers")
-          .select("*", { count: "exact", head: true })
-          .in("company_id", companyIds)
-          .not("stage", "in", '("termine","paye","facture")'),
-        supabase
-          .from("clients")
-          .select("*", { count: "exact", head: true })
-          .in("company_id", companyIds),
-        supabase
-          .from("planning_events")
-          .select("*", { count: "exact", head: true })
-          .in("company_id", companyIds)
+        supabase.from("dossiers").select("*", { count: "exact", head: true }).in("company_id", companyIds).not("stage", "in", '("termine","paye","facture")'),
+        supabase.from("clients").select("*", { count: "exact", head: true }).in("company_id", companyIds),
+        supabase.from("planning_events").select("*", { count: "exact", head: true }).in("company_id", companyIds)
           .gte("start_time", new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).toISOString())
           .lte("start_time", new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + 6, 23, 59, 59).toISOString()),
-        supabase
-          .from("factures")
-          .select("amount")
-          .in("company_id", companyIds)
-          .gte("created_at", monthStart)
-          .lte("created_at", monthEnd),
-        supabase
-          .from("factures")
-          .select("amount")
-          .in("company_id", companyIds)
-          .gte("created_at", prevMonthStart)
-          .lte("created_at", prevMonthEnd),
-        supabase
-          .from("clients")
-          .select("*", { count: "exact", head: true })
-          .in("company_id", companyIds)
-          .lte("created_at", prevMonthEnd),
-        // KPIs avancés: total devis
-        supabase
-          .from("devis")
-          .select("*", { count: "exact", head: true })
-          .in("company_id", companyIds),
-        // KPIs avancés: devis acceptés
-        supabase
-          .from("devis")
-          .select("*", { count: "exact", head: true })
-          .in("company_id", companyIds)
-          .eq("status", "accepte"),
-        // KPIs avancés: dossiers avec montant pour marge
-        supabase
-          .from("dossiers")
-          .select("id, amount")
-          .in("company_id", companyIds)
-          .not("stage", "eq", "prospect"),
-        // KPIs avancés: coûts dossiers
-        supabase
-          .from("dossier_costs")
-          .select("dossier_id, amount")
-          .in("company_id", companyIds),
+        supabase.from("factures").select("amount").in("company_id", companyIds).gte("created_at", monthStart).lte("created_at", monthEnd),
+        supabase.from("factures").select("amount").in("company_id", companyIds).gte("created_at", prevMonthStart).lte("created_at", prevMonthEnd),
+        supabase.from("clients").select("*", { count: "exact", head: true }).in("company_id", companyIds).lte("created_at", prevMonthEnd),
+        supabase.from("devis").select("*", { count: "exact", head: true }).in("company_id", companyIds),
+        supabase.from("devis").select("*", { count: "exact", head: true }).in("company_id", companyIds).eq("status", "accepte"),
+        supabase.from("dossiers").select("id, amount").in("company_id", companyIds).not("stage", "eq", "prospect"),
+        supabase.from("dossier_costs").select("dossier_id, amount").in("company_id", companyIds),
       ]);
 
       const caThisMonth = (facturesThisMonth ?? []).reduce((s, f) => s + Number(f.amount), 0);
       const caPrevMonth = (facturesPrevMonth ?? []).reduce((s, f) => s + Number(f.amount), 0);
       const caChange = caPrevMonth > 0 ? (((caThisMonth - caPrevMonth) / caPrevMonth) * 100).toFixed(1) : null;
-
       const clientsNew = (totalClients ?? 0) - (clientsPrevMonth ?? 0);
-
-      // Taux de conversion devis
-      const conversionRate = (totalDevis ?? 0) > 0
-        ? (((devisAcceptes ?? 0) / (totalDevis ?? 1)) * 100).toFixed(1)
-        : "0";
-
-      // Marge globale
+      const conversionRate = (totalDevis ?? 0) > 0 ? (((devisAcceptes ?? 0) / (totalDevis ?? 1)) * 100).toFixed(1) : "0";
       const totalRevenue = (allDossiers ?? []).reduce((s, d) => s + Number(d.amount || 0), 0);
-      const totalCosts = (allCosts ?? []).reduce((s, c) => s + Number(c.amount || 0), 0);
-      const globalMargin = totalRevenue > 0 ? (((totalRevenue - totalCosts) / totalRevenue) * 100).toFixed(1) : null;
-      const globalMarginAmount = totalRevenue - totalCosts;
+      const totalCostsVal = (allCosts ?? []).reduce((s, c) => s + Number(c.amount || 0), 0);
+      const globalMargin = totalRevenue > 0 ? (((totalRevenue - totalCostsVal) / totalRevenue) * 100).toFixed(1) : null;
+      const globalMarginAmount = totalRevenue - totalCostsVal;
 
       return {
-        dossiersActifs: dossiersActifs ?? 0,
-        totalClients: totalClients ?? 0,
-        eventsThisWeek: eventsThisWeek ?? 0,
-        caThisMonth,
-        caChange,
-        clientsNew,
-        conversionRate,
-        totalDevis: totalDevis ?? 0,
-        devisAcceptes: devisAcceptes ?? 0,
-        globalMargin,
-        globalMarginAmount,
+        dossiersActifs: dossiersActifs ?? 0, totalClients: totalClients ?? 0,
+        eventsThisWeek: eventsThisWeek ?? 0, caThisMonth, caChange, clientsNew,
+        conversionRate, totalDevis: totalDevis ?? 0, devisAcceptes: devisAcceptes ?? 0,
+        globalMargin, globalMarginAmount,
       };
     },
     enabled: companyIds.length > 0,
@@ -169,12 +88,7 @@ function useStats(companyIds: string[]) {
 }
 
 interface ActivityItem {
-  id: string;
-  type: string;
-  label: string;
-  client: string;
-  time: string;
-  companyId: string;
+  id: string; type: string; label: string; client: string; time: string; companyId: string;
 }
 
 function useRecentActivity(companyIds: string[]) {
@@ -182,90 +96,22 @@ function useRecentActivity(companyIds: string[]) {
     queryKey: ["dashboard-activity", companyIds],
     queryFn: async () => {
       const [
-        { data: recentDevis },
-        { data: recentDossiers },
-        { data: recentFactures },
-        { data: recentVisites },
+        { data: recentDevis }, { data: recentDossiers },
+        { data: recentFactures }, { data: recentVisites },
       ] = await Promise.all([
-        supabase
-          .from("devis")
-          .select("id, code, objet, status, created_at, company_id, clients(name)")
-          .in("company_id", companyIds)
-          .order("created_at", { ascending: false })
-          .limit(5),
-        supabase
-          .from("dossiers")
-          .select("id, code, title, stage, created_at, company_id, clients(name)")
-          .in("company_id", companyIds)
-          .order("created_at", { ascending: false })
-          .limit(5),
-        supabase
-          .from("factures")
-          .select("id, code, amount, status, created_at, company_id, clients(name)")
-          .in("company_id", companyIds)
-          .order("created_at", { ascending: false })
-          .limit(5),
-        supabase
-          .from("visites")
-          .select("id, title, status, scheduled_date, company_id, clients(name)")
-          .in("company_id", companyIds)
-          .order("created_at", { ascending: false })
-          .limit(5),
+        supabase.from("devis").select("id, code, objet, status, created_at, company_id, clients(name)").in("company_id", companyIds).order("created_at", { ascending: false }).limit(5),
+        supabase.from("dossiers").select("id, code, title, stage, created_at, company_id, clients(name)").in("company_id", companyIds).order("created_at", { ascending: false }).limit(5),
+        supabase.from("factures").select("id, code, amount, status, created_at, company_id, clients(name)").in("company_id", companyIds).order("created_at", { ascending: false }).limit(5),
+        supabase.from("visites").select("id, title, status, scheduled_date, company_id, clients(name)").in("company_id", companyIds).order("created_at", { ascending: false }).limit(5),
       ]);
 
       const items: ActivityItem[] = [];
+      const statusLabel: Record<string, string> = { brouillon: "Brouillon", envoye: "Envoyé", accepte: "Accepté", refuse: "Refusé", expire: "Expiré" };
 
-      (recentDevis ?? []).forEach((d) => {
-        const statusLabel: Record<string, string> = {
-          brouillon: "Brouillon",
-          envoye: "Envoyé",
-          accepte: "Accepté",
-          refuse: "Refusé",
-          expire: "Expiré",
-        };
-        items.push({
-          id: d.id,
-          type: "devis",
-          label: `Devis ${d.code || ""} — ${statusLabel[d.status] || d.status}`,
-          client: (d.clients as any)?.name ?? "—",
-          time: d.created_at,
-          companyId: d.company_id,
-        });
-      });
-
-      (recentDossiers ?? []).forEach((d) => {
-        items.push({
-          id: d.id,
-          type: "dossier",
-          label: `Dossier ${d.code || ""} — ${d.title}`,
-          client: (d.clients as any)?.name ?? "—",
-          time: d.created_at,
-          companyId: d.company_id,
-        });
-      });
-
-      (recentFactures ?? []).forEach((f) => {
-        const amount = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(Number(f.amount));
-        items.push({
-          id: f.id,
-          type: "facture",
-          label: `Facture ${f.code || ""} — ${amount}`,
-          client: (f.clients as any)?.name ?? "—",
-          time: f.created_at,
-          companyId: f.company_id,
-        });
-      });
-
-      (recentVisites ?? []).forEach((v) => {
-        items.push({
-          id: v.id,
-          type: "visite",
-          label: `Visite — ${v.title}`,
-          client: (v.clients as any)?.name ?? "—",
-          time: v.scheduled_date || v.status,
-          companyId: v.company_id,
-        });
-      });
+      (recentDevis ?? []).forEach((d) => items.push({ id: d.id, type: "devis", label: `Devis ${d.code || ""} — ${statusLabel[d.status] || d.status}`, client: (d.clients as any)?.name ?? "—", time: d.created_at, companyId: d.company_id }));
+      (recentDossiers ?? []).forEach((d) => items.push({ id: d.id, type: "dossier", label: `Dossier ${d.code || ""} — ${d.title}`, client: (d.clients as any)?.name ?? "—", time: d.created_at, companyId: d.company_id }));
+      (recentFactures ?? []).forEach((f) => { const amount = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(Number(f.amount)); items.push({ id: f.id, type: "facture", label: `Facture ${f.code || ""} — ${amount}`, client: (f.clients as any)?.name ?? "—", time: f.created_at, companyId: f.company_id }); });
+      (recentVisites ?? []).forEach((v) => items.push({ id: v.id, type: "visite", label: `Visite — ${v.title}`, client: (v.clients as any)?.name ?? "—", time: v.scheduled_date || v.status, companyId: v.company_id }));
 
       items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
       return items.slice(0, 10);
@@ -295,6 +141,7 @@ const Dashboard = () => {
   const { data: stats, isLoading: statsLoading } = useStats(companyIds);
   const { data: activity, isLoading: activityLoading } = useRecentActivity(companyIds);
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const [loadingDoc, setLoadingDoc] = useState<string | null>(null);
   const [previewState, setPreviewState] = useState<{ open: boolean; blobUrl: string | null; dataUri: string | null; fileName: string }>({
     open: false, blobUrl: null, dataUri: null, fileName: "",
@@ -326,11 +173,8 @@ const Dashboard = () => {
     const key = `dl-${docType}-${docId}`;
     setLoadingDoc(key);
     try {
-      if (docType === "devis") {
-        await generateDevisPdf(docId);
-      } else if (docType === "facture") {
-        await generateFacturePdf(docId);
-      }
+      if (docType === "devis") await generateDevisPdf(docId);
+      else if (docType === "facture") await generateFacturePdf(docId);
       toast.success("Document téléchargé");
     } catch {
       toast.error("Erreur lors du téléchargement");
@@ -339,12 +183,10 @@ const Dashboard = () => {
     }
   };
 
-  // Top dossiers rentabilité
   const { data: topDossiers } = useQuery({
     queryKey: ["dashboard-top-rentabilite", companyIds],
     queryFn: async () => {
-      let q = supabase.from("dossiers").select("id, code, title, amount, clients(name)").in("company_id", companyIds).not("amount", "is", null).neq("amount", 0);
-      const { data: dossiers } = await q.limit(20);
+      const { data: dossiers } = await supabase.from("dossiers").select("id, code, title, amount, clients(name)").in("company_id", companyIds).not("amount", "is", null).neq("amount", 0).limit(20);
       if (!dossiers?.length) return [];
       const ids = dossiers.map((d) => d.id);
       const { data: costs } = await supabase.from("dossier_costs").select("dossier_id, amount").in("dossier_id", ids);
@@ -353,10 +195,8 @@ const Dashboard = () => {
       return dossiers
         .filter((d) => costMap[d.id] !== undefined)
         .map((d) => {
-          const ca = Number(d.amount);
-          const cost = costMap[d.id] || 0;
-          const margin = ca - cost;
-          const marginPct = ca > 0 ? Math.round((margin / ca) * 100) : 0;
+          const ca = Number(d.amount); const cost = costMap[d.id] || 0;
+          const margin = ca - cost; const marginPct = ca > 0 ? Math.round((margin / ca) * 100) : 0;
           return { ...d, margin, marginPct, clientName: (d.clients as any)?.name || "—" };
         })
         .sort((a, b) => b.marginPct - a.marginPct)
@@ -365,249 +205,200 @@ const Dashboard = () => {
     enabled: companyIds.length > 0,
   });
 
-  const navigate = useNavigate();
-
   const statCards = [
-    {
-      label: "Dossiers actifs",
-      value: stats?.dossiersActifs ?? 0,
-      icon: FolderOpen,
-      trend: `${stats?.dossiersActifs ?? 0} en cours`,
-      link: "/dossiers",
-    },
-    {
-      label: "Clients",
-      value: stats?.totalClients ?? 0,
-      icon: Users,
-      trend: stats?.clientsNew ? `+${stats.clientsNew} ce mois` : "—",
-      link: "/clients",
-    },
-    {
-      label: "CA du mois",
-      value: new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(stats?.caThisMonth ?? 0),
-      icon: DollarSign,
-      trend: stats?.caChange ? `${Number(stats.caChange) >= 0 ? "+" : ""}${stats.caChange}%` : "—",
-      link: "/finance",
-    },
-    {
-      label: "Taux conversion",
-      value: `${stats?.conversionRate ?? 0}%`,
-      icon: TrendingUp,
-      trend: `${stats?.devisAcceptes ?? 0}/${stats?.totalDevis ?? 0} devis acceptés`,
-      link: "/devis",
-    },
-    {
-      label: "Marge globale",
-      value: stats?.globalMargin ? `${stats.globalMargin}%` : "—",
-      icon: AlertTriangle,
-      trend: stats?.globalMarginAmount !== undefined
-        ? new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(stats.globalMarginAmount)
-        : "—",
-      link: "/dossiers",
-    },
-    {
-      label: "Missions",
-      value: stats?.eventsThisWeek ?? 0,
-      icon: CalendarDays,
-      trend: "Cette semaine",
-      link: "/planning",
-    },
+    { label: "Dossiers actifs", value: stats?.dossiersActifs ?? 0, icon: FolderOpen, trend: `${stats?.dossiersActifs ?? 0} en cours`, link: "/dossiers", color: "text-primary" },
+    { label: "Clients", value: stats?.totalClients ?? 0, icon: Users, trend: stats?.clientsNew ? `+${stats.clientsNew} ce mois` : "—", link: "/clients", color: "text-info" },
+    { label: "CA du mois", value: new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(stats?.caThisMonth ?? 0), icon: DollarSign, trend: stats?.caChange ? `${Number(stats.caChange) >= 0 ? "+" : ""}${stats.caChange}%` : "—", link: "/finance", color: "text-success" },
+    { label: "Conversion", value: `${stats?.conversionRate ?? 0}%`, icon: TrendingUp, trend: `${stats?.devisAcceptes ?? 0}/${stats?.totalDevis ?? 0} acceptés`, link: "/devis", color: "text-warning" },
+    { label: "Marge", value: stats?.globalMargin ? `${stats.globalMargin}%` : "—", icon: BarChart3, trend: stats?.globalMarginAmount !== undefined ? new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(stats.globalMarginAmount) : "—", link: "/dossiers", color: "text-primary" },
+    { label: "Missions", value: stats?.eventsThisWeek ?? 0, icon: CalendarDays, trend: "Cette semaine", link: "/planning", color: "text-info" },
   ];
 
   return (
-    <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20 space-y-4" : "p-6 lg:p-8 space-y-8"}`}>
+    <div className={`max-w-7xl mx-auto ${isMobile ? "p-3 pb-20 space-y-4" : "p-6 lg:p-8 space-y-6"}`}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-        <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Dashboard</h1>
-        {!isMobile && (
-          <p className="text-muted-foreground mt-1">
-            {current === "global" ? "Vue consolidée — toutes sociétés" : currentCompany.name}
-          </p>
-        )}
+        <h1 className={`font-semibold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>
+          Bonjour 👋
+        </h1>
+        <p className="text-muted-foreground text-sm mt-0.5">
+          {current === "global" ? "Vue consolidée — toutes sociétés" : currentCompany.name}
+          {" · "}{format(new Date(), "EEEE d MMMM", { locale: fr })}
+        </p>
       </motion.div>
 
       {/* Company pills */}
-      <motion.div className="flex gap-2 flex-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
-        {current === "global" && dbCompanies.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => setCurrent(c.id as CompanyId)}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer`}
-          >
-            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-            {c.shortName}
-          </button>
-        ))}
-        {current !== "global" && (
-          <button
-            onClick={() => setCurrent("global")}
-            className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/80 transition-colors cursor-pointer"
-          >
-            ← Vue globale
-          </button>
-        )}
-      </motion.div>
+      {current === "global" && dbCompanies.length > 1 && (
+        <motion.div className="flex gap-2 flex-wrap" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }}>
+          {dbCompanies.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setCurrent(c.id as CompanyId)}
+              className="filter-chip filter-chip-inactive"
+            >
+              <div className="h-1.5 w-1.5 rounded-full bg-primary mr-1.5" />
+              {c.shortName}
+            </button>
+          ))}
+        </motion.div>
+      )}
+      {current !== "global" && (
+        <button onClick={() => setCurrent("global")} className="filter-chip filter-chip-inactive">
+          ← Vue globale
+        </button>
+      )}
 
       {/* Alerts */}
       <DashboardAlerts />
 
       {/* Stats */}
-      <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4"}`}>
+      <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6"}`}>
         {statCards.map((stat, i) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05 * i, duration: 0.3 }}
-            className={`rounded-xl border bg-card cursor-pointer hover:shadow-md hover:border-primary/30 transition-all ${isMobile ? "p-3 space-y-1" : "p-5 space-y-3"}`}
+            transition={{ delay: 0.04 * i, duration: 0.3 }}
+            className="card-interactive p-4 space-y-2"
             onClick={() => navigate(stat.link)}
           >
             <div className="flex items-center justify-between">
-              <span className={`text-muted-foreground ${isMobile ? "text-[11px]" : "text-sm"}`}>{stat.label}</span>
-              {!isMobile && <stat.icon className="h-4 w-4 text-muted-foreground" />}
+              <span className="section-label">{stat.label}</span>
+              <div className={`h-7 w-7 rounded-lg bg-muted flex items-center justify-center ${stat.color}`}>
+                <stat.icon className="h-3.5 w-3.5" />
+              </div>
             </div>
             {statsLoading ? (
-              <Skeleton className={`${isMobile ? "h-6 w-16" : "h-8 w-24"}`} />
+              <Skeleton className="h-7 w-20" />
             ) : (
-              <p className={`font-bold tracking-tight ${isMobile ? "text-base" : "text-2xl"}`}>{stat.value}</p>
+              <p className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-xl"}`}>{stat.value}</p>
             )}
-            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <TrendingUp className="h-3 w-3 text-success" />
+            <p className="text-2xs text-muted-foreground flex items-center gap-1">
               {stat.trend}
-            </div>
+            </p>
           </motion.div>
         ))}
       </div>
 
-      {/* Recent Activity */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="rounded-xl border bg-card">
-        <div className={`border-b ${isMobile ? "px-3 py-2" : "p-5"}`}>
-          <h2 className={`font-semibold ${isMobile ? "text-sm" : ""}`}>Activité récente</h2>
-        </div>
-        <div className="divide-y">
-          {activityLoading ? (
-            Array.from({ length: isMobile ? 3 : 5 }).map((_, i) => (
-              <div key={i} className={`flex items-center gap-3 ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`}>
-                <Skeleton className="h-4 w-4 rounded-full" />
-                <div className="flex-1 space-y-1">
-                  <Skeleton className={`h-4 ${isMobile ? "w-32" : "w-48"}`} />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-                <Skeleton className="h-3 w-12" />
-              </div>
-            ))
-          ) : activity && activity.length > 0 ? (
-            activity.map((item, i) => {
-              const linkMap: Record<string, string> = {
-                devis: `/devis/${item.id}`,
-                dossier: `/dossiers/${item.id}`,
-                facture: `/finance/${item.id}`,
-                visite: `/visites/${item.id}`,
-              };
-              const hasDoc = item.type === "devis" || item.type === "facture";
-              const previewKey = `${item.type}-${item.id}`;
-              const dlKey = `dl-${item.type}-${item.id}`;
-              return (
-                <div
-                  key={i}
-                  className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`}
-                  onClick={() => navigate(linkMap[item.type] || "/")}
-                >
-                  {statusIcon[item.type] || <Clock className="h-4 w-4 text-muted-foreground" />}
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-medium truncate ${isMobile ? "text-xs" : "text-sm"}`}>{item.label}</p>
-                    <p className="text-xs text-muted-foreground">{item.client}</p>
+      <div className={`grid gap-4 ${isMobile ? "" : "lg:grid-cols-5"}`}>
+        {/* Recent Activity */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="card-elevated rounded-xl lg:col-span-3">
+          <div className={`border-b ${isMobile ? "px-4 py-3" : "px-5 py-4"}`}>
+            <h2 className="text-sm font-semibold">Activité récente</h2>
+          </div>
+          <div className="divide-y">
+            {activityLoading ? (
+              Array.from({ length: isMobile ? 3 : 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-5 py-3.5">
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-3.5 w-48" />
+                    <Skeleton className="h-3 w-24" />
                   </div>
-                  {hasDoc && (
-                    <div className="flex items-center gap-0.5 shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        disabled={loadingDoc === previewKey}
-                        onClick={(e) => { e.stopPropagation(); handlePreview(item.type, item.id); }}
-                      >
-                        {loadingDoc === previewKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        disabled={loadingDoc === dlKey}
-                        onClick={(e) => { e.stopPropagation(); handleDownload(item.type, item.id); }}
-                      >
-                        {loadingDoc === dlKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadIcon className="h-3.5 w-3.5" />}
-                      </Button>
-                    </div>
-                  )}
-                  {!isMobile && (
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {formatRelativeTime(item.time)}
-                    </span>
-                  )}
-                  {isMobile && !hasDoc && (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                  )}
                 </div>
-              );
-            })
-          ) : (
-            <div className={`text-center text-sm text-muted-foreground ${isMobile ? "px-3 py-6" : "px-5 py-8"}`}>
-              Aucune activité récente
-            </div>
-          )}
-        </div>
-      </motion.div>
+              ))
+            ) : activity && activity.length > 0 ? (
+              activity.map((item, i) => {
+                const linkMap: Record<string, string> = {
+                  devis: `/devis/${item.id}`, dossier: `/dossiers/${item.id}`,
+                  facture: `/finance/${item.id}`, visite: `/visites/${item.id}`,
+                };
+                const hasDoc = item.type === "devis" || item.type === "facture";
+                const previewKey = `${item.type}-${item.id}`;
+                const dlKey = `dl-${item.type}-${item.id}`;
+                return (
+                  <div
+                    key={i}
+                    className={`flex items-center gap-3 hover:bg-muted/40 transition-colors cursor-pointer ${isMobile ? "px-4 py-3" : "px-5 py-3"}`}
+                    onClick={() => navigate(linkMap[item.type] || "/")}
+                  >
+                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      {statusIcon[item.type] || <Clock className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{item.label}</p>
+                      <p className="text-xs text-muted-foreground">{item.client}</p>
+                    </div>
+                    {hasDoc && (
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" disabled={loadingDoc === previewKey}
+                          onClick={(e) => { e.stopPropagation(); handlePreview(item.type, item.id); }}>
+                          {loadingDoc === previewKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" disabled={loadingDoc === dlKey}
+                          onClick={(e) => { e.stopPropagation(); handleDownload(item.type, item.id); }}>
+                          {loadingDoc === dlKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DownloadIcon className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
+                    )}
+                    {!isMobile && (
+                      <span className="text-2xs text-muted-foreground whitespace-nowrap">{formatRelativeTime(item.time)}</span>
+                    )}
+                    {isMobile && !hasDoc && <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />}
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center text-sm text-muted-foreground py-12">
+                Aucune activité récente
+              </div>
+            )}
+          </div>
+        </motion.div>
 
-      {/* Top Rentabilité */}
-      {topDossiers && topDossiers.length > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="rounded-xl border bg-card">
-          <div className={`border-b flex items-center justify-between ${isMobile ? "px-3 py-2" : "p-5"}`}>
-            <h2 className={`font-semibold flex items-center gap-2 ${isMobile ? "text-sm" : ""}`}>
+        {/* Top Rentabilité */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }} className="card-elevated rounded-xl lg:col-span-2">
+          <div className="border-b px-5 py-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-primary" />
               Top Rentabilité
             </h2>
-            <button onClick={() => navigate("/rentabilite")} className="text-xs text-primary hover:underline">
+            <button onClick={() => navigate("/rentabilite")} className="text-xs text-primary hover:underline font-medium">
               Voir tout →
             </button>
           </div>
           <div className="divide-y">
-            {topDossiers.map((d, i) => (
+            {topDossiers && topDossiers.length > 0 ? topDossiers.map((d, i) => (
               <div
                 key={d.id}
                 onClick={() => navigate(`/dossiers/${d.id}`)}
-                className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3"}`}
+                className="flex items-center gap-3 hover:bg-muted/40 transition-colors cursor-pointer px-5 py-3"
               >
-                <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}</span>
+                <span className="text-2xs font-bold text-muted-foreground w-4">{i + 1}</span>
                 {d.margin >= 0
                   ? <TrendingUp className="h-4 w-4 text-success shrink-0" />
                   : <TrendingDown className="h-4 w-4 text-destructive shrink-0" />
                 }
                 <div className="flex-1 min-w-0">
-                  <p className={`font-medium truncate ${isMobile ? "text-xs" : "text-sm"}`}>{d.title}</p>
+                  <p className="font-medium text-sm truncate">{d.title}</p>
                   <p className="text-xs text-muted-foreground">{d.clientName}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className={`text-sm font-bold ${d.marginPct >= 20 ? "text-success" : d.marginPct >= 0 ? "text-warning" : "text-destructive"}`}>
                     {d.marginPct}%
                   </p>
-                  <p className="text-[10px] text-muted-foreground">{new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(d.margin)}</p>
+                  <p className="text-2xs text-muted-foreground">{new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(d.margin)}</p>
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="text-center text-sm text-muted-foreground py-12">
+                Aucune donnée de rentabilité
+              </div>
+            )}
           </div>
         </motion.div>
-      )}
+      </div>
 
-      {/* Quick Actions — hidden on mobile since we have FABs */}
+      {/* Quick Actions */}
       {!isMobile && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <CreateClientDialog />
           <CreateDevisDialog />
           <CreateDossierDialog />
           <CreateFactureDialog />
         </motion.div>
       )}
+
       <GenericPdfPreviewDialog
         open={previewState.open}
         onClose={() => setPreviewState({ open: false, blobUrl: null, dataUri: null, fileName: "" })}
