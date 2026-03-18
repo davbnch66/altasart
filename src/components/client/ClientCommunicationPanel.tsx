@@ -124,6 +124,38 @@ export const ClientCommunicationPanel = ({
   const [dossierId, setDossierId] = useState("");
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const maxSize = 10 * 1024 * 1024; // 10MB per file
+    const valid = files.filter(f => {
+      if (f.size > maxSize) {
+        toast.error(`${f.name} dépasse 10MB`);
+        return false;
+      }
+      return true;
+    });
+    setAttachedFiles(prev => [...prev, ...valid].slice(0, 5));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, []);
+
+  const removeFile = useCallback((index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const filesToBase64 = async (files: File[]): Promise<Array<{ filename: string; content_type: string; content_base64: string; size: number }>> => {
+    return Promise.all(files.map(f => new Promise<{ filename: string; content_type: string; content_base64: string; size: number }>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(",")[1] || "";
+        resolve({ filename: f.name, content_type: f.type || "application/octet-stream", content_base64: base64, size: f.size });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(f);
+    })));
+  };
 
   // Fetch messages
   const { data: messages = [], isLoading: messagesLoading } = useQuery({
