@@ -60,7 +60,7 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const redirectUri = `${supabaseUrl}/functions/v1/oauth-gmail-callback?action=callback`;
+    const redirectUri = `${supabaseUrl}/functions/v1/oauth-gmail-callback`;
 
     if (action === "init") {
       const authHeader = req.headers.get("Authorization");
