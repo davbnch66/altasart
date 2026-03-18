@@ -23,6 +23,43 @@ serve(async (req) => {
 
     if (contentType.includes("application/x-www-form-urlencoded")) {
       const formData = await req.formData();
+      
+      // Check if this is a status callback (has MessageStatus field)
+      const messageStatus = formData.get("MessageStatus") as string | null;
+      if (messageStatus) {
+        // Handle delivery status callback
+        const sid = (formData.get("MessageSid") as string) || "";
+        if (sid) {
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+          const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+          // Map Twilio statuses to our delivery_status
+          let deliveryStatus = "sent";
+          if (messageStatus === "delivered") deliveryStatus = "delivered";
+          else if (messageStatus === "read") deliveryStatus = "read";
+          else if (messageStatus === "failed" || messageStatus === "undelivered") deliveryStatus = "failed";
+          else if (messageStatus === "sent") deliveryStatus = "sent";
+
+          const updateData: Record<string, any> = { delivery_status: deliveryStatus };
+          if (deliveryStatus === "delivered") updateData.delivered_at = new Date().toISOString();
+          if (deliveryStatus === "read") {
+            updateData.delivered_at = updateData.delivered_at || new Date().toISOString();
+            updateData.read_at = new Date().toISOString();
+          }
+
+          await adminClient
+            .from("messages")
+            .update(updateData)
+            .eq("external_id", sid);
+        }
+
+        return new Response(
+          '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "text/xml" } }
+        );
+      }
+
       fromNumber = (formData.get("From") as string) || "";
       toNumber = (formData.get("To") as string) || "";
       messageBody = (formData.get("Body") as string) || "";
