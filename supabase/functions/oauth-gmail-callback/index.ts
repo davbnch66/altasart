@@ -117,26 +117,33 @@ serve(async (req) => {
       const stateParam = url.searchParams.get("state");
       const error = url.searchParams.get("error");
 
+      // Decode state first to get return_url
+      let state: { user_id: string; company_id: string; return_url?: string };
+      try {
+        state = JSON.parse(atob(stateParam || ""));
+      } catch {
+        state = { user_id: "", company_id: "", return_url: undefined };
+      }
+
+      const buildRedirect = (success: boolean, detail: string) => {
+        const base = state.return_url || "/parametres";
+        const redirectUrl = new URL(base, base.startsWith("http") ? undefined : "https://placeholder.com");
+        redirectUrl.searchParams.set("oauth_result", success ? "success" : "error");
+        redirectUrl.searchParams.set("oauth_provider", "gmail");
+        if (!success) redirectUrl.searchParams.set("oauth_detail", detail);
+        // If return_url was absolute, use it; otherwise build relative path
+        if (state.return_url?.startsWith("http")) {
+          return redirectUrl.toString();
+        }
+        return redirectUrl.pathname + redirectUrl.search;
+      };
+
       if (error) {
-        return new Response(renderCallbackHtml(false, `Google OAuth error: ${error}`), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, `Google OAuth error: ${error}`), 302);
       }
 
       if (!code || !stateParam) {
-        return new Response(renderCallbackHtml(false, "Missing code or state"), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
-      }
-
-      // Decode state
-      let state: { user_id: string; company_id: string };
-      try {
-        state = JSON.parse(atob(stateParam));
-      } catch {
-        return new Response(renderCallbackHtml(false, "Invalid state"), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, "Missing code or state"), 302);
       }
 
       // Exchange code for tokens
