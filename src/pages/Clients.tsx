@@ -137,9 +137,17 @@ const Clients = () => {
           <p className="text-sm font-medium">Aucun client trouvé</p>
           <p className="text-xs mt-1">Modifiez vos filtres ou créez un nouveau client</p>
         </div>
-      ) : isMobile ? (
+      ) : <ClientList filtered={filtered} isMobile={isMobile} navigate={navigate} />}
+    </div>
+  );
+};
+
+const ClientList = ({ filtered, isMobile, navigate }: { filtered: any[]; isMobile: boolean; navigate: any }) => {
+  const { visibleItems, sentinelRef, hasMore } = useProgressiveList(filtered);
+
+  return isMobile ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-1.5">
-          {filtered.map((client) => (
+          {visibleItems.map((client) => (
             <div
               key={client.id}
               onClick={() => navigate(`/clients/${client.id}`)}
