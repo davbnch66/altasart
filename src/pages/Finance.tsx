@@ -253,7 +253,7 @@ const Finance = () => {
               {!isMobile && <stat.icon className="h-4 w-4 text-muted-foreground" />}
             </div>
             {statsLoading ? <Skeleton className={`${isMobile ? "h-6 w-16" : "h-8 w-24"}`} /> : (
-              <p className={`font-bold tracking-tight ${isMobile ? "text-base" : "text-2xl"}`}>{stat.value}</p>
+              <p className={`stat-value ${isMobile ? "!text-base" : ""}`}>{stat.value}</p>
             )}
             <div className="flex items-center gap-1 text-[11px]">
               {stat.positive ? <ArrowUpRight className="h-3 w-3 text-success" /> : <ArrowDownRight className="h-3 w-3 text-destructive" />}
