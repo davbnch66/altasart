@@ -111,10 +111,15 @@ serve(async (req) => {
       twilioFrom = from || (smsFrom ? smsFrom.replace(/[\s.\-()]/g, "") : TWILIO_PHONE_NUMBER);
     }
 
+    // Status callback URL for delivery receipts
+    const supabaseProjectUrl = Deno.env.get("SUPABASE_URL")!;
+    const statusCallbackUrl = `${supabaseProjectUrl}/functions/v1/receive-sms-whatsapp`;
+
     const params: Record<string, string> = {
       To: twilioTo,
       From: twilioFrom,
       Body: messageBody,
+      StatusCallback: statusCallbackUrl,
     };
 
     // Send via Twilio Gateway
@@ -137,7 +142,7 @@ serve(async (req) => {
       );
     }
 
-    // Store message in DB using service role
+    // Store message in DB using service role with Twilio SID for tracking
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
@@ -150,6 +155,8 @@ serve(async (req) => {
       body: messageBody,
       is_read: true,
       created_by: userId,
+      delivery_status: "sent",
+      external_id: twilioData.sid || null,
     });
 
     return new Response(
