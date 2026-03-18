@@ -10,21 +10,19 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Auth: webhook secret OR service role key
-    const webhookSecret = req.headers.get("X-Webhook-Secret");
-    const expectedSecret = Deno.env.get("INBOUND_EMAIL_WEBHOOK_SECRET");
-    const authHeader = req.headers.get("Authorization") || "";
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    const isWebhookAuth = expectedSecret && webhookSecret === expectedSecret;
-    const isServiceRoleAuth = serviceRoleKey && authHeader.includes(serviceRoleKey);
-
-    if (!isWebhookAuth && !isServiceRoleAuth) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const body = await req.json();
+
+    // Auth: internal call (inbound_email_id) skips webhook check
+    // External webhook requires X-Webhook-Secret
+    if (!body.inbound_email_id) {
+      const webhookSecret = req.headers.get("X-Webhook-Secret");
+      const expectedSecret = Deno.env.get("INBOUND_EMAIL_WEBHOOK_SECRET");
+      if (!expectedSecret || webhookSecret !== expectedSecret) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
