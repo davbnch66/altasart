@@ -1,16 +1,16 @@
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Mail, Search, Inbox, MailWarning, Loader2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 import { InboxEmailDetail } from "@/components/inbox/InboxEmailDetail";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 
 type CategoryTab = "principal" | "autre";
 
@@ -33,7 +33,7 @@ const statusStyles: Record<string, string> = {
 /** Returns true if the email is business-relevant based on AI analysis */
 const isBusinessRelevant = (email: any): boolean => {
   const types: string[] = email.ai_analysis?.type_demande || [];
-  if (types.length === 0) return true; // not analyzed yet → show in principal
+  if (types.length === 0) return true;
   return types.some((t: string) => t !== "autre");
 };
 
@@ -46,30 +46,45 @@ const InboxPage = () => {
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<CategoryTab>("principal");
-  const [page, setPage] = useState(0);
 
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
     : [current];
 
-  // Fetch all inbound emails
-  const { data: emailsData, isLoading, isError } = useQuery({
-    queryKey: ["inbound-emails", companyIds, page],
-    queryFn: async () => {
+  // Infinite query for emails
+  const {
+    data,
+    isLoading,
+    isError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ["inbound-emails", companyIds],
+    queryFn: async ({ pageParam = 0 }) => {
       const { data, error, count } = await supabase
         .from("inbound_emails")
         .select("*, clients(name, id)", { count: "exact" })
         .in("company_id", companyIds)
         .order("created_at", { ascending: false })
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
 
       if (error) throw error;
-      return { emails: data || [], totalCount: count || 0 };
+      return { emails: data || [], totalCount: count || 0, page: pageParam };
     },
+    getNextPageParam: (lastPage) => {
+      const nextPage = lastPage.page + 1;
+      const totalPages = Math.ceil(lastPage.totalCount / PAGE_SIZE);
+      return nextPage < totalPages ? nextPage : undefined;
+    },
+    initialPageParam: 0,
     enabled: companyIds.length > 0,
   });
 
-  const allEmails = emailsData?.emails || [];
+  const allEmails = useMemo(
+    () => data?.pages.flatMap((p) => p.emails) || [],
+    [data]
+  );
 
   // Fetch actions for selected email
   const { data: emailActions = [] } = useQuery({
@@ -104,15 +119,24 @@ const InboxPage = () => {
     );
   });
 
-  const totalCount = emailsData?.totalCount || 0;
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
-
   const selectedEmail = allEmails.find((e: any) => e.id === selectedEmailId);
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
     queryClient.invalidateQueries({ queryKey: ["email-actions"] });
   };
+
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const sentinelRef = useInfiniteScroll({
+    onLoadMore: loadMore,
+    hasMore: !!hasNextPage,
+    isLoading: isFetchingNextPage,
+  });
 
   if (isError) {
     toast.error("Erreur de chargement des emails");
@@ -141,7 +165,7 @@ const InboxPage = () => {
       {/* Category Tabs — Gmail-style */}
       <div className="flex gap-1 border-b">
         <button
-          onClick={() => { setCategory("principal"); setPage(0); }}
+          onClick={() => setCategory("principal")}
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             category === "principal"
               ? "border-primary text-primary"
@@ -157,7 +181,7 @@ const InboxPage = () => {
           )}
         </button>
         <button
-          onClick={() => { setCategory("autre"); setPage(0); }}
+          onClick={() => setCategory("autre")}
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             category === "autre"
               ? "border-primary text-primary"
@@ -273,32 +297,20 @@ const InboxPage = () => {
             })}
           </motion.div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page === 0}
-                onClick={() => setPage((p) => p - 1)}
-                className="text-xs"
-              >
-                Précédent
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                Page {page + 1} / {totalPages} ({totalCount} emails)
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages - 1}
-                onClick={() => setPage((p) => p + 1)}
-                className="text-xs"
-              >
-                Suivant
-              </Button>
-            </div>
-          )}
+          {/* Infinite scroll sentinel */}
+          <div ref={sentinelRef} className="flex items-center justify-center py-4">
+            {isFetchingNextPage && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Chargement…
+              </div>
+            )}
+            {!hasNextPage && allEmails.length > PAGE_SIZE && (
+              <p className="text-xs text-muted-foreground">
+                {allEmails.length} emails chargés
+              </p>
+            )}
+          </div>
         </>
       )}
     </div>
