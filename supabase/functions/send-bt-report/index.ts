@@ -83,7 +83,17 @@ serve(async (req) => {
     const dossier = (op as any)?.dossiers;
     const client = dossier?.clients;
     const clientName = client?.contact_name || client?.name || "Client";
-    const senderCompany = companyName || "Votre prestataire";
+    let senderCompany = companyName || "";
+    if (!senderCompany) {
+      const { data: membership } = await serviceSupabase
+        .from("company_memberships")
+        .select("companies(name, short_name)")
+        .eq("profile_id", user.id)
+        .limit(1)
+        .maybeSingle();
+      const mc = membership?.companies as any;
+      senderCompany = mc?.name || mc?.short_name || "Altasart";
+    }
 
     const finalSubject = subject || `Rapport de fin de chantier — ${(op as any)?.type || "BT"} #${(op as any)?.operation_number || ""}`;
 
