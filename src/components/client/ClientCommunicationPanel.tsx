@@ -127,6 +127,31 @@ export const ClientCommunicationPanel = ({
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Email accounts for bridge sending
+  const [emailAccounts, setEmailAccounts] = useState<Array<{ id: string; label: string; email_address: string; is_default: boolean; status: string }>>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+
+  useEffect(() => {
+    if (composeMode !== "email" || !current || current === "global") return;
+    const fetchAccounts = async () => {
+      const { data } = await supabase
+        .from("email_accounts")
+        .select("id, label, email_address, is_default, status")
+        .eq("company_id", current)
+        .eq("status", "active")
+        .order("is_default", { ascending: false });
+      if (data && data.length > 0) {
+        setEmailAccounts(data);
+        const def = data.find(a => a.is_default) || data[0];
+        setSelectedAccountId(def.id);
+      } else {
+        setEmailAccounts([]);
+        setSelectedAccountId("");
+      }
+    };
+    fetchAccounts();
+  }, [composeMode, current]);
+
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const maxSize = 10 * 1024 * 1024; // 10MB per file
