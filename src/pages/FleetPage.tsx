@@ -149,9 +149,9 @@ const FleetPage = () => {
     <div className={`max-w-7xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
         <div>
-          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Flotte & Engins</h1>
+          <h1 className={`page-title ${isMobile ? "!text-lg" : ""}`}>Flotte & Engins</h1>
           {!isMobile && (
-            <p className="text-muted-foreground mt-1">
+            <p className="page-subtitle">
               {allResources.length} engin{allResources.length !== 1 ? "s" : ""}
               {totalAlerts > 0 && ` — ${totalAlerts} alerte${totalAlerts > 1 ? "s" : ""}`}
               {" — Cliquez pour gérer"}
