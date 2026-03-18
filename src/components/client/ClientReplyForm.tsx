@@ -152,7 +152,7 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, companyId, 
             to: clientEmail,
             subject,
             body,
-            companyId: current && current !== "global" ? current : undefined,
+            companyId: companyId || undefined,
             ...(emailAttachments?.length ? { attachments: emailAttachments } : {}),
           },
         });
