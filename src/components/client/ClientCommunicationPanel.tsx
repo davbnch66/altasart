@@ -214,6 +214,11 @@ export const ClientCommunicationPanel = ({
     // Messages
     const messageEmailIds = new Set(messages.map((m: any) => m.inbound_email_id).filter(Boolean));
     messages.forEach((m: any) => {
+      const msgAttachments = m.attachments && Array.isArray(m.attachments) && m.attachments.length > 0
+        ? m.attachments
+        : m.inbound_emails?.attachments
+          ? (Array.isArray(m.inbound_emails.attachments) ? m.inbound_emails.attachments : [])
+          : [];
       entries.push({
         id: m.id,
         type: "message",
@@ -224,9 +229,10 @@ export const ClientCommunicationPanel = ({
         body: m.body,
         created_at: m.created_at,
         inbound_email_id: m.inbound_email_id,
-        attachments: m.inbound_emails?.attachments
-          ? (Array.isArray(m.inbound_emails.attachments) ? m.inbound_emails.attachments : [])
-          : [],
+        attachments: msgAttachments,
+        delivery_status: m.delivery_status || null,
+        delivered_at: m.delivered_at || null,
+        read_at: m.read_at || null,
       });
     });
 
