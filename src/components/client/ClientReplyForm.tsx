@@ -47,7 +47,7 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, companyId, 
         .from("email_accounts")
         .select("id, label, email_address, is_default, status")
         .eq("company_id", companyId)
-        .eq("status", "active")
+        .in("status", ["active", "testing"])
         .order("is_default", { ascending: false });
       if (data && data.length > 0) {
         setEmailAccounts(data);
