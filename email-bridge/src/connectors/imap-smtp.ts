@@ -31,16 +31,19 @@ export class ImapSmtpConnector implements IEmailConnector {
           message_id: parsed.message_id,
           from_email: parsed.from_email,
           from_name: parsed.from_name,
-          to_emails: parsed.to_emails || [],
-          cc_emails: parsed.cc_emails || [],
+          to_emails: parsed.to_emails.map(a => a.email),
+          cc_emails: parsed.cc_emails.map(a => a.email),
           subject: parsed.subject,
           body_text: parsed.body_text,
           body_html: parsed.body_html,
-          date: new Date(parsed.date),
+          date: new Date(parsed.received_at),
           folder: parsed.folder || 'INBOX',
-          attachments: parsed.attachments || [],
-          in_reply_to: parsed.in_reply_to,
-          references: parsed.references,
+          attachments: (parsed.attachments || []).map(a => ({
+            filename: a.filename,
+            content_type: a.content_type,
+            size: a.size,
+            content_base64: a.content_base64 || '',
+          })),
         });
       } catch (err) {
         logger.warn({ accountId: account.id, err: err instanceof Error ? err.message : String(err) }, 'Failed to parse email');
