@@ -42,12 +42,6 @@ async function encryptValue(plaintext: string, keyHex: string): Promise<string> 
   return btoa(String.fromCharCode(...combined));
 }
 
-/**
- * Gmail OAuth Flow
- * 
- * GET ?action=init — Returns the Google OAuth URL to redirect the user to
- * GET ?action=callback&code=XXX&state=XXX — Exchanges auth code for tokens, stores encrypted
- */
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -67,7 +61,6 @@ serve(async (req) => {
     const redirectUri = `${supabaseUrl}/functions/v1/oauth-gmail-callback?action=callback`;
 
     if (action === "init") {
-      // Verify JWT
       const authHeader = req.headers.get("Authorization");
       if (!authHeader) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -87,14 +80,14 @@ serve(async (req) => {
 
       const body = await req.json();
       const companyId = body.company_id;
+      const returnUrl = body.return_url || null;
       if (!companyId) {
         return new Response(JSON.stringify({ error: "company_id required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // State encodes user/company info for the callback
-      const state = btoa(JSON.stringify({ user_id: user.id, company_id: companyId }));
+      const state = btoa(JSON.stringify({ user_id: user.id, company_id: companyId, return_url: returnUrl }));
 
       const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
       authUrl.searchParams.set("client_id", clientId);
@@ -115,29 +108,33 @@ serve(async (req) => {
       const stateParam = url.searchParams.get("state");
       const error = url.searchParams.get("error");
 
+      let state: { user_id: string; company_id: string; return_url?: string };
+      try {
+        state = JSON.parse(atob(stateParam || ""));
+      } catch {
+        state = { user_id: "", company_id: "", return_url: undefined };
+      }
+
+      const buildRedirect = (success: boolean, detail: string) => {
+        const base = state.return_url || "/parametres";
+        const redirectUrl = new URL(base, base.startsWith("http") ? undefined : "https://placeholder.com");
+        redirectUrl.searchParams.set("oauth_result", success ? "success" : "error");
+        redirectUrl.searchParams.set("oauth_provider", "gmail");
+        if (!success) redirectUrl.searchParams.set("oauth_detail", detail);
+        if (state.return_url?.startsWith("http")) {
+          return redirectUrl.toString();
+        }
+        return redirectUrl.pathname + redirectUrl.search;
+      };
+
       if (error) {
-        return new Response(renderCallbackHtml(false, `Google OAuth error: ${error}`), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, `Google OAuth error: ${error}`), 302);
       }
 
       if (!code || !stateParam) {
-        return new Response(renderCallbackHtml(false, "Missing code or state"), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, "Missing code or state"), 302);
       }
 
-      // Decode state
-      let state: { user_id: string; company_id: string };
-      try {
-        state = JSON.parse(atob(stateParam));
-      } catch {
-        return new Response(renderCallbackHtml(false, "Invalid state"), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
-      }
-
-      // Exchange code for tokens
       const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -153,9 +150,7 @@ serve(async (req) => {
       if (!tokenRes.ok) {
         const text = await tokenRes.text();
         console.error("Google token exchange failed:", text);
-        return new Response(renderCallbackHtml(false, "Token exchange failed"), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, "Token exchange failed"), 302);
       }
 
       const tokens = await tokenRes.json() as {
@@ -164,19 +159,15 @@ serve(async (req) => {
         expires_in: number;
       };
 
-      // Get user's email from Google
       const profileRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       });
       const profile = await profileRes.json() as { emailAddress?: string };
       const emailAddress = profile.emailAddress || "unknown@gmail.com";
 
-      // Encrypt tokens
       const encryptionKey = Deno.env.get("EMAIL_ENCRYPTION_KEY");
       if (!encryptionKey) {
-        return new Response(renderCallbackHtml(false, "Encryption key not configured"), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, "Encryption key not configured"), 302);
       }
 
       const encAccessToken = await encryptValue(tokens.access_token, encryptionKey);
@@ -184,9 +175,7 @@ serve(async (req) => {
         ? await encryptValue(tokens.refresh_token, encryptionKey)
         : null;
 
-      // Store in email_accounts using service role
       const supabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
       const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
       const { error: insertErr } = await supabase.from("email_accounts").insert({
@@ -207,14 +196,10 @@ serve(async (req) => {
 
       if (insertErr) {
         console.error("Insert error:", insertErr);
-        return new Response(renderCallbackHtml(false, insertErr.message), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, insertErr.message), 302);
       }
 
-      return new Response(renderCallbackHtml(true, emailAddress), {
-        headers: { ...corsHeaders, "Content-Type": "text/html" },
-      });
+      return Response.redirect(buildRedirect(true, emailAddress), 302);
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), {
@@ -227,32 +212,3 @@ serve(async (req) => {
     });
   }
 });
-
-function renderCallbackHtml(success: boolean, detail: string): string {
-  return `<!DOCTYPE html>
-<html>
-<head><title>Connexion Gmail</title>
-<style>
-  body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8f9fa; }
-  .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
-  .success { color: #16a34a; }
-  .error { color: #dc2626; }
-  h2 { margin: 0 0 0.5rem; }
-  p { color: #666; margin: 0.5rem 0; }
-  .close-btn { margin-top: 1rem; padding: 0.5rem 1.5rem; background: #000; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
-</style>
-</head>
-<body>
-<div class="card">
-  <h2 class="${success ? "success" : "error"}">${success ? "✓ Connexion réussie" : "✗ Erreur"}</h2>
-  <p>${success ? `Compte ${detail} connecté avec succès.` : detail}</p>
-  <button class="close-btn" onclick="window.close(); if(!window.closed) window.opener?.postMessage({type:'oauth-complete',success:${success}}, '*');">
-    Fermer
-  </button>
-</div>
-<script>
-  window.opener?.postMessage({ type: 'oauth-complete', success: ${success}, provider: 'gmail' }, '*');
-</script>
-</body>
-</html>`;
-}

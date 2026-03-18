@@ -159,33 +159,29 @@ export function EmailAccountsTab() {
     enabled: !!companyId,
   });
 
-  // Listen for OAuth popup completion
+  // Handle OAuth redirect return
   useEffect(() => {
-    const handleOAuthComplete = (payload: { type?: string; success?: boolean; provider?: string }) => {
-      if (payload?.type !== "oauth-complete") return;
+    const params = new URLSearchParams(window.location.search);
+    const oauthResult = params.get("oauth_result");
+    const oauthProvider = params.get("oauth_provider");
 
-      setOauthLoading(null);
+    if (oauthResult) {
+      // Clean URL
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("oauth_result");
+      cleanUrl.searchParams.delete("oauth_provider");
+      cleanUrl.searchParams.delete("oauth_detail");
+      window.history.replaceState({}, "", cleanUrl.toString());
 
-      if (payload.success) {
-        toast.success(`Compte ${payload.provider === "gmail" ? "Gmail" : "Outlook"} connecté !`);
+      if (oauthResult === "success") {
+        toast.success(`Compte ${oauthProvider === "gmail" ? "Gmail" : "Outlook"} connecté !`);
         queryClient.invalidateQueries({ queryKey: ["email-accounts"] });
         setMode("choose");
+      } else {
+        const detail = params.get("oauth_detail");
+        toast.error(detail || "Erreur lors de la connexion OAuth");
       }
-    };
-
-    const handler = (event: MessageEvent) => handleOAuthComplete(event.data ?? {});
-    window.addEventListener("message", handler);
-
-    let channel: BroadcastChannel | null = null;
-    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
-      channel = new BroadcastChannel("oauth-complete");
-      channel.onmessage = (event) => handleOAuthComplete(event.data ?? {});
     }
-
-    return () => {
-      window.removeEventListener("message", handler);
-      channel?.close();
-    };
   }, [queryClient]);
 
   const setField = (key: keyof FormData, value: any) => setForm(f => ({ ...f, [key]: value }));
@@ -198,7 +194,7 @@ export function EmailAccountsTab() {
     }
   };
 
-  // ─── OAuth handlers ───
+  // ─── OAuth handlers (redirect-based for Safari compatibility) ───
   const startOAuth = async (provider: "gmail" | "outlook") => {
     if (!companyId) {
       toast.error("Aucune société sélectionnée");
@@ -220,7 +216,7 @@ export function EmailAccountsTab() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ company_id: companyId }),
+        body: JSON.stringify({ company_id: companyId, return_url: window.location.href }),
       });
 
       if (!res.ok) {
@@ -231,31 +227,8 @@ export function EmailAccountsTab() {
       const result = await res.json();
       if (!result.auth_url) throw new Error("URL d'authentification manquante");
 
-      const width = 600;
-      const height = 700;
-      const left = window.screenX + (window.innerWidth - width) / 2;
-      const top = window.screenY + (window.innerHeight - height) / 2;
-      const popup = window.open(
-        result.auth_url,
-        `oauth-${provider}`,
-        `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no`,
-      );
-
-      if (!popup) {
-        setOauthLoading(null);
-        toast.error("La fenêtre de connexion a été bloquée par le navigateur. Autorisez les popups puis réessayez.");
-        return;
-      }
-
-      popup.focus();
-
-      const timer = window.setInterval(() => {
-        if (popup.closed) {
-          window.clearInterval(timer);
-          setOauthLoading(null);
-          queryClient.invalidateQueries({ queryKey: ["email-accounts"] });
-        }
-      }, 500);
+      // Use full-page redirect instead of popup (Safari COOP fix)
+      window.location.href = result.auth_url;
     } catch (err: any) {
       setOauthLoading(null);
       toast.error(err.message || "Erreur lors de la connexion OAuth");

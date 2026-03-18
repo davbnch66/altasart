@@ -81,13 +81,14 @@ serve(async (req) => {
 
       const body = await req.json();
       const companyId = body.company_id;
+      const returnUrl = body.return_url || null;
       if (!companyId) {
         return new Response(JSON.stringify({ error: "company_id required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const state = btoa(JSON.stringify({ user_id: user.id, company_id: companyId }));
+      const state = btoa(JSON.stringify({ user_id: user.id, company_id: companyId, return_url: returnUrl }));
 
       const authUrl = new URL("https://login.microsoftonline.com/common/oauth2/v2.0/authorize");
       authUrl.searchParams.set("client_id", clientId);
@@ -108,25 +109,32 @@ serve(async (req) => {
       const stateParam = url.searchParams.get("state");
       const error = url.searchParams.get("error");
 
+      // Decode state first to get return_url
+      let state: { user_id: string; company_id: string; return_url?: string };
+      try {
+        state = JSON.parse(atob(stateParam || ""));
+      } catch {
+        state = { user_id: "", company_id: "", return_url: undefined };
+      }
+
+      const buildRedirect = (success: boolean, detail: string) => {
+        const base = state.return_url || "/parametres";
+        const redirectUrl = new URL(base, base.startsWith("http") ? undefined : "https://placeholder.com");
+        redirectUrl.searchParams.set("oauth_result", success ? "success" : "error");
+        redirectUrl.searchParams.set("oauth_provider", "outlook");
+        if (!success) redirectUrl.searchParams.set("oauth_detail", detail);
+        if (state.return_url?.startsWith("http")) {
+          return redirectUrl.toString();
+        }
+        return redirectUrl.pathname + redirectUrl.search;
+      };
+
       if (error) {
-        return new Response(renderCallbackHtml(false, `Microsoft OAuth error: ${error}`), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, `Microsoft OAuth error: ${error}`), 302);
       }
 
       if (!code || !stateParam) {
-        return new Response(renderCallbackHtml(false, "Missing code or state"), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
-      }
-
-      let state: { user_id: string; company_id: string };
-      try {
-        state = JSON.parse(atob(stateParam));
-      } catch {
-        return new Response(renderCallbackHtml(false, "Invalid state"), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, "Missing code or state"), 302);
       }
 
       // Exchange code for tokens
@@ -146,9 +154,7 @@ serve(async (req) => {
       if (!tokenRes.ok) {
         const text = await tokenRes.text();
         console.error("Microsoft token exchange failed:", text);
-        return new Response(renderCallbackHtml(false, "Token exchange failed"), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, "Token exchange failed"), 302);
       }
 
       const tokens = await tokenRes.json() as {
@@ -166,20 +172,13 @@ serve(async (req) => {
 
       const encryptionKey = Deno.env.get("EMAIL_ENCRYPTION_KEY");
       if (!encryptionKey) {
-        return new Response(renderCallbackHtml(false, "Encryption key not configured"), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, "Encryption key not configured"), 302);
       }
 
-      console.log("EMAIL_ENCRYPTION_KEY length:", encryptionKey.length, "chars (need 64 hex chars for 32 bytes)");
-
-      // Validate key length before attempting encryption
       if (encryptionKey.length !== 64) {
         const msg = `EMAIL_ENCRYPTION_KEY must be exactly 64 hex characters (got ${encryptionKey.length})`;
         console.error(msg);
-        return new Response(renderCallbackHtml(false, msg), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, msg), 302);
       }
 
       const encAccessToken = await encryptValue(tokens.access_token, encryptionKey);
@@ -208,14 +207,10 @@ serve(async (req) => {
 
       if (insertErr) {
         console.error("Insert error:", insertErr);
-        return new Response(renderCallbackHtml(false, insertErr.message), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, insertErr.message), 302);
       }
 
-      return new Response(renderCallbackHtml(true, emailAddress), {
-        headers: { ...corsHeaders, "Content-Type": "text/html" },
-      });
+      return Response.redirect(buildRedirect(true, emailAddress), 302);
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), {
@@ -228,41 +223,3 @@ serve(async (req) => {
     });
   }
 });
-
-function renderCallbackHtml(success: boolean, detail: string): string {
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>Connexion Outlook</title>
-<style>
-  body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f8f9fa; }
-  .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }
-  .success { color: #16a34a; }
-  .error { color: #dc2626; }
-  h2 { margin: 0 0 0.5rem; }
-  p { color: #666; margin: 0.5rem 0; }
-  .close-btn { margin-top: 1rem; padding: 0.5rem 1.5rem; background: #000; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
-</style>
-</head>
-<body>
-<div class="card">
-  <h2 class="${success ? "success" : "error"}">${success ? "✓ Connexion réussie" : "✗ Erreur"}</h2>
-  <p>${success ? `Compte ${detail} connecté avec succès.` : detail}</p>
-  <button class="close-btn" onclick="window.close()">
-    Fermer
-  </button>
-</div>
-<script>
-  const payload = { type: 'oauth-complete', success: ${success}, provider: 'outlook' };
-  try { window.opener?.postMessage(payload, '*'); } catch {}
-  try {
-    const channel = new BroadcastChannel('oauth-complete');
-    channel.postMessage(payload);
-    channel.close();
-  } catch {}
-  setTimeout(() => {
-    try { window.close(); } catch {}
-  }, 150);
-</script>
-</body>
-</html>`;
-}
