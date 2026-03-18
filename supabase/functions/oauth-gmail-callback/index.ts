@@ -86,7 +86,140 @@ serve(async (req) => {
       }
 
       const body = await req.json();
-      const body = await req.json();
+      const companyId = body.company_id;
+      const returnUrl = body.return_url || null;
+      if (!companyId) {
+        return new Response(JSON.stringify({ error: "company_id required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // State encodes user/company info + return URL for the callback
+      const state = btoa(JSON.stringify({ user_id: user.id, company_id: companyId, return_url: returnUrl }));
+
+      const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+      authUrl.searchParams.set("client_id", clientId);
+      authUrl.searchParams.set("redirect_uri", redirectUri);
+      authUrl.searchParams.set("response_type", "code");
+      authUrl.searchParams.set("scope", GOOGLE_SCOPES);
+      authUrl.searchParams.set("access_type", "offline");
+      authUrl.searchParams.set("prompt", "consent");
+      authUrl.searchParams.set("state", state);
+
+      return new Response(JSON.stringify({ auth_url: authUrl.toString() }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "callback") {
+      const code = url.searchParams.get("code");
+      const stateParam = url.searchParams.get("state");
+      const error = url.searchParams.get("error");
+
+      let state: { user_id: string; company_id: string; return_url?: string };
+      try {
+        state = JSON.parse(atob(stateParam || ""));
+      } catch {
+        state = { user_id: "", company_id: "", return_url: undefined };
+      }
+
+      const buildRedirect = (success: boolean, detail: string) => {
+        const base = state.return_url || "/parametres";
+        const redirectUrl = new URL(base, base.startsWith("http") ? undefined : "https://placeholder.com");
+        redirectUrl.searchParams.set("oauth_result", success ? "success" : "error");
+        redirectUrl.searchParams.set("oauth_provider", "gmail");
+        if (!success) redirectUrl.searchParams.set("oauth_detail", detail);
+        if (state.return_url?.startsWith("http")) {
+          return redirectUrl.toString();
+        }
+        return redirectUrl.pathname + redirectUrl.search;
+      };
+
+      if (error) {
+        return Response.redirect(buildRedirect(false, `Google OAuth error: ${error}`), 302);
+      }
+
+      if (!code || !stateParam) {
+        return Response.redirect(buildRedirect(false, "Missing code or state"), 302);
+      }
+
+      const tokenRes = await fetch(GOOGLE_TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: redirectUri,
+        }),
+      });
+
+      if (!tokenRes.ok) {
+        const text = await tokenRes.text();
+        console.error("Google token exchange failed:", text);
+        return Response.redirect(buildRedirect(false, "Token exchange failed"), 302);
+      }
+
+      const tokens = await tokenRes.json() as {
+        access_token: string;
+        refresh_token?: string;
+        expires_in: number;
+      };
+
+      const profileRes = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      });
+      const profile = await profileRes.json() as { emailAddress?: string };
+      const emailAddress = profile.emailAddress || "unknown@gmail.com";
+
+      const encryptionKey = Deno.env.get("EMAIL_ENCRYPTION_KEY");
+      if (!encryptionKey) {
+        return Response.redirect(buildRedirect(false, "Encryption key not configured"), 302);
+      }
+
+      const encAccessToken = await encryptValue(tokens.access_token, encryptionKey);
+      const encRefreshToken = tokens.refresh_token
+        ? await encryptValue(tokens.refresh_token, encryptionKey)
+        : null;
+
+      const supabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
+
+      const { error: insertErr } = await supabase.from("email_accounts").insert({
+        company_id: state.company_id,
+        email_address: emailAddress,
+        label: `Gmail - ${emailAddress}`,
+        provider: "gmail",
+        auth_method: "oauth2",
+        oauth_access_token_encrypted: encAccessToken,
+        oauth_refresh_token_encrypted: encRefreshToken,
+        oauth_token_expires_at: expiresAt,
+        oauth_client_id: clientId,
+        status: "active",
+        sync_enabled: true,
+        auto_link_clients: true,
+        is_default: false,
+      });
+
+      if (insertErr) {
+        console.error("Insert error:", insertErr);
+        return Response.redirect(buildRedirect(false, insertErr.message), 302);
+      }
+
+      return Response.redirect(buildRedirect(true, emailAddress), 302);
+    }
+
+    return new Response(JSON.stringify({ error: "Unknown action" }), {
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e: any) {
+    console.error("oauth-gmail-callback error:", e);
+    return new Response(JSON.stringify({ error: e.message || "Internal error" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
       const companyId = body.company_id;
       const returnUrl = body.return_url || null;
       if (!companyId) {
