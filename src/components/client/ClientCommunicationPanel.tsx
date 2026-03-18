@@ -337,10 +337,22 @@ export const ClientCommunicationPanel = ({
     }
     setSending(true);
     try {
+      // Convert attachments to base64
+      const emailAttachments = attachedFiles.length > 0 ? await filesToBase64(attachedFiles) : undefined;
+
       const { data, error } = await supabase.functions.invoke("send-visite-email", {
-        body: { to: clientEmail, subject, body },
+        body: { 
+          to: clientEmail, 
+          subject, 
+          body, 
+          companyId,
+          ...(emailAttachments?.length ? { attachments: emailAttachments } : {}),
+        },
       });
       if (error || data?.error) throw new Error(data?.error || "Erreur d'envoi");
+
+      // Save message metadata for attachments display
+      const attachmentsMeta = attachedFiles.map(f => ({ filename: f.name, content_type: f.type, size: f.size }));
 
       await supabase.from("messages").insert({
         company_id: companyId,
@@ -352,11 +364,14 @@ export const ClientCommunicationPanel = ({
         body,
         is_read: true,
         created_by: user?.id,
-      });
+        delivery_status: "sent",
+        attachments: attachmentsMeta.length > 0 ? attachmentsMeta : [],
+      } as any);
 
       toast.success("Email envoyé");
       setSubject("");
       setBody("");
+      setAttachedFiles([]);
       setComposeMode("none");
       queryClient.invalidateQueries({ queryKey: ["client-messages", clientId] });
     } catch (e: any) {
