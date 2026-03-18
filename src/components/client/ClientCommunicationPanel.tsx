@@ -1001,6 +1001,7 @@ export const ClientCommunicationPanel = ({
               >
                 {sending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
                 Envoyer
+                {selectedAccount && <span className="ml-1 text-[10px] opacity-70">via {selectedAccount.email_address}</span>}
               </Button>
             </div>
             {!clientEmail && (
