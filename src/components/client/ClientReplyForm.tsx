@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { useCompany } from "@/contexts/CompanyContext";
 
 interface EmailAccount {
   id: string;
@@ -21,12 +20,12 @@ interface ClientReplyFormProps {
   clientId: string;
   clientName: string;
   clientEmail?: string | null;
+  companyId: string;
   onSent?: () => void;
 }
 
-export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: ClientReplyFormProps) => {
+export const ClientReplyForm = ({ clientId, clientName, clientEmail, companyId, onSent }: ClientReplyFormProps) => {
   const { user } = useAuth();
-  const { current } = useCompany();
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [tone, setTone] = useState("cordial");
@@ -42,13 +41,13 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: C
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
 
   useEffect(() => {
-    if (!expanded || !current || current === "global") return;
+    if (!expanded || !companyId) return;
     const fetchAccounts = async () => {
       const { data } = await supabase
         .from("email_accounts")
         .select("id, label, email_address, is_default, status")
-        .eq("company_id", current)
-        .eq("status", "active")
+        .eq("company_id", companyId)
+        .in("status", ["active", "testing"])
         .order("is_default", { ascending: false });
       if (data && data.length > 0) {
         setEmailAccounts(data);
@@ -60,7 +59,7 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: C
       }
     };
     fetchAccounts();
-  }, [expanded, current]);
+  }, [expanded, companyId]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -151,7 +150,7 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: C
             to: clientEmail,
             subject,
             body,
-            companyId: current && current !== "global" ? current : undefined,
+            companyId: companyId || undefined,
             ...(emailAttachments?.length ? { attachments: emailAttachments } : {}),
           },
         });
@@ -159,9 +158,9 @@ export const ClientReplyForm = ({ clientId, clientName, clientEmail, onSent }: C
 
         // Record in messages for timeline (bridge does this automatically via confirm)
         const attachmentsMeta = attachedFiles.map(f => ({ filename: f.name, content_type: f.type, size: f.size }));
-        if (current && current !== "global") {
+        if (companyId) {
           await supabase.from("messages").insert({
-            company_id: current,
+            company_id: companyId,
             client_id: clientId,
             channel: "email",
             direction: "outbound",

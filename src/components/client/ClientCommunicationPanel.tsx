@@ -132,13 +132,13 @@ export const ClientCommunicationPanel = ({
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
 
   useEffect(() => {
-    if (composeMode !== "email" || !current || current === "global") return;
+    if (composeMode !== "email" || !companyId) return;
     const fetchAccounts = async () => {
       const { data } = await supabase
         .from("email_accounts")
         .select("id, label, email_address, is_default, status")
-        .eq("company_id", current)
-        .eq("status", "active")
+        .eq("company_id", companyId)
+        .in("status", ["active", "testing"])
         .order("is_default", { ascending: false });
       if (data && data.length > 0) {
         setEmailAccounts(data);
@@ -150,7 +150,7 @@ export const ClientCommunicationPanel = ({
       }
     };
     fetchAccounts();
-  }, [composeMode, current]);
+  }, [composeMode, companyId]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
