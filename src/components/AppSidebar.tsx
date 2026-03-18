@@ -100,13 +100,19 @@ export const AppSidebar: React.FC = () => {
     queryKey: ["inbox-pending-count", companyIds],
     queryFn: async () => {
       if (companyIds.length === 0) return 0;
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from("inbound_emails")
-        .select("id", { count: "exact", head: true })
+        .select("id, ai_analysis")
         .in("company_id", companyIds)
-        .eq("status", "pending");
-      if (error) return 0;
-      return count || 0;
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error || !data) return 0;
+      // Count business-relevant emails (not just "autre")
+      return data.filter((e: any) => {
+        const types: string[] = e.ai_analysis?.type_demande || [];
+        if (types.length === 0) return true; // pending analysis
+        return types.some((t: string) => t !== "autre");
+      }).length;
     },
     enabled: companyIds.length > 0,
     refetchInterval: 30000,

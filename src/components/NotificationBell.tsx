@@ -144,9 +144,9 @@ export const NotificationBell = () => {
       <PopoverContent
         side="top"
         align="end"
-        className="w-80 p-0 z-50 bg-popover border shadow-lg"
+        className="w-80 p-0 z-50 bg-popover border shadow-lg max-h-[70vh] flex flex-col"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b">
+        <div className="flex items-center justify-between px-4 py-3 border-b shrink-0">
           <h4 className="text-sm font-semibold">Notifications</h4>
           <div className="flex items-center gap-2">
             {unreadCount > 0 && (
@@ -167,7 +167,7 @@ export const NotificationBell = () => {
             )}
           </div>
         </div>
-        <ScrollArea className="max-h-80">
+        <ScrollArea className="flex-1 overflow-y-auto">
           {notifications.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">
               Aucune notification
@@ -187,7 +187,7 @@ export const NotificationBell = () => {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-1.5">
-                      <p className={`text-sm truncate ${!notif.read ? "font-semibold" : "font-medium"}`}>
+                      <p className={`text-sm line-clamp-2 ${!notif.read ? "font-semibold" : "font-medium"}`}>
                         {notif.title}
                       </p>
                       {!notif.read && (
@@ -195,7 +195,7 @@ export const NotificationBell = () => {
                       )}
                     </div>
                     {notif.body && (
-                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
                         {notif.body}
                       </p>
                     )}
