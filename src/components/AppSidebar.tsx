@@ -69,13 +69,13 @@ const companyLogoMap: Record<string, string> = {
 };
 
 const ROLE_BADGE_COLOR: Record<string, string> = {
-  admin: "bg-primary/15 text-primary border-primary/30",
-  manager: "bg-blue-500/15 text-blue-600 border-blue-500/30",
-  commercial: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
-  exploitation: "bg-orange-500/15 text-orange-600 border-orange-500/30",
-  comptable: "bg-purple-500/15 text-purple-600 border-purple-500/30",
-  terrain: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30",
-  readonly: "bg-muted text-muted-foreground border-border",
+  admin: "bg-primary/10 text-primary",
+  manager: "bg-blue-500/10 text-blue-600",
+  commercial: "bg-emerald-500/10 text-emerald-600",
+  exploitation: "bg-orange-500/10 text-orange-600",
+  comptable: "bg-purple-500/10 text-purple-600",
+  terrain: "bg-yellow-500/10 text-yellow-700",
+  readonly: "bg-muted text-muted-foreground",
 };
 
 export const AppSidebar: React.FC = () => {
@@ -85,7 +85,6 @@ export const AppSidebar: React.FC = () => {
   const navigate = useNavigate();
   const { role } = useMyRole();
 
-  // Track collapsed categories (all open by default)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const toggleCategory = (label: string) => {
@@ -107,10 +106,9 @@ export const AppSidebar: React.FC = () => {
         .order("created_at", { ascending: false })
         .limit(100);
       if (error || !data) return 0;
-      // Count business-relevant emails (not just "autre")
       return data.filter((e: any) => {
         const types: string[] = e.ai_analysis?.type_demande || [];
-        if (types.length === 0) return true; // pending analysis
+        if (types.length === 0) return true;
         return types.some((t: string) => t !== "autre");
       }).length;
     },
@@ -124,28 +122,30 @@ export const AppSidebar: React.FC = () => {
   };
 
   return (
-    <aside className="flex h-screen w-60 flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
+    <aside className="flex h-screen w-[240px] flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       {/* Company Switcher */}
-      <div className="p-4 border-b border-sidebar-border">
+      <div className="px-3 pt-4 pb-3">
         <DropdownMenu>
-          <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium hover:bg-sidebar-accent transition-colors outline-none">
+          <DropdownMenuTrigger className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium hover:bg-sidebar-accent transition-colors outline-none">
             {companyLogoMap[currentCompany.color] ? (
               <img src={companyLogoMap[currentCompany.color]} alt={currentCompany.name} className="h-6 w-6 rounded object-contain" />
             ) : (
-              <div className={`h-2.5 w-2.5 rounded-full ${companyDotColor[currentCompany.color] || "bg-primary"}`} />
+              <div className="h-6 w-6 rounded-md bg-sidebar-accent flex items-center justify-center">
+                <Building2 className="h-3.5 w-3.5 text-sidebar-foreground" />
+              </div>
             )}
-            <span className="flex-1 text-left text-sidebar-primary truncate">{currentCompany.name}</span>
-            <ChevronDown className="h-4 w-4 text-sidebar-muted" />
+            <span className="flex-1 text-left text-sidebar-primary truncate text-[13px]">{currentCompany.name}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-sidebar-muted" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-52">
             {companies.map((c) => (
-              <DropdownMenuItem key={c.id} onClick={() => setCurrent(c.id)} className="flex items-center gap-3">
+              <DropdownMenuItem key={c.id} onClick={() => setCurrent(c.id)} className="flex items-center gap-2.5">
                 {companyLogoMap[c.color] ? (
                   <img src={companyLogoMap[c.color]} alt={c.name} className="h-5 w-5 rounded object-contain" />
                 ) : (
                   <div className={`h-2 w-2 rounded-full ${companyDotColor[c.color] || "bg-primary"}`} />
                 )}
-                <span>{c.name}</span>
+                <span className="text-[13px]">{c.name}</span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -153,30 +153,20 @@ export const AppSidebar: React.FC = () => {
       </div>
 
       {/* Search */}
-      <div className="px-3 pt-3">
+      <div className="px-3 pb-2">
         <GlobalSearch />
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto scrollbar-thin py-2 px-3">
-        {/* Dashboard - always on top */}
+      <nav className="flex-1 overflow-y-auto scrollbar-thin py-1 px-2">
+        {/* Dashboard */}
         {canAccessRoute(role, "/") && (
-          <NavLink
+          <SidebarNavLink
             to="/"
-            className="relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground mb-1"
-          >
-            {location.pathname === "/" && (
-              <motion.div
-                layoutId="sidebar-active"
-                className="absolute inset-0 rounded-md bg-sidebar-accent"
-                transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
-              />
-            )}
-            <LayoutDashboard className="relative z-10 h-4 w-4" />
-            <span className={`relative z-10 flex-1 ${location.pathname === "/" ? "text-sidebar-accent-foreground font-medium" : ""}`}>
-              Dashboard
-            </span>
-          </NavLink>
+            icon={LayoutDashboard}
+            label="Dashboard"
+            isActive={location.pathname === "/"}
+          />
         )}
 
         {/* Categorized nav items */}
@@ -184,20 +174,18 @@ export const AppSidebar: React.FC = () => {
           const visibleItems = cat.items.filter((item) => canAccessRoute(role, item.to));
           if (visibleItems.length === 0) return null;
           const isCollapsed = !!collapsed[cat.label];
-          const hasActiveChild = visibleItems.some(
-            (item) => location.pathname.startsWith(item.to)
-          );
+          const hasActiveChild = visibleItems.some((item) => location.pathname.startsWith(item.to));
 
           return (
-            <div key={cat.label} className="mt-2">
+            <div key={cat.label} className="mt-3">
               <button
                 onClick={() => toggleCategory(cat.label)}
-                className="flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-muted hover:text-sidebar-foreground transition-colors"
+                className="flex w-full items-center gap-1.5 rounded-md px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-sidebar-muted hover:text-sidebar-foreground transition-colors"
               >
                 <ChevronRight className={`h-3 w-3 transition-transform duration-200 ${isCollapsed ? "" : "rotate-90"}`} />
                 <span className="flex-1 text-left">{cat.label}</span>
                 {isCollapsed && hasActiveChild && (
-                  <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                  <div className="h-1.5 w-1.5 rounded-full bg-sidebar-ring" />
                 )}
               </button>
 
@@ -210,32 +198,18 @@ export const AppSidebar: React.FC = () => {
                     transition={{ duration: 0.2 }}
                     className="overflow-hidden"
                   >
-                    <div className="space-y-0.5 mt-0.5">
+                    <div className="mt-0.5 space-y-px">
                       {visibleItems.map((item) => {
                         const isActive = location.pathname.startsWith(item.to);
                         return (
-                          <NavLink
+                          <SidebarNavLink
                             key={item.to}
                             to={item.to}
-                            className="relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                          >
-                            {isActive && (
-                              <motion.div
-                                layoutId="sidebar-active"
-                                className="absolute inset-0 rounded-md bg-sidebar-accent"
-                                transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
-                              />
-                            )}
-                            <item.icon className="relative z-10 h-4 w-4" />
-                            <span className={`relative z-10 flex-1 ${isActive ? "text-sidebar-accent-foreground font-medium" : ""}`}>
-                              {item.label}
-                            </span>
-                            {item.to === "/inbox" && pendingCount > 0 && (
-                              <span className="relative z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1">
-                                {pendingCount > 99 ? "99+" : pendingCount}
-                              </span>
-                            )}
-                          </NavLink>
+                            icon={item.icon}
+                            label={item.label}
+                            isActive={isActive}
+                            badge={item.to === "/inbox" && pendingCount > 0 ? pendingCount : undefined}
+                          />
                         );
                       })}
                     </div>
@@ -246,47 +220,67 @@ export const AppSidebar: React.FC = () => {
           );
         })}
 
-        {/* Settings - always at bottom of nav */}
+        {/* Settings */}
         {canAccessRoute(role, "/parametres") && (
-          <NavLink
-            to="/parametres"
-            className="relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground mt-2"
-          >
-            {location.pathname.startsWith("/parametres") && (
-              <motion.div
-                layoutId="sidebar-active"
-                className="absolute inset-0 rounded-md bg-sidebar-accent"
-                transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
-              />
-            )}
-            <Settings className="relative z-10 h-4 w-4" />
-            <span className={`relative z-10 flex-1 ${location.pathname.startsWith("/parametres") ? "text-sidebar-accent-foreground font-medium" : ""}`}>
-              Paramètres
-            </span>
-          </NavLink>
+          <div className="mt-3">
+            <SidebarNavLink
+              to="/parametres"
+              icon={Settings}
+              label="Paramètres"
+              isActive={location.pathname.startsWith("/parametres")}
+            />
+          </div>
         )}
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-sidebar-border p-4">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center text-xs font-semibold text-sidebar-accent-foreground shrink-0">
+      <div className="border-t border-sidebar-border p-3">
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-lg bg-sidebar-accent flex items-center justify-center text-[11px] font-semibold text-sidebar-accent-foreground shrink-0">
             {user?.email?.substring(0, 2).toUpperCase() || "??"}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-primary truncate">
+            <p className="text-[13px] font-medium text-sidebar-primary truncate">
               {user?.user_metadata?.full_name || "Utilisateur"}
             </p>
-            <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium ${ROLE_BADGE_COLOR[role] || ROLE_BADGE_COLOR.readonly}`}>
+            <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ${ROLE_BADGE_COLOR[role] || ROLE_BADGE_COLOR.readonly}`}>
               {ROLE_LABELS[role] || role}
             </span>
           </div>
           <NotificationBell />
-          <button onClick={handleSignOut} className="p-1.5 rounded hover:bg-sidebar-accent transition-colors" title="Se déconnecter">
-            <LogOut className="h-4 w-4 text-sidebar-muted" />
+          <button onClick={handleSignOut} className="p-1.5 rounded-md hover:bg-sidebar-accent transition-colors" title="Se déconnecter">
+            <LogOut className="h-3.5 w-3.5 text-sidebar-muted" />
           </button>
         </div>
       </div>
     </aside>
   );
 };
+
+// Extracted nav link component for consistency
+function SidebarNavLink({ to, icon: Icon, label, isActive, badge }: {
+  to: string;
+  icon: React.ElementType;
+  label: string;
+  isActive: boolean;
+  badge?: number;
+}) {
+  return (
+    <NavLink
+      to={to}
+      className={`relative flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] transition-colors ${
+        isActive
+          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+      }`}
+    >
+      <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-sidebar-accent-foreground" : "text-sidebar-muted"}`} />
+      <span className="flex-1 truncate">{label}</span>
+      {badge !== undefined && badge > 0 && (
+        <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
+    </NavLink>
+  );
+}
