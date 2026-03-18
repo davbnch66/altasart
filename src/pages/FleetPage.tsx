@@ -175,10 +175,10 @@ const FleetPage = () => {
             <button
               key={f.key}
               onClick={() => setTypeFilter(f.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+              className={`filter-chip ${
                 typeFilter === f.key
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card text-muted-foreground border-border hover:bg-muted"
+                  ? "filter-chip-active"
+                  : "filter-chip-inactive"
               }`}
             >
               {f.label} <span className="opacity-60">({f.count})</span>
