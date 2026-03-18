@@ -73,7 +73,19 @@ serve(async (req) => {
     const fallbackBody: string = body.body || "";
     const fallbackClientName: string = body.clientName || "";
     const fallbackContactName: string = body.contactName || "";
-    const fallbackCompanyName: string = body.companyName || "Votre prestataire";
+    let fallbackCompanyName: string = body.companyName || "";
+
+    // Resolve company name from user's membership if not provided
+    if (!fallbackCompanyName) {
+      const { data: membership } = await serviceSupabase
+        .from("company_memberships")
+        .select("companies(name, short_name)")
+        .eq("profile_id", user.id)
+        .limit(1)
+        .maybeSingle();
+      const mc = membership?.companies as any;
+      fallbackCompanyName = mc?.name || mc?.short_name || "Altasart";
+    }
 
     if (!to || typeof to !== "string" || !to.includes("@") || to.length > 320) {
       return new Response(
