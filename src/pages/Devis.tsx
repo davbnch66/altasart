@@ -209,12 +209,12 @@ const Devis = () => {
           <button
             key={key}
             onClick={() => setStatusFilter(key === "all" ? null : statusFilter === key ? null : key)}
-            className={`shrink-0 rounded-full font-medium transition-colors ${
-              isMobile ? "px-2.5 py-1 text-[11px]" : "px-3 py-1.5 text-xs"
+            className={`filter-chip ${
+              isMobile ? "px-2.5 py-1 text-[11px]" : ""
             } ${
               (key === "all" && !statusFilter) || statusFilter === key
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                ? "filter-chip-active"
+                : "filter-chip-inactive"
             }`}
           >
             {label} ({counts[key] || 0})
