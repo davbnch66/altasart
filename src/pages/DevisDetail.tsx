@@ -366,8 +366,8 @@ const DevisDetail = () => {
       </motion.div>
 
       {/* Objet — editable inline */}
-      <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
-        <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1">Objet</h3>
+      <div className={`card-elevated ${isMobile ? "p-3" : "p-4"}`}>
+        <h3 className="section-label mb-1">Objet</h3>
         <div className={isMobile ? "text-sm" : "text-base"}>
           <InlineEdit
             value={devis.objet}
