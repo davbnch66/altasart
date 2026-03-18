@@ -26,7 +26,6 @@ interface ClientReplyFormProps {
 
 export const ClientReplyForm = ({ clientId, clientName, clientEmail, companyId, onSent }: ClientReplyFormProps) => {
   const { user } = useAuth();
-  const { current } = useCompany();
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [tone, setTone] = useState("cordial");
