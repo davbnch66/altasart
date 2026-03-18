@@ -241,10 +241,20 @@ const ClientList = ({ filtered, isMobile, navigate }: { filtered: any[]; isMobil
               ))}
             </tbody>
           </table>
+          <ScrollSentinel sentinelRef={sentinelRef} hasMore={hasMore} />
         </motion.div>
-      )}
-    </div>
-  );
+      );
 };
+
+const ScrollSentinel = ({ sentinelRef, hasMore }: { sentinelRef: (node: HTMLDivElement | null) => void; hasMore: boolean }) => (
+  <div ref={sentinelRef} className="flex items-center justify-center py-3">
+    {hasMore && (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Chargement…
+      </div>
+    )}
+  </div>
+);
 
 export default Clients;
