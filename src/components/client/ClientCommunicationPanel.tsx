@@ -900,6 +900,35 @@ export const ClientCommunicationPanel = ({
                 Annuler
               </button>
             </div>
+
+            {/* Email account selector */}
+            {emailAccounts.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <Mail className="h-3 w-3 text-muted-foreground shrink-0" />
+                <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                  <SelectTrigger className="h-7 text-[10px] flex-1">
+                    <SelectValue placeholder="Compte…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {emailAccounts.map(acc => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        <span className="flex items-center gap-1">
+                          <span>{acc.label}</span>
+                          <span className="text-muted-foreground">({acc.email_address})</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {emailAccounts.length === 0 && (
+              <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <Mail className="h-3 w-3" />
+                Aucun compte configuré — envoi via adresse par défaut
+              </p>
+            )}
+
             <Input
               placeholder="Objet"
               value={subject}
