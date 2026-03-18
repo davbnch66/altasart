@@ -216,7 +216,7 @@ export function EmailAccountsTab() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ company_id: companyId }),
+        body: JSON.stringify({ company_id: companyId, return_url: window.location.href }),
       });
 
       if (!res.ok) {

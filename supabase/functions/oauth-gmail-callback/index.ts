@@ -162,9 +162,7 @@ serve(async (req) => {
       if (!tokenRes.ok) {
         const text = await tokenRes.text();
         console.error("Google token exchange failed:", text);
-        return new Response(renderCallbackHtml(false, "Token exchange failed"), {
-          headers: { ...corsHeaders, "Content-Type": "text/html" },
-        });
+        return Response.redirect(buildRedirect(false, "Token exchange failed"), 302);
       }
 
       const tokens = await tokenRes.json() as {
