@@ -606,11 +606,11 @@ const InboxPage = () => {
         counts[folder]++;
       }
       // Per-account global count
-      if (email._accountId) {
-        const accKey = `account:${email._accountId}`;
+      if (email._account_id) {
+        const accKey = `account:${email._account_id}`;
         counts[accKey] = (counts[accKey] || 0) + 1;
         // Per-account per-folder count
-        const accFolderKey = `account:${email._accountId}:${folder}`;
+        const accFolderKey = `account:${email._account_id}:${folder}`;
         counts[accFolderKey] = (counts[accFolderKey] || 0) + 1;
       }
     }
