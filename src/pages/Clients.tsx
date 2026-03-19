@@ -37,19 +37,43 @@ const Clients = () => {
     queryKey: ["clients", current],
     queryFn: async () => {
       if (current !== "global") {
-        const { data: links } = await supabase
-          .from("client_companies" as any)
-          .select("client_id")
-          .eq("company_id", current);
-        const clientIds = (links as any[])?.map((l: any) => l.client_id) || [];
-        if (clientIds.length === 0) return [];
-        const { data, error } = await supabase
+        const [linksRes, primaryRes] = await Promise.all([
+          supabase
+            .from("client_companies" as any)
+            .select("client_id")
+            .eq("company_id", current),
+          supabase
+            .from("clients")
+            .select("*, companies(short_name, color)")
+            .eq("company_id", current)
+            .order("created_at", { ascending: false }),
+        ]);
+
+        if (linksRes.error) throw linksRes.error;
+        if (primaryRes.error) throw primaryRes.error;
+
+        const clientIds = [...new Set(((linksRes.data as any[]) || []).map((link: any) => link.client_id).filter(Boolean))];
+
+        if (clientIds.length === 0) {
+          return primaryRes.data || [];
+        }
+
+        const { data: linkedClients, error: linkedError } = await supabase
           .from("clients")
           .select("*, companies(short_name, color)")
           .in("id", clientIds)
           .order("created_at", { ascending: false });
-        if (error) throw error;
-        return data || [];
+
+        if (linkedError) throw linkedError;
+
+        const mergedClients = new Map<string, any>();
+        [...(primaryRes.data || []), ...(linkedClients || [])].forEach((client: any) => {
+          mergedClients.set(client.id, client);
+        });
+
+        return Array.from(mergedClients.values()).sort(
+          (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        );
       }
       const { data, error } = await supabase
         .from("clients")
