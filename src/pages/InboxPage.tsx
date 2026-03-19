@@ -188,6 +188,30 @@ const InboxPage = () => {
     enabled: companyIds.length > 0,
   });
 
+  // ============ EMAIL FLAGS ============
+  const { data: emailFlagAssignments = [] } = useQuery({
+    queryKey: ["email-flag-assignments", companyIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("email_flag_assignments")
+        .select("*")
+        .in("company_id", companyIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: companyIds.length > 0,
+  });
+
+  // Build a map: emailId → flag_color[]
+  const emailFlagsMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    emailFlagAssignments.forEach((f: any) => {
+      if (!map[f.inbound_email_id]) map[f.inbound_email_id] = [];
+      map[f.inbound_email_id].push(f.flag_color);
+    });
+    return map;
+  }, [emailFlagAssignments]);
+
   // Determine which folder filter to apply for inbound_emails
   const isLabelFolder = currentFolder.startsWith("label:");
   const activeLabelId = isLabelFolder ? currentFolder.replace("label:", "") : null;
