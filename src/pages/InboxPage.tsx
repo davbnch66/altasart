@@ -76,6 +76,16 @@ const readFilterLabels: Record<ReadFilter, string> = {
   read: "Lus",
 };
 
+// ============ FLAG COLORS ============
+const FLAG_COLORS = [
+  { key: "red", color: "#ef4444", label: "Rouge — Urgent" },
+  { key: "orange", color: "#f97316", label: "Orange — Important" },
+  { key: "yellow", color: "#eab308", label: "Jaune — En attente" },
+  { key: "green", color: "#22c55e", label: "Vert — Traité" },
+  { key: "blue", color: "#3b82f6", label: "Bleu — Info" },
+  { key: "purple", color: "#8b5cf6", label: "Violet — Perso" },
+];
+
 const isBusinessRelevant = (email: any): boolean => {
   const types: string[] = email.ai_analysis?.type_demande || [];
   if (types.length === 0) return true;
