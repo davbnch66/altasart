@@ -76,7 +76,7 @@ const InboxPage = () => {
     : [current];
 
   // Clear selection when changing category
-  useEffect(() => { setSelectedIds(new Set()); }, [category]);
+  useEffect(() => { setSelectedIds(new Set()); setSelectionMode(false); }, [category]);
 
   const { data: profilesMap = {} } = useQuery({
     queryKey: ["profiles-map"],
