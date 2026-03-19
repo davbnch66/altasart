@@ -174,6 +174,11 @@ const InboxPage = () => {
   const allVisibleSelected = filteredEmails.length > 0 && filteredEmails.every((e: any) => selectedIds.has(e.id));
   const someSelected = selectedIds.size > 0;
 
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
   const toggleSelectAll = () => {
     if (allVisibleSelected) {
       setSelectedIds(new Set());
