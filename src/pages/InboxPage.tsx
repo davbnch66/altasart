@@ -86,10 +86,15 @@ const FLAG_COLORS = [
   { key: "purple", color: "#8b5cf6", label: "Violet — Perso" },
 ];
 
-const isBusinessRelevant = (email: any): boolean => {
+const isClientRequest = (email: any): boolean => {
   const types: string[] = email.ai_analysis?.type_demande || [];
-  if (types.length === 0) return true;
-  return types.some((t: string) => t !== "autre");
+  return types.some((t: string) => ["devis", "visite", "information", "relance", "confirmation"].includes(t));
+};
+
+const isOther = (email: any): boolean => {
+  const types: string[] = email.ai_analysis?.type_demande || [];
+  if (types.length === 0) return false;
+  return types.every((t: string) => t === "autre");
 };
 
 const InboxPage = () => {
