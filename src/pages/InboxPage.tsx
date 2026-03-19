@@ -140,6 +140,13 @@ const InboxPage = () => {
     setDeleteDialogOpen(false);
   }, [category, currentFolder]);
 
+  const refreshMailboxQueries = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+    queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+    queryClient.invalidateQueries({ queryKey: ["sent-emails"] });
+    queryClient.invalidateQueries({ queryKey: ["synced-emails"] });
+  }, [queryClient]);
+
   // ============ REALTIME SUBSCRIPTION ============
   useEffect(() => {
     if (companyIds.length === 0) return;
@@ -149,40 +156,40 @@ const InboxPage = () => {
         "postgres_changes",
         { event: "*", schema: "public", table: "inbound_emails" },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
-          queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+          refreshMailboxQueries();
         }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [companyIds, queryClient]);
+  }, [companyIds, refreshMailboxQueries]);
 
   // ============ AUTO-POLL (every 30s) ============
   useEffect(() => {
     const poll = async () => {
       try {
-        await supabase.functions.invoke("poll-email-accounts", { body: {} });
+        const { error } = await supabase.functions.invoke("poll-email-accounts", { body: {} });
+        if (!error) refreshMailboxQueries();
       } catch (_) {}
     };
     poll(); // immediate first poll
     const interval = setInterval(poll, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshMailboxQueries]);
 
   // ============ MANUAL SYNC ============
   const handleManualSync = useCallback(async () => {
     setIsSyncing(true);
     try {
-      await supabase.functions.invoke("poll-email-accounts", { body: {} });
-      queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
-      queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+      const { error } = await supabase.functions.invoke("poll-email-accounts", { body: {} });
+      if (error) throw error;
+      refreshMailboxQueries();
       toast.success("Synchronisation terminée");
     } catch (err) {
       toast.error("Erreur de synchronisation");
     } finally {
       setIsSyncing(false);
     }
-  }, [queryClient]);
+  }, [refreshMailboxQueries]);
 
   const { data: profilesMap = {} } = useQuery({
     queryKey: ["profiles-map"],

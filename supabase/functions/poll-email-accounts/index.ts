@@ -433,9 +433,9 @@ serve(async (req) => {
           continue;
         }
 
-        // Calculate since date (last sync or 7 days back)
+        // Calculate since date with overlap to avoid missing emails that appear late in provider APIs
         const sinceDate = account.last_sync_at
-          ? new Date(account.last_sync_at)
+          ? new Date(new Date(account.last_sync_at).getTime() - 10 * 60 * 1000)
           : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
         // Fetch emails
@@ -464,19 +464,25 @@ serve(async (req) => {
         let linked = 0;
 
         for (const email of emails) {
+          const messageId = email.message_id.slice(0, 500);
+          const normalizedFolder = (email.folder || "inbox").toLowerCase();
+          const isSentFolder = normalizedFolder === "sent";
           const safeSubject = email.subject.slice(0, 1000);
           const safeBodyText = email.body_text.slice(0, 200000);
           const safeBodyHtml = email.body_html.slice(0, 500000);
           const safeFromEmail = email.from_email.slice(0, 320).toLowerCase();
+          const matchEmail = isSentFolder
+            ? String(email.to_emails?.[0]?.email || "").slice(0, 320).toLowerCase()
+            : safeFromEmail;
 
           // Try to match client
           let clientId: string | null = null;
-          if (account.auto_link_clients && safeFromEmail) {
+          if (account.auto_link_clients && matchEmail) {
             const { data: client } = await supabase
               .from("clients")
               .select("id")
               .eq("company_id", account.company_id)
-              .eq("email", safeFromEmail)
+              .eq("email", matchEmail)
               .maybeSingle();
 
             if (client) {
@@ -486,7 +492,7 @@ serve(async (req) => {
                 .from("client_contacts")
                 .select("client_id")
                 .eq("company_id", account.company_id)
-                .eq("email", safeFromEmail)
+                .eq("email", matchEmail)
                 .limit(1)
                 .maybeSingle();
               if (contact) clientId = contact.client_id;
@@ -494,14 +500,14 @@ serve(async (req) => {
             if (clientId) linked++;
           }
 
-          // Upsert synced email
+          // Insert only new synced email rows to keep overlap/concurrent syncs idempotent
           const { error: insertErr } = await supabase
             .from("synced_emails")
-            .upsert({
+            .insert({
               company_id: account.company_id,
               email_account_id: account.id,
-              message_id: email.message_id.slice(0, 500),
-              direction: email.folder === "sent" ? "outbound" : "inbound",
+              message_id: messageId,
+              direction: isSentFolder ? "outbound" : "inbound",
               from_email: safeFromEmail || null,
               from_name: email.from_name.slice(0, 200) || null,
               to_emails: email.to_emails.slice(0, 50),
@@ -512,9 +518,9 @@ serve(async (req) => {
               attachments: email.attachments.slice(0, 20),
               received_at: email.received_at,
               client_id: clientId,
-              folder: email.folder || "inbox",
+              folder: normalizedFolder,
               in_reply_to: email.in_reply_to || null,
-            }, { onConflict: "email_account_id,message_id" });
+            });
 
           if (insertErr) {
             console.error("Insert error:", insertErr.message);
@@ -524,21 +530,21 @@ serve(async (req) => {
 
           inserted++;
 
-          // Insert into messages table for timeline
+          // Insert into messages table for timeline only for newly synced messages
           await supabase.from("messages").insert({
             company_id: account.company_id,
             client_id: clientId,
             channel: "email",
-            direction: email.folder === "sent" ? "outbound" : "inbound",
+            direction: isSentFolder ? "outbound" : "inbound",
             sender: email.from_name || safeFromEmail,
             subject: safeSubject,
             body: safeBodyText.slice(0, 10000),
-            is_read: email.folder === "sent",
+            is_read: isSentFolder,
           }).then(() => {});
 
           // Also create inbound_email for AI analysis pipeline (with dedup via message_id)
-          const emailMessageId = email.message_id.slice(0, 500);
-          
+          const emailMessageId = messageId;
+
           // Check if already exists
           const { data: existingInbound } = await supabase
             .from("inbound_emails")
@@ -549,7 +555,6 @@ serve(async (req) => {
 
           let inboundEmail = existingInbound;
           if (!existingInbound) {
-            const emailFolder = email.folder || "inbox";
             const { data: newInbound } = await supabase
               .from("inbound_emails")
               .insert({
@@ -565,7 +570,7 @@ serve(async (req) => {
                 client_id: clientId,
                 status: "pending",
                 message_id: emailMessageId,
-                folder: emailFolder,
+                folder: normalizedFolder,
               })
               .select("id")
               .single();
