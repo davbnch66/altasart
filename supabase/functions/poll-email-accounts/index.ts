@@ -203,77 +203,95 @@ async function fetchGmailEmails(accessToken: string, since: Date, maxResults: nu
 // ─── Outlook Polling ─────────────────────────────────────────────
 async function fetchOutlookEmails(accessToken: string, since: Date, maxResults: number): Promise<ParsedEmail[]> {
   const sinceStr = since.toISOString();
-  const url = `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$filter=receivedDateTime ge ${sinceStr}&$top=${maxResults}&$orderby=receivedDateTime desc&$select=id,subject,from,toRecipients,ccRecipients,body,receivedDateTime,internetMessageId,internetMessageHeaders,hasAttachments`;
-
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`Outlook list failed [${res.status}]: ${txt}`);
-  }
-
-  const data = await res.json();
-  const messages = data.value || [];
+// Fetch from multiple folders: inbox, junkemail (spam), sentitems, deleteditems (trash)
+  const outlookFolders = [
+    { id: "inbox", folder: "inbox" },
+    { id: "junkemail", folder: "spam" },
+    { id: "sentitems", folder: "sent" },
+    { id: "deleteditems", folder: "trash" },
+  ];
 
   const emails: ParsedEmail[] = [];
+  const seenIds = new Set<string>();
 
-  for (const msg of messages) {
+  for (const { id: folderId, folder: folderName } of outlookFolders) {
     try {
-      const fromEmail = (msg.from?.emailAddress?.address || "").toLowerCase();
-      const fromName = msg.from?.emailAddress?.name || "";
+      const url = `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages?$filter=receivedDateTime ge ${sinceStr}&$top=${maxResults}&$orderby=receivedDateTime desc&$select=id,subject,from,toRecipients,ccRecipients,body,receivedDateTime,internetMessageId,internetMessageHeaders,hasAttachments,parentFolderId`;
 
-      const toEmails = (msg.toRecipients || []).map((r: any) => ({
-        email: (r.emailAddress?.address || "").toLowerCase(),
-        name: r.emailAddress?.name,
-      }));
-      const ccEmails = (msg.ccRecipients || []).map((r: any) => ({
-        email: (r.emailAddress?.address || "").toLowerCase(),
-        name: r.emailAddress?.name,
-      }));
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
 
-      const bodyContent = msg.body?.content || "";
-      const isHtml = msg.body?.contentType === "html";
-
-      // Get attachments metadata if present
-      let attachments: Array<{ filename: string; content_type: string; size: number }> = [];
-      if (msg.hasAttachments) {
-        try {
-          const attRes = await fetch(
-            `https://graph.microsoft.com/v1.0/me/messages/${msg.id}/attachments?$select=name,contentType,size`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-          );
-          if (attRes.ok) {
-            const attData = await attRes.json();
-            attachments = (attData.value || []).map((a: any) => ({
-              filename: a.name || "attachment",
-              content_type: a.contentType || "application/octet-stream",
-              size: a.size || 0,
-            }));
-          }
-        } catch (_) {}
+      if (!res.ok) {
+        console.warn(`Outlook folder ${folderId} failed [${res.status}]`);
+        continue;
       }
 
-      // Get In-Reply-To from headers
-      const inReplyTo = (msg.internetMessageHeaders || [])
-        .find((h: any) => h.name.toLowerCase() === "in-reply-to")?.value;
+      const data = await res.json();
+      const messages = data.value || [];
 
-      emails.push({
-        message_id: msg.internetMessageId || msg.id,
-        from_email: fromEmail,
-        from_name: fromName,
-        to_emails: toEmails,
-        cc_emails: ccEmails,
-        subject: msg.subject || "",
-        body_text: isHtml ? "" : bodyContent,
-        body_html: isHtml ? bodyContent : "",
-        received_at: msg.receivedDateTime || new Date().toISOString(),
-        attachments,
-        in_reply_to: inReplyTo,
-      });
+      for (const msg of messages) {
+        const msgUniqueId = msg.internetMessageId || msg.id;
+        if (seenIds.has(msgUniqueId)) continue;
+        seenIds.add(msgUniqueId);
+
+        try {
+          const fromEmail = (msg.from?.emailAddress?.address || "").toLowerCase();
+          const fromName = msg.from?.emailAddress?.name || "";
+
+          const toEmails = (msg.toRecipients || []).map((r: any) => ({
+            email: (r.emailAddress?.address || "").toLowerCase(),
+            name: r.emailAddress?.name,
+          }));
+          const ccEmails = (msg.ccRecipients || []).map((r: any) => ({
+            email: (r.emailAddress?.address || "").toLowerCase(),
+            name: r.emailAddress?.name,
+          }));
+
+          const bodyContent = msg.body?.content || "";
+          const isHtml = msg.body?.contentType === "html";
+
+          let attachments: Array<{ filename: string; content_type: string; size: number }> = [];
+          if (msg.hasAttachments) {
+            try {
+              const attRes = await fetch(
+                `https://graph.microsoft.com/v1.0/me/messages/${msg.id}/attachments?$select=name,contentType,size`,
+                { headers: { Authorization: `Bearer ${accessToken}` } }
+              );
+              if (attRes.ok) {
+                const attData = await attRes.json();
+                attachments = (attData.value || []).map((a: any) => ({
+                  filename: a.name || "attachment",
+                  content_type: a.contentType || "application/octet-stream",
+                  size: a.size || 0,
+                }));
+              }
+            } catch (_) {}
+          }
+
+          const inReplyTo = (msg.internetMessageHeaders || [])
+            .find((h: any) => h.name.toLowerCase() === "in-reply-to")?.value;
+
+          emails.push({
+            message_id: msgUniqueId,
+            from_email: fromEmail,
+            from_name: fromName,
+            to_emails: toEmails,
+            cc_emails: ccEmails,
+            subject: msg.subject || "",
+            body_text: isHtml ? "" : bodyContent,
+            body_html: isHtml ? bodyContent : "",
+            received_at: msg.receivedDateTime || new Date().toISOString(),
+            attachments,
+            in_reply_to: inReplyTo,
+            folder: folderName,
+          });
+        } catch (e) {
+          console.error(`Outlook message parse error:`, e);
+        }
+      }
     } catch (e) {
-      console.error(`Outlook message parse error:`, e);
+      console.warn(`Outlook folder ${folderId} error:`, e);
     }
   }
 
