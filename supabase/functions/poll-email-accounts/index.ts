@@ -84,6 +84,7 @@ interface ParsedEmail {
   received_at: string;
   attachments: Array<{ filename: string; content_type: string; size: number }>;
   in_reply_to?: string;
+  folder?: string;
 }
 
 // ─── Gmail Polling ───────────────────────────────────────────────
