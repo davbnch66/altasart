@@ -70,9 +70,9 @@ export const MobileMoyensSheet = ({ open, onClose, visiteId, companyId }: Props)
 
   const addVehicle = useMutation({
     mutationFn: async (type: string) => {
-      await supabase.from("visite_vehicules").insert({
+      await supabase.from("visite_vehicules").insert([{
         visite_id: visiteId, company_id: companyId, type, quantity: 1, sort_order: vehicules.length,
-      });
+      }]);
     },
     onSuccess: () => {
       toast.success("Ajouté ✓");
