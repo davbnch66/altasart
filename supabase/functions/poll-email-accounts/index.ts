@@ -207,22 +207,28 @@ async function fetchGmailEmails(accessToken: string, since: Date, maxResults: nu
 // ─── Outlook Polling ─────────────────────────────────────────────
 async function fetchOutlookEmails(accessToken: string, since: Date, maxResults: number): Promise<ParsedEmail[]> {
   const sinceStr = since.toISOString();
-// Fetch from multiple folders: inbox, junkemail (spam), sentitems, deleteditems (trash)
   const outlookFolders = [
-    { id: "inbox", folder: "inbox" },
-    { id: "junkemail", folder: "spam" },
-    { id: "sentitems", folder: "sent" },
-    { id: "deleteditems", folder: "trash" },
+    { id: "inbox", folder: "inbox", dateField: "receivedDateTime" },
+    { id: "junkemail", folder: "spam", dateField: "receivedDateTime" },
+    { id: "sentitems", folder: "sent", dateField: "sentDateTime" },
+    { id: "deleteditems", folder: "trash", dateField: "receivedDateTime" },
   ];
 
   const emails: ParsedEmail[] = [];
   const seenIds = new Set<string>();
 
-  for (const { id: folderId, folder: folderName } of outlookFolders) {
+  for (const { id: folderId, folder: folderName, dateField } of outlookFolders) {
     try {
-      const url = `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages?$filter=receivedDateTime ge ${sinceStr}&$top=${maxResults}&$orderby=receivedDateTime desc&$select=id,subject,from,toRecipients,ccRecipients,body,receivedDateTime,internetMessageId,internetMessageHeaders,hasAttachments,parentFolderId`;
+      const url = new URL(`https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages`);
+      url.searchParams.set("$filter", `${dateField} ge ${sinceStr}`);
+      url.searchParams.set("$top", String(maxResults));
+      url.searchParams.set("$orderby", `${dateField} desc`);
+      url.searchParams.set(
+        "$select",
+        "id,subject,from,toRecipients,ccRecipients,body,receivedDateTime,sentDateTime,internetMessageId,internetMessageHeaders,hasAttachments,parentFolderId",
+      );
 
-      const res = await fetch(url, {
+      const res = await fetch(url.toString(), {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
 
@@ -253,7 +259,7 @@ async function fetchOutlookEmails(accessToken: string, since: Date, maxResults: 
           }));
 
           const bodyContent = msg.body?.content || "";
-          const isHtml = msg.body?.contentType === "html";
+          const isHtml = String(msg.body?.contentType || "").toLowerCase() === "html";
 
           let attachments: Array<{ filename: string; content_type: string; size: number; attachment_id?: string; provider_msg_id?: string }> = [];
           if (msg.hasAttachments) {
@@ -276,7 +282,11 @@ async function fetchOutlookEmails(accessToken: string, since: Date, maxResults: 
           }
 
           const inReplyTo = (msg.internetMessageHeaders || [])
-            .find((h: any) => h.name.toLowerCase() === "in-reply-to")?.value;
+            .find((h: any) => String(h.name || "").toLowerCase() === "in-reply-to")?.value;
+
+          const messageDate = folderName === "sent"
+            ? (msg.sentDateTime || msg.receivedDateTime || new Date().toISOString())
+            : (msg.receivedDateTime || msg.sentDateTime || new Date().toISOString());
 
           emails.push({
             message_id: msgUniqueId,
@@ -288,7 +298,7 @@ async function fetchOutlookEmails(accessToken: string, since: Date, maxResults: 
             subject: msg.subject || "",
             body_text: isHtml ? "" : bodyContent,
             body_html: isHtml ? bodyContent : "",
-            received_at: msg.receivedDateTime || new Date().toISOString(),
+            received_at: messageDate,
             attachments,
             in_reply_to: inReplyTo,
             folder: folderName,
