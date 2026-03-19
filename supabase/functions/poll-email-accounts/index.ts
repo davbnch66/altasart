@@ -9,7 +9,7 @@ const corsHeaders = {
 const ALGORITHM = "AES-GCM";
 const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
-const MAX_EMAILS_PER_SYNC = 50;
+const MAX_EMAILS_PER_SYNC = 100;
 
 function hexToBytes(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2);
@@ -84,31 +84,50 @@ interface ParsedEmail {
   received_at: string;
   attachments: Array<{ filename: string; content_type: string; size: number }>;
   in_reply_to?: string;
+  folder?: string;
 }
 
-// ─── Gmail Polling ───────────────────────────────────────────────
+// ─── Gmail Polling (all folders including spam/trash) ────────────
 async function fetchGmailEmails(accessToken: string, since: Date, maxResults: number): Promise<ParsedEmail[]> {
   const afterEpoch = Math.floor(since.getTime() / 1000);
-  const query = `after:${afterEpoch} in:inbox`;
+  const queries = [
+    `after:${afterEpoch} in:anywhere -label:drafts`,
+  ];
 
-  const listRes = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=${maxResults}`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
+  const allMessageIds = new Set<string>();
 
-  if (!listRes.ok) {
-    const txt = await listRes.text();
-    throw new Error(`Gmail list failed [${listRes.status}]: ${txt}`);
+  for (const query of queries) {
+    try {
+      let pageToken: string | undefined;
+      do {
+        const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+        url.searchParams.set("q", query);
+        url.searchParams.set("maxResults", String(maxResults));
+        url.searchParams.set("includeSpamTrash", "true");
+        if (pageToken) url.searchParams.set("pageToken", pageToken);
+
+        const listRes = await fetch(url.toString(), {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!listRes.ok) {
+          console.warn(`Gmail list failed [${listRes.status}]`);
+          break;
+        }
+        const listData = await listRes.json();
+        for (const m of (listData.messages || [])) allMessageIds.add(m.id);
+        pageToken = listData.nextPageToken;
+      } while (pageToken && allMessageIds.size < maxResults);
+    } catch (e) {
+      console.warn(`Gmail query error:`, e);
+    }
   }
 
-  const listData = await listRes.json();
-  const messageIds: string[] = (listData.messages || []).map((m: any) => m.id);
-
-  if (messageIds.length === 0) return [];
+  if (allMessageIds.size === 0) return [];
 
   const emails: ParsedEmail[] = [];
+  const idsToFetch = [...allMessageIds].slice(0, maxResults);
 
-  for (const msgId of messageIds.slice(0, maxResults)) {
+  for (const msgId of idsToFetch) {
     try {
       const msgRes = await fetch(
         `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=full`,
@@ -130,6 +149,14 @@ async function fetchGmailEmails(accessToken: string, since: Date, maxResults: nu
       const ccRaw = getHeader("Cc");
       const ccEmails = parseEmailList(ccRaw);
 
+      // Determine folder from Gmail labels
+      const labelIds: string[] = msg.labelIds || [];
+      let folder = "inbox";
+      if (labelIds.includes("SPAM")) folder = "spam";
+      else if (labelIds.includes("TRASH")) folder = "trash";
+      else if (labelIds.includes("SENT") && !labelIds.includes("INBOX")) folder = "sent";
+      else if (labelIds.includes("DRAFT")) folder = "drafts";
+
       // Extract body
       let bodyText = "";
       let bodyHtml = "";
@@ -143,7 +170,6 @@ async function fetchGmailEmails(accessToken: string, since: Date, maxResults: nu
         }
       }
 
-      // Extract attachments metadata
       const attachments = parts
         .filter((p: any) => p.filename && p.filename.length > 0)
         .map((p: any) => ({
@@ -164,6 +190,7 @@ async function fetchGmailEmails(accessToken: string, since: Date, maxResults: nu
         received_at: new Date(parseInt(msg.internalDate)).toISOString(),
         attachments,
         in_reply_to: getHeader("In-Reply-To") || undefined,
+        folder,
       });
     } catch (e) {
       console.error(`Gmail message ${msgId} parse error:`, e);
@@ -176,77 +203,95 @@ async function fetchGmailEmails(accessToken: string, since: Date, maxResults: nu
 // ─── Outlook Polling ─────────────────────────────────────────────
 async function fetchOutlookEmails(accessToken: string, since: Date, maxResults: number): Promise<ParsedEmail[]> {
   const sinceStr = since.toISOString();
-  const url = `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$filter=receivedDateTime ge ${sinceStr}&$top=${maxResults}&$orderby=receivedDateTime desc&$select=id,subject,from,toRecipients,ccRecipients,body,receivedDateTime,internetMessageId,internetMessageHeaders,hasAttachments`;
-
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`Outlook list failed [${res.status}]: ${txt}`);
-  }
-
-  const data = await res.json();
-  const messages = data.value || [];
+// Fetch from multiple folders: inbox, junkemail (spam), sentitems, deleteditems (trash)
+  const outlookFolders = [
+    { id: "inbox", folder: "inbox" },
+    { id: "junkemail", folder: "spam" },
+    { id: "sentitems", folder: "sent" },
+    { id: "deleteditems", folder: "trash" },
+  ];
 
   const emails: ParsedEmail[] = [];
+  const seenIds = new Set<string>();
 
-  for (const msg of messages) {
+  for (const { id: folderId, folder: folderName } of outlookFolders) {
     try {
-      const fromEmail = (msg.from?.emailAddress?.address || "").toLowerCase();
-      const fromName = msg.from?.emailAddress?.name || "";
+      const url = `https://graph.microsoft.com/v1.0/me/mailFolders/${folderId}/messages?$filter=receivedDateTime ge ${sinceStr}&$top=${maxResults}&$orderby=receivedDateTime desc&$select=id,subject,from,toRecipients,ccRecipients,body,receivedDateTime,internetMessageId,internetMessageHeaders,hasAttachments,parentFolderId`;
 
-      const toEmails = (msg.toRecipients || []).map((r: any) => ({
-        email: (r.emailAddress?.address || "").toLowerCase(),
-        name: r.emailAddress?.name,
-      }));
-      const ccEmails = (msg.ccRecipients || []).map((r: any) => ({
-        email: (r.emailAddress?.address || "").toLowerCase(),
-        name: r.emailAddress?.name,
-      }));
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
 
-      const bodyContent = msg.body?.content || "";
-      const isHtml = msg.body?.contentType === "html";
-
-      // Get attachments metadata if present
-      let attachments: Array<{ filename: string; content_type: string; size: number }> = [];
-      if (msg.hasAttachments) {
-        try {
-          const attRes = await fetch(
-            `https://graph.microsoft.com/v1.0/me/messages/${msg.id}/attachments?$select=name,contentType,size`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-          );
-          if (attRes.ok) {
-            const attData = await attRes.json();
-            attachments = (attData.value || []).map((a: any) => ({
-              filename: a.name || "attachment",
-              content_type: a.contentType || "application/octet-stream",
-              size: a.size || 0,
-            }));
-          }
-        } catch (_) {}
+      if (!res.ok) {
+        console.warn(`Outlook folder ${folderId} failed [${res.status}]`);
+        continue;
       }
 
-      // Get In-Reply-To from headers
-      const inReplyTo = (msg.internetMessageHeaders || [])
-        .find((h: any) => h.name.toLowerCase() === "in-reply-to")?.value;
+      const data = await res.json();
+      const messages = data.value || [];
 
-      emails.push({
-        message_id: msg.internetMessageId || msg.id,
-        from_email: fromEmail,
-        from_name: fromName,
-        to_emails: toEmails,
-        cc_emails: ccEmails,
-        subject: msg.subject || "",
-        body_text: isHtml ? "" : bodyContent,
-        body_html: isHtml ? bodyContent : "",
-        received_at: msg.receivedDateTime || new Date().toISOString(),
-        attachments,
-        in_reply_to: inReplyTo,
-      });
+      for (const msg of messages) {
+        const msgUniqueId = msg.internetMessageId || msg.id;
+        if (seenIds.has(msgUniqueId)) continue;
+        seenIds.add(msgUniqueId);
+
+        try {
+          const fromEmail = (msg.from?.emailAddress?.address || "").toLowerCase();
+          const fromName = msg.from?.emailAddress?.name || "";
+
+          const toEmails = (msg.toRecipients || []).map((r: any) => ({
+            email: (r.emailAddress?.address || "").toLowerCase(),
+            name: r.emailAddress?.name,
+          }));
+          const ccEmails = (msg.ccRecipients || []).map((r: any) => ({
+            email: (r.emailAddress?.address || "").toLowerCase(),
+            name: r.emailAddress?.name,
+          }));
+
+          const bodyContent = msg.body?.content || "";
+          const isHtml = msg.body?.contentType === "html";
+
+          let attachments: Array<{ filename: string; content_type: string; size: number }> = [];
+          if (msg.hasAttachments) {
+            try {
+              const attRes = await fetch(
+                `https://graph.microsoft.com/v1.0/me/messages/${msg.id}/attachments?$select=name,contentType,size`,
+                { headers: { Authorization: `Bearer ${accessToken}` } }
+              );
+              if (attRes.ok) {
+                const attData = await attRes.json();
+                attachments = (attData.value || []).map((a: any) => ({
+                  filename: a.name || "attachment",
+                  content_type: a.contentType || "application/octet-stream",
+                  size: a.size || 0,
+                }));
+              }
+            } catch (_) {}
+          }
+
+          const inReplyTo = (msg.internetMessageHeaders || [])
+            .find((h: any) => h.name.toLowerCase() === "in-reply-to")?.value;
+
+          emails.push({
+            message_id: msgUniqueId,
+            from_email: fromEmail,
+            from_name: fromName,
+            to_emails: toEmails,
+            cc_emails: ccEmails,
+            subject: msg.subject || "",
+            body_text: isHtml ? "" : bodyContent,
+            body_html: isHtml ? bodyContent : "",
+            received_at: msg.receivedDateTime || new Date().toISOString(),
+            attachments,
+            in_reply_to: inReplyTo,
+            folder: folderName,
+          });
+        } catch (e) {
+          console.error(`Outlook message parse error:`, e);
+        }
+      }
     } catch (e) {
-      console.error(`Outlook message parse error:`, e);
+      console.warn(`Outlook folder ${folderId} error:`, e);
     }
   }
 
@@ -439,7 +484,7 @@ serve(async (req) => {
               company_id: account.company_id,
               email_account_id: account.id,
               message_id: email.message_id.slice(0, 500),
-              direction: "inbound",
+              direction: email.folder === "sent" ? "outbound" : "inbound",
               from_email: safeFromEmail || null,
               from_name: email.from_name.slice(0, 200) || null,
               to_emails: email.to_emails.slice(0, 50),
@@ -450,7 +495,7 @@ serve(async (req) => {
               attachments: email.attachments.slice(0, 20),
               received_at: email.received_at,
               client_id: clientId,
-              folder: "INBOX",
+              folder: email.folder || "inbox",
               in_reply_to: email.in_reply_to || null,
             }, { onConflict: "email_account_id,message_id" });
 
@@ -467,11 +512,11 @@ serve(async (req) => {
             company_id: account.company_id,
             client_id: clientId,
             channel: "email",
-            direction: "inbound",
+            direction: email.folder === "sent" ? "outbound" : "inbound",
             sender: email.from_name || safeFromEmail,
             subject: safeSubject,
             body: safeBodyText.slice(0, 10000),
-            is_read: false,
+            is_read: email.folder === "sent",
           }).then(() => {});
 
           // Also create inbound_email for AI analysis pipeline (with dedup via message_id)
@@ -487,6 +532,7 @@ serve(async (req) => {
 
           let inboundEmail = existingInbound;
           if (!existingInbound) {
+            const emailFolder = email.folder || "inbox";
             const { data: newInbound } = await supabase
               .from("inbound_emails")
               .insert({
@@ -501,6 +547,7 @@ serve(async (req) => {
                 client_id: clientId,
                 status: "pending",
                 message_id: emailMessageId,
+                folder: emailFolder,
               })
               .select("id")
               .single();
