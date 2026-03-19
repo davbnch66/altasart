@@ -292,6 +292,8 @@ const InboxPage = () => {
         query = query.eq("folder", "archive");
       } else if (currentFolder === "trash") {
         query = query.eq("folder", "trash");
+      } else if (currentFolder === "spam") {
+        query = query.eq("folder", "spam");
       } else if (isLabelFolder && activeLabelId) {
         query = query.eq("label_id", activeLabelId);
       }
