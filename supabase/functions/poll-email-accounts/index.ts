@@ -532,6 +532,7 @@ serve(async (req) => {
 
           let inboundEmail = existingInbound;
           if (!existingInbound) {
+            const emailFolder = email.folder || "inbox";
             const { data: newInbound } = await supabase
               .from("inbound_emails")
               .insert({
@@ -546,6 +547,7 @@ serve(async (req) => {
                 client_id: clientId,
                 status: "pending",
                 message_id: emailMessageId,
+                folder: emailFolder,
               })
               .select("id")
               .single();
