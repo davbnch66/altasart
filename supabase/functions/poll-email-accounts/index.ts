@@ -9,7 +9,7 @@ const corsHeaders = {
 const ALGORITHM = "AES-GCM";
 const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
-const MAX_EMAILS_PER_SYNC = 50;
+const MAX_EMAILS_PER_SYNC = 100;
 
 function hexToBytes(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2);
