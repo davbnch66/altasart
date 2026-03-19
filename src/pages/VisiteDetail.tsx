@@ -39,6 +39,7 @@ import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
 import { GenerateVisiteMemoButton } from "@/components/visite/GenerateVisiteMemoButton";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { UnsavedChangesDialog } from "@/components/UnsavedChangesDialog";
+import { VisiteMobileView } from "@/components/visite/mobile/VisiteMobileView";
 const statusLabels: Record<string, string> = {
   planifiee: "Planifiée",
   realisee: "Réalisée",
@@ -245,8 +246,30 @@ const VisiteDetail = () => {
   const tech = visite.resources as any;
   const dossier = visite.dossiers as any;
 
-  return (
-    <div className={`p-4 md:p-6 lg:p-8 max-w-5xl mx-auto space-y-4 md:space-y-6 ${isMobile ? "pb-24" : ""}`}>
+  if (isMobile) {
+    return (
+      <>
+        <VisiteMobileView
+          visite={visite}
+          editData={editData}
+          updateField={updateField}
+          handleSave={handleSave}
+          saving={saveMutation.isPending}
+          isDirty={isDirty}
+        />
+        <UnsavedChangesDialog
+          open={isBlocked}
+          onStay={reset}
+          onDiscard={proceed}
+          onSave={saveAndProceed}
+          saving={saveMutation.isPending}
+        />
+      </>
+    );
+  }
+
+    return (
+    <div className={`p-4 md:p-6 lg:p-8 max-w-5xl mx-auto space-y-4 md:space-y-6`}>
       {/* Header */}
       <div className="space-y-2">
         {/* Breadcrumb */}
