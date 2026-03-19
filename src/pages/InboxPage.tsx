@@ -1011,6 +1011,7 @@ const InboxPage = () => {
     : currentFolder === "starred" ? "Suivis"
     : currentFolder === "archive" ? "Archives"
     : currentFolder === "trash" ? "Corbeille"
+    : currentFolder === "spam" ? "Indésirables"
     : isLabelFolder ? (activeLabelName || "Dossier")
     : "Inbox";
 
