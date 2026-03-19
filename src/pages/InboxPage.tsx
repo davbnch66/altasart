@@ -33,7 +33,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { formatDistanceToNow, format } from "date-fns";
 import { fr } from "date-fns/locale";
 
-type CategoryTab = "principal" | "autre";
+type CategoryTab = "tous" | "demandes" | "autre";
 type SortKey = "date_desc" | "date_asc" | "name_asc" | "name_desc" | "status";
 type ReadFilter = "all" | "unread" | "read";
 
