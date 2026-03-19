@@ -74,6 +74,7 @@ async function refreshMicrosoftToken(refreshToken: string, clientId: string, cli
 
 interface ParsedEmail {
   message_id: string;
+  provider_message_id: string; // Gmail ID or Outlook ID for re-fetching attachments
   from_email: string;
   from_name: string;
   to_emails: Array<{ email: string; name?: string }>;
@@ -82,7 +83,7 @@ interface ParsedEmail {
   body_text: string;
   body_html: string;
   received_at: string;
-  attachments: Array<{ filename: string; content_type: string; size: number }>;
+  attachments: Array<{ filename: string; content_type: string; size: number; attachment_id?: string; provider_msg_id?: string }>;
   in_reply_to?: string;
   folder?: string;
 }
@@ -176,10 +177,13 @@ async function fetchGmailEmails(accessToken: string, since: Date, maxResults: nu
           filename: p.filename,
           content_type: p.mimeType || "application/octet-stream",
           size: p.body?.size || 0,
+          attachment_id: p.body?.attachmentId || undefined,
+          provider_msg_id: msgId,
         }));
 
       emails.push({
         message_id: getHeader("Message-ID") || msgId,
+        provider_message_id: msgId,
         from_email: fromEmail,
         from_name: fromName,
         to_emails: toEmails,
@@ -251,11 +255,11 @@ async function fetchOutlookEmails(accessToken: string, since: Date, maxResults: 
           const bodyContent = msg.body?.content || "";
           const isHtml = msg.body?.contentType === "html";
 
-          let attachments: Array<{ filename: string; content_type: string; size: number }> = [];
+          let attachments: Array<{ filename: string; content_type: string; size: number; attachment_id?: string; provider_msg_id?: string }> = [];
           if (msg.hasAttachments) {
             try {
               const attRes = await fetch(
-                `https://graph.microsoft.com/v1.0/me/messages/${msg.id}/attachments?$select=name,contentType,size`,
+                `https://graph.microsoft.com/v1.0/me/messages/${msg.id}/attachments?$select=id,name,contentType,size`,
                 { headers: { Authorization: `Bearer ${accessToken}` } }
               );
               if (attRes.ok) {
@@ -264,6 +268,8 @@ async function fetchOutlookEmails(accessToken: string, since: Date, maxResults: 
                   filename: a.name || "attachment",
                   content_type: a.contentType || "application/octet-stream",
                   size: a.size || 0,
+                  attachment_id: a.id || undefined,
+                  provider_msg_id: msg.id,
                 }));
               }
             } catch (_) {}
@@ -274,6 +280,7 @@ async function fetchOutlookEmails(accessToken: string, since: Date, maxResults: 
 
           emails.push({
             message_id: msgUniqueId,
+            provider_message_id: msg.id,
             from_email: fromEmail,
             from_name: fromName,
             to_emails: toEmails,
@@ -537,6 +544,7 @@ serve(async (req) => {
               .from("inbound_emails")
               .insert({
                 company_id: account.company_id,
+                email_account_id: account.id,
                 from_email: safeFromEmail,
                 from_name: email.from_name || null,
                 to_email: account.email_address,

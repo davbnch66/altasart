@@ -1,0 +1,1 @@
+UPDATE inbound_emails SET status = 'pending', ai_analysis = NULL, processed_at = NULL WHERE id = '1c1b0673-2e1a-42b0-bd3b-f7def9a0098e';
