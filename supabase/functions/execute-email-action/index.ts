@@ -218,7 +218,7 @@ serve(async (req) => {
         }
 
         case "extract_materiel": {
-          let targetVisiteId = email?.visite_id || null;
+          let targetVisiteId = emailVisiteId || null;
           
           if (!targetVisiteId) {
             const { data: freshEmail } = await supabase
