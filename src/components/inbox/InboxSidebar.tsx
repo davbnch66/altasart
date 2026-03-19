@@ -45,6 +45,7 @@ interface InboxSidebarProps {
   unreadCounts: Record<string, number>;
   accounts: EmailAccount[];
   isMobile?: boolean;
+  onDropEmails?: (targetFolder: string, targetLabelId?: string) => void;
 }
 
 const systemFolders: { key: MailFolder; label: string; icon: React.ElementType }[] = [
