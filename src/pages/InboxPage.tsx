@@ -976,15 +976,73 @@ const InboxPage = () => {
         <AnimatePresence>
           {selectionMode && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-              <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2.5">
+              <div className="flex items-center gap-2 flex-wrap rounded-lg border bg-muted/50 px-4 py-2.5">
                 <Checkbox checked={allVisibleSelected} onCheckedChange={toggleSelectAll} />
                 <span className="text-sm font-medium">{someSelected ? `${selectedIds.size} sélectionné${selectedIds.size > 1 ? "s" : ""}` : "Tout sélectionner"}</span>
                 <div className="flex-1" />
-                {someSelected && currentFolder === "inbox" && (
-                  <Button variant="destructive" size="sm" onClick={openDeleteDialog} disabled={isDeleting} className="gap-1.5">
-                    <Trash2 className="h-3.5 w-3.5" /> Supprimer ({selectedIds.size})
-                  </Button>
+
+                {someSelected && isInboxLikeFolder && (
+                  <>
+                    {/* Mark as read/unread */}
+                    <Button variant="outline" size="sm" onClick={() => handleBulkMarkRead(true)} className="gap-1.5 text-xs">
+                      <MailOpen className="h-3.5 w-3.5" /> Lu
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleBulkMarkRead(false)} className="gap-1.5 text-xs">
+                      <MailX className="h-3.5 w-3.5" /> Non lu
+                    </Button>
+
+                    {/* Move to folder */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                          <FolderInput className="h-3.5 w-3.5" /> Déplacer
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {currentFolder !== "inbox" && (
+                          <DropdownMenuItem onClick={() => handleBulkMoveFolder("inbox")} className="gap-2">
+                            <Inbox className="h-3.5 w-3.5" /> Réception
+                          </DropdownMenuItem>
+                        )}
+                        {currentFolder !== "archive" && (
+                          <DropdownMenuItem onClick={() => handleBulkMoveFolder("archive")} className="gap-2">
+                            <Archive className="h-3.5 w-3.5" /> Archives
+                          </DropdownMenuItem>
+                        )}
+                        {currentFolder !== "trash" && (
+                          <DropdownMenuItem onClick={() => handleBulkMoveFolder("trash")} className="gap-2">
+                            <Trash2 className="h-3.5 w-3.5" /> Corbeille
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {/* Assign label */}
+                    {emailLabels.length > 0 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                            <Tag className="h-3.5 w-3.5" /> Classer
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {emailLabels.map((label) => (
+                            <DropdownMenuItem key={label.id} onClick={() => handleBulkAssignLabel(label.id)} className="gap-2">
+                              <div className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ backgroundColor: label.color }} />
+                              {label.name}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+
+                    {/* Delete */}
+                    <Button variant="destructive" size="sm" onClick={openDeleteDialog} disabled={isDeleting} className="gap-1.5 text-xs">
+                      <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                    </Button>
+                  </>
                 )}
+
                 <Button variant="ghost" size="sm" onClick={exitSelectionMode} className="text-xs">Annuler</Button>
               </div>
             </motion.div>
