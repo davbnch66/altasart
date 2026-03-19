@@ -285,6 +285,13 @@ const InboxPage = () => {
 
       if (actionsError) throw actionsError;
 
+      const { error: messagesError } = await supabase
+        .from("messages")
+        .delete()
+        .in("inbound_email_id", ids);
+
+      if (messagesError) throw messagesError;
+
       const { data: deletedEmails, error: deleteError } = await supabase
         .from("inbound_emails")
         .delete()
