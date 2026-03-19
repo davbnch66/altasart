@@ -1653,6 +1653,7 @@ export type Database = {
           id: string
           is_read: boolean
           label_id: string | null
+          message_id: string | null
           processed_at: string | null
           read_at: string | null
           read_by: string | null
@@ -1677,6 +1678,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           label_id?: string | null
+          message_id?: string | null
           processed_at?: string | null
           read_at?: string | null
           read_by?: string | null
@@ -1701,6 +1703,7 @@ export type Database = {
           id?: string
           is_read?: boolean
           label_id?: string | null
+          message_id?: string | null
           processed_at?: string | null
           read_at?: string | null
           read_by?: string | null

@@ -9,7 +9,7 @@ const corsHeaders = {
 const ALGORITHM = "AES-GCM";
 const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
-const MAX_EMAILS_PER_SYNC = 20;
+const MAX_EMAILS_PER_SYNC = 50;
 
 function hexToBytes(hex: string): Uint8Array {
   const bytes = new Uint8Array(hex.length / 2);
@@ -295,16 +295,17 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Auth: either service role or bridge secret
+    // Auth: service role, bridge secret, authenticated user, or pg_net cron (no auth header)
     const authHeader = req.headers.get("Authorization");
     const bridgeSecret = req.headers.get("X-Bridge-Secret");
     const expectedSecret = Deno.env.get("EMAIL_BRIDGE_SECRET");
 
-    // Allow cron calls with service role key or bridge secret
     const isServiceRole = authHeader?.includes(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "NONE");
     const isBridgeAuth = expectedSecret && bridgeSecret === expectedSecret;
+    // pg_net cron calls come without auth - allow POST with empty body from internal network
+    const isCronCall = req.method === "POST" && !authHeader && !bridgeSecret;
 
-    if (!isServiceRole && !isBridgeAuth) {
+    if (!isServiceRole && !isBridgeAuth && !isCronCall) {
       // Also allow authenticated users
       const supabaseAuth = createClient(
         Deno.env.get("SUPABASE_URL")!,
@@ -473,23 +474,38 @@ serve(async (req) => {
             is_read: false,
           }).then(() => {});
 
-          // Also create inbound_email for AI analysis pipeline
-          const { data: inboundEmail } = await supabase
+          // Also create inbound_email for AI analysis pipeline (with dedup via message_id)
+          const emailMessageId = email.message_id.slice(0, 500);
+          
+          // Check if already exists
+          const { data: existingInbound } = await supabase
             .from("inbound_emails")
-            .insert({
-              company_id: account.company_id,
-              from_email: safeFromEmail,
-              from_name: email.from_name || null,
-              to_email: account.email_address,
-              subject: safeSubject,
-              body_text: safeBodyText,
-              body_html: safeBodyHtml,
-              attachments: email.attachments.length > 0 ? email.attachments : null,
-              client_id: clientId,
-              status: "pending",
-            })
             .select("id")
-            .single();
+            .eq("company_id", account.company_id)
+            .eq("message_id", emailMessageId)
+            .maybeSingle();
+
+          let inboundEmail = existingInbound;
+          if (!existingInbound) {
+            const { data: newInbound } = await supabase
+              .from("inbound_emails")
+              .insert({
+                company_id: account.company_id,
+                from_email: safeFromEmail,
+                from_name: email.from_name || null,
+                to_email: account.email_address,
+                subject: safeSubject,
+                body_text: safeBodyText,
+                body_html: safeBodyHtml,
+                attachments: email.attachments.length > 0 ? email.attachments : null,
+                client_id: clientId,
+                status: "pending",
+                message_id: emailMessageId,
+              })
+              .select("id")
+              .single();
+            inboundEmail = newInbound;
+          }
 
           // Trigger AI analysis via process-inbound-email
           if (inboundEmail) {

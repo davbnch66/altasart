@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Inbox, MailWarning, Loader2, ArrowUpDown, Eye, CheckCircle2,
   Trash2, Star, StarOff, Archive, Reply, Forward, Send, Menu, X, Filter,
-  MailOpen, MailX, FolderInput, Tag, Flag
+  MailOpen, MailX, FolderInput, Tag, Flag, RefreshCw
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -131,12 +131,58 @@ const InboxPage = () => {
     ? dbCompanies.map((c) => c.id)
     : [current];
 
+  const [isSyncing, setIsSyncing] = useState(false);
+
   useEffect(() => {
     setSelectedIds(new Set());
     setPendingDeleteIds([]);
     setSelectionMode(false);
     setDeleteDialogOpen(false);
   }, [category, currentFolder]);
+
+  // ============ REALTIME SUBSCRIPTION ============
+  useEffect(() => {
+    if (companyIds.length === 0) return;
+    const channel = supabase
+      .channel("inbox-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "inbound_emails" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+          queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [companyIds, queryClient]);
+
+  // ============ AUTO-POLL (every 30s) ============
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        await supabase.functions.invoke("poll-email-accounts", { body: {} });
+      } catch (_) {}
+    };
+    poll(); // immediate first poll
+    const interval = setInterval(poll, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ============ MANUAL SYNC ============
+  const handleManualSync = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      await supabase.functions.invoke("poll-email-accounts", { body: {} });
+      queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+      queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+      toast.success("Synchronisation terminée");
+    } catch (err) {
+      toast.error("Erreur de synchronisation");
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [queryClient]);
 
   const { data: profilesMap = {} } = useQuery({
     queryKey: ["profiles-map"],
@@ -1012,12 +1058,21 @@ const InboxPage = () => {
                 <Menu className="h-5 w-5" />
               </Button>
             )}
-            <div>
+            <div className="flex-1">
               <h1 className={`font-bold ${isMobile ? "text-lg" : "text-xl"}`}>{folderTitle}</h1>
               {!isMobile && currentFolder === "inbox" && (
                 <p className="text-xs text-muted-foreground">Emails entrants et actions suggérées par l'IA</p>
               )}
             </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" onClick={handleManualSync} disabled={isSyncing}>
+                  <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
+                  {!isMobile && <span className="ml-1">Sync</span>}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Synchroniser les emails maintenant</TooltipContent>
+            </Tooltip>
           </div>
         </motion.div>
 
