@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Inbox, MailWarning, Loader2, ArrowUpDown, Eye, CheckCircle2,
   Trash2, Star, StarOff, Archive, Reply, Forward, Send, Menu, X, Filter,
-  MailOpen, MailX, FolderInput, Tag, Flag, RefreshCw
+  MailOpen, MailX, FolderInput, Tag, Flag, RefreshCw, ShieldAlert
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -266,7 +266,7 @@ const InboxPage = () => {
   // Determine which folder filter to apply for inbound_emails
   const isLabelFolder = currentFolder.startsWith("label:");
   const activeLabelId = isLabelFolder ? currentFolder.replace("label:", "") : null;
-  const isInboxLikeFolder = currentFolder === "inbox" || currentFolder === "archive" || currentFolder === "trash" || isLabelFolder;
+  const isInboxLikeFolder = currentFolder === "inbox" || currentFolder === "archive" || currentFolder === "trash" || currentFolder === "spam" || isLabelFolder;
 
   // ============ INBOX (inbound_emails) ============
   const {
@@ -292,6 +292,8 @@ const InboxPage = () => {
         query = query.eq("folder", "archive");
       } else if (currentFolder === "trash") {
         query = query.eq("folder", "trash");
+      } else if (currentFolder === "spam") {
+        query = query.eq("folder", "spam");
       } else if (isLabelFolder && activeLabelId) {
         query = query.eq("label_id", activeLabelId);
       }
@@ -905,28 +907,122 @@ const InboxPage = () => {
 
   // ============ EMAIL DETAIL VIEW ============
   if (selectedEmail && isInboxLikeFolder) {
+    const handleDetailMove = async (folder: string) => {
+      try {
+        const { error } = await supabase
+          .from("inbound_emails")
+          .update({ folder })
+          .eq("id", selectedEmail.id);
+        if (error) throw error;
+        const names: Record<string, string> = { inbox: "Réception", archive: "Archives", trash: "Corbeille", spam: "Indésirables" };
+        toast.success(`Email déplacé vers ${names[folder] || folder}`);
+        setSearchParams({});
+        queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+        queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+      } catch (e) {
+        toast.error("Erreur lors du déplacement");
+      }
+    };
+
+    const handleDetailDelete = async () => {
+      try {
+        await supabase.from("email_actions").delete().eq("inbound_email_id", selectedEmail.id);
+        await supabase.from("messages").delete().eq("inbound_email_id", selectedEmail.id);
+        const { error } = await supabase.from("inbound_emails").delete().eq("id", selectedEmail.id);
+        if (error) throw error;
+        toast.success("Email supprimé définitivement");
+        setSearchParams({});
+        queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+        queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+      } catch (e) {
+        toast.error("Erreur lors de la suppression");
+      }
+    };
+
     return (
       <div className="flex h-[calc(100vh-4rem)]">
         {!isMobile && <InboxSidebar {...sidebarProps} />}
         <div className={`flex-1 overflow-y-auto ${isMobile ? "p-3 pb-20" : "p-6"}`}>
           <div className="max-w-4xl mx-auto">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
               <Button variant="ghost" size="sm" onClick={() => setSearchParams({})} className="gap-1.5">
                 ← Retour
               </Button>
-              {/* Show receiving account */}
               {selectedEmail._account && (
                 <Badge variant="outline" className="text-xs">
                   Reçu sur : {selectedEmail._account.email_address}
                 </Badge>
               )}
               <div className="flex-1" />
-              <Button variant="ghost" size="sm" onClick={() => handleReply(selectedEmail)} className="gap-1.5">
-                <Reply className="h-4 w-4" /> Répondre
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => handleForward(selectedEmail)} className="gap-1.5">
-                <Forward className="h-4 w-4" /> Transférer
-              </Button>
+              <div className="flex items-center gap-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" onClick={() => handleReply(selectedEmail)} className="gap-1.5">
+                      <Reply className="h-4 w-4" />{!isMobile && " Répondre"}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Répondre</TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" onClick={() => handleForward(selectedEmail)} className="gap-1.5">
+                      <Forward className="h-4 w-4" />{!isMobile && " Transférer"}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Transférer</TooltipContent>
+                </Tooltip>
+                <div className="w-px h-5 bg-border mx-1" />
+                {selectedEmail.folder !== "inbox" && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm" onClick={() => handleDetailMove("inbox")}>
+                        <Inbox className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Déplacer vers Réception</TooltipContent>
+                  </Tooltip>
+                )}
+                {selectedEmail.folder !== "archive" && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm" onClick={() => handleDetailMove("archive")}>
+                        <Archive className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Archiver</TooltipContent>
+                  </Tooltip>
+                )}
+                {selectedEmail.folder !== "spam" && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm" onClick={() => handleDetailMove("spam")}>
+                        <ShieldAlert className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Marquer comme indésirable</TooltipContent>
+                  </Tooltip>
+                )}
+                {selectedEmail.folder !== "trash" && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm" onClick={() => handleDetailMove("trash")}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Mettre à la corbeille</TooltipContent>
+                  </Tooltip>
+                )}
+                {selectedEmail.folder === "trash" && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="destructive" size="sm" onClick={handleDetailDelete}>
+                        <Trash2 className="h-4 w-4" />{!isMobile && " Supprimer définitivement"}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Supprimer définitivement</TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
             </div>
             <InboxEmailDetail
               email={selectedEmail}
@@ -1009,6 +1105,7 @@ const InboxPage = () => {
     : currentFolder === "starred" ? "Suivis"
     : currentFolder === "archive" ? "Archives"
     : currentFolder === "trash" ? "Corbeille"
+    : currentFolder === "spam" ? "Indésirables"
     : isLabelFolder ? (activeLabelName || "Dossier")
     : "Inbox";
 
@@ -1277,6 +1374,11 @@ const InboxPage = () => {
                         {currentFolder !== "archive" && (
                           <DropdownMenuItem onClick={() => handleBulkMoveFolder("archive")} className="gap-2">
                             <Archive className="h-3.5 w-3.5" /> Archives
+                          </DropdownMenuItem>
+                        )}
+                        {currentFolder !== "spam" && (
+                          <DropdownMenuItem onClick={() => handleBulkMoveFolder("spam")} className="gap-2">
+                            <ShieldAlert className="h-3.5 w-3.5" /> Indésirables
                           </DropdownMenuItem>
                         )}
                         {currentFolder !== "trash" && (

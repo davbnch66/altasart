@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Inbox, Send, FileEdit, Trash2, Archive, Star, Plus, ChevronDown, ChevronRight,
-  FolderPlus, X, AlertTriangle, Mail
+  FolderPlus, X, AlertTriangle, Mail, ShieldAlert
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -53,12 +53,16 @@ const favoriteFolders: { key: MailFolder; label: string; icon: React.ElementType
   { key: "sent", label: "Tous les envoyés", icon: Send },
   { key: "starred", label: "Marqués", icon: Star },
   { key: "drafts", label: "Tous les brouillons", icon: FileEdit },
+  { key: "spam", label: "Tous les indésirables", icon: ShieldAlert },
+  { key: "archive", label: "Toutes les archives", icon: Archive },
+  { key: "trash", label: "Toutes les corbeilles", icon: Trash2 },
 ];
 
 const accountFolders: { key: string; label: string; icon: React.ElementType }[] = [
   { key: "inbox", label: "Boîte de réception", icon: Inbox },
   { key: "drafts", label: "Brouillons", icon: FileEdit },
   { key: "sent", label: "Envoyés", icon: Send },
+  { key: "spam", label: "Indésirables", icon: ShieldAlert },
   { key: "archive", label: "Archives", icon: Archive },
   { key: "trash", label: "Corbeille", icon: Trash2 },
 ];
@@ -217,7 +221,7 @@ export const InboxSidebar = ({
                 ? Object.entries(unreadCounts).reduce((sum, [k, v]) => k === "inbox" ? sum + v : sum, 0)
                 : (unreadCounts[key] || 0);
               const isActive = isAllAccounts && currentFolder === key;
-              const isDropTarget = key === "inbox" || key === "archive";
+              const isDropTarget = key === "inbox" || key === "archive" || key === "trash" || key === "spam";
               const isDragOver = dragOverTarget === `fav:${key}`;
               return (
                 <button
@@ -308,7 +312,7 @@ export const InboxSidebar = ({
                       {accountFolders.map(({ key, label, icon: Icon }) => {
                         const isActive = isAccountSelected && currentFolder === key;
                         const isDragOver = dragOverTarget === `${account.id}:${key}`;
-                        const isDropTarget = key === "inbox" || key === "archive" || key === "trash";
+                        const isDropTarget = key === "inbox" || key === "archive" || key === "trash" || key === "spam";
                         return (
                           <button
                             key={key}
