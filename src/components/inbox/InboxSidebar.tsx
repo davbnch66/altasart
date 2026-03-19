@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Inbox, Send, FileEdit, Trash2, Archive, Star, Plus, ChevronDown, ChevronRight,
-  FolderPlus, X, AlertTriangle, Mail
+  FolderPlus, X, AlertTriangle, Mail, ShieldAlert
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
