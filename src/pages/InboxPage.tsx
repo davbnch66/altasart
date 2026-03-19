@@ -1025,17 +1025,31 @@ const InboxPage = () => {
         {currentFolder === "inbox" && (
           <div className="flex gap-1 border-b">
             <button
-              onClick={() => setCategory("principal")}
+              onClick={() => setCategory("tous")}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                category === "principal"
+                category === "tous"
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <Inbox className="h-4 w-4" />
-              Principal
+              Tous
               {unreadPrincipalCount > 0 && (
                 <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">{unreadPrincipalCount}</Badge>
+              )}
+            </button>
+            <button
+              onClick={() => setCategory("demandes")}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                category === "demandes"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Demandes client
+              {unreadDemandesCount > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">{unreadDemandesCount}</Badge>
               )}
             </button>
             <button
