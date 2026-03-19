@@ -1401,55 +1401,54 @@ const InboxPage = () => {
                             ))}
                           </div>
                         )}
-                      </div>
 
-                      {/* Flag display & picker */}
-                      {isInboxLikeFolder && (
-                        <div className="flex items-center gap-0.5 mt-1" onClick={(e) => e.stopPropagation()}>
-                          {emailFlags.length > 0 && emailFlags.map((fc) => {
-                            const flagDef = FLAG_COLORS.find((f) => f.key === fc);
-                            return flagDef ? (
-                              <Tooltip key={fc}>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); toggleFlag(email.id, fc); }}
-                                    className="h-3 w-3 rounded-full shrink-0 hover:scale-125 transition-transform"
-                                    style={{ backgroundColor: flagDef.color }}
-                                  />
-                                </TooltipTrigger>
-                                <TooltipContent side="top"><p className="text-xs">{flagDef.label} (clic pour retirer)</p></TooltipContent>
-                              </Tooltip>
-                            ) : null;
-                          })}
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/40 hover:text-muted-foreground transition-colors">
-                                <Flag className="h-3 w-3" />
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-40 p-1.5" align="start" onClick={(e) => e.stopPropagation()}>
-                              <div className="space-y-0.5">
-                                {FLAG_COLORS.map((flag) => {
-                                  const has = emailFlags.includes(flag.key);
-                                  return (
+                        {/* Flag display & picker */}
+                        {isInboxLikeFolder && (
+                          <div className="flex items-center gap-0.5 mt-1" onClick={(e) => e.stopPropagation()}>
+                            {emailFlags.length > 0 && emailFlags.map((fc) => {
+                              const flagDef = FLAG_COLORS.find((f) => f.key === fc);
+                              return flagDef ? (
+                                <Tooltip key={fc}>
+                                  <TooltipTrigger asChild>
                                     <button
-                                      key={flag.key}
-                                      onClick={() => toggleFlag(email.id, flag.key)}
-                                      className={`flex w-full items-center gap-2 rounded px-2 py-1 text-xs transition-colors ${
-                                        has ? "bg-primary/10 font-medium" : "hover:bg-muted text-muted-foreground"
-                                      }`}
-                                    >
-                                      <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: flag.color }} />
-                                      {flag.label.split("—")[0].trim()}
-                                      {has && <span className="ml-auto text-primary text-[10px]">✓</span>}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      )}
+                                      onClick={(e) => { e.stopPropagation(); toggleFlag(email.id, fc); }}
+                                      className="h-3 w-3 rounded-full shrink-0 hover:scale-125 transition-transform"
+                                      style={{ backgroundColor: flagDef.color }}
+                                    />
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top"><p className="text-xs">{flagDef.label} (clic pour retirer)</p></TooltipContent>
+                                </Tooltip>
+                              ) : null;
+                            })}
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+                                  <Flag className="h-3 w-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-40 p-1.5" align="start" onClick={(e) => e.stopPropagation()}>
+                                <div className="space-y-0.5">
+                                  {FLAG_COLORS.map((flag) => {
+                                    const has = emailFlags.includes(flag.key);
+                                    return (
+                                      <button
+                                        key={flag.key}
+                                        onClick={() => toggleFlag(email.id, flag.key)}
+                                        className={`flex w-full items-center gap-2 rounded px-2 py-1 text-xs transition-colors ${
+                                          has ? "bg-primary/10 font-medium" : "hover:bg-muted text-muted-foreground"
+                                        }`}
+                                      >
+                                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: flag.color }} />
+                                        {flag.label.split("—")[0].trim()}
+                                        {has && <span className="ml-auto text-primary text-[10px]">✓</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex shrink-0 flex-col items-end gap-1">
