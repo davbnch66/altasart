@@ -418,7 +418,7 @@ const InboxPage = () => {
     return sorted;
   }, [searchedEmails, sortKey, currentFolder]);
 
-  const selectedEmail = currentFolder === "inbox"
+  const selectedEmail: any = currentFolder === "inbox"
     ? allInboundEmails.find((e: any) => e.id === selectedEmailId)
     : currentFolder === "sent"
     ? mergedSentEmails.find((e: any) => e.id === selectedEmailId)
