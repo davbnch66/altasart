@@ -1058,12 +1058,21 @@ const InboxPage = () => {
                 <Menu className="h-5 w-5" />
               </Button>
             )}
-            <div>
+            <div className="flex-1">
               <h1 className={`font-bold ${isMobile ? "text-lg" : "text-xl"}`}>{folderTitle}</h1>
               {!isMobile && currentFolder === "inbox" && (
                 <p className="text-xs text-muted-foreground">Emails entrants et actions suggérées par l'IA</p>
               )}
             </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" onClick={handleManualSync} disabled={isSyncing}>
+                  <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
+                  {!isMobile && <span className="ml-1">Sync</span>}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Synchroniser les emails maintenant</TooltipContent>
+            </Tooltip>
           </div>
         </motion.div>
 
