@@ -623,10 +623,15 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
       .single();
     if (companyInfo?.email) ownEmails.add(companyInfo.email.toLowerCase());
 
-    if (safeFromEmail && ownEmails.has(safeFromEmail.toLowerCase())) {
+    // Also detect forwarded emails by subject prefix (TR:, FW:, Fwd:) or from==to
+    const subjectLower = safeSubject.toLowerCase().trim();
+    const isForwardedSubject = /^(tr\s*:|fw\s*:|fwd\s*:)/i.test(subjectLower);
+    const isSelfSent = safeFromEmail && safeToEmail && safeFromEmail.toLowerCase() === safeToEmail.toLowerCase();
+
+    if (!isForwardedOrSelfSent && (isForwardedSubject || isSelfSent)) {
       isForwardedOrSelfSent = true;
       realClientEmail = analysis.email ? String(analysis.email).toLowerCase().slice(0, 320) : null;
-      console.log(`Forwarded/self-sent email detected (from: ${safeFromEmail}). Using AI-extracted email: ${realClientEmail}`);
+      console.log(`Forwarded email detected by subject/self-send. Using AI-extracted email: ${realClientEmail}`);
     }
 
     // ── Match existing client ──
