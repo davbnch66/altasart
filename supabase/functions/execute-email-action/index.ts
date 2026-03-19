@@ -236,7 +236,7 @@ serve(async (req) => {
               address: payload.address ? String(payload.address).slice(0, 500) : null,
               client_id: clientId,
               company_id: companyId,
-              dossier_id: email?.dossier_id || null,
+              dossier_id: emailDossierId || null,
               created_by: userId,
               status: "planifiee",
             }).select("id").single();
