@@ -495,7 +495,7 @@ serve(async (req) => {
               attachments: email.attachments.slice(0, 20),
               received_at: email.received_at,
               client_id: clientId,
-              folder: "INBOX",
+              folder: email.folder || "inbox",
               in_reply_to: email.in_reply_to || null,
             }, { onConflict: "email_account_id,message_id" });
 
