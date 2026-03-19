@@ -106,7 +106,7 @@ const InboxPage = () => {
   const selectedEmailId = searchParams.get("email");
 
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<CategoryTab>("principal");
+  const [category, setCategory] = useState<CategoryTab>("tous");
   const [sortKey, setSortKey] = useState<SortKey>("date_desc");
   const [readFilter, setReadFilter] = useState<ReadFilter>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all"); // all | pending | processed
