@@ -87,8 +87,16 @@ serve(async (req) => {
     if (newStatus === "accepted") {
       const payload = override_payload ? { ...(action.payload || {}), ...override_payload } : (action.payload || {});
       const companyId = action.company_id;
-      const email = action.inbound_emails;
-      const clientId = email?.client_id;
+      
+      // Always re-fetch the latest inbound_email data to pick up changes from prior actions
+      const { data: freshEmail } = await supabase
+        .from("inbound_emails")
+        .select("client_id, company_id, dossier_id, visite_id")
+        .eq("id", action.inbound_email_id)
+        .single();
+      const clientId = freshEmail?.client_id || action.inbound_emails?.client_id;
+      const emailDossierId = freshEmail?.dossier_id || action.inbound_emails?.dossier_id;
+      const emailVisiteId = freshEmail?.visite_id || action.inbound_emails?.visite_id;
 
       switch (action.action_type) {
         case "create_client": {
