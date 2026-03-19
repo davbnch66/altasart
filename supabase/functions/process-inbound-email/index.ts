@@ -591,38 +591,97 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
     const pieceMaterielCount = (analysis.pieces || []).reduce((sum: number, p: any) => sum + (p.materials || []).length, 0);
     console.log(`AI extracted: ${piecesCount} pieces with ${pieceMaterielCount} materials, ${flatMaterielCount} flat materials, ${downloadedAttachments.length} attachments analyzed`);
 
+    // ── Detect forwarded/self-sent emails ──
+    // If from_email matches the email account's own address OR any company email,
+    // this is likely a forwarded email. Use AI-extracted contact info instead.
+    let isForwardedOrSelfSent = false;
+    let realClientEmail: string | null = safeFromEmail;
+
+    // Build a set of "own" email addresses (account + all company email accounts + company email)
+    const ownEmails = new Set<string>();
+    if (emailAccountId) {
+      const { data: emailAccount } = await supabase
+        .from("email_accounts")
+        .select("email_address")
+        .eq("id", emailAccountId)
+        .single();
+      if (emailAccount?.email_address) ownEmails.add(emailAccount.email_address.toLowerCase());
+    }
+    // Add all email accounts for this company
+    const { data: allAccounts } = await supabase
+      .from("email_accounts")
+      .select("email_address")
+      .eq("company_id", companyId);
+    for (const acc of (allAccounts || [])) {
+      if (acc.email_address) ownEmails.add(acc.email_address.toLowerCase());
+    }
+    // Add company email
+    const { data: companyInfo } = await supabase
+      .from("companies")
+      .select("email")
+      .eq("id", companyId)
+      .single();
+    if (companyInfo?.email) ownEmails.add(companyInfo.email.toLowerCase());
+
+    // Also detect forwarded emails by subject prefix (TR:, FW:, Fwd:) or from==to
+    const subjectLower = safeSubject.toLowerCase().trim();
+    const isForwardedSubject = /^(tr\s*:|fw\s*:|fwd\s*:)/i.test(subjectLower);
+    const isSelfSent = safeFromEmail && safeToEmail && safeFromEmail.toLowerCase() === safeToEmail.toLowerCase();
+
+    if (!isForwardedOrSelfSent && (isForwardedSubject || isSelfSent)) {
+      isForwardedOrSelfSent = true;
+      realClientEmail = analysis.email ? String(analysis.email).toLowerCase().slice(0, 320) : null;
+      console.log(`Forwarded email detected by subject/self-send. Using AI-extracted email: ${realClientEmail}`);
+    }
+
     // ── Match existing client ──
     let clientId: string | null = null;
-    if (safeFromEmail) {
+    const matchEmail = realClientEmail || safeFromEmail;
+    if (matchEmail) {
       const { data: existingClient } = await supabase
-        .from("clients").select("id").eq("company_id", companyId).eq("email", safeFromEmail).maybeSingle();
+        .from("clients").select("id").eq("company_id", companyId).eq("email", matchEmail).maybeSingle();
       if (existingClient) {
         clientId = existingClient.id;
       } else {
         const { data: existingContact } = await supabase
-          .from("client_contacts").select("client_id").eq("company_id", companyId).eq("email", safeFromEmail).limit(1).maybeSingle();
+          .from("client_contacts").select("client_id").eq("company_id", companyId).eq("email", matchEmail).limit(1).maybeSingle();
         if (existingContact) clientId = existingContact.client_id;
       }
     }
+    // Also try matching by company name if no match by email
+    if (!clientId && analysis.societe) {
+      const { data: clientByName } = await supabase
+        .from("clients").select("id").eq("company_id", companyId).ilike("name", `%${analysis.societe}%`).limit(1).maybeSingle();
+      if (clientByName) clientId = clientByName.id;
+    }
 
-    // ── Update inbound_email ──
-    await supabase.from("inbound_emails").update({
+    // ── Update inbound_email with corrected from info for forwarded emails ──
+    const updatePayload: any = {
       ai_analysis: analysis,
       client_id: clientId,
       status: "processed",
       processed_at: new Date().toISOString(),
-    }).eq("id", emailId);
+    };
+    // For forwarded emails, store the real sender info
+    if (isForwardedOrSelfSent && realClientEmail) {
+      updatePayload.from_email = realClientEmail;
+      updatePayload.from_name = analysis.contact || analysis.societe || safeFromName;
+    }
+
+    await supabase.from("inbound_emails").update(updatePayload).eq("id", emailId);
 
     // ── Generate suggested actions ──
     const actions: any[] = [];
 
     if (!clientId) {
+      const clientEmail = realClientEmail || (isForwardedOrSelfSent ? analysis.email : safeFromEmail);
+      const clientName = analysis.societe || (isForwardedOrSelfSent ? analysis.contact : safeFromName) || clientEmail;
       actions.push({
         inbound_email_id: emailId, company_id: companyId, action_type: "create_client",
         payload: {
-          name: analysis.societe || safeFromName || safeFromEmail,
-          contact_name: analysis.contact || safeFromName,
-          email: safeFromEmail,
+          name: clientName,
+          contact_name: analysis.contact || (isForwardedOrSelfSent ? null : safeFromName),
+          email: clientEmail,
           phone: analysis.telephone || null,
           mobile: analysis.mobile || null,
           address: analysis.adresse_chantier || null,
