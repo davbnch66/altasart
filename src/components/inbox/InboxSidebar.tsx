@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Inbox, Send, FileEdit, Trash2, Archive, Star, Plus, ChevronDown, ChevronRight, Mail } from "lucide-react";
+import { Inbox, Send, FileEdit, Trash2, Archive, Star, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 
 export type MailFolder = "inbox" | "sent" | "drafts" | "trash" | "archive" | "starred";
 
-interface EmailAccount {
+export interface EmailAccount {
   id: string;
   label: string;
   email_address: string;
@@ -25,6 +25,7 @@ interface InboxSidebarProps {
   onAccountToggle: (accountId: string) => void;
   onCompose: () => void;
   unreadCounts: Record<MailFolder, number>;
+  accounts: EmailAccount[];
   isMobile?: boolean;
 }
 
@@ -37,10 +38,10 @@ const folderConfig: { key: MailFolder; label: string; icon: React.ElementType }[
   { key: "trash", label: "Corbeille", icon: Trash2 },
 ];
 
-const providerIcons: Record<string, string> = {
-  gmail: "🔴",
-  outlook: "🔵",
-  imap_smtp: "📧",
+const providerColors: Record<string, string> = {
+  gmail: "bg-red-500",
+  outlook: "bg-blue-500",
+  imap_smtp: "bg-muted-foreground",
 };
 
 export const InboxSidebar = ({
@@ -50,28 +51,20 @@ export const InboxSidebar = ({
   onAccountToggle,
   onCompose,
   unreadCounts,
+  accounts,
   isMobile = false,
 }: InboxSidebarProps) => {
-  const { current, dbCompanies } = useCompany();
-  const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [accountsExpanded, setAccountsExpanded] = useState(true);
 
-  const companyIds = current === "global"
-    ? dbCompanies.map((c) => c.id)
-    : [current];
+  const allSelected = selectedAccountIds.length === 0;
 
-  useEffect(() => {
-    const fetchAccounts = async () => {
-      const { data } = await supabase
-        .from("email_accounts")
-        .select("id, label, email_address, provider, status")
-        .in("company_id", companyIds)
-        .in("status", ["active", "testing"])
-        .order("is_default", { ascending: false });
-      setAccounts(data || []);
-    };
-    if (companyIds.length > 0) fetchAccounts();
-  }, [companyIds.join(",")]);
+  const handleSelectAll = () => {
+    // Clear all selections = show all
+    if (!allSelected) {
+      // Remove all by toggling each selected one
+      selectedAccountIds.forEach((id) => onAccountToggle(id));
+    }
+  };
 
   return (
     <div className={cn(
@@ -126,8 +119,24 @@ export const InboxSidebar = ({
           </button>
           {accountsExpanded && (
             <div className="mt-1 space-y-0.5">
+              {/* All accounts option */}
+              <button
+                onClick={handleSelectAll}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition-colors",
+                  allSelected
+                    ? "bg-primary/10 text-primary font-medium"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <div className="h-2 w-2 rounded-full bg-muted-foreground shrink-0" />
+                <span className="flex-1 text-left">Tous les comptes</span>
+                {allSelected && <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
+              </button>
+
               {accounts.map((account) => {
-                const isSelected = selectedAccountIds.length === 0 || selectedAccountIds.includes(account.id);
+                const isSelected = selectedAccountIds.includes(account.id);
+                const colorClass = providerColors[account.provider] || "bg-muted-foreground";
                 return (
                   <Tooltip key={account.id}>
                     <TooltipTrigger asChild>
@@ -136,19 +145,18 @@ export const InboxSidebar = ({
                         className={cn(
                           "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition-colors",
                           isSelected
-                            ? "bg-muted/50 text-foreground"
-                            : "text-muted-foreground/60 hover:text-muted-foreground"
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
                         )}
                       >
-                        <span className="text-[10px]">{providerIcons[account.provider] || "📧"}</span>
-                        <span className="flex-1 text-left truncate">{account.label}</span>
-                        {isSelected && (
-                          <div className="h-2 w-2 rounded-full bg-primary shrink-0" />
-                        )}
+                        <div className={cn("h-2 w-2 rounded-full shrink-0", colorClass)} />
+                        <span className="flex-1 text-left truncate">{account.email_address}</span>
+                        {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="right">
-                      <p className="text-xs">{account.email_address}</p>
+                      <p className="text-xs font-medium">{account.label}</p>
+                      <p className="text-xs text-muted-foreground">{account.email_address}</p>
                     </TooltipContent>
                   </Tooltip>
                 );
