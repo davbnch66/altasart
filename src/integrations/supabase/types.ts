@@ -195,6 +195,58 @@ export type Database = {
           },
         ]
       }
+      client_match_corrections: {
+        Row: {
+          company_id: string
+          corrected_by: string | null
+          created_at: string
+          from_domain: string | null
+          from_email: string
+          id: string
+          matched_client_id: string | null
+        }
+        Insert: {
+          company_id: string
+          corrected_by?: string | null
+          created_at?: string
+          from_domain?: string | null
+          from_email: string
+          id?: string
+          matched_client_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          corrected_by?: string | null
+          created_at?: string
+          from_domain?: string | null
+          from_email?: string
+          id?: string
+          matched_client_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_match_corrections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_match_corrections_corrected_by_fkey"
+            columns: ["corrected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_match_corrections_matched_client_id_fkey"
+            columns: ["matched_client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_notes: {
         Row: {
           author_id: string
@@ -4088,6 +4140,8 @@ export type Database = {
         Returns: boolean
       }
       is_member: { Args: { p_company_id: string }; Returns: boolean }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       app_role:
@@ -4121,6 +4175,8 @@ export type Database = {
         | "attach_voirie_plan"
         | "attach_pv_roc"
         | "attach_arrete"
+        | "link_existing_client"
+        | "enrich_client"
       email_auth_method: "password" | "oauth2"
       email_provider:
         | "generic"
@@ -4321,6 +4377,8 @@ export const Constants = {
         "attach_voirie_plan",
         "attach_pv_roc",
         "attach_arrete",
+        "link_existing_client",
+        "enrich_client",
       ],
       email_auth_method: ["password", "oauth2"],
       email_provider: [
