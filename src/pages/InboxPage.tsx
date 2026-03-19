@@ -205,7 +205,7 @@ const InboxPage = () => {
       const { error } = await supabase.from("inbound_emails").delete().in("id", ids);
       if (error) throw error;
       toast.success(`${ids.length} email${ids.length > 1 ? "s" : ""} supprimé${ids.length > 1 ? "s" : ""}`);
-      setSelectedIds(new Set());
+      exitSelectionMode();
       queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
       queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
     } catch (err) {
