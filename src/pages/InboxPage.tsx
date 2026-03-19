@@ -452,10 +452,11 @@ const InboxPage = () => {
   }, [selectedEmailId, user, allInboundEmails, queryClient, currentFolder, isInboxLikeFolder]);
 
   // Category filtering for inbox only
-  const principalEmails = currentDataset.filter(isBusinessRelevant);
-  const autreEmails = currentDataset.filter((email: any) => !isBusinessRelevant(email));
+  const demandesEmails = currentDataset.filter(isClientRequest);
+  const autreEmails = currentDataset.filter(isOther);
+  const unreadDemandesCount = demandesEmails.filter((e: any) => !e.is_read).length;
   const categoryFiltered = currentFolder === "inbox"
-    ? (category === "principal" ? principalEmails : autreEmails)
+    ? (category === "demandes" ? demandesEmails : category === "autre" ? autreEmails : currentDataset)
     : currentDataset;
 
   // Account filtering — match by _account_id
