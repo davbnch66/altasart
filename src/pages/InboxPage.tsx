@@ -367,15 +367,13 @@ const InboxPage = () => {
 
   // Current dataset based on folder
   const currentDataset = useMemo(() => {
-    switch (currentFolder) {
-      case "inbox": return mergedInboxEmails;
-      case "sent": return mergedSentEmails;
-      case "drafts": return allDraftEmails;
-      default: return mergedInboxEmails;
-    }
-  }, [currentFolder, mergedInboxEmails, mergedSentEmails, allDraftEmails]);
+    if (isInboxLikeFolder) return mergedInboxEmails;
+    if (currentFolder === "sent") return mergedSentEmails;
+    if (currentFolder === "drafts") return allDraftEmails;
+    return mergedInboxEmails;
+  }, [currentFolder, isInboxLikeFolder, mergedInboxEmails, mergedSentEmails, allDraftEmails]);
 
-  const currentIsLoading = currentFolder === "inbox" ? inboundLoading
+  const currentIsLoading = isInboxLikeFolder ? inboundLoading
     : currentFolder === "sent" ? (sentLoading || syncedLoading)
     : currentFolder === "drafts" ? draftsLoading
     : inboundLoading;
