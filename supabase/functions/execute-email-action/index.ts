@@ -87,8 +87,16 @@ serve(async (req) => {
     if (newStatus === "accepted") {
       const payload = override_payload ? { ...(action.payload || {}), ...override_payload } : (action.payload || {});
       const companyId = action.company_id;
-      const email = action.inbound_emails;
-      const clientId = email?.client_id;
+      
+      // Always re-fetch the latest inbound_email data to pick up changes from prior actions
+      const { data: freshEmail } = await supabase
+        .from("inbound_emails")
+        .select("client_id, company_id, dossier_id, visite_id")
+        .eq("id", action.inbound_email_id)
+        .single();
+      const clientId = freshEmail?.client_id || action.inbound_emails?.client_id;
+      const emailDossierId = freshEmail?.dossier_id || action.inbound_emails?.dossier_id;
+      const emailVisiteId = freshEmail?.visite_id || action.inbound_emails?.visite_id;
 
       switch (action.action_type) {
         case "create_client": {
@@ -154,7 +162,7 @@ serve(async (req) => {
             notes: payload.notes ? String(payload.notes).slice(0, 2000) : null,
             client_id: clientId,
             company_id: companyId,
-            dossier_id: email?.dossier_id || null,
+            dossier_id: emailDossierId || null,
             created_by: userId,
             status: "brouillon",
             amount: 0,
@@ -195,7 +203,7 @@ serve(async (req) => {
             instructions: payload.instructions ? String(payload.instructions).slice(0, 2000) : null,
             client_id: clientId,
             company_id: companyId,
-            dossier_id: email?.dossier_id || null,
+            dossier_id: emailDossierId || null,
             created_by: userId,
             status: "planifiee",
             scheduled_date: scheduledDate,
@@ -210,7 +218,7 @@ serve(async (req) => {
         }
 
         case "extract_materiel": {
-          let targetVisiteId = email?.visite_id || null;
+          let targetVisiteId = emailVisiteId || null;
           
           if (!targetVisiteId) {
             const { data: freshEmail } = await supabase
@@ -228,7 +236,7 @@ serve(async (req) => {
               address: payload.address ? String(payload.address).slice(0, 500) : null,
               client_id: clientId,
               company_id: companyId,
-              dossier_id: email?.dossier_id || null,
+              dossier_id: emailDossierId || null,
               created_by: userId,
               status: "planifiee",
             }).select("id").single();
@@ -367,7 +375,7 @@ serve(async (req) => {
             const planPayload: Record<string, any> = {
               company_id: companyId,
               visite_id: visiteId,
-              dossier_id: payload.dossier_id || email?.dossier_id || null,
+              dossier_id: payload.dossier_id || emailDossierId || null,
               title,
               address: payload.address ? String(payload.address).slice(0, 500) : null,
               ...(isPdf ? { plan_pdf_path: storagePath } : { plan_image_url: storagePath }),
