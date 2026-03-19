@@ -375,7 +375,7 @@ serve(async (req) => {
             const planPayload: Record<string, any> = {
               company_id: companyId,
               visite_id: visiteId,
-              dossier_id: payload.dossier_id || email?.dossier_id || null,
+              dossier_id: payload.dossier_id || emailDossierId || null,
               title,
               address: payload.address ? String(payload.address).slice(0, 500) : null,
               ...(isPdf ? { plan_pdf_path: storagePath } : { plan_image_url: storagePath }),
