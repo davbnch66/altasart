@@ -99,7 +99,136 @@ serve(async (req) => {
       const emailVisiteId = freshEmail?.visite_id || action.inbound_emails?.visite_id;
 
       switch (action.action_type) {
+        case "link_existing_client": {
+          // User selected an existing client from candidates
+          const selectedClientId = payload.selected_client_id;
+          if (!selectedClientId) throw new Error("Aucun client sélectionné");
+
+          // Verify the client exists
+          const { data: existingClient, error: clientErr } = await supabase
+            .from("clients").select("id, name").eq("id", selectedClientId).single();
+          if (clientErr || !existingClient) throw new Error("Client sélectionné introuvable");
+
+          // Link the email to this client
+          await supabase.from("inbound_emails")
+            .update({ client_id: selectedClientId })
+            .eq("id", action.inbound_email_id);
+
+          // Store the correction for learning
+          if (payload.from_email) {
+            const domain = payload.from_email.split("@")[1] || null;
+            await supabase.from("client_match_corrections").insert({
+              company_id: companyId,
+              from_email: payload.from_email.toLowerCase(),
+              from_domain: domain,
+              matched_client_id: selectedClientId,
+              corrected_by: userId,
+            });
+          }
+
+          // Auto-enrich: add contact if new
+          if (payload.new_client_data?.contact_name && payload.new_client_data?.email) {
+            const { data: existingContacts } = await supabase
+              .from("client_contacts")
+              .select("id, email")
+              .eq("client_id", selectedClientId)
+              .eq("company_id", companyId);
+
+            const contactEmailExists = (existingContacts || []).some((c: any) =>
+              c.email && c.email.toLowerCase() === payload.new_client_data.email.toLowerCase()
+            );
+
+            if (!contactEmailExists) {
+              const nameParts = String(payload.new_client_data.contact_name).trim().split(/\s+/);
+              const lastName = nameParts.pop() || String(payload.new_client_data.contact_name);
+              const firstName = nameParts.join(" ") || null;
+              await supabase.from("client_contacts").insert({
+                client_id: selectedClientId,
+                company_id: companyId,
+                first_name: firstName,
+                last_name: lastName,
+                email: payload.new_client_data.email,
+                phone_office: payload.new_client_data.phone || null,
+                mobile: payload.new_client_data.mobile || null,
+                is_default: false,
+              });
+            }
+          }
+
+          createdId = selectedClientId;
+          break;
+        }
+
+        case "enrich_client": {
+          const targetClientId = payload.client_id;
+          if (!targetClientId) throw new Error("Aucun client cible");
+
+          // Add new contact if needed
+          if (payload.enrichments?.includes("new_contact") && payload.contact_name) {
+            const nameParts = String(payload.contact_name).trim().split(/\s+/);
+            const lastName = nameParts.pop() || String(payload.contact_name);
+            const firstName = nameParts.join(" ") || null;
+            await supabase.from("client_contacts").insert({
+              client_id: targetClientId,
+              company_id: companyId,
+              first_name: firstName,
+              last_name: lastName,
+              email: payload.email || null,
+              phone_office: payload.phone || null,
+              mobile: payload.mobile || null,
+              is_default: false,
+            });
+          }
+
+          // Update missing client fields
+          const updateFields: Record<string, any> = {};
+          if (payload.enrichments?.includes("add_phone") && payload.phone) updateFields.phone = payload.phone;
+          if (payload.enrichments?.includes("add_mobile") && payload.mobile) updateFields.mobile = payload.mobile;
+          if (payload.enrichments?.includes("add_address") && payload.address) {
+            updateFields.address = payload.address;
+            if (payload.postal_code) updateFields.postal_code = payload.postal_code;
+            if (payload.city) updateFields.city = payload.city;
+          }
+
+          if (Object.keys(updateFields).length > 0) {
+            await supabase.from("clients").update(updateFields).eq("id", targetClientId);
+          }
+
+          // Store correction for learning
+          if (payload.email) {
+            const domain = payload.email.split("@")[1] || null;
+            await supabase.from("client_match_corrections").insert({
+              company_id: companyId,
+              from_email: payload.email.toLowerCase(),
+              from_domain: domain,
+              matched_client_id: targetClientId,
+              corrected_by: userId,
+            });
+          }
+
+          createdId = targetClientId;
+          break;
+        }
+
         case "create_client": {
+          // Before creating, do a final dedup check
+          const { data: lastCheck } = await supabase
+            .from("clients")
+            .select("id")
+            .eq("company_id", companyId)
+            .or(`email.eq.${payload.email || ""},name.ilike.%${(payload.name || "").replace(/[%_]/g, "")}%`)
+            .limit(1)
+            .maybeSingle();
+
+          if (lastCheck) {
+            // Client already exists — link instead of creating
+            await supabase.from("inbound_emails")
+              .update({ client_id: lastCheck.id })
+              .eq("id", action.inbound_email_id);
+            createdId = lastCheck.id;
+            break;
+          }
+
           const { data, error } = await supabase.from("clients").insert({
             name: String(payload.name || "Client sans nom").slice(0, 500),
             contact_name: payload.contact_name ? String(payload.contact_name).slice(0, 200) : null,
@@ -133,6 +262,17 @@ serve(async (req) => {
               phone_office: payload.phone ? String(payload.phone).slice(0, 30) : null,
               mobile: payload.mobile ? String(payload.mobile).slice(0, 30) : null,
               is_default: true,
+            });
+          }
+
+          // Store for learning
+          if (payload.email) {
+            await supabase.from("client_match_corrections").insert({
+              company_id: companyId,
+              from_email: payload.email.toLowerCase(),
+              from_domain: payload.email.split("@")[1] || null,
+              matched_client_id: data.id,
+              corrected_by: userId,
             });
           }
 
