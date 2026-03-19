@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Inbox, MailWarning, Loader2, ArrowUpDown, Eye, CheckCircle2,
@@ -107,6 +107,8 @@ const InboxPage = () => {
   const [replyData, setReplyData] = useState<any>(null);
   const [forwardData, setForwardData] = useState<any>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [draggedEmailIds, setDraggedEmailIds] = useState<string[]>([]);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
@@ -633,6 +635,38 @@ const InboxPage = () => {
     }
   };
 
+  // ============ DRAG & DROP TO FOLDERS ============
+  const handleDropEmails = useCallback(async (targetFolder?: string, targetLabelId?: string) => {
+    const ids = draggedEmailIds.length > 0 ? draggedEmailIds : Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      if (targetLabelId) {
+        const { error } = await supabase
+          .from("inbound_emails")
+          .update({ label_id: targetLabelId })
+          .in("id", ids);
+        if (error) throw error;
+        const label = emailLabels.find((l) => l.id === targetLabelId);
+        toast.success(`${ids.length} email${ids.length > 1 ? "s" : ""} classé${ids.length > 1 ? "s" : ""} dans "${label?.name || "dossier"}"`);
+      } else if (targetFolder) {
+        const { error } = await supabase
+          .from("inbound_emails")
+          .update({ folder: targetFolder })
+          .in("id", ids);
+        if (error) throw error;
+        const folderNames: Record<string, string> = { inbox: "Réception", archive: "Archives", trash: "Corbeille" };
+        toast.success(`${ids.length} email${ids.length > 1 ? "s" : ""} déplacé${ids.length > 1 ? "s" : ""} vers ${folderNames[targetFolder] || targetFolder}`);
+      }
+      setDraggedEmailIds([]);
+      exitSelectionMode();
+      queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+      queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur lors du déplacement");
+    }
+  }, [draggedEmailIds, selectedIds, emailLabels, queryClient, exitSelectionMode]);
+
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
     queryClient.invalidateQueries({ queryKey: ["sent-emails"] });
@@ -706,6 +740,7 @@ const InboxPage = () => {
     onCompose: () => { setReplyData(null); setForwardData(null); setComposeOpen(true); },
     unreadCounts,
     accounts: emailAccounts,
+    onDropEmails: handleDropEmails,
   };
 
   // ============ EMAIL DETAIL VIEW ============
@@ -1103,9 +1138,32 @@ const InboxPage = () => {
                   <div
                     key={email.id}
                     onClick={() => handleRowClick(email.id)}
+                    draggable={isInboxLikeFolder}
+                    onDragStart={(e) => {
+                      const ids = selectedIds.has(email.id) && selectedIds.size > 1
+                        ? Array.from(selectedIds)
+                        : [email.id];
+                      setDraggedEmailIds(ids);
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", ids.join(","));
+                    }}
+                    onDragEnd={() => setDraggedEmailIds([])}
+                    onTouchStart={(e) => {
+                      longPressTimer.current = setTimeout(() => {
+                        const ids = selectedIds.has(email.id) && selectedIds.size > 1
+                          ? Array.from(selectedIds)
+                          : [email.id];
+                        setDraggedEmailIds(ids);
+                        setSelectionMode(true);
+                        setSelectedIds(new Set(ids));
+                        toast.info("Glissez vers un dossier pour classer");
+                      }, 500);
+                    }}
+                    onTouchEnd={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
+                    onTouchMove={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
                     className={`flex items-start gap-3 transition-colors ${
                       selectionMode ? "cursor-default" : "cursor-pointer"
-                    } ${!isRead ? "bg-primary/[0.03]" : ""} ${isChecked ? "bg-primary/[0.06]" : ""} hover:bg-muted/30 ${isMobile ? "px-3 py-3" : "px-5 py-3.5"}`}
+                    } ${!isRead ? "bg-primary/[0.03]" : ""} ${isChecked ? "bg-primary/[0.06]" : ""} ${draggedEmailIds.includes(email.id) ? "opacity-50" : ""} hover:bg-muted/30 ${isMobile ? "px-3 py-3" : "px-5 py-3.5"}`}
                   >
                     {selectionMode && (
                       <div className="mt-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
