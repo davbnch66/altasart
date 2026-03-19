@@ -671,6 +671,69 @@ const InboxPage = () => {
     }
   };
 
+  // ============ FLAG MANAGEMENT ============
+  const toggleFlag = async (emailId: string, flagColor: string) => {
+    const currentFlags = emailFlagsMap[emailId] || [];
+    const hasFlag = currentFlags.includes(flagColor);
+    const companyId = companyIds[0];
+    if (!companyId) return;
+    try {
+      if (hasFlag) {
+        await supabase
+          .from("email_flag_assignments")
+          .delete()
+          .eq("inbound_email_id", emailId)
+          .eq("flag_color", flagColor);
+      } else {
+        await supabase
+          .from("email_flag_assignments")
+          .insert({ company_id: companyId, inbound_email_id: emailId, flag_color: flagColor });
+      }
+      queryClient.invalidateQueries({ queryKey: ["email-flag-assignments"] });
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur lors de la mise à jour du drapeau");
+    }
+  };
+
+  const handleBulkToggleFlag = async (flagColor: string) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const companyId = companyIds[0];
+    if (!companyId) return;
+    try {
+      // Check which already have this flag
+      const toAdd = ids.filter((id) => !(emailFlagsMap[id] || []).includes(flagColor));
+      if (toAdd.length > 0) {
+        const rows = toAdd.map((id) => ({ company_id: companyId, inbound_email_id: id, flag_color: flagColor }));
+        const { error } = await supabase.from("email_flag_assignments").upsert(rows, { onConflict: "inbound_email_id,flag_color" });
+        if (error) throw error;
+      }
+      const flagLabel = FLAG_COLORS.find((f) => f.key === flagColor)?.label || flagColor;
+      toast.success(`Drapeau "${flagLabel}" appliqué à ${ids.length} email${ids.length > 1 ? "s" : ""}`);
+      queryClient.invalidateQueries({ queryKey: ["email-flag-assignments"] });
+      exitSelectionMode();
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur");
+    }
+  };
+
+  const handleBulkRemoveFlags = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      const { error } = await supabase.from("email_flag_assignments").delete().in("inbound_email_id", ids);
+      if (error) throw error;
+      toast.success("Drapeaux retirés");
+      queryClient.invalidateQueries({ queryKey: ["email-flag-assignments"] });
+      exitSelectionMode();
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur");
+    }
+  };
+
   // ============ DRAG & DROP TO FOLDERS ============
   const handleDropEmails = useCallback(async (targetFolder?: string, targetLabelId?: string) => {
     const ids = draggedEmailIds.length > 0 ? draggedEmailIds : Array.from(selectedIds);
