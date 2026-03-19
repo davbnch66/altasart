@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Inbox, Send, FileEdit, Trash2, Archive, Star, Plus, ChevronDown, ChevronRight,
-  FolderPlus, X, Palette
+  FolderPlus, X, AlertTriangle, Mail
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -48,19 +48,31 @@ interface InboxSidebarProps {
   onDropEmails?: (targetFolder: string, targetLabelId?: string) => void;
 }
 
-const systemFolders: { key: MailFolder; label: string; icon: React.ElementType }[] = [
-  { key: "inbox", label: "Réception", icon: Inbox },
-  { key: "sent", label: "Envoyés", icon: Send },
+const favoriteFolders: { key: MailFolder; label: string; icon: React.ElementType }[] = [
+  { key: "inbox", label: "Toutes les boîtes", icon: Inbox },
+  { key: "sent", label: "Tous les envoyés", icon: Send },
+  { key: "starred", label: "Marqués", icon: Star },
+  { key: "drafts", label: "Tous les brouillons", icon: FileEdit },
+];
+
+const accountFolders: { key: string; label: string; icon: React.ElementType }[] = [
+  { key: "inbox", label: "Boîte de réception", icon: Inbox },
   { key: "drafts", label: "Brouillons", icon: FileEdit },
-  { key: "starred", label: "Suivis", icon: Star },
+  { key: "sent", label: "Envoyés", icon: Send },
   { key: "archive", label: "Archives", icon: Archive },
   { key: "trash", label: "Corbeille", icon: Trash2 },
 ];
 
 const providerColors: Record<string, string> = {
-  gmail: "bg-red-500",
-  outlook: "bg-blue-500",
-  imap_smtp: "bg-muted-foreground",
+  gmail: "text-red-500",
+  outlook: "text-blue-500",
+  imap_smtp: "text-muted-foreground",
+};
+
+const providerLabels: Record<string, string> = {
+  gmail: "Gmail",
+  outlook: "Outlook",
+  imap_smtp: "IMAP",
 };
 
 const LABEL_COLORS = [
@@ -81,7 +93,8 @@ export const InboxSidebar = ({
 }: InboxSidebarProps) => {
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
-  const [accountsExpanded, setAccountsExpanded] = useState(true);
+  const [favoritesExpanded, setFavoritesExpanded] = useState(true);
+  const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>({});
   const [labelsExpanded, setLabelsExpanded] = useState(true);
   const [createLabelOpen, setCreateLabelOpen] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
@@ -108,12 +121,30 @@ export const InboxSidebar = ({
     enabled: companyIds.length > 0,
   });
 
-  const allSelected = selectedAccountIds.length === 0;
+  const toggleAccount = (accountId: string) => {
+    setExpandedAccounts((prev) => ({ ...prev, [accountId]: !prev[accountId] }));
+  };
 
-  const handleSelectAll = () => {
-    if (!allSelected) {
-      selectedAccountIds.forEach((id) => onAccountToggle(id));
+  const handleAccountFolderClick = (accountId: string, folderKey: string) => {
+    // Select only this account and change folder
+    // Clear other selections, select this one
+    const isAlreadyOnlySelected = selectedAccountIds.length === 1 && selectedAccountIds[0] === accountId;
+    if (!isAlreadyOnlySelected) {
+      // Deselect all, then select this one
+      selectedAccountIds.forEach((id) => {
+        if (id !== accountId) onAccountToggle(id);
+      });
+      if (!selectedAccountIds.includes(accountId)) {
+        onAccountToggle(accountId);
+      }
     }
+    onFolderChange(folderKey);
+  };
+
+  const handleFavoriteClick = (folderKey: MailFolder) => {
+    // Show all accounts (deselect specific filters)
+    selectedAccountIds.forEach((id) => onAccountToggle(id));
+    onFolderChange(folderKey);
   };
 
   const handleCreateLabel = async () => {
@@ -147,6 +178,16 @@ export const InboxSidebar = ({
     if (currentFolder === `label:${labelId}`) onFolderChange("inbox");
   };
 
+  const isAllAccounts = selectedAccountIds.length === 0;
+
+  // Get display name for account
+  const getAccountDisplayName = (account: EmailAccount) => {
+    if (account.label && account.label !== account.email_address) return account.label;
+    // Try to extract a short name
+    const parts = account.email_address.split("@");
+    return parts[0];
+  };
+
   return (
     <div className={cn(
       "flex flex-col border-r bg-card",
@@ -159,47 +200,148 @@ export const InboxSidebar = ({
         </Button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 space-y-0.5">
-        {/* System folders */}
-        {systemFolders.map(({ key, label, icon: Icon }) => {
-          const count = unreadCounts[key] || 0;
-          const isActive = currentFolder === key;
-          const isDropTarget = key === "inbox" || key === "archive" || key === "trash";
-          const isDragOver = dragOverTarget === key;
-          return (
-            <button
-              key={key}
-              onClick={() => onFolderChange(key)}
-              onDragOver={isDropTarget ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOverTarget(key); } : undefined}
-              onDragLeave={isDropTarget ? () => setDragOverTarget(null) : undefined}
-              onDrop={isDropTarget ? (e) => { e.preventDefault(); setDragOverTarget(null); onDropEmails?.(key); } : undefined}
-              className={cn(
-                "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
-                isActive
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                isDragOver && "ring-2 ring-primary bg-primary/10"
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              <span className="flex-1 text-left truncate">{label}</span>
-              {count > 0 && (
-                <Badge
-                  variant={key === "inbox" ? "destructive" : "secondary"}
-                  className="px-1.5 py-0 text-[10px] min-w-[20px] justify-center"
-                >
-                  {count}
-                </Badge>
-              )}
-            </button>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto px-2 space-y-0.5 text-sm">
+        {/* ── Favoris ── */}
+        <button
+          onClick={() => setFavoritesExpanded(!favoritesExpanded)}
+          className="flex w-full items-center gap-1.5 px-2 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider"
+        >
+          {favoritesExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          Favoris
+        </button>
 
-        {/* Custom labels/folders */}
-        <div className="pt-2">
+        {favoritesExpanded && (
+          <div className="space-y-0.5">
+            {favoriteFolders.map(({ key, label, icon: Icon }) => {
+              const count = key === "inbox"
+                ? Object.entries(unreadCounts).reduce((sum, [k, v]) => k === "inbox" ? sum + v : sum, 0)
+                : (unreadCounts[key] || 0);
+              const isActive = isAllAccounts && currentFolder === key;
+              const isDropTarget = key === "inbox" || key === "archive";
+              const isDragOver = dragOverTarget === `fav:${key}`;
+              return (
+                <button
+                  key={key}
+                  onClick={() => handleFavoriteClick(key)}
+                  onDragOver={isDropTarget ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOverTarget(`fav:${key}`); } : undefined}
+                  onDragLeave={isDropTarget ? () => setDragOverTarget(null) : undefined}
+                  onDrop={isDropTarget ? (e) => { e.preventDefault(); setDragOverTarget(null); onDropEmails?.(key); } : undefined}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 transition-colors",
+                    isActive
+                      ? "bg-primary/10 text-primary font-medium"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    isDragOver && "ring-2 ring-primary bg-primary/10"
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="flex-1 text-left truncate text-[13px]">{label}</span>
+                  {count > 0 && (
+                    <span className="text-[11px] text-muted-foreground font-medium tabular-nums">
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+
+            {/* Show sub-accounts under "Toutes les boîtes" when expanded */}
+            {isAllAccounts && currentFolder === "inbox" && accounts.length > 1 && (
+              <div className="ml-5 space-y-0.5 border-l border-border/50 pl-2">
+                {accounts.map((account) => (
+                  <button
+                    key={account.id}
+                    onClick={() => {
+                      if (!selectedAccountIds.includes(account.id)) onAccountToggle(account.id);
+                      selectedAccountIds.filter(id => id !== account.id).forEach(id => onAccountToggle(id));
+                      onFolderChange("inbox");
+                    }}
+                    className="flex w-full items-center gap-2 rounded px-2 py-1 text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  >
+                    <Mail className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{getAccountDisplayName(account)}</span>
+                    {account.status !== "active" && (
+                      <AlertTriangle className="h-3 w-3 text-warning shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Comptes individuels ── */}
+        {accounts.length > 0 && (
+          <div className="pt-3 space-y-0.5">
+            {accounts.map((account) => {
+              const isExpanded = expandedAccounts[account.id] ?? false;
+              const isAccountSelected = selectedAccountIds.length === 1 && selectedAccountIds[0] === account.id;
+              const providerColor = providerColors[account.provider] || "text-muted-foreground";
+
+              return (
+                <div key={account.id}>
+                  <button
+                    onClick={() => toggleAccount(account.id)}
+                    className={cn(
+                      "flex w-full items-center gap-2 px-2 py-1.5 rounded-lg transition-colors",
+                      isAccountSelected
+                        ? "text-foreground font-medium"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {isExpanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
+                    <span className={cn("text-[11px] font-semibold uppercase tracking-wider truncate", providerColor)}>
+                      {account.label || getAccountDisplayName(account)}
+                    </span>
+                    {account.status !== "active" && (
+                      <AlertTriangle className="h-3 w-3 text-warning shrink-0 ml-auto" />
+                    )}
+                    {(unreadCounts[`account:${account.id}`] || 0) > 0 && (
+                      <span className="text-[11px] text-muted-foreground font-medium tabular-nums ml-auto">
+                        {unreadCounts[`account:${account.id}`]}
+                      </span>
+                    )}
+                  </button>
+
+                  {isExpanded && (
+                    <div className="ml-3 space-y-0.5 border-l border-border/50 pl-2">
+                      {accountFolders.map(({ key, label, icon: Icon }) => {
+                        const isActive = isAccountSelected && currentFolder === key;
+                        const isDragOver = dragOverTarget === `${account.id}:${key}`;
+                        const isDropTarget = key === "inbox" || key === "archive" || key === "trash";
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => handleAccountFolderClick(account.id, key)}
+                            onDragOver={isDropTarget ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOverTarget(`${account.id}:${key}`); } : undefined}
+                            onDragLeave={isDropTarget ? () => setDragOverTarget(null) : undefined}
+                            onDrop={isDropTarget ? (e) => { e.preventDefault(); setDragOverTarget(null); onDropEmails?.(key); } : undefined}
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded px-2 py-1 text-[12px] transition-colors",
+                              isActive
+                                ? "bg-primary/10 text-primary font-medium"
+                                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                              isDragOver && "ring-2 ring-primary bg-primary/10"
+                            )}
+                          >
+                            <Icon className="h-3.5 w-3.5 shrink-0" />
+                            <span className="flex-1 text-left truncate">{label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Dossiers personnalisés ── */}
+        <div className="pt-3">
           <button
             onClick={() => setLabelsExpanded(!labelsExpanded)}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide"
+            className="flex w-full items-center gap-1.5 px-2 py-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider"
           >
             {labelsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             Dossiers
@@ -231,7 +373,7 @@ export const InboxSidebar = ({
                     <button
                       onClick={() => onFolderChange(`label:${label.id}`)}
                       className={cn(
-                        "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors",
+                        "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-[12px] transition-colors",
                         isActive
                           ? "bg-primary/10 text-primary font-medium"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -242,11 +384,11 @@ export const InboxSidebar = ({
                         className="h-2.5 w-2.5 rounded-sm shrink-0"
                         style={{ backgroundColor: label.color }}
                       />
-                      <span className="flex-1 text-left truncate text-xs">{label.name}</span>
+                      <span className="flex-1 text-left truncate">{label.name}</span>
                       {(unreadCounts[`label:${label.id}`] || 0) > 0 && (
-                        <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+                        <span className="text-[11px] text-muted-foreground font-medium tabular-nums">
                           {unreadCounts[`label:${label.id}`]}
-                        </Badge>
+                        </span>
                       )}
                     </button>
                     <button
@@ -262,64 +404,6 @@ export const InboxSidebar = ({
           )}
         </div>
       </nav>
-
-      {/* Account filter */}
-      {accounts.length > 0 && (
-        <div className="border-t px-2 py-2">
-          <button
-            onClick={() => setAccountsExpanded(!accountsExpanded)}
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide"
-          >
-            {accountsExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            Comptes ({accounts.length})
-          </button>
-          {accountsExpanded && (
-            <div className="mt-1 space-y-0.5">
-              <button
-                onClick={handleSelectAll}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition-colors",
-                  allSelected
-                    ? "bg-primary/10 text-primary font-medium"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <div className="h-2 w-2 rounded-full bg-muted-foreground shrink-0" />
-                <span className="flex-1 text-left">Tous les comptes</span>
-                {allSelected && <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
-              </button>
-
-              {accounts.map((account) => {
-                const isSelected = selectedAccountIds.includes(account.id);
-                const colorClass = providerColors[account.provider] || "bg-muted-foreground";
-                return (
-                  <Tooltip key={account.id}>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => onAccountToggle(account.id)}
-                        className={cn(
-                          "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition-colors",
-                          isSelected
-                            ? "bg-primary/10 text-primary font-medium"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                        )}
-                      >
-                        <div className={cn("h-2 w-2 rounded-full shrink-0", colorClass)} />
-                        <span className="flex-1 text-left truncate">{account.email_address}</span>
-                        {isSelected && <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="right">
-                      <p className="text-xs font-medium">{account.label}</p>
-                      <p className="text-xs text-muted-foreground">{account.email_address}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Create label dialog */}
       <Dialog open={createLabelOpen} onOpenChange={setCreateLabelOpen}>
