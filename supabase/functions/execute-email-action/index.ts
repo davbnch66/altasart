@@ -203,7 +203,7 @@ serve(async (req) => {
             instructions: payload.instructions ? String(payload.instructions).slice(0, 2000) : null,
             client_id: clientId,
             company_id: companyId,
-            dossier_id: email?.dossier_id || null,
+            dossier_id: emailDossierId || null,
             created_by: userId,
             status: "planifiee",
             scheduled_date: scheduledDate,
