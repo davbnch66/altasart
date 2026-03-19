@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Inbox, MailWarning, Loader2, ArrowUpDown, Eye, CheckCircle2,
   Trash2, Star, StarOff, Archive, Reply, Forward, Send, Menu, X, Filter,
-  MailOpen, MailX, FolderInput, Tag, Flag, RefreshCw
+  MailOpen, MailX, FolderInput, Tag, Flag, RefreshCw, ShieldAlert
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
