@@ -266,7 +266,7 @@ const InboxPage = () => {
   // Determine which folder filter to apply for inbound_emails
   const isLabelFolder = currentFolder.startsWith("label:");
   const activeLabelId = isLabelFolder ? currentFolder.replace("label:", "") : null;
-  const isInboxLikeFolder = currentFolder === "inbox" || currentFolder === "archive" || currentFolder === "trash" || isLabelFolder;
+  const isInboxLikeFolder = currentFolder === "inbox" || currentFolder === "archive" || currentFolder === "trash" || currentFolder === "spam" || isLabelFolder;
 
   // ============ INBOX (inbound_emails) ============
   const {
