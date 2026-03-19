@@ -709,7 +709,7 @@ const InboxPage = () => {
   };
 
   // ============ EMAIL DETAIL VIEW ============
-  if (selectedEmail && currentFolder === "inbox") {
+  if (selectedEmail && isInboxLikeFolder) {
     return (
       <div className="flex h-[calc(100vh-4rem)]">
         {!isMobile && <InboxSidebar {...sidebarProps} />}
