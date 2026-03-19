@@ -221,7 +221,7 @@ export const InboxSidebar = ({
                 ? Object.entries(unreadCounts).reduce((sum, [k, v]) => k === "inbox" ? sum + v : sum, 0)
                 : (unreadCounts[key] || 0);
               const isActive = isAllAccounts && currentFolder === key;
-              const isDropTarget = key === "inbox" || key === "archive";
+              const isDropTarget = key === "inbox" || key === "archive" || key === "trash" || key === "spam";
               const isDragOver = dragOverTarget === `fav:${key}`;
               return (
                 <button
