@@ -477,7 +477,7 @@ const InboxPage = () => {
     return sorted;
   }, [searchedEmails, sortKey]);
 
-  const selectedEmail: any = currentFolder === "inbox"
+  const selectedEmail: any = isInboxLikeFolder
     ? mergedInboxEmails.find((e: any) => e.id === selectedEmailId)
     : currentFolder === "sent"
     ? mergedSentEmails.find((e: any) => e.id === selectedEmailId)
@@ -487,7 +487,7 @@ const InboxPage = () => {
   const allVisibleSelected = filteredEmails.length > 0 && filteredEmails.every((email: any) => selectedIds.has(email.id));
   const someSelected = selectedIds.size > 0;
 
-  const unreadCounts: Record<MailFolder, number> = {
+  const unreadCounts: Record<string, number> = {
     inbox: unreadPrincipalCount,
     sent: 0,
     drafts: allDraftEmails.length,
