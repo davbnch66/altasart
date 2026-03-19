@@ -536,7 +536,7 @@ const InboxPage = () => {
     ? mergedSentEmails.find((e: any) => e.id === selectedEmailId)
     : allDraftEmails.find((e: any) => e.id === selectedEmailId);
 
-  const unreadPrincipalCount = mergedInboxEmails.filter(isBusinessRelevant).filter((e: any) => !e.is_read).length;
+  const unreadPrincipalCount = mergedInboxEmails.filter((e: any) => e.folder === "inbox" || !e.folder).filter((e: any) => !e.is_read).length;
   const allVisibleSelected = filteredEmails.length > 0 && filteredEmails.every((email: any) => selectedIds.has(email.id));
   const someSelected = selectedIds.size > 0;
 
