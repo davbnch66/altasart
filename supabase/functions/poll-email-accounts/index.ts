@@ -87,29 +87,47 @@ interface ParsedEmail {
   folder?: string;
 }
 
-// ─── Gmail Polling ───────────────────────────────────────────────
+// ─── Gmail Polling (all folders including spam/trash) ────────────
 async function fetchGmailEmails(accessToken: string, since: Date, maxResults: number): Promise<ParsedEmail[]> {
   const afterEpoch = Math.floor(since.getTime() / 1000);
-  const query = `after:${afterEpoch} in:inbox`;
+  const queries = [
+    `after:${afterEpoch} in:anywhere -label:drafts`,
+  ];
 
-  const listRes = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=${maxResults}`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
+  const allMessageIds = new Set<string>();
 
-  if (!listRes.ok) {
-    const txt = await listRes.text();
-    throw new Error(`Gmail list failed [${listRes.status}]: ${txt}`);
+  for (const query of queries) {
+    try {
+      let pageToken: string | undefined;
+      do {
+        const url = new URL("https://gmail.googleapis.com/gmail/v1/users/me/messages");
+        url.searchParams.set("q", query);
+        url.searchParams.set("maxResults", String(maxResults));
+        url.searchParams.set("includeSpamTrash", "true");
+        if (pageToken) url.searchParams.set("pageToken", pageToken);
+
+        const listRes = await fetch(url.toString(), {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!listRes.ok) {
+          console.warn(`Gmail list failed [${listRes.status}]`);
+          break;
+        }
+        const listData = await listRes.json();
+        for (const m of (listData.messages || [])) allMessageIds.add(m.id);
+        pageToken = listData.nextPageToken;
+      } while (pageToken && allMessageIds.size < maxResults);
+    } catch (e) {
+      console.warn(`Gmail query error:`, e);
+    }
   }
 
-  const listData = await listRes.json();
-  const messageIds: string[] = (listData.messages || []).map((m: any) => m.id);
-
-  if (messageIds.length === 0) return [];
+  if (allMessageIds.size === 0) return [];
 
   const emails: ParsedEmail[] = [];
+  const idsToFetch = [...allMessageIds].slice(0, maxResults);
 
-  for (const msgId of messageIds.slice(0, maxResults)) {
+  for (const msgId of idsToFetch) {
     try {
       const msgRes = await fetch(
         `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}?format=full`,
@@ -131,6 +149,14 @@ async function fetchGmailEmails(accessToken: string, since: Date, maxResults: nu
       const ccRaw = getHeader("Cc");
       const ccEmails = parseEmailList(ccRaw);
 
+      // Determine folder from Gmail labels
+      const labelIds: string[] = msg.labelIds || [];
+      let folder = "inbox";
+      if (labelIds.includes("SPAM")) folder = "spam";
+      else if (labelIds.includes("TRASH")) folder = "trash";
+      else if (labelIds.includes("SENT") && !labelIds.includes("INBOX")) folder = "sent";
+      else if (labelIds.includes("DRAFT")) folder = "drafts";
+
       // Extract body
       let bodyText = "";
       let bodyHtml = "";
@@ -144,7 +170,6 @@ async function fetchGmailEmails(accessToken: string, since: Date, maxResults: nu
         }
       }
 
-      // Extract attachments metadata
       const attachments = parts
         .filter((p: any) => p.filename && p.filename.length > 0)
         .map((p: any) => ({
@@ -165,6 +190,7 @@ async function fetchGmailEmails(accessToken: string, since: Date, maxResults: nu
         received_at: new Date(parseInt(msg.internalDate)).toISOString(),
         attachments,
         in_reply_to: getHeader("In-Reply-To") || undefined,
+        folder,
       });
     } catch (e) {
       console.error(`Gmail message ${msgId} parse error:`, e);
