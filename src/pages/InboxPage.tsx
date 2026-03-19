@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Inbox, MailWarning, Loader2, ArrowUpDown, Eye, CheckCircle2,
   Trash2, Star, StarOff, Archive, Reply, Forward, Send, Menu, X, Filter,
-  MailOpen, MailX, FolderInput, Tag
+  MailOpen, MailX, FolderInput, Tag, Flag
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatDistanceToNow, format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -75,6 +76,16 @@ const readFilterLabels: Record<ReadFilter, string> = {
   read: "Lus",
 };
 
+// ============ FLAG COLORS ============
+const FLAG_COLORS = [
+  { key: "red", color: "#ef4444", label: "Rouge — Urgent" },
+  { key: "orange", color: "#f97316", label: "Orange — Important" },
+  { key: "yellow", color: "#eab308", label: "Jaune — En attente" },
+  { key: "green", color: "#22c55e", label: "Vert — Traité" },
+  { key: "blue", color: "#3b82f6", label: "Bleu — Info" },
+  { key: "purple", color: "#8b5cf6", label: "Violet — Perso" },
+];
+
 const isBusinessRelevant = (email: any): boolean => {
   const types: string[] = email.ai_analysis?.type_demande || [];
   if (types.length === 0) return true;
@@ -109,6 +120,7 @@ const InboxPage = () => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [draggedEmailIds, setDraggedEmailIds] = useState<string[]>([]);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [flagFilter, setFlagFilter] = useState<string[]>([]);
 
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
@@ -175,6 +187,30 @@ const InboxPage = () => {
     },
     enabled: companyIds.length > 0,
   });
+
+  // ============ EMAIL FLAGS ============
+  const { data: emailFlagAssignments = [] } = useQuery({
+    queryKey: ["email-flag-assignments", companyIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("email_flag_assignments")
+        .select("*")
+        .in("company_id", companyIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: companyIds.length > 0,
+  });
+
+  // Build a map: emailId → flag_color[]
+  const emailFlagsMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    emailFlagAssignments.forEach((f: any) => {
+      if (!map[f.inbound_email_id]) map[f.inbound_email_id] = [];
+      map[f.inbound_email_id].push(f.flag_color);
+    });
+    return map;
+  }, [emailFlagAssignments]);
 
   // Determine which folder filter to apply for inbound_emails
   const isLabelFolder = currentFolder.startsWith("label:");
@@ -438,8 +474,17 @@ const InboxPage = () => {
     return readFiltered.filter((e: any) => e.status === statusFilter);
   }, [readFiltered, statusFilter, currentFolder]);
 
+  // Flag filter
+  const flagFiltered = useMemo(() => {
+    if (flagFilter.length === 0) return statusFiltered;
+    return statusFiltered.filter((e: any) => {
+      const flags = emailFlagsMap[e.id] || [];
+      return flagFilter.some((f) => flags.includes(f));
+    });
+  }, [statusFiltered, flagFilter, emailFlagsMap]);
+
   // Search
-  const searchedEmails = statusFiltered.filter((email: any) => {
+  const searchedEmails = flagFiltered.filter((email: any) => {
     if (!search) return true;
     const q = search.toLowerCase();
     const toStr = currentFolder === "sent"
@@ -632,6 +677,69 @@ const InboxPage = () => {
     } catch (e) {
       console.error(e);
       toast.error("Erreur lors du classement");
+    }
+  };
+
+  // ============ FLAG MANAGEMENT ============
+  const toggleFlag = async (emailId: string, flagColor: string) => {
+    const currentFlags = emailFlagsMap[emailId] || [];
+    const hasFlag = currentFlags.includes(flagColor);
+    const companyId = companyIds[0];
+    if (!companyId) return;
+    try {
+      if (hasFlag) {
+        await supabase
+          .from("email_flag_assignments")
+          .delete()
+          .eq("inbound_email_id", emailId)
+          .eq("flag_color", flagColor);
+      } else {
+        await supabase
+          .from("email_flag_assignments")
+          .insert({ company_id: companyId, inbound_email_id: emailId, flag_color: flagColor });
+      }
+      queryClient.invalidateQueries({ queryKey: ["email-flag-assignments"] });
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur lors de la mise à jour du drapeau");
+    }
+  };
+
+  const handleBulkToggleFlag = async (flagColor: string) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    const companyId = companyIds[0];
+    if (!companyId) return;
+    try {
+      // Check which already have this flag
+      const toAdd = ids.filter((id) => !(emailFlagsMap[id] || []).includes(flagColor));
+      if (toAdd.length > 0) {
+        const rows = toAdd.map((id) => ({ company_id: companyId, inbound_email_id: id, flag_color: flagColor }));
+        const { error } = await supabase.from("email_flag_assignments").upsert(rows, { onConflict: "inbound_email_id,flag_color" });
+        if (error) throw error;
+      }
+      const flagLabel = FLAG_COLORS.find((f) => f.key === flagColor)?.label || flagColor;
+      toast.success(`Drapeau "${flagLabel}" appliqué à ${ids.length} email${ids.length > 1 ? "s" : ""}`);
+      queryClient.invalidateQueries({ queryKey: ["email-flag-assignments"] });
+      exitSelectionMode();
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur");
+    }
+  };
+
+  const handleBulkRemoveFlags = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      const { error } = await supabase.from("email_flag_assignments").delete().in("inbound_email_id", ids);
+      if (error) throw error;
+      toast.success("Drapeaux retirés");
+      queryClient.invalidateQueries({ queryKey: ["email-flag-assignments"] });
+      exitSelectionMode();
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur");
     }
   };
 
@@ -994,6 +1102,56 @@ const InboxPage = () => {
             </DropdownMenu>
           )}
 
+          {/* Flag filter */}
+          {isInboxLikeFolder && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className={`flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium transition-colors ${
+                  flagFilter.length > 0 ? "text-foreground border-primary" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                  <Flag className="h-3.5 w-3.5" />
+                  {flagFilter.length > 0 ? (
+                    <span className="flex items-center gap-1">
+                      {flagFilter.map((f) => (
+                        <span key={f} className="h-2.5 w-2.5 rounded-full inline-block" style={{ backgroundColor: FLAG_COLORS.find((c) => c.key === f)?.color }} />
+                      ))}
+                    </span>
+                  ) : "Drapeaux"}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2" align="end">
+                <div className="space-y-1">
+                  <button
+                    onClick={() => setFlagFilter([])}
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors ${
+                      flagFilter.length === 0 ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    Tous (sans filtre)
+                  </button>
+                  {FLAG_COLORS.map((flag) => {
+                    const isActive = flagFilter.includes(flag.key);
+                    return (
+                      <button
+                        key={flag.key}
+                        onClick={() => setFlagFilter((prev) =>
+                          isActive ? prev.filter((f) => f !== flag.key) : [...prev, flag.key]
+                        )}
+                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors ${
+                          isActive ? "bg-primary/10 font-medium" : "text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: flag.color }} />
+                        {flag.label}
+                        {isActive && <span className="ml-auto text-primary">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
               <ArrowUpDown className="h-3.5 w-3.5" />
@@ -1073,6 +1231,27 @@ const InboxPage = () => {
                       </DropdownMenu>
                     )}
 
+                    {/* Flags */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                          <Flag className="h-3.5 w-3.5" /> Drapeau
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {FLAG_COLORS.map((flag) => (
+                          <DropdownMenuItem key={flag.key} onClick={() => handleBulkToggleFlag(flag.key)} className="gap-2">
+                            <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: flag.color }} />
+                            {flag.label}
+                          </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleBulkRemoveFlags} className="gap-2 text-destructive">
+                          <X className="h-3.5 w-3.5" /> Retirer tous les drapeaux
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
                     {/* Delete */}
                     <Button variant="destructive" size="sm" onClick={openDeleteDialog} disabled={isDeleting} className="gap-1.5 text-xs">
                       <Trash2 className="h-3.5 w-3.5" /> Supprimer
@@ -1124,6 +1303,7 @@ const InboxPage = () => {
                 const isRead = isInbox ? !!email.is_read : true;
                 const readByProfile = isInbox && email.read_by ? (profilesMap as any)[email.read_by] : null;
                 const isChecked = selectedIds.has(email.id);
+                const emailFlags = emailFlagsMap[email.id] || [];
 
                 // Account info
                 const account = email._account || (email.account_id ? emailAccountsMap[email.account_id] : null);
@@ -1219,6 +1399,54 @@ const InboxPage = () => {
                             {analysis.type_demande.filter((t: string) => t !== "autre").slice(0, 3).map((t: string) => (
                               <Badge key={t} variant="secondary" className="px-1.5 py-0 text-[10px]">{t}</Badge>
                             ))}
+                          </div>
+                        )}
+
+                        {/* Flag display & picker */}
+                        {isInboxLikeFolder && (
+                          <div className="flex items-center gap-0.5 mt-1" onClick={(e) => e.stopPropagation()}>
+                            {emailFlags.length > 0 && emailFlags.map((fc) => {
+                              const flagDef = FLAG_COLORS.find((f) => f.key === fc);
+                              return flagDef ? (
+                                <Tooltip key={fc}>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); toggleFlag(email.id, fc); }}
+                                      className="h-3 w-3 rounded-full shrink-0 hover:scale-125 transition-transform"
+                                      style={{ backgroundColor: flagDef.color }}
+                                    />
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top"><p className="text-xs">{flagDef.label} (clic pour retirer)</p></TooltipContent>
+                                </Tooltip>
+                              ) : null;
+                            })}
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+                                  <Flag className="h-3 w-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-40 p-1.5" align="start" onClick={(e) => e.stopPropagation()}>
+                                <div className="space-y-0.5">
+                                  {FLAG_COLORS.map((flag) => {
+                                    const has = emailFlags.includes(flag.key);
+                                    return (
+                                      <button
+                                        key={flag.key}
+                                        onClick={() => toggleFlag(email.id, flag.key)}
+                                        className={`flex w-full items-center gap-2 rounded px-2 py-1 text-xs transition-colors ${
+                                          has ? "bg-primary/10 font-medium" : "hover:bg-muted text-muted-foreground"
+                                        }`}
+                                      >
+                                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: flag.color }} />
+                                        {flag.label.split("—")[0].trim()}
+                                        {has && <span className="ml-auto text-primary text-[10px]">✓</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           </div>
                         )}
                       </div>
