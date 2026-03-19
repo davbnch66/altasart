@@ -389,12 +389,12 @@ const InboxPage = () => {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!selectedEmailId && currentFolder === "inbox",
+    enabled: !!selectedEmailId && isInboxLikeFolder,
   });
 
   // Mark as read
   useEffect(() => {
-    if (!selectedEmailId || !user || currentFolder !== "inbox") return;
+    if (!selectedEmailId || !user || !isInboxLikeFolder) return;
     const email = allInboundEmails.find((e: any) => e.id === selectedEmailId);
     if (email && !email.is_read) {
       supabase
