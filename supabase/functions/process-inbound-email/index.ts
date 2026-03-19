@@ -592,26 +592,41 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
     console.log(`AI extracted: ${piecesCount} pieces with ${pieceMaterielCount} materials, ${flatMaterielCount} flat materials, ${downloadedAttachments.length} attachments analyzed`);
 
     // ── Detect forwarded/self-sent emails ──
-    // If from_email matches the email account's own address, this is likely a forwarded email.
-    // In that case, use AI-extracted contact info to find/create the real client.
+    // If from_email matches the email account's own address OR any company email,
+    // this is likely a forwarded email. Use AI-extracted contact info instead.
     let isForwardedOrSelfSent = false;
     let realClientEmail: string | null = safeFromEmail;
-    let accountEmailAddress: string | null = null;
 
+    // Build a set of "own" email addresses (account + all company email accounts + company email)
+    const ownEmails = new Set<string>();
     if (emailAccountId) {
       const { data: emailAccount } = await supabase
         .from("email_accounts")
         .select("email_address")
         .eq("id", emailAccountId)
         .single();
-      accountEmailAddress = emailAccount?.email_address?.toLowerCase() || null;
+      if (emailAccount?.email_address) ownEmails.add(emailAccount.email_address.toLowerCase());
     }
+    // Add all email accounts for this company
+    const { data: allAccounts } = await supabase
+      .from("email_accounts")
+      .select("email_address")
+      .eq("company_id", companyId);
+    for (const acc of (allAccounts || [])) {
+      if (acc.email_address) ownEmails.add(acc.email_address.toLowerCase());
+    }
+    // Add company email
+    const { data: companyInfo } = await supabase
+      .from("companies")
+      .select("email")
+      .eq("id", companyId)
+      .single();
+    if (companyInfo?.email) ownEmails.add(companyInfo.email.toLowerCase());
 
-    if (accountEmailAddress && safeFromEmail && safeFromEmail.toLowerCase() === accountEmailAddress) {
+    if (safeFromEmail && ownEmails.has(safeFromEmail.toLowerCase())) {
       isForwardedOrSelfSent = true;
-      // Use AI-extracted email as the real client email
       realClientEmail = analysis.email ? String(analysis.email).toLowerCase().slice(0, 320) : null;
-      console.log(`Forwarded/self-sent email detected. Using AI-extracted email: ${realClientEmail}`);
+      console.log(`Forwarded/self-sent email detected (from: ${safeFromEmail}). Using AI-extracted email: ${realClientEmail}`);
     }
 
     // ── Match existing client ──
