@@ -406,9 +406,9 @@ const InboxPage = () => {
           queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
         });
     }
-  }, [selectedEmailId, user, allInboundEmails, queryClient, currentFolder]);
+  }, [selectedEmailId, user, allInboundEmails, queryClient, currentFolder, isInboxLikeFolder]);
 
-  // Category filtering for inbox
+  // Category filtering for inbox only
   const principalEmails = currentDataset.filter(isBusinessRelevant);
   const autreEmails = currentDataset.filter((email: any) => !isBusinessRelevant(email));
   const categoryFiltered = currentFolder === "inbox"
