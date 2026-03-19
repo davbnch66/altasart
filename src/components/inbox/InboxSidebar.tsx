@@ -62,6 +62,7 @@ const accountFolders: { key: string; label: string; icon: React.ElementType }[] 
   { key: "inbox", label: "Boîte de réception", icon: Inbox },
   { key: "drafts", label: "Brouillons", icon: FileEdit },
   { key: "sent", label: "Envoyés", icon: Send },
+  { key: "spam", label: "Indésirables", icon: ShieldAlert },
   { key: "archive", label: "Archives", icon: Archive },
   { key: "trash", label: "Corbeille", icon: Trash2 },
 ];
