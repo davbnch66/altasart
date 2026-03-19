@@ -53,6 +53,9 @@ const favoriteFolders: { key: MailFolder; label: string; icon: React.ElementType
   { key: "sent", label: "Tous les envoyés", icon: Send },
   { key: "starred", label: "Marqués", icon: Star },
   { key: "drafts", label: "Tous les brouillons", icon: FileEdit },
+  { key: "spam", label: "Tous les indésirables", icon: ShieldAlert },
+  { key: "archive", label: "Toutes les archives", icon: Archive },
+  { key: "trash", label: "Toutes les corbeilles", icon: Trash2 },
 ];
 
 const accountFolders: { key: string; label: string; icon: React.ElementType }[] = [
