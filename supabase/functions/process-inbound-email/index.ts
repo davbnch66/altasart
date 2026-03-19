@@ -591,45 +591,61 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
     const pieceMaterielCount = (analysis.pieces || []).reduce((sum: number, p: any) => sum + (p.materials || []).length, 0);
     console.log(`AI extracted: ${piecesCount} pieces with ${pieceMaterielCount} materials, ${flatMaterielCount} flat materials, ${downloadedAttachments.length} attachments analyzed`);
 
+    // ── Detect forwarded/self-sent emails ──
+    // If from_email matches the email account's own address, this is likely a forwarded email.
+    // In that case, use AI-extracted contact info to find/create the real client.
+    let isForwardedOrSelfSent = false;
+    let realClientEmail: string | null = safeFromEmail;
+    let accountEmailAddress: string | null = null;
+
+    if (emailAccountId) {
+      const { data: emailAccount } = await supabase
+        .from("email_accounts")
+        .select("email_address")
+        .eq("id", emailAccountId)
+        .single();
+      accountEmailAddress = emailAccount?.email_address?.toLowerCase() || null;
+    }
+
+    if (accountEmailAddress && safeFromEmail && safeFromEmail.toLowerCase() === accountEmailAddress) {
+      isForwardedOrSelfSent = true;
+      // Use AI-extracted email as the real client email
+      realClientEmail = analysis.email ? String(analysis.email).toLowerCase().slice(0, 320) : null;
+      console.log(`Forwarded/self-sent email detected. Using AI-extracted email: ${realClientEmail}`);
+    }
+
     // ── Match existing client ──
     let clientId: string | null = null;
-    if (safeFromEmail) {
+    const matchEmail = realClientEmail || safeFromEmail;
+    if (matchEmail) {
       const { data: existingClient } = await supabase
-        .from("clients").select("id").eq("company_id", companyId).eq("email", safeFromEmail).maybeSingle();
+        .from("clients").select("id").eq("company_id", companyId).eq("email", matchEmail).maybeSingle();
       if (existingClient) {
         clientId = existingClient.id;
       } else {
         const { data: existingContact } = await supabase
-          .from("client_contacts").select("client_id").eq("company_id", companyId).eq("email", safeFromEmail).limit(1).maybeSingle();
+          .from("client_contacts").select("client_id").eq("company_id", companyId).eq("email", matchEmail).limit(1).maybeSingle();
         if (existingContact) clientId = existingContact.client_id;
       }
     }
+    // Also try matching by company name if no match by email
+    if (!clientId && analysis.societe) {
+      const { data: clientByName } = await supabase
+        .from("clients").select("id").eq("company_id", companyId).ilike("name", `%${analysis.societe}%`).limit(1).maybeSingle();
+      if (clientByName) clientId = clientByName.id;
+    }
 
-    // ── Update inbound_email ──
-    await supabase.from("inbound_emails").update({
+    // ── Update inbound_email with corrected from info for forwarded emails ──
+    const updatePayload: any = {
       ai_analysis: analysis,
       client_id: clientId,
       status: "processed",
       processed_at: new Date().toISOString(),
-    }).eq("id", emailId);
-
-    // ── Generate suggested actions ──
-    const actions: any[] = [];
-
-    if (!clientId) {
-      actions.push({
-        inbound_email_id: emailId, company_id: companyId, action_type: "create_client",
-        payload: {
-          name: analysis.societe || safeFromName || safeFromEmail,
-          contact_name: analysis.contact || safeFromName,
-          email: safeFromEmail,
-          phone: analysis.telephone || null,
-          mobile: analysis.mobile || null,
-          address: analysis.adresse_chantier || null,
-          postal_code: analysis.code_postal || null,
-          city: analysis.ville || null,
-        },
-      });
+    };
+    // For forwarded emails, store the real sender info
+    if (isForwardedOrSelfSent && realClientEmail) {
+      updatePayload.from_email = realClientEmail;
+      updatePayload.from_name = analysis.contact || analysis.societe || safeFromName;
     }
 
     const types = analysis.type_demande || [];
