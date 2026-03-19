@@ -484,7 +484,7 @@ serve(async (req) => {
               company_id: account.company_id,
               email_account_id: account.id,
               message_id: email.message_id.slice(0, 500),
-              direction: "inbound",
+              direction: email.folder === "sent" ? "outbound" : "inbound",
               from_email: safeFromEmail || null,
               from_name: email.from_name.slice(0, 200) || null,
               to_emails: email.to_emails.slice(0, 50),
