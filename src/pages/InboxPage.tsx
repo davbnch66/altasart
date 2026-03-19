@@ -1231,6 +1231,27 @@ const InboxPage = () => {
                       </DropdownMenu>
                     )}
 
+                    {/* Flags */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                          <Flag className="h-3.5 w-3.5" /> Drapeau
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {FLAG_COLORS.map((flag) => (
+                          <DropdownMenuItem key={flag.key} onClick={() => handleBulkToggleFlag(flag.key)} className="gap-2">
+                            <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: flag.color }} />
+                            {flag.label}
+                          </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleBulkRemoveFlags} className="gap-2 text-destructive">
+                          <X className="h-3.5 w-3.5" /> Retirer tous les drapeaux
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
                     {/* Delete */}
                     <Button variant="destructive" size="sm" onClick={openDeleteDialog} disabled={isDeleting} className="gap-1.5 text-xs">
                       <Trash2 className="h-3.5 w-3.5" /> Supprimer
