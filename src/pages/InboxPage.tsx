@@ -635,6 +635,38 @@ const InboxPage = () => {
     }
   };
 
+  // ============ DRAG & DROP TO FOLDERS ============
+  const handleDropEmails = useCallback(async (targetFolder?: string, targetLabelId?: string) => {
+    const ids = draggedEmailIds.length > 0 ? draggedEmailIds : Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      if (targetLabelId) {
+        const { error } = await supabase
+          .from("inbound_emails")
+          .update({ label_id: targetLabelId })
+          .in("id", ids);
+        if (error) throw error;
+        const label = emailLabels.find((l) => l.id === targetLabelId);
+        toast.success(`${ids.length} email${ids.length > 1 ? "s" : ""} classé${ids.length > 1 ? "s" : ""} dans "${label?.name || "dossier"}"`);
+      } else if (targetFolder) {
+        const { error } = await supabase
+          .from("inbound_emails")
+          .update({ folder: targetFolder })
+          .in("id", ids);
+        if (error) throw error;
+        const folderNames: Record<string, string> = { inbox: "Réception", archive: "Archives", trash: "Corbeille" };
+        toast.success(`${ids.length} email${ids.length > 1 ? "s" : ""} déplacé${ids.length > 1 ? "s" : ""} vers ${folderNames[targetFolder] || targetFolder}`);
+      }
+      setDraggedEmailIds([]);
+      exitSelectionMode();
+      queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+      queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur lors du déplacement");
+    }
+  }, [draggedEmailIds, selectedIds, emailLabels, queryClient, exitSelectionMode]);
+
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
     queryClient.invalidateQueries({ queryKey: ["sent-emails"] });
