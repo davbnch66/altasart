@@ -96,16 +96,18 @@ export const AppSidebar: React.FC = () => {
     : [current];
 
   const { data: pendingCount = 0 } = useQuery({
-    queryKey: ["inbox-pending-count", companyIds],
+    queryKey: ["inbox-unread-count", companyIds],
     queryFn: async () => {
       if (companyIds.length === 0) return 0;
       const { data, error } = await supabase
         .from("inbound_emails")
-        .select("id, ai_analysis")
+        .select("id, ai_analysis, is_read")
         .in("company_id", companyIds)
+        .eq("is_read", false)
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(200);
       if (error || !data) return 0;
+      // Only count business-relevant unread emails
       return data.filter((e: any) => {
         const types: string[] = e.ai_analysis?.type_demande || [];
         if (types.length === 0) return true;
