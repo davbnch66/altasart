@@ -1,6 +1,9 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Inbox, MailWarning, Loader2, ArrowUpDown, Eye, CheckCircle2, Trash2 } from "lucide-react";
+import {
+  Search, Inbox, MailWarning, Loader2, ArrowUpDown, Eye, CheckCircle2,
+  Trash2, Star, StarOff, Archive, Reply, Forward, Send, Menu, X
+} from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InboxEmailDetail } from "@/components/inbox/InboxEmailDetail";
+import { InboxSidebar, type MailFolder } from "@/components/inbox/InboxSidebar";
+import { InboxComposeDialog } from "@/components/inbox/InboxComposeDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -22,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { fr } from "date-fns/locale";
 
 type CategoryTab = "principal" | "autre";
@@ -84,6 +89,14 @@ const InboxPage = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+  // Mail client state
+  const [currentFolder, setCurrentFolder] = useState<MailFolder>("inbox");
+  const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [replyData, setReplyData] = useState<any>(null);
+  const [forwardData, setForwardData] = useState<any>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
     : [current];
@@ -93,27 +106,26 @@ const InboxPage = () => {
     setPendingDeleteIds([]);
     setSelectionMode(false);
     setDeleteDialogOpen(false);
-  }, [category]);
+  }, [category, currentFolder]);
 
   const { data: profilesMap = {} } = useQuery({
     queryKey: ["profiles-map"],
     queryFn: async () => {
       const { data } = await supabase.from("profiles").select("id, full_name, email");
       const map: Record<string, { full_name: string | null; email: string | null }> = {};
-      (data || []).forEach((p: any) => {
-        map[p.id] = p;
-      });
+      (data || []).forEach((p: any) => { map[p.id] = p; });
       return map;
     },
   });
 
+  // ============ INBOX (inbound_emails) ============
   const {
-    data,
-    isLoading,
-    isError,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
+    data: inboundData,
+    isLoading: inboundLoading,
+    isError: inboundError,
+    fetchNextPage: fetchNextInbound,
+    hasNextPage: hasNextInbound,
+    isFetchingNextPage: isFetchingNextInbound,
   } = useInfiniteQuery({
     queryKey: ["inbound-emails", companyIds],
     queryFn: async ({ pageParam = 0 }) => {
@@ -123,7 +135,6 @@ const InboxPage = () => {
         .in("company_id", companyIds)
         .order("created_at", { ascending: false })
         .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
-
       if (error) throw error;
       return { emails: data || [], totalCount: count || 0, page: pageParam };
     },
@@ -132,10 +143,196 @@ const InboxPage = () => {
       return nextPage < Math.ceil(lastPage.totalCount / PAGE_SIZE) ? nextPage : undefined;
     },
     initialPageParam: 0,
+    enabled: companyIds.length > 0 && currentFolder === "inbox",
+  });
+
+  // ============ SENT (email_outbox) ============
+  const {
+    data: sentData,
+    isLoading: sentLoading,
+    fetchNextPage: fetchNextSent,
+    hasNextPage: hasNextSent,
+    isFetchingNextPage: isFetchingNextSent,
+  } = useInfiniteQuery({
+    queryKey: ["sent-emails", companyIds],
+    queryFn: async ({ pageParam = 0 }) => {
+      const { data, error, count } = await supabase
+        .from("email_outbox")
+        .select("*, clients(name, id)", { count: "exact" })
+        .in("company_id", companyIds)
+        .eq("status", "sent")
+        .order("sent_at", { ascending: false })
+        .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
+      if (error) throw error;
+      return { emails: data || [], totalCount: count || 0, page: pageParam };
+    },
+    getNextPageParam: (lastPage) => {
+      const nextPage = lastPage.page + 1;
+      return nextPage < Math.ceil(lastPage.totalCount / PAGE_SIZE) ? nextPage : undefined;
+    },
+    initialPageParam: 0,
+    enabled: companyIds.length > 0 && currentFolder === "sent",
+  });
+
+  // ============ DRAFTS (email_outbox status=draft) ============
+  const {
+    data: draftsData,
+    isLoading: draftsLoading,
+    fetchNextPage: fetchNextDrafts,
+    hasNextPage: hasNextDrafts,
+    isFetchingNextPage: isFetchingNextDrafts,
+  } = useInfiniteQuery({
+    queryKey: ["draft-emails", companyIds],
+    queryFn: async ({ pageParam = 0 }) => {
+      const { data, error, count } = await supabase
+        .from("email_outbox")
+        .select("*, clients(name, id)", { count: "exact" })
+        .in("company_id", companyIds)
+        .eq("status", "draft")
+        .order("created_at", { ascending: false })
+        .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
+      if (error) throw error;
+      return { emails: data || [], totalCount: count || 0, page: pageParam };
+    },
+    getNextPageParam: (lastPage) => {
+      const nextPage = lastPage.page + 1;
+      return nextPage < Math.ceil(lastPage.totalCount / PAGE_SIZE) ? nextPage : undefined;
+    },
+    initialPageParam: 0,
+    enabled: companyIds.length > 0 && currentFolder === "drafts",
+  });
+
+  // ============ SYNCED EMAILS (for all folders) ============
+  const { data: syncedData, isLoading: syncedLoading } = useInfiniteQuery({
+    queryKey: ["synced-emails", companyIds, currentFolder, selectedAccountIds],
+    queryFn: async ({ pageParam = 0 }) => {
+      let query = supabase
+        .from("synced_emails")
+        .select("*, clients(name, id)", { count: "exact" })
+        .in("company_id", companyIds)
+        .order("received_at", { ascending: false })
+        .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
+
+      if (selectedAccountIds.length > 0) {
+        query = query.in("email_account_id", selectedAccountIds);
+      }
+
+      if (currentFolder === "sent") {
+        query = query.eq("direction", "outbound");
+      } else if (currentFolder === "inbox") {
+        query = query.eq("direction", "inbound");
+      }
+
+      const { data, error, count } = await query;
+      if (error) throw error;
+      return { emails: data || [], totalCount: count || 0, page: pageParam };
+    },
+    getNextPageParam: (lastPage) => {
+      const nextPage = lastPage.page + 1;
+      return nextPage < Math.ceil(lastPage.totalCount / PAGE_SIZE) ? nextPage : undefined;
+    },
+    initialPageParam: 0,
+    enabled: companyIds.length > 0 && (currentFolder === "sent" || currentFolder === "inbox"),
+  });
+
+  // ============ EMAIL ACCOUNTS MAP ============
+  const { data: emailAccountsMap = {} } = useQuery({
+    queryKey: ["email-accounts-map", companyIds],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("email_accounts")
+        .select("id, label, email_address, provider")
+        .in("company_id", companyIds);
+      const map: Record<string, any> = {};
+      (data || []).forEach((a) => { map[a.id] = a; });
+      return map;
+    },
     enabled: companyIds.length > 0,
   });
 
-  const allEmails = useMemo(() => data?.pages.flatMap((p) => p.emails) || [], [data]);
+  const allInboundEmails = useMemo(() => inboundData?.pages.flatMap((p) => p.emails) || [], [inboundData]);
+  const allSentEmails = useMemo(() => sentData?.pages.flatMap((p) => p.emails) || [], [sentData]);
+  const allDraftEmails = useMemo(() => draftsData?.pages.flatMap((p) => p.emails) || [], [draftsData]);
+  const allSyncedEmails = useMemo(() => syncedData?.pages.flatMap((p) => p.emails) || [], [syncedData]);
+
+  // Build merged inbox from inbound_emails + synced_emails (inbound)
+  const mergedInboxEmails = useMemo(() => {
+    // Use inbound_emails as primary source, enriched with account info from synced
+    const syncedBySubjectDate = new Map<string, any>();
+    allSyncedEmails
+      .filter((e: any) => e.direction === "inbound")
+      .forEach((e: any) => {
+        const key = `${e.subject}|${e.from_email}`;
+        syncedBySubjectDate.set(key, e);
+      });
+
+    return allInboundEmails.map((email: any) => {
+      const key = `${email.subject}|${email.from_email}`;
+      const synced = syncedBySubjectDate.get(key);
+      return {
+        ...email,
+        _account_id: synced?.email_account_id || null,
+        _to_email: email.to_email || synced?.to_emails?.[0] || null,
+      };
+    });
+  }, [allInboundEmails, allSyncedEmails]);
+
+  // Build merged sent from email_outbox + synced_emails (outbound)
+  const mergedSentEmails = useMemo(() => {
+    const outboxEmails = allSentEmails.map((email: any) => ({
+      id: email.id,
+      subject: email.subject,
+      from_email: null,
+      from_name: null,
+      to_recipients: email.to_recipients,
+      body_html: email.body_html,
+      body_text: email.body_text,
+      created_at: email.sent_at || email.created_at,
+      status: "sent",
+      is_read: true,
+      _account_id: email.account_id,
+      _type: "outbox" as const,
+      clients: email.clients,
+    }));
+
+    const syncedOutbound = allSyncedEmails
+      .filter((e: any) => e.direction === "outbound")
+      .map((email: any) => ({
+        id: email.id,
+        subject: email.subject,
+        from_email: email.from_email,
+        from_name: email.from_name,
+        to_recipients: email.to_emails,
+        body_html: email.body_html,
+        body_text: email.body_text,
+        created_at: email.received_at,
+        status: "sent",
+        is_read: true,
+        _account_id: email.email_account_id,
+        _type: "synced" as const,
+        clients: email.clients,
+      }));
+
+    // Merge and deduplicate by subject + time proximity
+    const all = [...outboxEmails, ...syncedOutbound];
+    all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return all;
+  }, [allSentEmails, allSyncedEmails]);
+
+  // Current dataset based on folder
+  const currentDataset = useMemo(() => {
+    switch (currentFolder) {
+      case "inbox": return mergedInboxEmails;
+      case "sent": return mergedSentEmails;
+      case "drafts": return allDraftEmails;
+      default: return mergedInboxEmails;
+    }
+  }, [currentFolder, mergedInboxEmails, mergedSentEmails, allDraftEmails]);
+
+  const currentIsLoading = currentFolder === "inbox" ? inboundLoading
+    : currentFolder === "sent" ? (sentLoading || syncedLoading)
+    : currentFolder === "drafts" ? draftsLoading
+    : inboundLoading;
 
   const { data: emailActions = [] } = useQuery({
     queryKey: ["email-actions", selectedEmailId],
@@ -145,17 +342,16 @@ const InboxPage = () => {
         .select("*")
         .eq("inbound_email_id", selectedEmailId!)
         .order("created_at", { ascending: true });
-
       if (error) throw error;
       return data || [];
     },
-    enabled: !!selectedEmailId,
+    enabled: !!selectedEmailId && currentFolder === "inbox",
   });
 
+  // Mark as read
   useEffect(() => {
-    if (!selectedEmailId || !user) return;
-
-    const email = allEmails.find((e: any) => e.id === selectedEmailId);
+    if (!selectedEmailId || !user || currentFolder !== "inbox") return;
+    const email = allInboundEmails.find((e: any) => e.id === selectedEmailId);
     if (email && !email.is_read) {
       supabase
         .from("inbound_emails")
@@ -166,33 +362,48 @@ const InboxPage = () => {
           queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
         });
     }
-  }, [selectedEmailId, user, allEmails, queryClient]);
+  }, [selectedEmailId, user, allInboundEmails, queryClient, currentFolder]);
 
-  const principalEmails = allEmails.filter(isBusinessRelevant);
-  const autreEmails = allEmails.filter((email: any) => !isBusinessRelevant(email));
-  const currentEmails = category === "principal" ? principalEmails : autreEmails;
+  // Category filtering for inbox
+  const principalEmails = currentDataset.filter(isBusinessRelevant);
+  const autreEmails = currentDataset.filter((email: any) => !isBusinessRelevant(email));
+  const displayEmails = currentFolder === "inbox"
+    ? (category === "principal" ? principalEmails : autreEmails)
+    : currentDataset;
 
-  const searchedEmails = currentEmails.filter((email: any) => {
+  // Account filtering
+  const accountFiltered = selectedAccountIds.length > 0
+    ? displayEmails.filter((email: any) => selectedAccountIds.includes(email._account_id))
+    : displayEmails;
+
+  // Search
+  const searchedEmails = accountFiltered.filter((email: any) => {
     if (!search) return true;
     const q = search.toLowerCase();
-
+    const toStr = currentFolder === "sent"
+      ? (Array.isArray(email.to_recipients)
+          ? email.to_recipients.map((r: any) => r.email || r).join(" ")
+          : "")
+      : "";
     return (
       email.subject?.toLowerCase().includes(q) ||
       email.from_name?.toLowerCase().includes(q) ||
       email.from_email?.toLowerCase().includes(q) ||
+      toStr.toLowerCase().includes(q) ||
       (email.clients as any)?.name?.toLowerCase().includes(q)
     );
   });
 
+  // Sort
   const filteredEmails = useMemo(() => {
     const sorted = [...searchedEmails];
-
+    const dateField = currentFolder === "sent" ? "created_at" : "created_at";
     switch (sortKey) {
       case "date_desc":
-        sorted.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        sorted.sort((a: any, b: any) => new Date(b[dateField]).getTime() - new Date(a[dateField]).getTime());
         break;
       case "date_asc":
-        sorted.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        sorted.sort((a: any, b: any) => new Date(a[dateField]).getTime() - new Date(b[dateField]).getTime());
         break;
       case "name_asc":
         sorted.sort((a: any, b: any) => (a.from_name || a.from_email || "").localeCompare(b.from_name || b.from_email || ""));
@@ -204,14 +415,27 @@ const InboxPage = () => {
         sorted.sort((a: any, b: any) => (a.status || "").localeCompare(b.status || ""));
         break;
     }
-
     return sorted;
-  }, [searchedEmails, sortKey]);
+  }, [searchedEmails, sortKey, currentFolder]);
 
-  const selectedEmail = allEmails.find((email: any) => email.id === selectedEmailId);
-  const unreadPrincipalCount = principalEmails.filter((email: any) => !email.is_read).length;
+  const selectedEmail = currentFolder === "inbox"
+    ? allInboundEmails.find((e: any) => e.id === selectedEmailId)
+    : currentFolder === "sent"
+    ? mergedSentEmails.find((e: any) => e.id === selectedEmailId)
+    : allDraftEmails.find((e: any) => e.id === selectedEmailId);
+
+  const unreadPrincipalCount = mergedInboxEmails.filter(isBusinessRelevant).filter((e: any) => !e.is_read).length;
   const allVisibleSelected = filteredEmails.length > 0 && filteredEmails.every((email: any) => selectedIds.has(email.id));
   const someSelected = selectedIds.size > 0;
+
+  const unreadCounts: Record<MailFolder, number> = {
+    inbox: unreadPrincipalCount,
+    sent: 0,
+    drafts: allDraftEmails.length,
+    trash: 0,
+    archive: 0,
+    starred: 0,
+  };
 
   const exitSelectionMode = () => {
     setSelectionMode(false);
@@ -225,29 +449,20 @@ const InboxPage = () => {
       setSelectedIds(new Set());
       return;
     }
-
     setSelectedIds(new Set(filteredEmails.map((email: any) => email.id)));
   };
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
 
   const openDeleteDialog = () => {
     const ids = Array.from(selectedIds);
-    if (ids.length === 0) {
-      toast.error("Sélectionnez au moins un email");
-      return;
-    }
-
+    if (ids.length === 0) { toast.error("Sélectionnez au moins un email"); return; }
     setPendingDeleteIds(ids);
     setDeleteDialogOpen(true);
   };
@@ -255,7 +470,6 @@ const InboxPage = () => {
   const removeEmailsFromCache = useCallback((idsToRemove: string[]) => {
     queryClient.setQueryData<InfiniteEmailsData | undefined>(["inbound-emails", companyIds], (old) => {
       if (!old) return old;
-
       return {
         ...old,
         pages: old.pages.map((page) => ({
@@ -269,42 +483,17 @@ const InboxPage = () => {
 
   const handleDeleteSelected = async () => {
     const ids = [...pendingDeleteIds];
-    if (ids.length === 0) {
-      toast.error("Aucun email sélectionné");
-      setDeleteDialogOpen(false);
-      return;
-    }
-
+    if (ids.length === 0) { toast.error("Aucun email sélectionné"); setDeleteDialogOpen(false); return; }
     setIsDeleting(true);
-
     try {
-      const { error: actionsError } = await supabase
-        .from("email_actions")
-        .delete()
-        .in("inbound_email_id", ids);
-
+      const { error: actionsError } = await supabase.from("email_actions").delete().in("inbound_email_id", ids);
       if (actionsError) throw actionsError;
-
-      const { error: messagesError } = await supabase
-        .from("messages")
-        .delete()
-        .in("inbound_email_id", ids);
-
+      const { error: messagesError } = await supabase.from("messages").delete().in("inbound_email_id", ids);
       if (messagesError) throw messagesError;
-
-      const { data: deletedEmails, error: deleteError } = await supabase
-        .from("inbound_emails")
-        .delete()
-        .in("id", ids)
-        .select("id");
-
+      const { data: deletedEmails, error: deleteError } = await supabase.from("inbound_emails").delete().in("id", ids).select("id");
       if (deleteError) throw deleteError;
-
       const deletedIds = (deletedEmails || []).map((email) => email.id);
-      if (deletedIds.length === 0) {
-        throw new Error("Aucun email n'a été supprimé");
-      }
-
+      if (deletedIds.length === 0) throw new Error("Aucun email n'a été supprimé");
       removeEmailsFromCache(deletedIds);
       toast.success(`${deletedIds.length} email${deletedIds.length > 1 ? "s" : ""} supprimé${deletedIds.length > 1 ? "s" : ""}`);
       exitSelectionMode();
@@ -321,327 +510,511 @@ const InboxPage = () => {
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+    queryClient.invalidateQueries({ queryKey: ["sent-emails"] });
+    queryClient.invalidateQueries({ queryKey: ["draft-emails"] });
+    queryClient.invalidateQueries({ queryKey: ["synced-emails"] });
     queryClient.invalidateQueries({ queryKey: ["email-actions"] });
     queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
   };
 
   const handleRowClick = (emailId: string) => {
-    if (selectionMode) {
-      toggleSelect(emailId);
-      return;
-    }
-
+    if (selectionMode) { toggleSelect(emailId); return; }
     setSearchParams({ email: emailId });
   };
 
+  const handleAccountToggle = (accountId: string) => {
+    setSelectedAccountIds((prev) => {
+      if (prev.includes(accountId)) {
+        return prev.filter((id) => id !== accountId);
+      }
+      return [...prev, accountId];
+    });
+  };
+
+  const handleReply = (email: any) => {
+    setReplyData({
+      to: email.from_email || "",
+      subject: email.subject || "",
+      body: email.body_text || "",
+      messageId: email.message_id || undefined,
+      accountId: email._account_id || undefined,
+    });
+    setComposeOpen(true);
+  };
+
+  const handleForward = (email: any) => {
+    setForwardData({
+      subject: email.subject || "",
+      body: email.body_text || "",
+    });
+    setComposeOpen(true);
+  };
+
   const loadMore = useCallback(() => {
-    if (hasNextPage && !isFetchingNextPage) {
-      fetchNextPage();
-    }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+    if (currentFolder === "inbox" && hasNextInbound && !isFetchingNextInbound) fetchNextInbound();
+    if (currentFolder === "sent" && hasNextSent && !isFetchingNextSent) fetchNextSent();
+    if (currentFolder === "drafts" && hasNextDrafts && !isFetchingNextDrafts) fetchNextDrafts();
+  }, [currentFolder, hasNextInbound, hasNextSent, hasNextDrafts, isFetchingNextInbound, isFetchingNextSent, isFetchingNextDrafts, fetchNextInbound, fetchNextSent, fetchNextDrafts]);
+
+  const hasMore = currentFolder === "inbox" ? hasNextInbound
+    : currentFolder === "sent" ? hasNextSent
+    : currentFolder === "drafts" ? hasNextDrafts
+    : false;
+
+  const isFetchingMore = currentFolder === "inbox" ? isFetchingNextInbound
+    : currentFolder === "sent" ? isFetchingNextSent
+    : currentFolder === "drafts" ? isFetchingNextDrafts
+    : false;
 
   const sentinelRef = useInfiniteScroll({
     onLoadMore: loadMore,
-    hasMore: !!hasNextPage,
-    isLoading: isFetchingNextPage,
+    hasMore: !!hasMore,
+    isLoading: isFetchingMore,
   });
 
-  if (isError) {
-    toast.error("Erreur de chargement des emails");
-  }
-
-  if (selectedEmail) {
+  // ============ EMAIL DETAIL VIEW ============
+  if (selectedEmail && currentFolder === "inbox") {
     return (
-      <div className={`max-w-7xl mx-auto h-full overflow-y-auto ${isMobile ? "p-3 pb-20" : "p-6 lg:p-8"}`}>
-        <InboxEmailDetail
-          email={selectedEmail}
-          actions={emailActions}
-          onBack={() => setSearchParams({})}
-          onActionExecuted={handleRefresh}
+      <div className="flex h-[calc(100vh-4rem)]">
+        {!isMobile && (
+          <InboxSidebar
+            currentFolder={currentFolder}
+            onFolderChange={setCurrentFolder}
+            selectedAccountIds={selectedAccountIds}
+            onAccountToggle={handleAccountToggle}
+            onCompose={() => { setReplyData(null); setForwardData(null); setComposeOpen(true); }}
+            unreadCounts={unreadCounts}
+          />
+        )}
+        <div className={`flex-1 overflow-y-auto ${isMobile ? "p-3 pb-20" : "p-6"}`}>
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center gap-2 mb-4">
+              <Button variant="ghost" size="sm" onClick={() => setSearchParams({})} className="gap-1.5">
+                ← Retour
+              </Button>
+              <div className="flex-1" />
+              <Button variant="ghost" size="sm" onClick={() => handleReply(selectedEmail)} className="gap-1.5">
+                <Reply className="h-4 w-4" /> Répondre
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => handleForward(selectedEmail)} className="gap-1.5">
+                <Forward className="h-4 w-4" /> Transférer
+              </Button>
+            </div>
+            <InboxEmailDetail
+              email={selectedEmail}
+              actions={emailActions}
+              onBack={() => setSearchParams({})}
+              onActionExecuted={handleRefresh}
+            />
+          </div>
+        </div>
+        <InboxComposeDialog
+          open={composeOpen}
+          onOpenChange={setComposeOpen}
+          onSent={handleRefresh}
+          replyTo={replyData}
+          forwardData={forwardData}
         />
       </div>
     );
   }
 
-  return (
-    <div className={`max-w-7xl mx-auto h-full overflow-y-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className={`page-title ${isMobile ? "!text-lg" : ""}`}>Inbox</h1>
-        {!isMobile && <p className="page-subtitle">Emails entrants et actions suggérées par l'IA</p>}
-      </motion.div>
-
-      <div className="flex gap-1 border-b">
-        <button
-          onClick={() => setCategory("principal")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            category === "principal"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-          }`}
-        >
-          <Inbox className="h-4 w-4" />
-          Principal
-          {unreadPrincipalCount > 0 && (
-            <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">
-              {unreadPrincipalCount}
-            </Badge>
-          )}
-        </button>
-
-        <button
-          onClick={() => setCategory("autre")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            category === "autre"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-          }`}
-        >
-          <MailWarning className="h-4 w-4" />
-          Autre
-          {autreEmails.length > 0 && (
-            <Badge variant="outline" className="ml-1 px-1.5 py-0 text-[10px] text-muted-foreground">
-              {autreEmails.length}
-            </Badge>
-          )}
-        </button>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Rechercher par sujet, expéditeur ou client…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className={`w-full rounded-lg border bg-card pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring ${isMobile ? "py-2 text-xs" : "py-2.5"}`}
+  // SENT EMAIL DETAIL VIEW
+  if (selectedEmail && currentFolder === "sent") {
+    const recipients = Array.isArray(selectedEmail.to_recipients)
+      ? selectedEmail.to_recipients.map((r: any) => r.email || r).join(", ")
+      : "";
+    return (
+      <div className="flex h-[calc(100vh-4rem)]">
+        {!isMobile && (
+          <InboxSidebar
+            currentFolder={currentFolder}
+            onFolderChange={setCurrentFolder}
+            selectedAccountIds={selectedAccountIds}
+            onAccountToggle={handleAccountToggle}
+            onCompose={() => { setReplyData(null); setForwardData(null); setComposeOpen(true); }}
+            unreadCounts={unreadCounts}
           />
-        </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
-            <ArrowUpDown className="h-3.5 w-3.5" />
-            {sortLabels[sortKey]}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {(Object.keys(sortLabels) as SortKey[]).map((key) => (
-              <DropdownMenuItem
-                key={key}
-                onClick={() => setSortKey(key)}
-                className={sortKey === key ? "font-semibold" : ""}
-              >
-                {sortLabels[key]}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <AnimatePresence>
-        {selectionMode && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
-            <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2.5">
-              <Checkbox
-                checked={allVisibleSelected}
-                onCheckedChange={toggleSelectAll}
-                aria-label="Tout sélectionner"
-              />
-              <span className="text-sm font-medium text-foreground">
-                {someSelected ? `${selectedIds.size} sélectionné${selectedIds.size > 1 ? "s" : ""}` : "Tout sélectionner"}
-              </span>
+        )}
+        <div className={`flex-1 overflow-y-auto ${isMobile ? "p-3 pb-20" : "p-6"}`}>
+          <div className="max-w-4xl mx-auto space-y-4">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setSearchParams({})} className="gap-1.5">
+                ← Retour
+              </Button>
               <div className="flex-1" />
-              {someSelected && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={openDeleteDialog}
-                  disabled={isDeleting}
-                  className="gap-1.5"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Supprimer ({selectedIds.size})
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={exitSelectionMode}
-                className="text-xs"
-              >
-                Annuler
+              <Button variant="ghost" size="sm" onClick={() => handleForward(selectedEmail)} className="gap-1.5">
+                <Forward className="h-4 w-4" /> Transférer
               </Button>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {isLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-16 w-full rounded-xl" />
-          ))}
-        </div>
-      ) : filteredEmails.length === 0 ? (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-16 text-center">
-          <Inbox className="mb-3 h-12 w-12 text-muted-foreground/30" />
-          <p className="text-sm text-muted-foreground">
-            {category === "autre" ? "Aucun email non pertinent" : "Aucun email entrant"}
-          </p>
-          {category === "principal" && (
-            <p className="mt-1 text-xs text-muted-foreground/60">Les emails envoyés à votre adresse dédiée apparaîtront ici</p>
-          )}
-          {category === "autre" && (
-            <p className="mt-1 text-xs text-muted-foreground/60">Les newsletters, notifications et spam triés par l'IA apparaissent ici</p>
-          )}
-        </motion.div>
-      ) : (
-        <>
-          {category === "autre" && (
-            <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-              <MailWarning className="h-3.5 w-3.5 shrink-0" />
-              Ces emails ont été classés par l'IA comme non liés à vos métiers. Vérifiez si certains sont pertinents.
-            </div>
-          )}
-
-          {!selectionMode && (
-            <div className="flex items-center px-5 py-1">
-              <button
-                onClick={() => setSelectionMode(true)}
-                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Sélectionner
-              </button>
-            </div>
-          )}
-
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="card-elevated divide-y">
-            {filteredEmails.map((email: any) => {
-              const analysis = email.ai_analysis;
-              const hasActions = analysis?.type_demande?.length > 0 && analysis.type_demande.some((t: string) => t !== "autre");
-              const isRead = !!email.is_read;
-              const readByProfile = email.read_by ? (profilesMap as any)[email.read_by] : null;
-              const isChecked = selectedIds.has(email.id);
-
-              return (
-                <div
-                  key={email.id}
-                  onClick={() => handleRowClick(email.id)}
-                  className={`flex items-start gap-3 transition-colors ${
-                    selectionMode ? "cursor-default" : "cursor-pointer"
-                  } ${!isRead ? "bg-primary/[0.03]" : ""} ${isChecked ? "bg-primary/[0.06]" : ""} hover:bg-muted/30 ${isMobile ? "px-3 py-3" : "px-5 py-4"}`}
-                >
-                  {selectionMode && (
-                    <div className="mt-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={isChecked}
-                        onCheckedChange={() => toggleSelect(email.id)}
-                        aria-label={`Sélectionner ${email.subject || "cet email"}`}
-                      />
-                    </div>
-                  )}
-
-                  <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <div className="mt-1 flex w-4 shrink-0 items-center justify-center">
-                      {!isRead ? (
-                        <div className="h-2.5 w-2.5 rounded-full bg-info" title="Non lu" />
-                      ) : (
-                        <Eye className="h-3.5 w-3.5 text-muted-foreground/40" />
-                      )}
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <p className={`truncate ${!isRead ? "font-semibold text-foreground" : "font-medium text-foreground/80"} ${isMobile ? "text-xs" : "text-sm"}`}>
-                          {email.from_name || email.from_email || "Inconnu"}
-                        </p>
-                      </div>
-                      <p className={`truncate ${!isRead ? "font-medium text-foreground" : "text-foreground/70"} ${isMobile ? "text-xs" : "text-sm"}`}>
-                        {email.subject || "(sans objet)"}
-                      </p>
-                      {!isMobile && analysis?.resume && (
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">{analysis.resume}</p>
-                      )}
-                      {hasActions && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {analysis.type_demande
-                            .filter((t: string) => t !== "autre")
-                            .slice(0, 3)
-                            .map((t: string) => (
-                              <Badge key={t} variant="secondary" className="px-1.5 py-0 text-[10px]">
-                                {t}
-                              </Badge>
-                            ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <span className="whitespace-nowrap text-[10px] text-muted-foreground">
-                        {formatDistanceToNow(new Date(email.created_at), { addSuffix: true, locale: fr })}
-                      </span>
-                      <Badge className={`py-0 text-[10px] ${statusStyles[email.status] || ""}`}>
-                        {statusLabels[email.status] || email.status}
-                      </Badge>
-                      {(email.clients as any)?.name && (
-                        <span className="max-w-[100px] truncate text-[10px] text-muted-foreground">
-                          {(email.clients as any).name}
-                        </span>
-                      )}
-                      {isRead && readByProfile && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                              <CheckCircle2 className="h-3 w-3" />
-                              <span className="max-w-[60px] truncate">
-                                {readByProfile.full_name?.split(" ")[0] || "Lu"}
-                              </span>
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="left">
-                            <p className="text-xs">
-                              Lu par {readByProfile.full_name || readByProfile.email}
-                              {email.read_at && (
-                                <>
-                                  {" "}· {formatDistanceToNow(new Date(email.read_at), { addSuffix: true, locale: fr })}
-                                </>
-                              )}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </motion.div>
-
-          <div ref={sentinelRef} className="flex items-center justify-center py-4">
-            {isFetchingNextPage && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Chargement…
+            <div className="rounded-xl border bg-card p-5 space-y-3">
+              <h2 className="text-lg font-bold">{selectedEmail.subject || "(sans objet)"}</h2>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Send className="h-3.5 w-3.5" />
+                <span>À : {recipients}</span>
               </div>
-            )}
-            {!hasNextPage && allEmails.length > PAGE_SIZE && (
-              <p className="text-xs text-muted-foreground">{allEmails.length} emails chargés</p>
-            )}
+              {selectedEmail._account_id && emailAccountsMap[selectedEmail._account_id] && (
+                <div className="text-xs text-muted-foreground">
+                  Via : {emailAccountsMap[selectedEmail._account_id].email_address}
+                </div>
+              )}
+              <div className="text-xs text-muted-foreground">
+                {format(new Date(selectedEmail.created_at), "dd/MM/yyyy HH:mm", { locale: fr })}
+              </div>
+            </div>
+            <div className="rounded-xl border bg-card p-5">
+              <h3 className="text-sm font-semibold mb-3">Contenu</h3>
+              {selectedEmail.body_html ? (
+                <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }} />
+              ) : (
+                <pre className="text-sm whitespace-pre-wrap font-sans">{selectedEmail.body_text || "(vide)"}</pre>
+              )}
+            </div>
           </div>
-        </>
+        </div>
+        <InboxComposeDialog
+          open={composeOpen}
+          onOpenChange={setComposeOpen}
+          onSent={handleRefresh}
+          forwardData={forwardData}
+        />
+      </div>
+    );
+  }
+
+  // ============ EMAIL LIST VIEW ============
+  const folderTitle = currentFolder === "inbox" ? "Réception"
+    : currentFolder === "sent" ? "Envoyés"
+    : currentFolder === "drafts" ? "Brouillons"
+    : currentFolder === "starred" ? "Suivis"
+    : currentFolder === "archive" ? "Archives"
+    : currentFolder === "trash" ? "Corbeille"
+    : "Inbox";
+
+  return (
+    <div className="flex h-[calc(100vh-4rem)]">
+      {/* Mobile sidebar toggle */}
+      {isMobile && (
+        <AnimatePresence>
+          {mobileSidebarOpen && (
+            <motion.div
+              initial={{ x: -240 }}
+              animate={{ x: 0 }}
+              exit={{ x: -240 }}
+              className="absolute inset-y-0 left-0 z-50 w-[240px] bg-card shadow-lg"
+            >
+              <div className="flex items-center justify-end p-2">
+                <Button variant="ghost" size="sm" onClick={() => setMobileSidebarOpen(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <InboxSidebar
+                currentFolder={currentFolder}
+                onFolderChange={(folder) => { setCurrentFolder(folder); setMobileSidebarOpen(false); }}
+                selectedAccountIds={selectedAccountIds}
+                onAccountToggle={handleAccountToggle}
+                onCompose={() => { setReplyData(null); setForwardData(null); setComposeOpen(true); setMobileSidebarOpen(false); }}
+                unreadCounts={unreadCounts}
+                isMobile
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       )}
 
+      {/* Desktop sidebar */}
+      {!isMobile && (
+        <InboxSidebar
+          currentFolder={currentFolder}
+          onFolderChange={setCurrentFolder}
+          selectedAccountIds={selectedAccountIds}
+          onAccountToggle={handleAccountToggle}
+          onCompose={() => { setReplyData(null); setForwardData(null); setComposeOpen(true); }}
+          unreadCounts={unreadCounts}
+        />
+      )}
+
+      {/* Main content */}
+      <div className={`flex-1 overflow-y-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-5 space-y-4"}`}>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="flex items-center gap-3">
+            {isMobile && (
+              <Button variant="ghost" size="sm" onClick={() => setMobileSidebarOpen(true)}>
+                <Menu className="h-5 w-5" />
+              </Button>
+            )}
+            <div>
+              <h1 className={`font-bold ${isMobile ? "text-lg" : "text-xl"}`}>{folderTitle}</h1>
+              {!isMobile && currentFolder === "inbox" && (
+                <p className="text-xs text-muted-foreground">Emails entrants et actions suggérées par l'IA</p>
+              )}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Category tabs (only for inbox) */}
+        {currentFolder === "inbox" && (
+          <div className="flex gap-1 border-b">
+            <button
+              onClick={() => setCategory("principal")}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                category === "principal"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Inbox className="h-4 w-4" />
+              Principal
+              {unreadPrincipalCount > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">{unreadPrincipalCount}</Badge>
+              )}
+            </button>
+            <button
+              onClick={() => setCategory("autre")}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                category === "autre"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <MailWarning className="h-4 w-4" />
+              Autre
+              {autreEmails.length > 0 && (
+                <Badge variant="outline" className="ml-1 px-1.5 py-0 text-[10px] text-muted-foreground">{autreEmails.length}</Badge>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Search + Sort */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder={currentFolder === "sent" ? "Rechercher par destinataire ou sujet…" : "Rechercher par sujet, expéditeur ou client…"}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={`w-full rounded-lg border bg-card pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring ${isMobile ? "py-2 text-xs" : "py-2.5"}`}
+            />
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              {sortLabels[sortKey]}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {(Object.keys(sortLabels) as SortKey[]).map((key) => (
+                <DropdownMenuItem key={key} onClick={() => setSortKey(key)} className={sortKey === key ? "font-semibold" : ""}>
+                  {sortLabels[key]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Selection bar */}
+        <AnimatePresence>
+          {selectionMode && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+              <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2.5">
+                <Checkbox checked={allVisibleSelected} onCheckedChange={toggleSelectAll} />
+                <span className="text-sm font-medium">{someSelected ? `${selectedIds.size} sélectionné${selectedIds.size > 1 ? "s" : ""}` : "Tout sélectionner"}</span>
+                <div className="flex-1" />
+                {someSelected && currentFolder === "inbox" && (
+                  <Button variant="destructive" size="sm" onClick={openDeleteDialog} disabled={isDeleting} className="gap-1.5">
+                    <Trash2 className="h-3.5 w-3.5" /> Supprimer ({selectedIds.size})
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={exitSelectionMode} className="text-xs">Annuler</Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Email list */}
+        {currentIsLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
+          </div>
+        ) : filteredEmails.length === 0 ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-16 text-center">
+            <Inbox className="mb-3 h-12 w-12 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground">
+              {currentFolder === "sent" ? "Aucun email envoyé" : currentFolder === "drafts" ? "Aucun brouillon" : "Aucun email"}
+            </p>
+          </motion.div>
+        ) : (
+          <>
+            {currentFolder === "inbox" && category === "autre" && (
+              <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                <MailWarning className="h-3.5 w-3.5 shrink-0" />
+                Ces emails ont été classés par l'IA comme non liés à vos métiers.
+              </div>
+            )}
+
+            {!selectionMode && currentFolder === "inbox" && (
+              <div className="flex items-center px-5 py-1">
+                <button onClick={() => setSelectionMode(true)} className="text-xs text-muted-foreground transition-colors hover:text-foreground">
+                  Sélectionner
+                </button>
+              </div>
+            )}
+
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="card-elevated divide-y">
+              {filteredEmails.map((email: any) => {
+                const isInbox = currentFolder === "inbox";
+                const isSent = currentFolder === "sent";
+                const analysis = email.ai_analysis;
+                const hasActions = isInbox && analysis?.type_demande?.length > 0 && analysis.type_demande.some((t: string) => t !== "autre");
+                const isRead = isInbox ? !!email.is_read : true;
+                const readByProfile = isInbox && email.read_by ? (profilesMap as any)[email.read_by] : null;
+                const isChecked = selectedIds.has(email.id);
+
+                // Account info
+                const accountId = email._account_id || email.account_id;
+                const account = accountId ? emailAccountsMap[accountId] : null;
+                const toEmail = email._to_email || email.to_email;
+
+                // For sent emails, show recipients
+                const recipients = isSent && Array.isArray(email.to_recipients)
+                  ? email.to_recipients.map((r: any) => r.email || r).join(", ")
+                  : null;
+
+                return (
+                  <div
+                    key={email.id}
+                    onClick={() => handleRowClick(email.id)}
+                    className={`flex items-start gap-3 transition-colors ${
+                      selectionMode ? "cursor-default" : "cursor-pointer"
+                    } ${!isRead ? "bg-primary/[0.03]" : ""} ${isChecked ? "bg-primary/[0.06]" : ""} hover:bg-muted/30 ${isMobile ? "px-3 py-3" : "px-5 py-3.5"}`}
+                  >
+                    {selectionMode && (
+                      <div className="mt-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox checked={isChecked} onCheckedChange={() => toggleSelect(email.id)} />
+                      </div>
+                    )}
+
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      {isInbox && (
+                        <div className="mt-1 flex w-4 shrink-0 items-center justify-center">
+                          {!isRead ? (
+                            <div className="h-2.5 w-2.5 rounded-full bg-info" title="Non lu" />
+                          ) : (
+                            <Eye className="h-3.5 w-3.5 text-muted-foreground/40" />
+                          )}
+                        </div>
+                      )}
+
+                      {isSent && (
+                        <div className="mt-1 flex w-4 shrink-0 items-center justify-center">
+                          <Send className="h-3.5 w-3.5 text-muted-foreground/40" />
+                        </div>
+                      )}
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <p className={`truncate ${!isRead ? "font-semibold text-foreground" : "font-medium text-foreground/80"} ${isMobile ? "text-xs" : "text-sm"}`}>
+                            {isSent
+                              ? `À : ${recipients || "—"}`
+                              : (email.from_name || email.from_email || "Inconnu")}
+                          </p>
+                        </div>
+                        <p className={`truncate ${!isRead ? "font-medium text-foreground" : "text-foreground/70"} ${isMobile ? "text-xs" : "text-sm"}`}>
+                          {email.subject || "(sans objet)"}
+                        </p>
+                        {!isMobile && isInbox && analysis?.resume && (
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">{analysis.resume}</p>
+                        )}
+
+                        {/* Account badge */}
+                        {(account || toEmail) && (
+                          <div className="mt-1 flex items-center gap-1.5">
+                            {account && (
+                              <Badge variant="outline" className="px-1.5 py-0 text-[9px] text-muted-foreground">
+                                {account.label}
+                              </Badge>
+                            )}
+                            {toEmail && !account && (
+                              <Badge variant="outline" className="px-1.5 py-0 text-[9px] text-muted-foreground">
+                                → {toEmail}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+
+                        {hasActions && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {analysis.type_demande.filter((t: string) => t !== "autre").slice(0, 3).map((t: string) => (
+                              <Badge key={t} variant="secondary" className="px-1.5 py-0 text-[10px]">{t}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <span className="whitespace-nowrap text-[10px] text-muted-foreground">
+                          {formatDistanceToNow(new Date(email.created_at), { addSuffix: true, locale: fr })}
+                        </span>
+                        {isInbox && (
+                          <Badge className={`py-0 text-[10px] ${statusStyles[email.status] || ""}`}>
+                            {statusLabels[email.status] || email.status}
+                          </Badge>
+                        )}
+                        {isInbox && (email.clients as any)?.name && (
+                          <span className="max-w-[100px] truncate text-[10px] text-muted-foreground">
+                            {(email.clients as any).name}
+                          </span>
+                        )}
+                        {isRead && readByProfile && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                                <CheckCircle2 className="h-3 w-3" />
+                                <span className="max-w-[60px] truncate">{readByProfile.full_name?.split(" ")[0] || "Lu"}</span>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="left">
+                              <p className="text-xs">
+                                Lu par {readByProfile.full_name || readByProfile.email}
+                                {email.read_at && <> · {formatDistanceToNow(new Date(email.read_at), { addSuffix: true, locale: fr })}</>}
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </motion.div>
+
+            <div ref={sentinelRef} className="flex items-center justify-center py-4">
+              {isFetchingMore && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Chargement…
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Compose Dialog */}
+      <InboxComposeDialog
+        open={composeOpen}
+        onOpenChange={(open) => { setComposeOpen(open); if (!open) { setReplyData(null); setForwardData(null); } }}
+        onSent={handleRefresh}
+        replyTo={replyData}
+        forwardData={forwardData}
+      />
+
+      {/* Delete Dialog */}
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={(open) => {
           setDeleteDialogOpen(open);
-          if (!open && !isDeleting) {
-            setPendingDeleteIds([]);
-          }
+          if (!open && !isDeleting) setPendingDeleteIds([]);
         }}
         onConfirm={handleDeleteSelected}
         title={`Supprimer ${pendingDeleteIds.length} email${pendingDeleteIds.length > 1 ? "s" : ""} ?`}
