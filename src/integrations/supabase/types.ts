@@ -1184,6 +1184,45 @@ export type Database = {
           },
         ]
       }
+      email_flag_assignments: {
+        Row: {
+          company_id: string
+          created_at: string
+          flag_color: string
+          id: string
+          inbound_email_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          flag_color: string
+          id?: string
+          inbound_email_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          flag_color?: string
+          id?: string
+          inbound_email_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_flag_assignments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_flag_assignments_inbound_email_id_fkey"
+            columns: ["inbound_email_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_emails"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_label_assignments: {
         Row: {
           company_id: string
