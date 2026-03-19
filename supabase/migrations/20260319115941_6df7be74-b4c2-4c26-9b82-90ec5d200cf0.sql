@@ -1,0 +1,1 @@
+UPDATE inbound_emails SET email_account_id = 'fd7214b4-8128-4dd6-a913-8911a3962676' WHERE id = '1c1b0673-2e1a-42b0-bd3b-f7def9a0098e';

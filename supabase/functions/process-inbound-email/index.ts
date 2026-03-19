@@ -6,14 +6,258 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const ALGORITHM = "AES-GCM";
+const IV_LENGTH = 16;
+const TAG_LENGTH = 16;
+
+function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+  }
+  return bytes;
+}
+
+async function decryptValue(encrypted: string, keyHex: string): Promise<string> {
+  const keyBytes = hexToBytes(keyHex);
+  const key = await crypto.subtle.importKey("raw", keyBytes, ALGORITHM, false, ["decrypt"]);
+  const raw = Uint8Array.from(atob(encrypted), c => c.charCodeAt(0));
+  const iv = raw.slice(0, IV_LENGTH);
+  const tag = raw.slice(IV_LENGTH, IV_LENGTH + TAG_LENGTH);
+  const ciphertext = raw.slice(IV_LENGTH + TAG_LENGTH);
+  const combined = new Uint8Array(ciphertext.length + TAG_LENGTH);
+  combined.set(ciphertext, 0);
+  combined.set(tag, ciphertext.length);
+  const decrypted = await crypto.subtle.decrypt({ name: ALGORITHM, iv, tagLength: 128 }, key, combined);
+  return new TextDecoder().decode(decrypted);
+}
+
+async function refreshGoogleToken(refreshToken: string, clientId: string, clientSecret: string): Promise<string> {
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: refreshToken, client_id: clientId, client_secret: clientSecret }),
+  });
+  if (!res.ok) throw new Error(`Google token refresh failed [${res.status}]`);
+  return (await res.json()).access_token;
+}
+
+async function refreshMicrosoftToken(refreshToken: string, clientId: string, clientSecret: string): Promise<string> {
+  const res = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token", refresh_token: refreshToken, client_id: clientId, client_secret: clientSecret,
+      scope: "https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access",
+    }),
+  });
+  if (!res.ok) throw new Error(`Microsoft token refresh failed [${res.status}]`);
+  return (await res.json()).access_token;
+}
+
+// Download attachment content from email provider
+async function downloadAttachments(
+  supabase: any,
+  emailAccountId: string | null,
+  attachments: any[],
+  encryptionKey: string,
+  inboundEmailMessageId: string | null,
+): Promise<Array<{ filename: string; content_type: string; base64_content: string; size: number }>> {
+  if (!emailAccountId || !attachments || attachments.length === 0) return [];
+
+  const { data: account } = await supabase
+    .from("email_accounts")
+    .select("provider, oauth_refresh_token_encrypted, oauth_client_id")
+    .eq("id", emailAccountId)
+    .single();
+
+  if (!account?.oauth_refresh_token_encrypted) return [];
+
+  let accessToken: string;
+  try {
+    const refreshToken = await decryptValue(account.oauth_refresh_token_encrypted, encryptionKey);
+    if (account.provider === "gmail") {
+      accessToken = await refreshGoogleToken(
+        refreshToken,
+        account.oauth_client_id || Deno.env.get("GOOGLE_CLIENT_ID")!,
+        Deno.env.get("GOOGLE_CLIENT_SECRET")!,
+      );
+    } else if (account.provider === "outlook") {
+      accessToken = await refreshMicrosoftToken(
+        refreshToken,
+        account.oauth_client_id || Deno.env.get("MICROSOFT_CLIENT_ID")!,
+        Deno.env.get("MICROSOFT_CLIENT_SECRET")!,
+      );
+    } else return [];
+  } catch (e) {
+    console.error("Token refresh failed for attachment download:", e);
+    return [];
+  }
+
+  // If attachments don't have attachment_id, re-fetch from provider to get IDs
+  const needsIdLookup = attachments.some((a: any) => !a.attachment_id);
+  let enrichedAttachments = attachments;
+
+  if (needsIdLookup) {
+    try {
+      if (account.provider === "gmail") {
+        // Search Gmail for this message by message_id header
+        const searchQuery = inboundEmailMessageId ? `rfc822msgid:${inboundEmailMessageId.replace(/[<>]/g, "")}` : null;
+        let gmailMsgId: string | null = null;
+
+        if (searchQuery) {
+          const searchUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(searchQuery)}&maxResults=1&includeSpamTrash=true`;
+          const searchRes = await fetch(searchUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+          if (searchRes.ok) {
+            const searchData = await searchRes.json();
+            gmailMsgId = searchData.messages?.[0]?.id || null;
+          }
+        }
+
+        if (gmailMsgId) {
+          const msgRes = await fetch(
+            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${gmailMsgId}?format=full`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          );
+          if (msgRes.ok) {
+            const msg = await msgRes.json();
+            const parts = flattenGmailParts(msg.payload);
+            const attParts = parts.filter((p: any) => p.filename && p.filename.length > 0);
+            
+            // Enrich original attachments with attachment_id
+            enrichedAttachments = attachments.map((a: any) => {
+              const match = attParts.find((p: any) => p.filename === a.filename);
+              return match ? { ...a, attachment_id: match.body?.attachmentId, provider_msg_id: gmailMsgId } : a;
+            });
+          }
+        }
+      } else if (account.provider === "outlook") {
+        // For Outlook, find message by internetMessageId
+        if (inboundEmailMessageId) {
+          const filterQuery = `internetMessageId eq '${inboundEmailMessageId}'`;
+          const searchUrl = `https://graph.microsoft.com/v1.0/me/messages?$filter=${encodeURIComponent(filterQuery)}&$select=id&$top=1`;
+          const searchRes = await fetch(searchUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+          if (searchRes.ok) {
+            const searchData = await searchRes.json();
+            const outlookMsgId = searchData.value?.[0]?.id;
+            if (outlookMsgId) {
+              const attRes = await fetch(
+                `https://graph.microsoft.com/v1.0/me/messages/${outlookMsgId}/attachments?$select=id,name,contentType,size`,
+                { headers: { Authorization: `Bearer ${accessToken}` } }
+              );
+              if (attRes.ok) {
+                const attData = await attRes.json();
+                enrichedAttachments = attachments.map((a: any) => {
+                  const match = (attData.value || []).find((p: any) => p.name === a.filename);
+                  return match ? { ...a, attachment_id: match.id, provider_msg_id: outlookMsgId } : a;
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Attachment ID lookup error:", e);
+    }
+  }
+
+  const results: Array<{ filename: string; content_type: string; base64_content: string; size: number }> = [];
+  // Only download relevant attachments under 10MB, skip inline signature images
+  const relevantAttachments = enrichedAttachments.filter((a: any) => {
+    const name = (a.filename || a.name || "").toLowerCase();
+    const size = a.size || 0;
+    if (size > 10 * 1024 * 1024) return false;
+    const isInlineImage = name.startsWith("image0") && (name.endsWith(".png") || name.endsWith(".jpg")) && size < 50000;
+    if (isInlineImage) return false;
+    return name.endsWith(".pdf") || name.endsWith(".xlsx") || name.endsWith(".xls") || name.endsWith(".csv") ||
+      name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".webp");
+  }).slice(0, 8);
+
+  for (const att of relevantAttachments) {
+    try {
+      let base64Content: string | null = null;
+
+      if (account.provider === "gmail" && att.attachment_id && att.provider_msg_id) {
+        const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${att.provider_msg_id}/attachments/${att.attachment_id}`;
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+        if (res.ok) {
+          const data = await res.json();
+          base64Content = (data.data || "").replace(/-/g, "+").replace(/_/g, "/");
+        }
+      } else if (account.provider === "outlook" && att.attachment_id && att.provider_msg_id) {
+        const url = `https://graph.microsoft.com/v1.0/me/messages/${att.provider_msg_id}/attachments/${att.attachment_id}?$select=contentBytes`;
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+        if (res.ok) {
+          const data = await res.json();
+          base64Content = data.contentBytes || null;
+        }
+      }
+
+      if (base64Content) {
+        results.push({
+          filename: att.filename || att.name || "attachment",
+          content_type: att.content_type || "application/octet-stream",
+          base64_content: base64Content,
+          size: att.size || 0,
+        });
+        console.log(`Downloaded attachment: ${att.filename} (${Math.round((att.size || 0) / 1024)}Ko)`);
+      }
+    } catch (e) {
+      console.error(`Failed to download attachment ${att.filename}:`, e);
+    }
+  }
+
+  return results;
+}
+
+function flattenGmailParts(part: any): any[] {
+  if (!part) return [];
+  const result: any[] = [part];
+  if (part.parts) {
+    for (const p of part.parts) result.push(...flattenGmailParts(p));
+  }
+  return result;
+}
+
+// Build Gemini-compatible content parts for attachments
+function buildAttachmentParts(downloadedAttachments: Array<{ filename: string; content_type: string; base64_content: string }>) {
+  const parts: any[] = [];
+  for (const att of downloadedAttachments) {
+    // Map to mime types Gemini supports
+    let mimeType = att.content_type;
+    if (mimeType === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
+      // Gemini doesn't natively support xlsx, but we can try sending as binary
+      // Better to convert xlsx description in text
+      parts.push({
+        type: "text",
+        text: `[Fichier joint: ${att.filename} - Ce fichier Excel/tableur contient probablement des listes de matériel. Analysez-le en détail.]`,
+      });
+      continue;
+    }
+    
+    // PDF and images are supported natively by Gemini
+    if (mimeType.startsWith("image/") || mimeType === "application/pdf") {
+      parts.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${mimeType};base64,${att.base64_content}`,
+        },
+      });
+      parts.push({
+        type: "text",
+        text: `[Document ci-dessus: ${att.filename}]`,
+      });
+    }
+  }
+  return parts;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const body = await req.json();
 
-    // Auth: internal call (inbound_email_id) skips webhook check
-    // External webhook requires X-Webhook-Secret
     if (!body.inbound_email_id) {
       const webhookSecret = req.headers.get("X-Webhook-Secret");
       const expectedSecret = Deno.env.get("INBOUND_EMAIL_WEBHOOK_SECRET");
@@ -29,10 +273,9 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Mode 1: Called with inbound_email_id (from poll-email-accounts)
-    // Mode 2: Called with raw email data (from webhook)
     let emailId: string;
     let companyId: string;
+    let emailAccountId: string | null = null;
     let safeFromEmail: string | null;
     let safeFromName: string | null;
     let safeToEmail: string | null;
@@ -42,7 +285,6 @@ serve(async (req) => {
     let attachments: any[];
 
     if (body.inbound_email_id) {
-      // Mode 1: fetch existing inbound_email
       const { data: existing, error: fetchErr } = await supabase
         .from("inbound_emails")
         .select("*")
@@ -55,7 +297,6 @@ serve(async (req) => {
         });
       }
 
-      // Skip if already processed
       if (existing.status === "processed") {
         return new Response(JSON.stringify({ success: true, already_processed: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -64,6 +305,7 @@ serve(async (req) => {
 
       emailId = existing.id;
       companyId = existing.company_id;
+      emailAccountId = existing.email_account_id || null;
       safeFromEmail = existing.from_email;
       safeFromName = existing.from_name;
       safeToEmail = existing.to_email;
@@ -72,11 +314,9 @@ serve(async (req) => {
       safeBodyHtml = existing.body_html || "";
       attachments = Array.isArray(existing.attachments) ? existing.attachments : [];
 
-      // Mark as processing
       await supabase.from("inbound_emails").update({ status: "processing" }).eq("id", emailId);
-
     } else {
-      // Mode 2: raw webhook data
+      // Mode 2: raw webhook
       const fromEmail = body.from_email || body.from?.address || body.from;
       const fromName = body.from_name || body.from?.name || fromEmail;
       const toEmail = body.to_email || (Array.isArray(body.to) ? body.to[0] : body.to);
@@ -105,7 +345,6 @@ serve(async (req) => {
       safeFromName = fromName ? String(fromName).slice(0, 200) : null;
       safeToEmail = toEmail ? String(toEmail).slice(0, 320) : null;
 
-      // Verify company exists
       const { data: company, error: companyErr } = await supabase
         .from("companies")
         .select("id")
@@ -117,7 +356,6 @@ serve(async (req) => {
         });
       }
 
-      // Store the inbound email
       const { data: emailRow, error: insertErr } = await supabase
         .from("inbound_emails")
         .insert({
@@ -138,11 +376,28 @@ serve(async (req) => {
       emailId = emailRow.id;
     }
 
-    // Build attachment info for AI analysis
-    const attachmentNames = (Array.isArray(attachments) ? attachments : [])
-      .map((a: any) => a.filename || a.name || "").filter(Boolean).slice(0, 20);
+    // ── Download actual attachment content from email provider ──
+    const encryptionKey = Deno.env.get("EMAIL_ENCRYPTION_KEY") || "";
+    let downloadedAttachments: Array<{ filename: string; content_type: string; base64_content: string; size: number }> = [];
+    
+    if (emailAccountId && encryptionKey && attachments.length > 0) {
+      // Get the message_id for provider lookup
+      const { data: emailForMsgId } = await supabase
+        .from("inbound_emails").select("message_id").eq("id", emailId).single();
+      const inboundMessageId = emailForMsgId?.message_id || null;
+      
+      try {
+        downloadedAttachments = await downloadAttachments(supabase, emailAccountId, attachments, encryptionKey, inboundMessageId);
+        console.log(`Downloaded ${downloadedAttachments.length} attachments for analysis`);
+      } catch (e) {
+        console.error("Attachment download error:", e);
+      }
+    }
 
-    // 2. AI Analysis (with voirie document detection)
+    const attachmentNames = (Array.isArray(attachments) ? attachments : [])
+      .map((a: any) => `${a.filename || a.name || ""} (${Math.round((a.size || 0) / 1024)}Ko)`).filter(Boolean).slice(0, 20);
+
+    // ── AI Analysis with actual document content ──
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -152,6 +407,20 @@ Pièces jointes: ${attachmentNames.length > 0 ? attachmentNames.join(", ") : "au
 
 ${safeBodyText.slice(0, 10000)}`;
 
+    // Build multimodal message with attachment content
+    const userContent: any[] = [
+      {
+        type: "text",
+        text: `Analyse cet email entrant ET toutes les pièces jointes fournies ci-dessous. Extrais CHAQUE machine, CHAQUE équipement individuellement avec ses caractéristiques. Ne regroupe PAS les matériels par catégorie - liste-les UN PAR UN.\n\n${contentForAnalysis}`,
+      },
+    ];
+
+    // Add downloaded attachment content as inline documents
+    if (downloadedAttachments.length > 0) {
+      const attachmentParts = buildAttachmentParts(downloadedAttachments);
+      userContent.push(...attachmentParts);
+    }
+
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -159,13 +428,13 @@ ${safeBodyText.slice(0, 10000)}`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: [
           {
             role: "system",
             content: `Tu es un assistant d'analyse d'emails commerciaux pour une entreprise spécialisée en MANUTENTION LOURDE, LEVAGE, DÉMÉNAGEMENT INDUSTRIEL et RÉCEPTION DE MATÉRIEL.
 
-Analyse MINUTIEUSEMENT l'email ET ses pièces jointes (noms de fichiers) pour extraire TOUTES les informations pertinentes.
+Analyse MINUTIEUSEMENT l'email, son contenu ET TOUTES les pièces jointes (documents PDF, images, tableurs) pour extraire CHAQUE équipement individuellement.
 
 CLASSIFICATION - type_demande :
 - "devis" : demande de chiffrage, estimation, tarif
@@ -173,31 +442,25 @@ CLASSIFICATION - type_demande :
 - "information" : demande de renseignements, disponibilité, capacités
 - "relance" : suivi d'une demande précédente
 - "confirmation" : validation, bon de commande, accord
-- "autre" : newsletters, spam, notifications automatiques, emails sans rapport avec la manutention/levage/déménagement
+- "autre" : newsletters, spam, notifications automatiques
 
-ATTENTION AUX PIÈCES JOINTES - Analyse les noms de fichiers pour détecter :
-- Plans (PDF, DWG, images) : plans d'implantation, plans de masse, plans d'accès, plans de levage, plans de rigging
-- Documents techniques : fiches techniques machines, spécifications, cahiers des charges
-- Documents voirie : plans de voirie, arrêtés, PV de ROC
-- Photos de matériel : pour évaluer poids, dimensions, contraintes d'accès
-- Bons de commande, bons de livraison
+EXTRACTION MATÉRIEL - EXHAUSTIVE ET DÉTAILLÉE :
+Tu DOIS analyser le contenu des PDF, images et tableurs joints pour extraire CHAQUE machine/équipement INDIVIDUELLEMENT.
+- NE PAS regrouper par catégorie (ex: pas "Centrales de Traitement d'Air" comme unique entrée)
+- LISTER chaque CTA, chaque moteur, chaque équipement SÉPARÉMENT avec son identifiant/repère
+- Pour chaque matériel : désignation précise (incluant le repère/numéro), quantité, dimensions LxlxH, poids, bâtiment/pièce de destination, étage, contraintes
 
-EXTRACTION MATÉRIEL - Sois EXHAUSTIF sur le champ "materiel" :
-- Machines industrielles (CNC, presses, tours, fraiseuses, compresseurs, groupes froids, transformateurs, etc.)
-- Équipements lourds (cuves, chaudières, pompes, moteurs, coffrets électriques)
-- Mobilier industriel (armoires fortes, serveurs, racks)
-- Extrais systématiquement : désignation, quantité, dimensions (LxlxH), poids estimé, étage, contraintes d'accès
+REGROUPEMENT PAR PIÈCE/BÂTIMENT :
+Si les documents mentionnent des bâtiments, zones, pièces ou locaux techniques, groupe les matériels par "piece" (nom du bâtiment/local/zone).
+Chaque pièce doit avoir : name (nom du bâtiment/zone), floor_level (étage), et la liste des matériels qui y sont destinés.
 
-DOCUMENTS VOIRIE dans les pièces jointes :
-- "plan_voirie" : plan de voirie, plan d'emprise, plan de masse, plan de stationnement
-- "pv_roc" : procès-verbal de reconnaissance, PV de ROC
-- "arrete" : arrêté municipal, arrêté de stationnement, autorisation de voirie
-
-Si un arrêté est détecté, extrais la date d'intervention/d'autorisation (champ arrete_date).`,
+DOCUMENTS VOIRIE :
+- "plan_voirie", "pv_roc", "arrete"
+Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM-DD).`,
           },
           {
             role: "user",
-            content: `Analyse cet email entrant :\n\n${contentForAnalysis}`,
+            content: userContent,
           },
         ],
         tools: [
@@ -205,7 +468,7 @@ Si un arrêté est détecté, extrais la date d'intervention/d'autorisation (cha
             type: "function",
             function: {
               name: "analyze_email",
-              description: "Analyse structurée d'un email commercial entrant",
+              description: "Analyse structurée exhaustive d'un email commercial avec extraction détaillée de chaque matériel",
               parameters: {
                 type: "object",
                 properties: {
@@ -234,46 +497,67 @@ Si un arrêté est détecté, extrais la date d'intervention/d'autorisation (cha
                   },
                   voirie_documents: {
                     type: "array",
-                    items: {
-                      type: "string",
-                      enum: ["plan_voirie", "pv_roc", "arrete"],
-                    },
-                    description: "Types de documents voirie détectés dans les pièces jointes ou le contenu",
+                    items: { type: "string", enum: ["plan_voirie", "pv_roc", "arrete"] },
                   },
-                  arrete_date: {
-                    type: "string",
-                    description: "Date d'intervention/autorisation extraite de l'arrêté (format YYYY-MM-DD si possible)",
-                  },
-                  materiel: {
+                  arrete_date: { type: "string" },
+                  pieces: {
                     type: "array",
-                    description: "Liste EXHAUSTIVE de tous les équipements, machines, matériels mentionnés dans l'email ou suggérés par les pièces jointes",
+                    description: "Liste des pièces/bâtiments/zones avec leurs matériels. Chaque pièce regroupe les matériels destinés à ce lieu.",
                     items: {
                       type: "object",
                       properties: {
-                        designation: { type: "string", description: "Nom précis de la machine ou du matériel" },
-                        quantity: { type: "number", description: "Nombre d'unités" },
-                        dimensions: { type: "string", description: "Dimensions LxlxH en mètres ou cm" },
-                        weight: { type: "number", description: "Poids en kg" },
-                        etage: { type: "string", description: "Étage de chargement ou livraison" },
-                        acces_contraintes: { type: "string", description: "Contraintes d'accès (escalier, passage étroit, hauteur limitée, etc.)" },
-                        fragile: { type: "boolean", description: "Matériel fragile nécessitant précautions" },
+                        name: { type: "string", description: "Nom du bâtiment, local technique, zone (ex: Bâtiment QID, Local CTA R+2, PEP)" },
+                        floor_level: { type: "string", description: "Étage (ex: RDC, R+1, R+2, Toiture)" },
+                        access_comments: { type: "string", description: "Commentaires d'accès spécifiques à cette pièce" },
+                        materials: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              designation: { type: "string", description: "Désignation PRÉCISE avec repère/identifiant (ex: CTA QID-01, VED B3-R+2)" },
+                              quantity: { type: "number" },
+                              dimensions: { type: "string", description: "Dimensions LxlxH" },
+                              weight: { type: "number", description: "Poids en kg" },
+                              etage: { type: "string" },
+                              acces_contraintes: { type: "string" },
+                              fragile: { type: "boolean" },
+                              notes: { type: "string", description: "Informations complémentaires (type de levage requis, grue spécifique, etc.)" },
+                            },
+                            required: ["designation"],
+                          },
+                        },
+                      },
+                      required: ["name", "materials"],
+                    },
+                  },
+                  materiel: {
+                    type: "array",
+                    description: "Liste EXHAUSTIVE de TOUS les équipements individuels (utilisé si pas de regroupement par pièce possible)",
+                    items: {
+                      type: "object",
+                      properties: {
+                        designation: { type: "string" },
+                        quantity: { type: "number" },
+                        dimensions: { type: "string" },
+                        weight: { type: "number" },
+                        etage: { type: "string" },
+                        acces_contraintes: { type: "string" },
+                        fragile: { type: "boolean" },
+                        notes: { type: "string" },
                       },
                       required: ["designation"],
-                      additionalProperties: false,
                     },
                   },
                   pieces_jointes_detectees: {
                     type: "array",
-                    description: "Analyse des pièces jointes pertinentes pour le métier",
                     items: {
                       type: "object",
                       properties: {
                         filename: { type: "string" },
-                        type_document: { type: "string", enum: ["plan_levage", "plan_acces", "plan_implantation", "fiche_technique", "photo_materiel", "bon_commande", "cahier_charges", "plan_voirie", "arrete", "pv_roc", "autre"] },
-                        description: { type: "string", description: "Ce que contient probablement ce document" },
+                        type_document: { type: "string", enum: ["plan_levage", "plan_acces", "plan_implantation", "fiche_technique", "photo_materiel", "bon_commande", "cahier_charges", "plan_voirie", "arrete", "pv_roc", "liste_materiel", "autre"] },
+                        description: { type: "string" },
                       },
                       required: ["filename", "type_document"],
-                      additionalProperties: false,
                     },
                   },
                   date_souhaitee: { type: "string" },
@@ -282,7 +566,6 @@ Si un arrêté est détecté, extrais la date d'intervention/d'autorisation (cha
                   resume: { type: "string" },
                 },
                 required: ["type_demande", "resume"],
-                additionalProperties: false,
               },
             },
           },
@@ -299,55 +582,43 @@ Si un arrêté est détecté, extrais la date d'intervention/d'autorisation (cha
         analysis = JSON.parse(toolCall.function.arguments);
       }
     } else {
-      console.error("AI analysis failed:", aiResponse.status);
+      console.error("AI analysis failed:", aiResponse.status, await aiResponse.text());
     }
 
-    // 3. Try to match existing client
+    // Log extraction results
+    const piecesCount = (analysis.pieces || []).length;
+    const flatMaterielCount = (analysis.materiel || []).length;
+    const pieceMaterielCount = (analysis.pieces || []).reduce((sum: number, p: any) => sum + (p.materials || []).length, 0);
+    console.log(`AI extracted: ${piecesCount} pieces with ${pieceMaterielCount} materials, ${flatMaterielCount} flat materials, ${downloadedAttachments.length} attachments analyzed`);
+
+    // ── Match existing client ──
     let clientId: string | null = null;
     if (safeFromEmail) {
       const { data: existingClient } = await supabase
-        .from("clients")
-        .select("id")
-        .eq("company_id", companyId)
-        .eq("email", safeFromEmail)
-        .maybeSingle();
-
+        .from("clients").select("id").eq("company_id", companyId).eq("email", safeFromEmail).maybeSingle();
       if (existingClient) {
         clientId = existingClient.id;
       } else {
         const { data: existingContact } = await supabase
-          .from("client_contacts")
-          .select("client_id")
-          .eq("company_id", companyId)
-          .eq("email", safeFromEmail)
-          .limit(1)
-          .maybeSingle();
-
-        if (existingContact) {
-          clientId = existingContact.client_id;
-        }
+          .from("client_contacts").select("client_id").eq("company_id", companyId).eq("email", safeFromEmail).limit(1).maybeSingle();
+        if (existingContact) clientId = existingContact.client_id;
       }
     }
 
-    // 4. Update inbound_email
-    await supabase
-      .from("inbound_emails")
-      .update({
-        ai_analysis: analysis,
-        client_id: clientId,
-        status: "processed",
-        processed_at: new Date().toISOString(),
-      })
-      .eq("id", emailId);
+    // ── Update inbound_email ──
+    await supabase.from("inbound_emails").update({
+      ai_analysis: analysis,
+      client_id: clientId,
+      status: "processed",
+      processed_at: new Date().toISOString(),
+    }).eq("id", emailId);
 
-    // 5. Generate suggested actions
+    // ── Generate suggested actions ──
     const actions: any[] = [];
 
     if (!clientId) {
       actions.push({
-        inbound_email_id: emailId,
-        company_id: companyId,
-        action_type: "create_client",
+        inbound_email_id: emailId, company_id: companyId, action_type: "create_client",
         payload: {
           name: analysis.societe || safeFromName || safeFromEmail,
           contact_name: analysis.contact || safeFromName,
@@ -364,34 +635,21 @@ Si un arrêté est détecté, extrais la date d'intervention/d'autorisation (cha
     const types = analysis.type_demande || [];
     if (types.includes("devis") || types.includes("visite")) {
       actions.push({
-        inbound_email_id: emailId,
-        company_id: companyId,
-        action_type: "create_dossier",
-        payload: {
-          title: safeSubject,
-          description: analysis.resume || "",
-          address: analysis.adresse_chantier || null,
-        },
+        inbound_email_id: emailId, company_id: companyId, action_type: "create_dossier",
+        payload: { title: safeSubject, description: analysis.resume || "", address: analysis.adresse_chantier || null },
       });
     }
 
     if (types.includes("devis")) {
       actions.push({
-        inbound_email_id: emailId,
-        company_id: companyId,
-        action_type: "create_devis",
-        payload: {
-          objet: safeSubject,
-          notes: analysis.resume || "",
-        },
+        inbound_email_id: emailId, company_id: companyId, action_type: "create_devis",
+        payload: { objet: safeSubject, notes: analysis.resume || "" },
       });
     }
 
     if (types.includes("visite")) {
       actions.push({
-        inbound_email_id: emailId,
-        company_id: companyId,
-        action_type: "plan_visite",
+        inbound_email_id: emailId, company_id: companyId, action_type: "plan_visite",
         payload: {
           title: `Visite — ${analysis.societe || safeFromName || ""}`,
           address: analysis.adresse_chantier || null,
@@ -416,78 +674,75 @@ Si un arrêté est détecté, extrais la date d'intervention/d'autorisation (cha
       });
     }
 
-    if (analysis.materiel && analysis.materiel.length > 0) {
+    // Build comprehensive material list from both pieces and flat materiel
+    const allMaterials: any[] = [];
+    const piecesList: any[] = analysis.pieces || [];
+    
+    if (piecesList.length > 0) {
+      for (const piece of piecesList) {
+        for (const mat of (piece.materials || [])) {
+          allMaterials.push({ ...mat, _piece_name: piece.name, _piece_floor: piece.floor_level, _piece_access: piece.access_comments });
+        }
+      }
+    }
+    // Also add flat materiel that isn't already in pieces
+    for (const mat of (analysis.materiel || [])) {
+      allMaterials.push(mat);
+    }
+
+    if (allMaterials.length > 0) {
       actions.push({
-        inbound_email_id: emailId,
-        company_id: companyId,
-        action_type: "extract_materiel",
-        payload: { materials: analysis.materiel.slice(0, 200) },
+        inbound_email_id: emailId, company_id: companyId, action_type: "extract_materiel",
+        payload: {
+          materials: allMaterials.slice(0, 500),
+          pieces: piecesList.slice(0, 50),
+        },
       });
     }
 
     if (clientId) {
       actions.push({
-        inbound_email_id: emailId,
-        company_id: companyId,
-        action_type: "link_dossier",
+        inbound_email_id: emailId, company_id: companyId, action_type: "link_dossier",
         payload: { client_id: clientId },
       });
     }
 
-    // 5b. Voirie document actions
+    // Voirie document actions
     const voirieDocs = analysis.voirie_documents || [];
     if (voirieDocs.length > 0) {
-      // Try to find a visite with voirie needs linked to the client's dossiers
       let targetVisiteId: string | null = null;
       if (clientId) {
         const { data: voirieVisites } = await supabase
-          .from("visites")
-          .select("id, dossier_id, voirie_address")
-          .eq("company_id", companyId)
-          .eq("needs_voirie", true)
-          .order("created_at", { ascending: false })
-          .limit(10);
-
+          .from("visites").select("id, dossier_id").eq("company_id", companyId).eq("needs_voirie", true)
+          .order("created_at", { ascending: false }).limit(10);
         if (voirieVisites && voirieVisites.length > 0) {
-          // Filter to visites linked to this client's dossiers
           const { data: clientDossiers } = await supabase
-            .from("dossiers")
-            .select("id")
-            .eq("client_id", clientId)
-            .eq("company_id", companyId);
-
+            .from("dossiers").select("id").eq("client_id", clientId).eq("company_id", companyId);
           const dossierIds = (clientDossiers || []).map((d: any) => d.id);
           const matchingVisite = voirieVisites.find((v: any) => dossierIds.includes(v.dossier_id));
           targetVisiteId = matchingVisite?.id || voirieVisites[0]?.id || null;
         }
       }
 
-      // Build attachment info to pass along
       const pdfAttachments = (Array.isArray(attachments) ? attachments : [])
         .filter((a: any) => {
           const name = (a.filename || a.name || "").toLowerCase();
           return name.endsWith(".pdf") || name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg");
-        })
-        .slice(0, 5);
+        }).slice(0, 5);
 
       for (const docType of voirieDocs) {
         const actionType = docType === "plan_voirie" ? "attach_voirie_plan"
           : docType === "pv_roc" ? "attach_pv_roc"
-          : docType === "arrete" ? "attach_arrete"
-          : null;
-
+          : docType === "arrete" ? "attach_arrete" : null;
         if (actionType) {
           actions.push({
-            inbound_email_id: emailId,
-            company_id: companyId,
-            action_type: actionType,
+            inbound_email_id: emailId, company_id: companyId, action_type: actionType,
             payload: {
               visite_id: targetVisiteId,
               attachments: pdfAttachments.map((a: any) => ({
                 filename: a.filename || a.name,
                 content_type: a.content_type || a.type || "application/pdf",
                 url: a.url || null,
-                content: a.content ? String(a.content).slice(0, 500000) : null,
               })),
               arrete_date: docType === "arrete" ? (analysis.arrete_date || null) : undefined,
               address: analysis.adresse_chantier || null,
@@ -501,65 +756,47 @@ Si un arrêté est détecté, extrais la date d'intervention/d'autorisation (cha
       await supabase.from("email_actions").insert(actions);
     }
 
-    // 6. Insert into messages table
+    // ── Insert into messages table ──
     await supabase.from("messages").insert({
-      company_id: companyId,
-      client_id: clientId,
-      channel: "email",
-      direction: "inbound",
-      sender: safeFromName || safeFromEmail,
-      subject: safeSubject,
-      body: safeBodyText.slice(0, 10000),
-      inbound_email_id: emailId,
-      is_read: false,
+      company_id: companyId, client_id: clientId, channel: "email", direction: "inbound",
+      sender: safeFromName || safeFromEmail, subject: safeSubject,
+      body: safeBodyText.slice(0, 10000), inbound_email_id: emailId, is_read: false,
     });
 
-    // 7. Create notifications
+    // ── Notifications ──
     const { data: members } = await supabase
-      .from("company_memberships")
-      .select("profile_id")
-      .eq("company_id", companyId);
+      .from("company_memberships").select("profile_id").eq("company_id", companyId);
 
     if (members && members.length > 0) {
-      const notifType = voirieDocs.length > 0
-        ? "new_lead" // voirie docs are important
-        : types.includes("visite")
-          ? "visite_requested"
-          : analysis.materiel?.length > 0
-            ? "materiel_detected"
-            : "new_lead";
-
-      const notifTitle = voirieDocs.length > 0
-        ? `📋 Document voirie reçu: ${safeSubject.slice(0, 80)}`
-        : `Nouvel email: ${safeSubject.slice(0, 100)}`;
+      const materialCount = allMaterials.length;
+      const notifTitle = materialCount > 0
+        ? `📦 ${materialCount} matériels détectés: ${safeSubject.slice(0, 60)}`
+        : voirieDocs.length > 0
+          ? `📋 Document voirie reçu: ${safeSubject.slice(0, 80)}`
+          : `Nouvel email: ${safeSubject.slice(0, 100)}`;
 
       const notifications = members.map((m: any) => ({
-        company_id: companyId,
-        user_id: m.profile_id,
-        type: notifType,
+        company_id: companyId, user_id: m.profile_id,
+        type: materialCount > 0 ? "materiel_detected" : voirieDocs.length > 0 ? "new_lead" : types.includes("visite") ? "visite_requested" : "new_lead",
         title: notifTitle,
         body: String(analysis.resume || `De ${safeFromName || safeFromEmail}`).slice(0, 500),
         link: `/inbox?email=${emailId}`,
       }));
-
       await supabase.from("notifications").insert(notifications);
     }
 
     return new Response(JSON.stringify({
-      success: true,
-      email_id: emailId,
-      client_id: clientId,
-      actions_count: actions.length,
-      voirie_docs: voirieDocs,
-      analysis,
+      success: true, email_id: emailId, client_id: clientId,
+      actions_count: actions.length, materials_found: allMaterials.length,
+      pieces_found: piecesList.length, attachments_analyzed: downloadedAttachments.length,
+      voirie_docs: voirieDocs, analysis,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("process-inbound-email error:", e);
     return new Response(JSON.stringify({ error: "Erreur lors du traitement de l'email." }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

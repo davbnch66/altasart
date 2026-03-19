@@ -221,12 +221,12 @@ serve(async (req) => {
           let targetVisiteId = emailVisiteId || null;
           
           if (!targetVisiteId) {
-            const { data: freshEmail } = await supabase
+            const { data: freshEmail2 } = await supabase
               .from("inbound_emails")
               .select("visite_id")
               .eq("id", action.inbound_email_id)
               .single();
-            targetVisiteId = freshEmail?.visite_id || null;
+            targetVisiteId = freshEmail2?.visite_id || null;
           }
 
           if (!targetVisiteId) {
@@ -248,20 +248,101 @@ serve(async (req) => {
               .eq("id", action.inbound_email_id);
           }
 
-          const materials = payload.materials || [];
-          if (materials.length > 0) {
-            const inserts = materials.slice(0, 200).map((m: any, i: number) => ({
+          // Create pieces (rooms/buildings) and assign materials to them
+          const pieces = payload.pieces || [];
+          const flatMaterials = payload.materials || [];
+          const pieceIdMap: Record<string, string> = {};
+          let globalSortOrder = 0;
+
+          // Step 1: Create visite_pieces for each room/building
+          if (pieces.length > 0) {
+            for (let pi = 0; pi < pieces.length && pi < 50; pi++) {
+              const piece = pieces[pi];
+              const pieceName = String(piece.name || `Zone ${pi + 1}`).slice(0, 200);
+              const { data: createdPiece, error: pieceErr } = await supabase.from("visite_pieces").insert({
+                visite_id: targetVisiteId,
+                company_id: companyId,
+                name: pieceName,
+                floor_level: piece.floor_level ? String(piece.floor_level).slice(0, 50) : null,
+                access_comments: piece.access_comments ? String(piece.access_comments).slice(0, 500) : null,
+                sort_order: pi,
+              }).select("id").single();
+              
+              if (!pieceErr && createdPiece) {
+                pieceIdMap[pieceName] = createdPiece.id;
+                
+                // Insert materials for this piece
+                const pieceMaterials = piece.materials || [];
+                if (pieceMaterials.length > 0) {
+                  const inserts = pieceMaterials.slice(0, 200).map((m: any, i: number) => ({
+                    designation: String(m.designation || "Matériel").slice(0, 500),
+                    quantity: m.quantity || 1,
+                    weight: m.weight || null,
+                    dimensions: m.dimensions ? String(m.dimensions).slice(0, 200) : null,
+                    notes: m.notes ? String(m.notes).slice(0, 500) : null,
+                    visite_id: targetVisiteId,
+                    company_id: companyId,
+                    piece_id: createdPiece.id,
+                    sort_order: globalSortOrder + i,
+                  }));
+                  const { error: matErr } = await supabase.from("visite_materiel").insert(inserts);
+                  if (matErr) console.error("Insert piece materials error:", matErr);
+                  globalSortOrder += pieceMaterials.length;
+                }
+              }
+            }
+          }
+
+          // Step 2: Insert flat materials (those not assigned to any piece)
+          const unassignedMaterials = flatMaterials.filter((m: any) => !m._piece_name);
+          if (unassignedMaterials.length > 0) {
+            // Create a default "Général" piece for unassigned materials
+            let defaultPieceId: string | null = null;
+            if (pieces.length > 0) {
+              // Only create default piece if there are also pieces (to keep consistency)
+              const { data: defaultPiece } = await supabase.from("visite_pieces").insert({
+                visite_id: targetVisiteId,
+                company_id: companyId,
+                name: "Général",
+                sort_order: pieces.length,
+              }).select("id").single();
+              defaultPieceId = defaultPiece?.id || null;
+            }
+
+            const inserts = unassignedMaterials.slice(0, 200).map((m: any, i: number) => ({
               designation: String(m.designation || "Matériel").slice(0, 500),
               quantity: m.quantity || 1,
               weight: m.weight || null,
               dimensions: m.dimensions ? String(m.dimensions).slice(0, 200) : null,
+              notes: m.notes ? String(m.notes).slice(0, 500) : null,
               visite_id: targetVisiteId,
               company_id: companyId,
-              sort_order: i,
+              piece_id: defaultPieceId,
+              sort_order: globalSortOrder + i,
             }));
             const { error } = await supabase.from("visite_materiel").insert(inserts);
             if (error) throw error;
           }
+
+          // Step 3: Insert piece-assigned flat materials (those with _piece_name)
+          const assignedMaterials = flatMaterials.filter((m: any) => m._piece_name && pieceIdMap[m._piece_name]);
+          if (assignedMaterials.length > 0) {
+            const inserts = assignedMaterials.map((m: any, i: number) => ({
+              designation: String(m.designation || "Matériel").slice(0, 500),
+              quantity: m.quantity || 1,
+              weight: m.weight || null,
+              dimensions: m.dimensions ? String(m.dimensions).slice(0, 200) : null,
+              notes: m.notes ? String(m.notes).slice(0, 500) : null,
+              visite_id: targetVisiteId,
+              company_id: companyId,
+              piece_id: pieceIdMap[m._piece_name],
+              sort_order: globalSortOrder + unassignedMaterials.length + i,
+            }));
+            const { error } = await supabase.from("visite_materiel").insert(inserts);
+            if (error) console.error("Insert assigned materials error:", error);
+          }
+
+          createdId = targetVisiteId;
           break;
         }
 

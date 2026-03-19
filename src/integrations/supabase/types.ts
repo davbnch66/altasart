@@ -1647,6 +1647,7 @@ export type Database = {
           created_at: string
           devis_id: string | null
           dossier_id: string | null
+          email_account_id: string | null
           folder: string
           from_email: string | null
           from_name: string | null
@@ -1672,6 +1673,7 @@ export type Database = {
           created_at?: string
           devis_id?: string | null
           dossier_id?: string | null
+          email_account_id?: string | null
           folder?: string
           from_email?: string | null
           from_name?: string | null
@@ -1697,6 +1699,7 @@ export type Database = {
           created_at?: string
           devis_id?: string | null
           dossier_id?: string | null
+          email_account_id?: string | null
           folder?: string
           from_email?: string | null
           from_name?: string | null
@@ -1739,6 +1742,13 @@ export type Database = {
             columns: ["dossier_id"]
             isOneToOne: false
             referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_emails_email_account_id_fkey"
+            columns: ["email_account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
             referencedColumns: ["id"]
           },
           {
@@ -3315,6 +3325,7 @@ export type Database = {
           dimensions: string | null
           id: string
           notes: string | null
+          piece_id: string | null
           quantity: number
           sort_order: number
           unit: string | null
@@ -3329,6 +3340,7 @@ export type Database = {
           dimensions?: string | null
           id?: string
           notes?: string | null
+          piece_id?: string | null
           quantity?: number
           sort_order?: number
           unit?: string | null
@@ -3343,6 +3355,7 @@ export type Database = {
           dimensions?: string | null
           id?: string
           notes?: string | null
+          piece_id?: string | null
           quantity?: number
           sort_order?: number
           unit?: string | null
@@ -3356,6 +3369,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visite_materiel_piece_id_fkey"
+            columns: ["piece_id"]
+            isOneToOne: false
+            referencedRelation: "visite_pieces"
             referencedColumns: ["id"]
           },
           {
