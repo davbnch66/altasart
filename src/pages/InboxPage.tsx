@@ -1303,6 +1303,7 @@ const InboxPage = () => {
                 const isRead = isInbox ? !!email.is_read : true;
                 const readByProfile = isInbox && email.read_by ? (profilesMap as any)[email.read_by] : null;
                 const isChecked = selectedIds.has(email.id);
+                const emailFlags = emailFlagsMap[email.id] || [];
 
                 // Account info
                 const account = email._account || (email.account_id ? emailAccountsMap[email.account_id] : null);
