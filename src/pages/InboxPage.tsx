@@ -107,6 +107,8 @@ const InboxPage = () => {
   const [replyData, setReplyData] = useState<any>(null);
   const [forwardData, setForwardData] = useState<any>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [draggedEmailIds, setDraggedEmailIds] = useState<string[]>([]);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
