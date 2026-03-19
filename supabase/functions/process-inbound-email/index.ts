@@ -163,15 +163,37 @@ ${safeBodyText.slice(0, 10000)}`;
         messages: [
           {
             role: "system",
-            content: `Tu es un assistant d'analyse d'emails commerciaux pour une entreprise de levage/déménagement.
-Analyse l'email et extrais les informations structurées. Sois précis et ne devine pas ce qui n'est pas dans l'email.
+            content: `Tu es un assistant d'analyse d'emails commerciaux pour une entreprise spécialisée en MANUTENTION LOURDE, LEVAGE, DÉMÉNAGEMENT INDUSTRIEL et RÉCEPTION DE MATÉRIEL.
 
-IMPORTANT: Détecte aussi les documents administratifs de voirie dans les pièces jointes ou le contenu :
-- "plan_voirie" : plan de voirie, plan d'emprise, plan de masse, plan de stationnement (souvent un PDF/image)
-- "pv_roc" : procès-verbal de reconnaissance, PV de ROC, reconnaissance de chaussée
-- "arrete" : arrêté municipal, arrêté de stationnement, arrêté temporaire, autorisation de voirie, arrêté d'occupation
+Analyse MINUTIEUSEMENT l'email ET ses pièces jointes (noms de fichiers) pour extraire TOUTES les informations pertinentes.
 
-Si un arrêté est détecté, extrais la date d'intervention/d'autorisation mentionnée (champ arrete_date).`,
+CLASSIFICATION - type_demande :
+- "devis" : demande de chiffrage, estimation, tarif
+- "visite" : demande de visite technique, reconnaissance terrain
+- "information" : demande de renseignements, disponibilité, capacités
+- "relance" : suivi d'une demande précédente
+- "confirmation" : validation, bon de commande, accord
+- "autre" : newsletters, spam, notifications automatiques, emails sans rapport avec la manutention/levage/déménagement
+
+ATTENTION AUX PIÈCES JOINTES - Analyse les noms de fichiers pour détecter :
+- Plans (PDF, DWG, images) : plans d'implantation, plans de masse, plans d'accès, plans de levage, plans de rigging
+- Documents techniques : fiches techniques machines, spécifications, cahiers des charges
+- Documents voirie : plans de voirie, arrêtés, PV de ROC
+- Photos de matériel : pour évaluer poids, dimensions, contraintes d'accès
+- Bons de commande, bons de livraison
+
+EXTRACTION MATÉRIEL - Sois EXHAUSTIF sur le champ "materiel" :
+- Machines industrielles (CNC, presses, tours, fraiseuses, compresseurs, groupes froids, transformateurs, etc.)
+- Équipements lourds (cuves, chaudières, pompes, moteurs, coffrets électriques)
+- Mobilier industriel (armoires fortes, serveurs, racks)
+- Extrais systématiquement : désignation, quantité, dimensions (LxlxH), poids estimé, étage, contraintes d'accès
+
+DOCUMENTS VOIRIE dans les pièces jointes :
+- "plan_voirie" : plan de voirie, plan d'emprise, plan de masse, plan de stationnement
+- "pv_roc" : procès-verbal de reconnaissance, PV de ROC
+- "arrete" : arrêté municipal, arrêté de stationnement, autorisation de voirie
+
+Si un arrêté est détecté, extrais la date d'intervention/d'autorisation (champ arrete_date).`,
           },
           {
             role: "user",
@@ -224,15 +246,33 @@ Si un arrêté est détecté, extrais la date d'intervention/d'autorisation ment
                   },
                   materiel: {
                     type: "array",
+                    description: "Liste EXHAUSTIVE de tous les équipements, machines, matériels mentionnés dans l'email ou suggérés par les pièces jointes",
                     items: {
                       type: "object",
                       properties: {
-                        designation: { type: "string" },
-                        quantity: { type: "number" },
-                        dimensions: { type: "string" },
-                        weight: { type: "number" },
+                        designation: { type: "string", description: "Nom précis de la machine ou du matériel" },
+                        quantity: { type: "number", description: "Nombre d'unités" },
+                        dimensions: { type: "string", description: "Dimensions LxlxH en mètres ou cm" },
+                        weight: { type: "number", description: "Poids en kg" },
+                        etage: { type: "string", description: "Étage de chargement ou livraison" },
+                        acces_contraintes: { type: "string", description: "Contraintes d'accès (escalier, passage étroit, hauteur limitée, etc.)" },
+                        fragile: { type: "boolean", description: "Matériel fragile nécessitant précautions" },
                       },
                       required: ["designation"],
+                      additionalProperties: false,
+                    },
+                  },
+                  pieces_jointes_detectees: {
+                    type: "array",
+                    description: "Analyse des pièces jointes pertinentes pour le métier",
+                    items: {
+                      type: "object",
+                      properties: {
+                        filename: { type: "string" },
+                        type_document: { type: "string", enum: ["plan_levage", "plan_acces", "plan_implantation", "fiche_technique", "photo_materiel", "bon_commande", "cahier_charges", "plan_voirie", "arrete", "pv_roc", "autre"] },
+                        description: { type: "string", description: "Ce que contient probablement ce document" },
+                      },
+                      required: ["filename", "type_document"],
                       additionalProperties: false,
                     },
                   },

@@ -33,7 +33,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { formatDistanceToNow, format } from "date-fns";
 import { fr } from "date-fns/locale";
 
-type CategoryTab = "principal" | "autre";
+type CategoryTab = "tous" | "demandes" | "autre";
 type SortKey = "date_desc" | "date_asc" | "name_asc" | "name_desc" | "status";
 type ReadFilter = "all" | "unread" | "read";
 
@@ -86,10 +86,15 @@ const FLAG_COLORS = [
   { key: "purple", color: "#8b5cf6", label: "Violet — Perso" },
 ];
 
-const isBusinessRelevant = (email: any): boolean => {
+const isClientRequest = (email: any): boolean => {
   const types: string[] = email.ai_analysis?.type_demande || [];
-  if (types.length === 0) return true;
-  return types.some((t: string) => t !== "autre");
+  return types.some((t: string) => ["devis", "visite", "information", "relance", "confirmation"].includes(t));
+};
+
+const isOther = (email: any): boolean => {
+  const types: string[] = email.ai_analysis?.type_demande || [];
+  if (types.length === 0) return false;
+  return types.every((t: string) => t === "autre");
 };
 
 const InboxPage = () => {
@@ -101,7 +106,7 @@ const InboxPage = () => {
   const selectedEmailId = searchParams.get("email");
 
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<CategoryTab>("principal");
+  const [category, setCategory] = useState<CategoryTab>("tous");
   const [sortKey, setSortKey] = useState<SortKey>("date_desc");
   const [readFilter, setReadFilter] = useState<ReadFilter>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all"); // all | pending | processed
@@ -447,10 +452,11 @@ const InboxPage = () => {
   }, [selectedEmailId, user, allInboundEmails, queryClient, currentFolder, isInboxLikeFolder]);
 
   // Category filtering for inbox only
-  const principalEmails = currentDataset.filter(isBusinessRelevant);
-  const autreEmails = currentDataset.filter((email: any) => !isBusinessRelevant(email));
+  const demandesEmails = currentDataset.filter(isClientRequest);
+  const autreEmails = currentDataset.filter(isOther);
+  const unreadDemandesCount = demandesEmails.filter((e: any) => !e.is_read).length;
   const categoryFiltered = currentFolder === "inbox"
-    ? (category === "principal" ? principalEmails : autreEmails)
+    ? (category === "demandes" ? demandesEmails : category === "autre" ? autreEmails : currentDataset)
     : currentDataset;
 
   // Account filtering — match by _account_id
@@ -530,7 +536,7 @@ const InboxPage = () => {
     ? mergedSentEmails.find((e: any) => e.id === selectedEmailId)
     : allDraftEmails.find((e: any) => e.id === selectedEmailId);
 
-  const unreadPrincipalCount = mergedInboxEmails.filter(isBusinessRelevant).filter((e: any) => !e.is_read).length;
+  const unreadPrincipalCount = mergedInboxEmails.filter((e: any) => e.folder === "inbox" || !e.folder).filter((e: any) => !e.is_read).length;
   const allVisibleSelected = filteredEmails.length > 0 && filteredEmails.every((email: any) => selectedIds.has(email.id));
   const someSelected = selectedIds.size > 0;
 
@@ -1019,17 +1025,31 @@ const InboxPage = () => {
         {currentFolder === "inbox" && (
           <div className="flex gap-1 border-b">
             <button
-              onClick={() => setCategory("principal")}
+              onClick={() => setCategory("tous")}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                category === "principal"
+                category === "tous"
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <Inbox className="h-4 w-4" />
-              Principal
+              Tous
               {unreadPrincipalCount > 0 && (
                 <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">{unreadPrincipalCount}</Badge>
+              )}
+            </button>
+            <button
+              onClick={() => setCategory("demandes")}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                category === "demandes"
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Demandes client
+              {unreadDemandesCount > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">{unreadDemandesCount}</Badge>
               )}
             </button>
             <button
@@ -1279,10 +1299,16 @@ const InboxPage = () => {
           </motion.div>
         ) : (
           <>
+            {currentFolder === "inbox" && category === "demandes" && (
+              <div className="flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 text-xs text-muted-foreground">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+                Emails pré-filtrés par l'IA : demandes de devis, visites, manutention, levage, réception de matériel.
+              </div>
+            )}
             {currentFolder === "inbox" && category === "autre" && (
               <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                 <MailWarning className="h-3.5 w-3.5 shrink-0" />
-                Ces emails ont été classés par l'IA comme non liés à vos métiers.
+                Emails classés par l'IA comme non liés à vos métiers (newsletters, spam, etc.).
               </div>
             )}
 
