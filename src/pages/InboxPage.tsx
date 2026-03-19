@@ -1102,6 +1102,56 @@ const InboxPage = () => {
             </DropdownMenu>
           )}
 
+          {/* Flag filter */}
+          {isInboxLikeFolder && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className={`flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium transition-colors ${
+                  flagFilter.length > 0 ? "text-foreground border-primary" : "text-muted-foreground hover:text-foreground"
+                }`}>
+                  <Flag className="h-3.5 w-3.5" />
+                  {flagFilter.length > 0 ? (
+                    <span className="flex items-center gap-1">
+                      {flagFilter.map((f) => (
+                        <span key={f} className="h-2.5 w-2.5 rounded-full inline-block" style={{ backgroundColor: FLAG_COLORS.find((c) => c.key === f)?.color }} />
+                      ))}
+                    </span>
+                  ) : "Drapeaux"}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2" align="end">
+                <div className="space-y-1">
+                  <button
+                    onClick={() => setFlagFilter([])}
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors ${
+                      flagFilter.length === 0 ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    Tous (sans filtre)
+                  </button>
+                  {FLAG_COLORS.map((flag) => {
+                    const isActive = flagFilter.includes(flag.key);
+                    return (
+                      <button
+                        key={flag.key}
+                        onClick={() => setFlagFilter((prev) =>
+                          isActive ? prev.filter((f) => f !== flag.key) : [...prev, flag.key]
+                        )}
+                        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors ${
+                          isActive ? "bg-primary/10 font-medium" : "text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: flag.color }} />
+                        {flag.label}
+                        {isActive && <span className="ml-auto text-primary">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
               <ArrowUpDown className="h-3.5 w-3.5" />
