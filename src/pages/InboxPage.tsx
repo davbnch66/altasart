@@ -676,17 +676,17 @@ const InboxPage = () => {
   };
 
   const loadMore = useCallback(() => {
-    if (currentFolder === "inbox" && hasNextInbound && !isFetchingNextInbound) fetchNextInbound();
+    if (isInboxLikeFolder && hasNextInbound && !isFetchingNextInbound) fetchNextInbound();
     if (currentFolder === "sent" && hasNextSent && !isFetchingNextSent) fetchNextSent();
     if (currentFolder === "drafts" && hasNextDrafts && !isFetchingNextDrafts) fetchNextDrafts();
-  }, [currentFolder, hasNextInbound, hasNextSent, hasNextDrafts, isFetchingNextInbound, isFetchingNextSent, isFetchingNextDrafts, fetchNextInbound, fetchNextSent, fetchNextDrafts]);
+  }, [currentFolder, isInboxLikeFolder, hasNextInbound, hasNextSent, hasNextDrafts, isFetchingNextInbound, isFetchingNextSent, isFetchingNextDrafts, fetchNextInbound, fetchNextSent, fetchNextDrafts]);
 
-  const hasMore = currentFolder === "inbox" ? hasNextInbound
+  const hasMore = isInboxLikeFolder ? hasNextInbound
     : currentFolder === "sent" ? hasNextSent
     : currentFolder === "drafts" ? hasNextDrafts
     : false;
 
-  const isFetchingMore = currentFolder === "inbox" ? isFetchingNextInbound
+  const isFetchingMore = isInboxLikeFolder ? isFetchingNextInbound
     : currentFolder === "sent" ? isFetchingNextSent
     : currentFolder === "drafts" ? isFetchingNextDrafts
     : false;
