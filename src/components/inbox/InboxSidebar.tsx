@@ -313,6 +313,7 @@ export const InboxSidebar = ({
                         const isActive = isAccountSelected && currentFolder === key;
                         const isDragOver = dragOverTarget === `${account.id}:${key}`;
                         const isDropTarget = key === "inbox" || key === "archive" || key === "trash" || key === "spam";
+                        const folderCount = unreadCounts[`account:${account.id}:${key}`] || 0;
                         return (
                           <button
                             key={key}
@@ -330,6 +331,11 @@ export const InboxSidebar = ({
                           >
                             <Icon className="h-3.5 w-3.5 shrink-0" />
                             <span className="flex-1 text-left truncate">{label}</span>
+                            {folderCount > 0 && (
+                              <span className="text-[11px] text-muted-foreground font-medium tabular-nums">
+                                {folderCount}
+                              </span>
+                            )}
                           </button>
                         );
                       })}

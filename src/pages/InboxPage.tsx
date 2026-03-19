@@ -584,18 +584,43 @@ const InboxPage = () => {
     ? mergedSentEmails.find((e: any) => e.id === selectedEmailId)
     : allDraftEmails.find((e: any) => e.id === selectedEmailId);
 
-  const unreadPrincipalCount = mergedInboxEmails.filter((e: any) => e.folder === "inbox" || !e.folder).filter((e: any) => !e.is_read).length;
   const allVisibleSelected = filteredEmails.length > 0 && filteredEmails.every((email: any) => selectedIds.has(email.id));
   const someSelected = selectedIds.size > 0;
 
-  const unreadCounts: Record<string, number> = {
-    inbox: unreadPrincipalCount,
-    sent: 0,
-    drafts: allDraftEmails.length,
-    trash: 0,
-    archive: 0,
-    starred: 0,
-  };
+  // Compute dynamic unread counts per folder and per account+folder
+  const unreadCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      inbox: 0,
+      sent: 0,
+      drafts: allDraftEmails.length,
+      trash: 0,
+      archive: 0,
+      starred: 0,
+      spam: 0,
+    };
+    const unreadEmails = mergedInboxEmails.filter((e: any) => !e.is_read);
+    for (const email of unreadEmails) {
+      const folder = email.folder || "inbox";
+      // Global folder counts
+      if (counts[folder] !== undefined) {
+        counts[folder]++;
+      }
+      // Per-account global count
+      if (email._account_id) {
+        const accKey = `account:${email._account_id}`;
+        counts[accKey] = (counts[accKey] || 0) + 1;
+        // Per-account per-folder count
+        const accFolderKey = `account:${email._account_id}:${folder}`;
+        counts[accFolderKey] = (counts[accFolderKey] || 0) + 1;
+      }
+    }
+    // Starred count (across all folders)
+    counts.starred = mergedInboxEmails.filter((e: any) => {
+      const flags = e.email_flag_assignments;
+      return flags && (Array.isArray(flags) ? flags.length > 0 : true);
+    }).filter((e: any) => !e.is_read).length;
+    return counts;
+  }, [mergedInboxEmails, allDraftEmails]);
 
   const exitSelectionMode = () => {
     setSelectionMode(false);
@@ -1186,8 +1211,8 @@ const InboxPage = () => {
             >
               <Inbox className="h-4 w-4" />
               Tous
-              {unreadPrincipalCount > 0 && (
-                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">{unreadPrincipalCount}</Badge>
+              {unreadCounts.inbox > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">{unreadCounts.inbox}</Badge>
               )}
             </button>
             <button
