@@ -512,11 +512,11 @@ serve(async (req) => {
             company_id: account.company_id,
             client_id: clientId,
             channel: "email",
-            direction: "inbound",
+            direction: email.folder === "sent" ? "outbound" : "inbound",
             sender: email.from_name || safeFromEmail,
             subject: safeSubject,
             body: safeBodyText.slice(0, 10000),
-            is_read: false,
+            is_read: email.folder === "sent",
           }).then(() => {});
 
           // Also create inbound_email for AI analysis pipeline (with dedup via message_id)
