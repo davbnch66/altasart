@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Inbox, MailWarning, Loader2, ArrowUpDown, Eye, CheckCircle2,
   Trash2, Star, StarOff, Archive, Reply, Forward, Send, Menu, X, Filter,
-  MailOpen, MailX, FolderInput, Tag
+  MailOpen, MailX, FolderInput, Tag, Flag
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatDistanceToNow, format } from "date-fns";
 import { fr } from "date-fns/locale";
 
