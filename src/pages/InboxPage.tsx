@@ -1299,10 +1299,16 @@ const InboxPage = () => {
           </motion.div>
         ) : (
           <>
+            {currentFolder === "inbox" && category === "demandes" && (
+              <div className="flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 text-xs text-muted-foreground">
+                <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />
+                Emails pré-filtrés par l'IA : demandes de devis, visites, manutention, levage, réception de matériel.
+              </div>
+            )}
             {currentFolder === "inbox" && category === "autre" && (
               <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                 <MailWarning className="h-3.5 w-3.5 shrink-0" />
-                Ces emails ont été classés par l'IA comme non liés à vos métiers.
+                Emails classés par l'IA comme non liés à vos métiers (newsletters, spam, etc.).
               </div>
             )}
 
