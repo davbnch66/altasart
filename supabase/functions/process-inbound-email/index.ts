@@ -648,6 +648,29 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
       updatePayload.from_name = analysis.contact || analysis.societe || safeFromName;
     }
 
+    await supabase.from("inbound_emails").update(updatePayload).eq("id", emailId);
+
+    // ── Generate suggested actions ──
+    const actions: any[] = [];
+
+    if (!clientId) {
+      const clientEmail = realClientEmail || (isForwardedOrSelfSent ? analysis.email : safeFromEmail);
+      const clientName = analysis.societe || (isForwardedOrSelfSent ? analysis.contact : safeFromName) || clientEmail;
+      actions.push({
+        inbound_email_id: emailId, company_id: companyId, action_type: "create_client",
+        payload: {
+          name: clientName,
+          contact_name: analysis.contact || (isForwardedOrSelfSent ? null : safeFromName),
+          email: clientEmail,
+          phone: analysis.telephone || null,
+          mobile: analysis.mobile || null,
+          address: analysis.adresse_chantier || null,
+          postal_code: analysis.code_postal || null,
+          city: analysis.ville || null,
+        },
+      });
+    }
+
     const types = analysis.type_demande || [];
     if (types.includes("devis") || types.includes("visite")) {
       actions.push({
