@@ -567,6 +567,72 @@ const InboxPage = () => {
     }
   };
 
+  // ============ BULK ACTIONS ============
+  const handleBulkMarkRead = async (markAsRead: boolean) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      const updateData: any = { is_read: markAsRead };
+      if (markAsRead && user) {
+        updateData.read_by = user.id;
+        updateData.read_at = new Date().toISOString();
+      } else if (!markAsRead) {
+        updateData.read_by = null;
+        updateData.read_at = null;
+      }
+      const { error } = await supabase
+        .from("inbound_emails")
+        .update(updateData)
+        .in("id", ids);
+      if (error) throw error;
+      toast.success(`${ids.length} email${ids.length > 1 ? "s" : ""} marqué${ids.length > 1 ? "s" : ""} comme ${markAsRead ? "lu" : "non lu"}${ids.length > 1 ? "s" : ""}`);
+      exitSelectionMode();
+      queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+      queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur lors de la mise à jour");
+    }
+  };
+
+  const handleBulkMoveFolder = async (targetFolder: string) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      const { error } = await supabase
+        .from("inbound_emails")
+        .update({ folder: targetFolder })
+        .in("id", ids);
+      if (error) throw error;
+      const folderNames: Record<string, string> = { inbox: "Réception", archive: "Archives", trash: "Corbeille" };
+      toast.success(`${ids.length} email${ids.length > 1 ? "s" : ""} déplacé${ids.length > 1 ? "s" : ""} vers ${folderNames[targetFolder] || targetFolder}`);
+      exitSelectionMode();
+      queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur lors du déplacement");
+    }
+  };
+
+  const handleBulkAssignLabel = async (labelId: string) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      const { error } = await supabase
+        .from("inbound_emails")
+        .update({ label_id: labelId })
+        .in("id", ids);
+      if (error) throw error;
+      const label = emailLabels.find((l) => l.id === labelId);
+      toast.success(`${ids.length} email${ids.length > 1 ? "s" : ""} classé${ids.length > 1 ? "s" : ""} dans "${label?.name || "dossier"}"`);
+      exitSelectionMode();
+      queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur lors du classement");
+    }
+  };
+
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
     queryClient.invalidateQueries({ queryKey: ["sent-emails"] });
