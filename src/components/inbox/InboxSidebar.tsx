@@ -77,6 +77,7 @@ export const InboxSidebar = ({
   unreadCounts,
   accounts,
   isMobile = false,
+  onDropEmails,
 }: InboxSidebarProps) => {
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
@@ -86,6 +87,7 @@ export const InboxSidebar = ({
   const [newLabelName, setNewLabelName] = useState("");
   const [newLabelColor, setNewLabelColor] = useState("#6366f1");
   const [isCreating, setIsCreating] = useState(false);
+  const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
 
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
