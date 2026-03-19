@@ -474,23 +474,38 @@ serve(async (req) => {
             is_read: false,
           }).then(() => {});
 
-          // Also create inbound_email for AI analysis pipeline
-          const { data: inboundEmail } = await supabase
+          // Also create inbound_email for AI analysis pipeline (with dedup via message_id)
+          const emailMessageId = email.message_id.slice(0, 500);
+          
+          // Check if already exists
+          const { data: existingInbound } = await supabase
             .from("inbound_emails")
-            .insert({
-              company_id: account.company_id,
-              from_email: safeFromEmail,
-              from_name: email.from_name || null,
-              to_email: account.email_address,
-              subject: safeSubject,
-              body_text: safeBodyText,
-              body_html: safeBodyHtml,
-              attachments: email.attachments.length > 0 ? email.attachments : null,
-              client_id: clientId,
-              status: "pending",
-            })
             .select("id")
-            .single();
+            .eq("company_id", account.company_id)
+            .eq("message_id", emailMessageId)
+            .maybeSingle();
+
+          let inboundEmail = existingInbound;
+          if (!existingInbound) {
+            const { data: newInbound } = await supabase
+              .from("inbound_emails")
+              .insert({
+                company_id: account.company_id,
+                from_email: safeFromEmail,
+                from_name: email.from_name || null,
+                to_email: account.email_address,
+                subject: safeSubject,
+                body_text: safeBodyText,
+                body_html: safeBodyHtml,
+                attachments: email.attachments.length > 0 ? email.attachments : null,
+                client_id: clientId,
+                status: "pending",
+                message_id: emailMessageId,
+              })
+              .select("id")
+              .single();
+            inboundEmail = newInbound;
+          }
 
           // Trigger AI analysis via process-inbound-email
           if (inboundEmail) {
