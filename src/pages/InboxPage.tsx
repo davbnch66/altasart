@@ -1211,8 +1211,8 @@ const InboxPage = () => {
             >
               <Inbox className="h-4 w-4" />
               Tous
-              {unreadPrincipalCount > 0 && (
-                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">{unreadPrincipalCount}</Badge>
+              {unreadCounts.inbox > 0 && (
+                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">{unreadCounts.inbox}</Badge>
               )}
             </button>
             <button
