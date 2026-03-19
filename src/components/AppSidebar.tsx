@@ -104,6 +104,7 @@ export const AppSidebar: React.FC = () => {
         .select("id, ai_analysis, is_read")
         .in("company_id", companyIds)
         .eq("is_read", false)
+        .eq("folder", "inbox")
         .order("created_at", { ascending: false })
         .limit(200);
       if (error || !data) return 0;
