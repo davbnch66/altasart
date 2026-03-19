@@ -164,15 +164,21 @@ export const InboxSidebar = ({
         {systemFolders.map(({ key, label, icon: Icon }) => {
           const count = unreadCounts[key] || 0;
           const isActive = currentFolder === key;
+          const isDropTarget = key === "inbox" || key === "archive" || key === "trash";
+          const isDragOver = dragOverTarget === key;
           return (
             <button
               key={key}
               onClick={() => onFolderChange(key)}
+              onDragOver={isDropTarget ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOverTarget(key); } : undefined}
+              onDragLeave={isDropTarget ? () => setDragOverTarget(null) : undefined}
+              onDrop={isDropTarget ? (e) => { e.preventDefault(); setDragOverTarget(null); onDropEmails?.(key); } : undefined}
               className={cn(
                 "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
                 isActive
                   ? "bg-primary/10 text-primary font-medium"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                isDragOver && "ring-2 ring-primary bg-primary/10"
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
