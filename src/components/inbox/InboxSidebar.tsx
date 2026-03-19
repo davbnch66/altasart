@@ -312,7 +312,7 @@ export const InboxSidebar = ({
                       {accountFolders.map(({ key, label, icon: Icon }) => {
                         const isActive = isAccountSelected && currentFolder === key;
                         const isDragOver = dragOverTarget === `${account.id}:${key}`;
-                        const isDropTarget = key === "inbox" || key === "archive" || key === "trash";
+                        const isDropTarget = key === "inbox" || key === "archive" || key === "trash" || key === "spam";
                         return (
                           <button
                             key={key}
