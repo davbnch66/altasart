@@ -246,15 +246,33 @@ Si un arrêté est détecté, extrais la date d'intervention/d'autorisation (cha
                   },
                   materiel: {
                     type: "array",
+                    description: "Liste EXHAUSTIVE de tous les équipements, machines, matériels mentionnés dans l'email ou suggérés par les pièces jointes",
                     items: {
                       type: "object",
                       properties: {
-                        designation: { type: "string" },
-                        quantity: { type: "number" },
-                        dimensions: { type: "string" },
-                        weight: { type: "number" },
+                        designation: { type: "string", description: "Nom précis de la machine ou du matériel" },
+                        quantity: { type: "number", description: "Nombre d'unités" },
+                        dimensions: { type: "string", description: "Dimensions LxlxH en mètres ou cm" },
+                        weight: { type: "number", description: "Poids en kg" },
+                        etage: { type: "string", description: "Étage de chargement ou livraison" },
+                        acces_contraintes: { type: "string", description: "Contraintes d'accès (escalier, passage étroit, hauteur limitée, etc.)" },
+                        fragile: { type: "boolean", description: "Matériel fragile nécessitant précautions" },
                       },
                       required: ["designation"],
+                      additionalProperties: false,
+                    },
+                  },
+                  pieces_jointes_detectees: {
+                    type: "array",
+                    description: "Analyse des pièces jointes pertinentes pour le métier",
+                    items: {
+                      type: "object",
+                      properties: {
+                        filename: { type: "string" },
+                        type_document: { type: "string", enum: ["plan_levage", "plan_acces", "plan_implantation", "fiche_technique", "photo_materiel", "bon_commande", "cahier_charges", "plan_voirie", "arrete", "pv_roc", "autre"] },
+                        description: { type: "string", description: "Ce que contient probablement ce document" },
+                      },
+                      required: ["filename", "type_document"],
                       additionalProperties: false,
                     },
                   },
