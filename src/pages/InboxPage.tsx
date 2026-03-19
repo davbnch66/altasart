@@ -740,6 +740,7 @@ const InboxPage = () => {
     onCompose: () => { setReplyData(null); setForwardData(null); setComposeOpen(true); },
     unreadCounts,
     accounts: emailAccounts,
+    onDropEmails: handleDropEmails,
   };
 
   // ============ EMAIL DETAIL VIEW ============
