@@ -807,12 +807,14 @@ const InboxPage = () => {
   }
 
   // ============ EMAIL LIST VIEW ============
+  const activeLabelName = activeLabelId ? emailLabels.find((l) => l.id === activeLabelId)?.name : null;
   const folderTitle = currentFolder === "inbox" ? "Réception"
     : currentFolder === "sent" ? "Envoyés"
     : currentFolder === "drafts" ? "Brouillons"
     : currentFolder === "starred" ? "Suivis"
     : currentFolder === "archive" ? "Archives"
     : currentFolder === "trash" ? "Corbeille"
+    : isLabelFolder ? (activeLabelName || "Dossier")
     : "Inbox";
 
   const providerColors: Record<string, string> = {
