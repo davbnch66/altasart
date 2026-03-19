@@ -39,6 +39,7 @@ import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
 import { GenerateVisiteMemoButton } from "@/components/visite/GenerateVisiteMemoButton";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
 import { UnsavedChangesDialog } from "@/components/UnsavedChangesDialog";
+import { VisiteMobileView } from "@/components/visite/mobile/VisiteMobileView";
 const statusLabels: Record<string, string> = {
   planifiee: "Planifiée",
   realisee: "Réalisée",
