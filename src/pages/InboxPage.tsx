@@ -408,14 +408,16 @@ const InboxPage = () => {
                     !isRead ? "bg-primary/[0.03]" : ""
                   } ${isChecked ? "bg-primary/[0.06]" : ""} ${isMobile ? "px-3 py-3" : "px-5 py-4"}`}
                 >
-                  {/* Checkbox */}
-                  <div className="mt-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={isChecked}
-                      onCheckedChange={() => toggleSelect(email.id)}
-                      aria-label={`Sélectionner ${email.subject}`}
-                    />
-                  </div>
+                  {/* Checkbox - only in selection mode */}
+                  {selectionMode && (
+                    <div className="mt-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={() => toggleSelect(email.id)}
+                        aria-label={`Sélectionner ${email.subject}`}
+                      />
+                    </div>
+                  )}
 
                   {/* Rest of the row - clickable to open */}
                   <div
