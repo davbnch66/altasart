@@ -634,48 +634,258 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
       console.log(`Forwarded email detected by subject/self-send. Using AI-extracted email: ${realClientEmail}`);
     }
 
-    // ── Match existing client ──
+    // ══════════════════════════════════════════════════════
+    // ── INTELLIGENT CLIENT MATCHING WITH SCORING ──
+    // ══════════════════════════════════════════════════════
     let clientId: string | null = null;
     const matchEmail = realClientEmail || safeFromEmail;
+    const matchDomain = matchEmail ? matchEmail.split("@")[1]?.toLowerCase() : null;
+    const matchName = analysis.societe || "";
+    const matchContact = analysis.contact || (isForwardedOrSelfSent ? null : safeFromName) || "";
+    const matchPhone = analysis.telephone || "";
+    const matchMobile = analysis.mobile || "";
+
+    // Step 0: Check learned corrections first
     if (matchEmail) {
-      const { data: existingClient } = await supabase
-        .from("clients").select("id").eq("company_id", companyId).eq("email", matchEmail).maybeSingle();
-      if (existingClient) {
-        clientId = existingClient.id;
-      } else {
-        const { data: existingContact } = await supabase
-          .from("client_contacts").select("client_id").eq("company_id", companyId).eq("email", matchEmail).limit(1).maybeSingle();
-        if (existingContact) clientId = existingContact.client_id;
+      const { data: correction } = await supabase
+        .from("client_match_corrections")
+        .select("matched_client_id")
+        .eq("company_id", companyId)
+        .eq("from_email", matchEmail.toLowerCase())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (correction?.matched_client_id) {
+        // Verify the client still exists
+        const { data: corrClient } = await supabase
+          .from("clients").select("id").eq("id", correction.matched_client_id).maybeSingle();
+        if (corrClient) {
+          clientId = corrClient.id;
+          console.log(`Client matched via learned correction: ${clientId}`);
+        }
       }
     }
-    // Also try matching by company name if no match by email
-    if (!clientId && analysis.societe) {
-      const { data: clientByName } = await supabase
-        .from("clients").select("id").eq("company_id", companyId).ilike("name", `%${analysis.societe}%`).limit(1).maybeSingle();
-      if (clientByName) clientId = clientByName.id;
-    }
 
-    // ── Update inbound_email with corrected from info for forwarded emails ──
-    const updatePayload: any = {
-      ai_analysis: analysis,
-      client_id: clientId,
-      status: "processed",
-      processed_at: new Date().toISOString(),
+    // Step 1: Multi-criteria candidate search
+    type ClientCandidate = {
+      id: string;
+      name: string;
+      email: string | null;
+      phone: string | null;
+      score: number;
+      reasons: string[];
     };
-    // For forwarded emails, store the real sender info
-    if (isForwardedOrSelfSent && realClientEmail) {
-      updatePayload.from_email = realClientEmail;
-      updatePayload.from_name = analysis.contact || analysis.societe || safeFromName;
-    }
-
-    await supabase.from("inbound_emails").update(updatePayload).eq("id", emailId);
-
-    // ── Generate suggested actions ──
-    const actions: any[] = [];
+    const candidates: ClientCandidate[] = [];
 
     if (!clientId) {
-      const clientEmail = realClientEmail || (isForwardedOrSelfSent ? analysis.email : safeFromEmail);
-      const clientName = analysis.societe || (isForwardedOrSelfSent ? analysis.contact : safeFromName) || clientEmail;
+      // Fetch all clients for this company with contacts
+      const { data: allClients } = await supabase
+        .from("clients")
+        .select("id, name, email, phone, mobile, address, contact_name")
+        .eq("company_id", companyId);
+
+      const { data: allContacts } = await supabase
+        .from("client_contacts")
+        .select("client_id, email, phone_office, mobile, first_name, last_name")
+        .eq("company_id", companyId);
+
+      const contactsByClient = new Map<string, any[]>();
+      for (const c of (allContacts || [])) {
+        const list = contactsByClient.get(c.client_id) || [];
+        list.push(c);
+        contactsByClient.set(c.client_id, list);
+      }
+
+      for (const client of (allClients || [])) {
+        let score = 0;
+        const reasons: string[] = [];
+        const contacts = contactsByClient.get(client.id) || [];
+
+        // 1. Exact email match on client → +70
+        if (matchEmail && client.email && client.email.toLowerCase() === matchEmail.toLowerCase()) {
+          score += 70;
+          reasons.push("Email client identique");
+        }
+
+        // 2. Exact email match on contacts → +70
+        if (matchEmail) {
+          const contactEmailMatch = contacts.some((c: any) =>
+            c.email && c.email.toLowerCase() === matchEmail.toLowerCase()
+          );
+          if (contactEmailMatch) {
+            score += 70;
+            reasons.push("Email contact identique");
+          }
+        }
+
+        // 3. Domain match → +40
+        if (matchDomain && matchDomain !== "gmail.com" && matchDomain !== "hotmail.com" && matchDomain !== "yahoo.com" && matchDomain !== "outlook.com" && matchDomain !== "orange.fr" && matchDomain !== "free.fr" && matchDomain !== "sfr.fr" && matchDomain !== "wanadoo.fr" && matchDomain !== "laposte.net") {
+          const clientDomain = client.email?.split("@")[1]?.toLowerCase();
+          if (clientDomain === matchDomain) {
+            score += 40;
+            reasons.push("Même domaine email");
+          }
+          // Also check contact domains
+          const contactDomainMatch = contacts.some((c: any) =>
+            c.email && c.email.split("@")[1]?.toLowerCase() === matchDomain
+          );
+          if (contactDomainMatch && clientDomain !== matchDomain) {
+            score += 35;
+            reasons.push("Domaine contact identique");
+          }
+        }
+
+        // 4. Company name similarity (trigram-based fuzzy match)
+        if (matchName && client.name) {
+          const nameA = matchName.toLowerCase().replace(/[^a-zàâäéèêëïîôùûüçœæ0-9\s]/g, "").trim();
+          const nameB = client.name.toLowerCase().replace(/[^a-zàâäéèêëïîôùûüçœæ0-9\s]/g, "").trim();
+          
+          if (nameA === nameB) {
+            score += 50;
+            reasons.push("Nom société identique");
+          } else if (nameA && nameB) {
+            // Simple trigram similarity calculation
+            const trigramsA = new Set<string>();
+            const trigramsB = new Set<string>();
+            const padA = `  ${nameA} `;
+            const padB = `  ${nameB} `;
+            for (let i = 0; i < padA.length - 2; i++) trigramsA.add(padA.substring(i, i + 3));
+            for (let i = 0; i < padB.length - 2; i++) trigramsB.add(padB.substring(i, i + 3));
+            
+            let intersection = 0;
+            for (const t of trigramsA) if (trigramsB.has(t)) intersection++;
+            const union = trigramsA.size + trigramsB.size - intersection;
+            const similarity = union > 0 ? intersection / union : 0;
+            
+            if (similarity > 0.6) {
+              score += Math.round(similarity * 45);
+              reasons.push(`Nom société similaire (${Math.round(similarity * 100)}%)`);
+            } else if (similarity > 0.3) {
+              score += Math.round(similarity * 25);
+              reasons.push(`Nom société approchant (${Math.round(similarity * 100)}%)`);
+            }
+            // Also check if one name contains the other
+            if (nameA.includes(nameB) || nameB.includes(nameA)) {
+              score += 30;
+              reasons.push("Nom société contenu dans l'autre");
+            }
+          }
+        }
+
+        // 5. Contact name match
+        if (matchContact) {
+          const contactNameLower = matchContact.toLowerCase().trim();
+          // Check client contact_name
+          if (client.contact_name && client.contact_name.toLowerCase().includes(contactNameLower)) {
+            score += 25;
+            reasons.push("Nom contact correspondant");
+          }
+          // Check client_contacts table
+          const contactNameMatch = contacts.some((c: any) => {
+            const fullName = `${c.first_name || ""} ${c.last_name || ""}`.toLowerCase().trim();
+            return fullName.includes(contactNameLower) || contactNameLower.includes(fullName);
+          });
+          if (contactNameMatch) {
+            score += 30;
+            reasons.push("Contact existant reconnu");
+          }
+        }
+
+        // 6. Phone match
+        if (matchPhone || matchMobile) {
+          const normalizePhone = (p: string) => p.replace(/[\s\.\-\(\)]/g, "").replace(/^(\+33|0033)/, "0");
+          const phones = [matchPhone, matchMobile].filter(Boolean).map(normalizePhone);
+          
+          const clientPhones = [client.phone, client.mobile].filter(Boolean).map(normalizePhone);
+          const contactPhones = contacts.flatMap((c: any) =>
+            [c.phone_office, c.mobile].filter(Boolean).map(normalizePhone)
+          );
+          const allClientPhones = [...clientPhones, ...contactPhones];
+          
+          const phoneMatch = phones.some(p => allClientPhones.some(cp => cp === p || cp.endsWith(p.slice(-9)) || p.endsWith(cp.slice(-9))));
+          if (phoneMatch) {
+            score += 35;
+            reasons.push("Téléphone correspondant");
+          }
+        }
+
+        if (score > 0) {
+          candidates.push({ id: client.id, name: client.name, email: client.email, phone: client.phone, score, reasons });
+        }
+      }
+
+      // Sort by score descending
+      candidates.sort((a, b) => b.score - a.score);
+
+      // Decision logic based on score
+      if (candidates.length > 0) {
+        const best = candidates[0];
+        if (best.score >= 70) {
+          // High confidence → auto-link
+          clientId = best.id;
+          console.log(`Client auto-matched (score ${best.score}): ${best.name} — ${best.reasons.join(", ")}`);
+        }
+      }
+    }
+
+    // Step 2: Determine what action to suggest based on matching results
+    const clientEmail = realClientEmail || (isForwardedOrSelfSent ? analysis.email : safeFromEmail);
+    const clientName = analysis.societe || (isForwardedOrSelfSent ? analysis.contact : safeFromName) || clientEmail;
+
+    if (clientId) {
+      // Client found with high confidence — check if we need to enrich (add new contact, etc.)
+      const needsEnrichment = await checkEnrichmentNeeded(supabase, clientId, companyId, {
+        contact: analysis.contact || (isForwardedOrSelfSent ? null : safeFromName),
+        email: clientEmail,
+        phone: analysis.telephone,
+        mobile: analysis.mobile,
+        address: analysis.adresse_chantier,
+      });
+      
+      if (needsEnrichment.length > 0) {
+        actions.push({
+          inbound_email_id: emailId, company_id: companyId, action_type: "enrich_client",
+          payload: {
+            client_id: clientId,
+            client_name: candidates[0]?.name || "Client existant",
+            enrichments: needsEnrichment,
+            contact_name: analysis.contact || (isForwardedOrSelfSent ? null : safeFromName),
+            email: clientEmail,
+            phone: analysis.telephone || null,
+            mobile: analysis.mobile || null,
+            address: analysis.adresse_chantier || null,
+            postal_code: analysis.code_postal || null,
+            city: analysis.ville || null,
+          },
+        });
+      }
+    } else if (candidates.length > 0 && candidates[0].score >= 30) {
+      // Medium confidence → suggest candidates to user
+      actions.push({
+        inbound_email_id: emailId, company_id: companyId, action_type: "link_existing_client",
+        payload: {
+          candidates: candidates.slice(0, 5).map(c => ({
+            client_id: c.id,
+            name: c.name,
+            email: c.email,
+            score: c.score,
+            reasons: c.reasons,
+          })),
+          new_client_data: {
+            name: clientName,
+            contact_name: analysis.contact || (isForwardedOrSelfSent ? null : safeFromName),
+            email: clientEmail,
+            phone: analysis.telephone || null,
+            mobile: analysis.mobile || null,
+            address: analysis.adresse_chantier || null,
+            postal_code: analysis.code_postal || null,
+            city: analysis.ville || null,
+          },
+          from_email: matchEmail,
+        },
+      });
+    } else {
+      // No match → suggest creation
       actions.push({
         inbound_email_id: emailId, company_id: companyId, action_type: "create_client",
         payload: {
