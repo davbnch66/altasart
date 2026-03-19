@@ -50,8 +50,24 @@ export const InboxActionBar = ({ actions, onActionExecuted, clientEmail, clientN
       const { data, error } = await supabase.functions.invoke("execute-email-action", {
         body: { action_id: actionId, status: "accepted" },
       });
-      if (error || data?.error) {
-        toast.error(data?.error || "Erreur lors de l'exécution");
+      if (error) {
+        console.error("Edge function error:", error);
+        // Try to extract error message from the response
+        let errorMsg = "Erreur lors de l'exécution";
+        if (error instanceof Error && 'context' in error) {
+          try {
+            const ctx = (error as any).context;
+            if (ctx?.json) {
+              const body = await ctx.json();
+              errorMsg = body?.error || errorMsg;
+            }
+          } catch {}
+        }
+        toast.error(errorMsg);
+        return;
+      }
+      if (data?.error) {
+        toast.error(data.error);
         return;
       }
       toast.success(config?.successMsg || "Action validée");
@@ -62,11 +78,13 @@ export const InboxActionBar = ({ actions, onActionExecuted, clientEmail, clientN
       queryClient.invalidateQueries({ queryKey: ["dossier-voirie"] });
       onActionExecuted();
 
-      // For arrêté, navigate to planning with pre-filled date
       if (actionType === "attach_arrete" && payload?.arrete_date) {
         toast.info("Programmez l'intervention au planning à la date de l'arrêté", { duration: 5000 });
         navigate(`/planning?date=${payload.arrete_date}&visite_id=${payload.visite_id || ""}`);
       }
+    } catch (err) {
+      console.error("Action execution failed:", err);
+      toast.error("Erreur réseau — vérifiez votre connexion et réessayez");
     } finally {
       setLoadingActionId(null);
     }
