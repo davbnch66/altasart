@@ -66,6 +66,7 @@ const InboxPage = () => {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<CategoryTab>("principal");
   const [sortKey, setSortKey] = useState<SortKey>("date_desc");
+  const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
