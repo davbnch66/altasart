@@ -1527,7 +1527,10 @@ export type Database = {
           from_email: string | null
           from_name: string | null
           id: string
+          is_read: boolean
           processed_at: string | null
+          read_at: string | null
+          read_by: string | null
           status: Database["public"]["Enums"]["inbound_email_status"]
           subject: string | null
           to_email: string | null
@@ -1546,7 +1549,10 @@ export type Database = {
           from_email?: string | null
           from_name?: string | null
           id?: string
+          is_read?: boolean
           processed_at?: string | null
+          read_at?: string | null
+          read_by?: string | null
           status?: Database["public"]["Enums"]["inbound_email_status"]
           subject?: string | null
           to_email?: string | null
@@ -1565,7 +1571,10 @@ export type Database = {
           from_email?: string | null
           from_name?: string | null
           id?: string
+          is_read?: boolean
           processed_at?: string | null
+          read_at?: string | null
+          read_by?: string | null
           status?: Database["public"]["Enums"]["inbound_email_status"]
           subject?: string | null
           to_email?: string | null
@@ -1598,6 +1607,13 @@ export type Database = {
             columns: ["dossier_id"]
             isOneToOne: false
             referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_emails_read_by_fkey"
+            columns: ["read_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {

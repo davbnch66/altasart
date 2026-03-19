@@ -1,18 +1,26 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Mail, Search, Inbox, MailWarning, Loader2 } from "lucide-react";
+import { Mail, Search, Inbox, MailWarning, Loader2, ArrowUpDown, Eye, CheckCircle2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InboxEmailDetail } from "@/components/inbox/InboxEmailDetail";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatDistanceToNow } from "date-fns";
+import { fr } from "date-fns/locale";
 
 type CategoryTab = "principal" | "autre";
+type SortKey = "date_desc" | "date_asc" | "name_asc" | "name_desc" | "status";
 
 const PAGE_SIZE = 30;
 
@@ -30,6 +38,14 @@ const statusStyles: Record<string, string> = {
   error: "bg-destructive/10 text-destructive",
 };
 
+const sortLabels: Record<SortKey, string> = {
+  date_desc: "Plus récent",
+  date_asc: "Plus ancien",
+  name_asc: "Expéditeur A→Z",
+  name_desc: "Expéditeur Z→A",
+  status: "Par statut",
+};
+
 /** Returns true if the email is business-relevant based on AI analysis */
 const isBusinessRelevant = (email: any): boolean => {
   const types: string[] = email.ai_analysis?.type_demande || [];
@@ -40,16 +56,29 @@ const isBusinessRelevant = (email: any): boolean => {
 const InboxPage = () => {
   const isMobile = useIsMobile();
   const { current, dbCompanies } = useCompany();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedEmailId = searchParams.get("email");
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<CategoryTab>("principal");
+  const [sortKey, setSortKey] = useState<SortKey>("date_desc");
 
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
     : [current];
+
+  // Fetch profiles for read_by display
+  const { data: profilesMap = {} } = useQuery({
+    queryKey: ["profiles-map"],
+    queryFn: async () => {
+      const { data } = await supabase.from("profiles").select("id, full_name, email");
+      const map: Record<string, { full_name: string | null; email: string | null }> = {};
+      (data || []).forEach((p: any) => { map[p.id] = p; });
+      return map;
+    },
+  });
 
   // Infinite query for emails
   const {
@@ -101,6 +130,22 @@ const InboxPage = () => {
     enabled: !!selectedEmailId,
   });
 
+  // Mark email as read when selected
+  useEffect(() => {
+    if (!selectedEmailId || !user) return;
+    const email = allEmails.find((e: any) => e.id === selectedEmailId);
+    if (email && !(email as any).is_read) {
+      supabase
+        .from("inbound_emails")
+        .update({ is_read: true, read_by: user.id, read_at: new Date().toISOString() })
+        .eq("id", selectedEmailId)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+          queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+        });
+    }
+  }, [selectedEmailId, user, allEmails]);
+
   // Split into categories
   const principalEmails = allEmails.filter(isBusinessRelevant);
   const autreEmails = allEmails.filter((e: any) => !isBusinessRelevant(e));
@@ -108,7 +153,7 @@ const InboxPage = () => {
   const currentEmails = category === "principal" ? principalEmails : autreEmails;
 
   // Filter by search
-  const filteredEmails = currentEmails.filter((e: any) => {
+  const searchedEmails = currentEmails.filter((e: any) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -119,11 +164,38 @@ const InboxPage = () => {
     );
   });
 
+  // Sort
+  const filteredEmails = useMemo(() => {
+    const sorted = [...searchedEmails];
+    switch (sortKey) {
+      case "date_desc":
+        sorted.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
+      case "date_asc":
+        sorted.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        break;
+      case "name_asc":
+        sorted.sort((a: any, b: any) => (a.from_name || a.from_email || "").localeCompare(b.from_name || b.from_email || ""));
+        break;
+      case "name_desc":
+        sorted.sort((a: any, b: any) => (b.from_name || b.from_email || "").localeCompare(a.from_name || a.from_email || ""));
+        break;
+      case "status":
+        sorted.sort((a: any, b: any) => (a.status || "").localeCompare(b.status || ""));
+        break;
+    }
+    return sorted;
+  }, [searchedEmails, sortKey]);
+
   const selectedEmail = allEmails.find((e: any) => e.id === selectedEmailId);
+
+  // Count unread in principal
+  const unreadPrincipalCount = principalEmails.filter((e: any) => !e.is_read).length;
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
     queryClient.invalidateQueries({ queryKey: ["email-actions"] });
+    queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
   };
 
   const loadMore = useCallback(() => {
@@ -162,7 +234,7 @@ const InboxPage = () => {
         {!isMobile && <p className="page-subtitle">Emails entrants et actions suggérées par l'IA</p>}
       </motion.div>
 
-      {/* Category Tabs — Gmail-style */}
+      {/* Category Tabs */}
       <div className="flex gap-1 border-b">
         <button
           onClick={() => setCategory("principal")}
@@ -174,9 +246,9 @@ const InboxPage = () => {
         >
           <Inbox className="h-4 w-4" />
           Principal
-          {principalEmails.length > 0 && (
-            <Badge variant="secondary" className="text-[10px] py-0 px-1.5 ml-1">
-              {principalEmails.length}
+          {unreadPrincipalCount > 0 && (
+            <Badge variant="destructive" className="text-[10px] py-0 px-1.5 ml-1">
+              {unreadPrincipalCount}
             </Badge>
           )}
         </button>
@@ -198,8 +270,8 @@ const InboxPage = () => {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="flex gap-2 flex-wrap">
+      {/* Search + Sort */}
+      <div className="flex gap-2 flex-wrap items-center">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
@@ -210,6 +282,19 @@ const InboxPage = () => {
             className={`w-full rounded-lg border bg-card pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring ${isMobile ? "py-2 text-xs" : "py-2.5"}`}
           />
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowUpDown className="h-3.5 w-3.5" />
+            {sortLabels[sortKey]}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {(Object.keys(sortLabels) as SortKey[]).map((key) => (
+              <DropdownMenuItem key={key} onClick={() => setSortKey(key)} className={sortKey === key ? "font-semibold" : ""}>
+                {sortLabels[key]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Email List */}
@@ -243,27 +328,33 @@ const InboxPage = () => {
             {filteredEmails.map((email: any) => {
               const analysis = email.ai_analysis;
               const hasActions = analysis?.type_demande?.length > 0 && analysis.type_demande.some((t: string) => t !== "autre");
+              const isRead = !!email.is_read;
+              const readByProfile = email.read_by ? (profilesMap as any)[email.read_by] : null;
+
               return (
                 <div
                   key={email.id}
                   onClick={() => setSearchParams({ email: email.id })}
                   className={`flex items-start gap-3 hover:bg-muted/30 transition-colors cursor-pointer ${
-                    email.status === "pending" ? "bg-primary/[0.02]" : ""
+                    !isRead ? "bg-primary/[0.03]" : ""
                   } ${isMobile ? "px-3 py-3" : "px-5 py-4"}`}
                 >
-                  <div className="mt-0.5 text-muted-foreground">
-                    <Mail className="h-4 w-4" />
+                  {/* Unread indicator */}
+                  <div className="mt-1.5 shrink-0 w-5 flex items-center justify-center">
+                    {!isRead ? (
+                      <div className="h-2.5 w-2.5 rounded-full bg-info" title="Non lu" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5 text-muted-foreground/40" />
+                    )}
                   </div>
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <p className={`truncate ${email.status === "pending" ? "font-semibold" : "font-medium"} ${isMobile ? "text-xs" : "text-sm"}`}>
+                      <p className={`truncate ${!isRead ? "font-semibold text-foreground" : "font-medium text-foreground/80"} ${isMobile ? "text-xs" : "text-sm"}`}>
                         {email.from_name || email.from_email || "Inconnu"}
                       </p>
-                      {email.status === "pending" && (
-                        <div className="h-1.5 w-1.5 rounded-full bg-info flex-shrink-0" />
-                      )}
                     </div>
-                    <p className={`text-foreground truncate ${isMobile ? "text-xs" : "text-sm"}`}>
+                    <p className={`truncate ${!isRead ? "text-foreground font-medium" : "text-foreground/70"} ${isMobile ? "text-xs" : "text-sm"}`}>
                       {email.subject || "(sans objet)"}
                     </p>
                     {!isMobile && analysis?.resume && (
@@ -279,9 +370,10 @@ const InboxPage = () => {
                       </div>
                     )}
                   </div>
+
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {new Date(email.created_at).toLocaleDateString("fr-FR")}
+                      {formatDistanceToNow(new Date(email.created_at), { addSuffix: true, locale: fr })}
                     </span>
                     <Badge className={`text-[10px] py-0 ${statusStyles[email.status] || ""}`}>
                       {statusLabels[email.status] || email.status}
@@ -290,6 +382,27 @@ const InboxPage = () => {
                       <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">
                         {(email.clients as any).name}
                       </span>
+                    )}
+                    {/* Read by indicator */}
+                    {isRead && readByProfile && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span className="truncate max-w-[60px]">
+                              {readByProfile.full_name?.split(" ")[0] || "Lu"}
+                            </span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="left">
+                          <p className="text-xs">
+                            Lu par {readByProfile.full_name || readByProfile.email}
+                            {email.read_at && (
+                              <> · {formatDistanceToNow(new Date(email.read_at), { addSuffix: true, locale: fr })}</>
+                            )}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                   </div>
                 </div>
