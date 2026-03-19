@@ -66,6 +66,7 @@ const InboxPage = () => {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<CategoryTab>("principal");
   const [sortKey, setSortKey] = useState<SortKey>("date_desc");
+  const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -75,7 +76,7 @@ const InboxPage = () => {
     : [current];
 
   // Clear selection when changing category
-  useEffect(() => { setSelectedIds(new Set()); }, [category]);
+  useEffect(() => { setSelectedIds(new Set()); setSelectionMode(false); }, [category]);
 
   const { data: profilesMap = {} } = useQuery({
     queryKey: ["profiles-map"],
@@ -173,6 +174,11 @@ const InboxPage = () => {
   const allVisibleSelected = filteredEmails.length > 0 && filteredEmails.every((e: any) => selectedIds.has(e.id));
   const someSelected = selectedIds.size > 0;
 
+  const exitSelectionMode = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
   const toggleSelectAll = () => {
     if (allVisibleSelected) {
       setSelectedIds(new Set());
@@ -199,7 +205,7 @@ const InboxPage = () => {
       const { error } = await supabase.from("inbound_emails").delete().in("id", ids);
       if (error) throw error;
       toast.success(`${ids.length} email${ids.length > 1 ? "s" : ""} supprimé${ids.length > 1 ? "s" : ""}`);
-      setSelectedIds(new Set());
+      exitSelectionMode();
       queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
       queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
     } catch (err) {
@@ -306,7 +312,7 @@ const InboxPage = () => {
 
       {/* Selection action bar */}
       <AnimatePresence>
-        {someSelected && (
+        {selectionMode && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
@@ -314,27 +320,34 @@ const InboxPage = () => {
             className="overflow-hidden"
           >
             <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2.5">
+              <Checkbox
+                checked={allVisibleSelected}
+                onCheckedChange={toggleSelectAll}
+                aria-label="Tout sélectionner"
+              />
               <span className="text-sm font-medium text-foreground">
-                {selectedIds.size} sélectionné{selectedIds.size > 1 ? "s" : ""}
+                {someSelected ? `${selectedIds.size} sélectionné${selectedIds.size > 1 ? "s" : ""}` : "Tout sélectionner"}
               </span>
               <div className="flex-1" />
+              {someSelected && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  disabled={isDeleting}
+                  className="gap-1.5"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Supprimer ({selectedIds.size})
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={toggleSelectAll}
+                onClick={exitSelectionMode}
                 className="text-xs"
               >
-                {allVisibleSelected ? "Tout désélectionner" : `Tout sélectionner (${filteredEmails.length})`}
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setDeleteDialogOpen(true)}
-                disabled={isDeleting}
-                className="gap-1.5"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Supprimer
+                Annuler
               </Button>
             </div>
           </motion.div>
@@ -368,17 +381,17 @@ const InboxPage = () => {
             </div>
           )}
 
-          {/* Select all header */}
-          <div className="flex items-center gap-3 px-5 py-2">
-            <Checkbox
-              checked={allVisibleSelected}
-              onCheckedChange={toggleSelectAll}
-              aria-label="Tout sélectionner"
-            />
-            <span className="text-xs text-muted-foreground">
-              {someSelected ? `${selectedIds.size} / ${filteredEmails.length}` : "Sélectionner"}
-            </span>
-          </div>
+          {/* Select mode toggle */}
+          {!selectionMode && (
+            <div className="flex items-center px-5 py-1">
+              <button
+                onClick={() => setSelectionMode(true)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Sélectionner
+              </button>
+            </div>
+          )}
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="card-elevated divide-y">
             {filteredEmails.map((email: any) => {
@@ -395,14 +408,16 @@ const InboxPage = () => {
                     !isRead ? "bg-primary/[0.03]" : ""
                   } ${isChecked ? "bg-primary/[0.06]" : ""} ${isMobile ? "px-3 py-3" : "px-5 py-4"}`}
                 >
-                  {/* Checkbox */}
-                  <div className="mt-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                    <Checkbox
-                      checked={isChecked}
-                      onCheckedChange={() => toggleSelect(email.id)}
-                      aria-label={`Sélectionner ${email.subject}`}
-                    />
-                  </div>
+                  {/* Checkbox - only in selection mode */}
+                  {selectionMode && (
+                    <div className="mt-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={() => toggleSelect(email.id)}
+                        aria-label={`Sélectionner ${email.subject}`}
+                      />
+                    </div>
+                  )}
 
                   {/* Rest of the row - clickable to open */}
                   <div
