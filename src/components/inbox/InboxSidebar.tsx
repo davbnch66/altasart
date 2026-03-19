@@ -219,15 +219,23 @@ export const InboxSidebar = ({
               )}
               {labels.map((label) => {
                 const isActive = currentFolder === `label:${label.id}`;
+                const isDragOver = dragOverTarget === `label:${label.id}`;
                 return (
-                  <div key={label.id} className="group relative">
+                  <div
+                    key={label.id}
+                    className="group relative"
+                    onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOverTarget(`label:${label.id}`); }}
+                    onDragLeave={() => setDragOverTarget(null)}
+                    onDrop={(e) => { e.preventDefault(); setDragOverTarget(null); onDropEmails?.(undefined as any, label.id); }}
+                  >
                     <button
                       onClick={() => onFolderChange(`label:${label.id}`)}
                       className={cn(
                         "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors",
                         isActive
                           ? "bg-primary/10 text-primary font-medium"
-                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        isDragOver && "ring-2 ring-primary bg-primary/10"
                       )}
                     >
                       <div
