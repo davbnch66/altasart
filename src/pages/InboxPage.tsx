@@ -1070,7 +1070,7 @@ const InboxPage = () => {
               </div>
             )}
 
-            {!selectionMode && currentFolder === "inbox" && (
+            {!selectionMode && isInboxLikeFolder && (
               <div className="flex items-center px-5 py-1">
                 <button onClick={() => setSelectionMode(true)} className="text-xs text-muted-foreground transition-colors hover:text-foreground">
                   Sélectionner
