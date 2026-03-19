@@ -1376,6 +1376,11 @@ const InboxPage = () => {
                             <Archive className="h-3.5 w-3.5" /> Archives
                           </DropdownMenuItem>
                         )}
+                        {currentFolder !== "spam" && (
+                          <DropdownMenuItem onClick={() => handleBulkMoveFolder("spam")} className="gap-2">
+                            <ShieldAlert className="h-3.5 w-3.5" /> Indésirables
+                          </DropdownMenuItem>
+                        )}
                         {currentFolder !== "trash" && (
                           <DropdownMenuItem onClick={() => handleBulkMoveFolder("trash")} className="gap-2">
                             <Trash2 className="h-3.5 w-3.5" /> Corbeille
