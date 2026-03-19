@@ -159,6 +159,26 @@ const InboxPage = () => {
     return map;
   }, [emailAccounts]);
 
+  // ============ EMAIL LABELS ============
+  const { data: emailLabels = [] } = useQuery<EmailLabel[]>({
+    queryKey: ["email-labels", companyIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("email_labels")
+        .select("*")
+        .in("company_id", companyIds)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data || []) as EmailLabel[];
+    },
+    enabled: companyIds.length > 0,
+  });
+
+  // Determine which folder filter to apply for inbound_emails
+  const isLabelFolder = currentFolder.startsWith("label:");
+  const activeLabelId = isLabelFolder ? currentFolder.replace("label:", "") : null;
+  const isInboxLikeFolder = currentFolder === "inbox" || currentFolder === "archive" || currentFolder === "trash" || isLabelFolder;
+
   // ============ INBOX (inbound_emails) ============
   const {
     data: inboundData,
@@ -167,14 +187,27 @@ const InboxPage = () => {
     hasNextPage: hasNextInbound,
     isFetchingNextPage: isFetchingNextInbound,
   } = useInfiniteQuery({
-    queryKey: ["inbound-emails", companyIds],
+    queryKey: ["inbound-emails", companyIds, currentFolder],
     queryFn: async ({ pageParam = 0 }) => {
-      const { data, error, count } = await supabase
+      let query = supabase
         .from("inbound_emails")
         .select("*, clients(name, id)", { count: "exact" })
         .in("company_id", companyIds)
         .order("created_at", { ascending: false })
         .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
+
+      // Apply folder filter
+      if (currentFolder === "inbox") {
+        query = query.eq("folder", "inbox");
+      } else if (currentFolder === "archive") {
+        query = query.eq("folder", "archive");
+      } else if (currentFolder === "trash") {
+        query = query.eq("folder", "trash");
+      } else if (isLabelFolder && activeLabelId) {
+        query = query.eq("label_id", activeLabelId);
+      }
+
+      const { data, error, count } = await query;
       if (error) throw error;
       return { emails: data || [], totalCount: count || 0, page: pageParam };
     },
@@ -183,7 +216,7 @@ const InboxPage = () => {
       return nextPage < Math.ceil(lastPage.totalCount / PAGE_SIZE) ? nextPage : undefined;
     },
     initialPageParam: 0,
-    enabled: companyIds.length > 0 && currentFolder === "inbox",
+    enabled: companyIds.length > 0 && isInboxLikeFolder,
   });
 
   // ============ SENT (email_outbox) ============
