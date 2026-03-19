@@ -1184,6 +1184,90 @@ export type Database = {
           },
         ]
       }
+      email_label_assignments: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          inbound_email_id: string
+          label_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          inbound_email_id: string
+          label_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          inbound_email_id?: string
+          label_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_label_assignments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_label_assignments_inbound_email_id_fkey"
+            columns: ["inbound_email_id"]
+            isOneToOne: false
+            referencedRelation: "inbound_emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_label_assignments_label_id_fkey"
+            columns: ["label_id"]
+            isOneToOne: false
+            referencedRelation: "email_labels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_labels: {
+        Row: {
+          color: string
+          company_id: string
+          created_at: string
+          icon: string | null
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          color?: string
+          company_id: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          color?: string
+          company_id?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_labels_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_outbox: {
         Row: {
           account_id: string
@@ -1524,10 +1608,12 @@ export type Database = {
           created_at: string
           devis_id: string | null
           dossier_id: string | null
+          folder: string
           from_email: string | null
           from_name: string | null
           id: string
           is_read: boolean
+          label_id: string | null
           processed_at: string | null
           read_at: string | null
           read_by: string | null
@@ -1546,10 +1632,12 @@ export type Database = {
           created_at?: string
           devis_id?: string | null
           dossier_id?: string | null
+          folder?: string
           from_email?: string | null
           from_name?: string | null
           id?: string
           is_read?: boolean
+          label_id?: string | null
           processed_at?: string | null
           read_at?: string | null
           read_by?: string | null
@@ -1568,10 +1656,12 @@ export type Database = {
           created_at?: string
           devis_id?: string | null
           dossier_id?: string | null
+          folder?: string
           from_email?: string | null
           from_name?: string | null
           id?: string
           is_read?: boolean
+          label_id?: string | null
           processed_at?: string | null
           read_at?: string | null
           read_by?: string | null
@@ -1607,6 +1697,13 @@ export type Database = {
             columns: ["dossier_id"]
             isOneToOne: false
             referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbound_emails_label_id_fkey"
+            columns: ["label_id"]
+            isOneToOne: false
+            referencedRelation: "email_labels"
             referencedColumns: ["id"]
           },
           {
