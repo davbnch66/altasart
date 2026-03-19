@@ -252,6 +252,53 @@ function buildAttachmentParts(downloadedAttachments: Array<{ filename: string; c
   return parts;
 }
 
+// ── Helper: check what enrichment is needed for an existing client ──
+async function checkEnrichmentNeeded(
+  supabase: any,
+  clientId: string,
+  companyId: string,
+  extracted: { contact?: string | null; email?: string | null; phone?: string | null; mobile?: string | null; address?: string | null }
+): Promise<string[]> {
+  const enrichments: string[] = [];
+
+  // Check if this contact already exists
+  if (extracted.contact && extracted.email) {
+    const { data: existingContacts } = await supabase
+      .from("client_contacts")
+      .select("id, email, first_name, last_name")
+      .eq("client_id", clientId)
+      .eq("company_id", companyId);
+
+    const emailExists = (existingContacts || []).some((c: any) =>
+      c.email && c.email.toLowerCase() === extracted.email!.toLowerCase()
+    );
+    const nameExists = (existingContacts || []).some((c: any) => {
+      const fullName = `${c.first_name || ""} ${c.last_name || ""}`.toLowerCase().trim();
+      return fullName.includes(extracted.contact!.toLowerCase().trim()) ||
+        extracted.contact!.toLowerCase().trim().includes(fullName);
+    });
+
+    if (!emailExists && !nameExists) {
+      enrichments.push("new_contact");
+    }
+  }
+
+  // Check if client is missing info we have
+  const { data: client } = await supabase
+    .from("clients")
+    .select("phone, mobile, address, email")
+    .eq("id", clientId)
+    .single();
+
+  if (client) {
+    if (!client.phone && extracted.phone) enrichments.push("add_phone");
+    if (!client.mobile && extracted.mobile) enrichments.push("add_mobile");
+    if (!client.address && extracted.address) enrichments.push("add_address");
+  }
+
+  return enrichments;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
