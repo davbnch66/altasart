@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Inbox, MailWarning, Loader2, ArrowUpDown, Eye, CheckCircle2,
-  Trash2, Star, StarOff, Archive, Reply, Forward, Send, Menu, X
+  Trash2, Star, StarOff, Archive, Reply, Forward, Send, Menu, X, Filter
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InboxEmailDetail } from "@/components/inbox/InboxEmailDetail";
-import { InboxSidebar, type MailFolder } from "@/components/inbox/InboxSidebar";
+import { InboxSidebar, type MailFolder, type EmailAccount } from "@/components/inbox/InboxSidebar";
 import { InboxComposeDialog } from "@/components/inbox/InboxComposeDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { useSearchParams } from "react-router-dom";
@@ -32,6 +32,7 @@ import { fr } from "date-fns/locale";
 
 type CategoryTab = "principal" | "autre";
 type SortKey = "date_desc" | "date_asc" | "name_asc" | "name_desc" | "status";
+type ReadFilter = "all" | "unread" | "read";
 
 type InfiniteEmailsData = {
   pages: Array<{
@@ -45,7 +46,7 @@ type InfiniteEmailsData = {
 const PAGE_SIZE = 30;
 
 const statusLabels: Record<string, string> = {
-  pending: "En attente",
+  pending: "Non traité",
   processing: "Analyse…",
   processed: "Traité",
   error: "Erreur",
@@ -66,6 +67,12 @@ const sortLabels: Record<SortKey, string> = {
   status: "Par statut",
 };
 
+const readFilterLabels: Record<ReadFilter, string> = {
+  all: "Tous",
+  unread: "Non lus",
+  read: "Lus",
+};
+
 const isBusinessRelevant = (email: any): boolean => {
   const types: string[] = email.ai_analysis?.type_demande || [];
   if (types.length === 0) return true;
@@ -83,6 +90,8 @@ const InboxPage = () => {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<CategoryTab>("principal");
   const [sortKey, setSortKey] = useState<SortKey>("date_desc");
+  const [readFilter, setReadFilter] = useState<ReadFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all"); // all | pending | processed
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
@@ -118,11 +127,40 @@ const InboxPage = () => {
     },
   });
 
+  // ============ EMAIL ACCOUNTS ============
+  const { data: emailAccounts = [] } = useQuery<EmailAccount[]>({
+    queryKey: ["email-accounts-list", companyIds],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("email_accounts")
+        .select("id, label, email_address, provider, status")
+        .in("company_id", companyIds)
+        .in("status", ["active", "testing"])
+        .order("is_default", { ascending: false });
+      return (data || []) as EmailAccount[];
+    },
+    enabled: companyIds.length > 0,
+  });
+
+  // Build email address to account map
+  const emailToAccountMap = useMemo(() => {
+    const map: Record<string, EmailAccount> = {};
+    emailAccounts.forEach((a) => {
+      map[a.email_address.toLowerCase()] = a;
+    });
+    return map;
+  }, [emailAccounts]);
+
+  const emailAccountsMap = useMemo(() => {
+    const map: Record<string, EmailAccount> = {};
+    emailAccounts.forEach((a) => { map[a.id] = a; });
+    return map;
+  }, [emailAccounts]);
+
   // ============ INBOX (inbound_emails) ============
   const {
     data: inboundData,
     isLoading: inboundLoading,
-    isError: inboundError,
     fetchNextPage: fetchNextInbound,
     hasNextPage: hasNextInbound,
     isFetchingNextPage: isFetchingNextInbound,
@@ -202,9 +240,9 @@ const InboxPage = () => {
     enabled: companyIds.length > 0 && currentFolder === "drafts",
   });
 
-  // ============ SYNCED EMAILS (for all folders) ============
+  // ============ SYNCED EMAILS ============
   const { data: syncedData, isLoading: syncedLoading } = useInfiniteQuery({
-    queryKey: ["synced-emails", companyIds, currentFolder, selectedAccountIds],
+    queryKey: ["synced-emails", companyIds, currentFolder],
     queryFn: async ({ pageParam = 0 }) => {
       let query = supabase
         .from("synced_emails")
@@ -212,10 +250,6 @@ const InboxPage = () => {
         .in("company_id", companyIds)
         .order("received_at", { ascending: false })
         .range(pageParam * PAGE_SIZE, (pageParam + 1) * PAGE_SIZE - 1);
-
-      if (selectedAccountIds.length > 0) {
-        query = query.in("email_account_id", selectedAccountIds);
-      }
 
       if (currentFolder === "sent") {
         query = query.eq("direction", "outbound");
@@ -235,47 +269,23 @@ const InboxPage = () => {
     enabled: companyIds.length > 0 && (currentFolder === "sent" || currentFolder === "inbox"),
   });
 
-  // ============ EMAIL ACCOUNTS MAP ============
-  const { data: emailAccountsMap = {} } = useQuery({
-    queryKey: ["email-accounts-map", companyIds],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("email_accounts")
-        .select("id, label, email_address, provider")
-        .in("company_id", companyIds);
-      const map: Record<string, any> = {};
-      (data || []).forEach((a) => { map[a.id] = a; });
-      return map;
-    },
-    enabled: companyIds.length > 0,
-  });
-
   const allInboundEmails = useMemo(() => inboundData?.pages.flatMap((p) => p.emails) || [], [inboundData]);
   const allSentEmails = useMemo(() => sentData?.pages.flatMap((p) => p.emails) || [], [sentData]);
   const allDraftEmails = useMemo(() => draftsData?.pages.flatMap((p) => p.emails) || [], [draftsData]);
   const allSyncedEmails = useMemo(() => syncedData?.pages.flatMap((p) => p.emails) || [], [syncedData]);
 
-  // Build merged inbox from inbound_emails + synced_emails (inbound)
+  // Enrich inbound emails with receiving account info (match to_email → email_accounts)
   const mergedInboxEmails = useMemo(() => {
-    // Use inbound_emails as primary source, enriched with account info from synced
-    const syncedBySubjectDate = new Map<string, any>();
-    allSyncedEmails
-      .filter((e: any) => e.direction === "inbound")
-      .forEach((e: any) => {
-        const key = `${e.subject}|${e.from_email}`;
-        syncedBySubjectDate.set(key, e);
-      });
-
     return allInboundEmails.map((email: any) => {
-      const key = `${email.subject}|${email.from_email}`;
-      const synced = syncedBySubjectDate.get(key);
+      const toEmail = email.to_email?.toLowerCase();
+      const matchedAccount = toEmail ? emailToAccountMap[toEmail] : null;
       return {
         ...email,
-        _account_id: synced?.email_account_id || null,
-        _to_email: email.to_email || synced?.to_emails?.[0] || null,
+        _account_id: matchedAccount?.id || null,
+        _account: matchedAccount || null,
       };
     });
-  }, [allInboundEmails, allSyncedEmails]);
+  }, [allInboundEmails, emailToAccountMap]);
 
   // Build merged sent from email_outbox + synced_emails (outbound)
   const mergedSentEmails = useMemo(() => {
@@ -291,6 +301,7 @@ const InboxPage = () => {
       status: "sent",
       is_read: true,
       _account_id: email.account_id,
+      _account: emailAccountsMap[email.account_id] || null,
       _type: "outbox" as const,
       clients: email.clients,
     }));
@@ -309,15 +320,15 @@ const InboxPage = () => {
         status: "sent",
         is_read: true,
         _account_id: email.email_account_id,
+        _account: emailAccountsMap[email.email_account_id] || null,
         _type: "synced" as const,
         clients: email.clients,
       }));
 
-    // Merge and deduplicate by subject + time proximity
     const all = [...outboxEmails, ...syncedOutbound];
     all.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return all;
-  }, [allSentEmails, allSyncedEmails]);
+  }, [allSentEmails, allSyncedEmails, emailAccountsMap]);
 
   // Current dataset based on folder
   const currentDataset = useMemo(() => {
@@ -367,17 +378,33 @@ const InboxPage = () => {
   // Category filtering for inbox
   const principalEmails = currentDataset.filter(isBusinessRelevant);
   const autreEmails = currentDataset.filter((email: any) => !isBusinessRelevant(email));
-  const displayEmails = currentFolder === "inbox"
+  const categoryFiltered = currentFolder === "inbox"
     ? (category === "principal" ? principalEmails : autreEmails)
     : currentDataset;
 
-  // Account filtering
+  // Account filtering — match by _account_id
   const accountFiltered = selectedAccountIds.length > 0
-    ? displayEmails.filter((email: any) => selectedAccountIds.includes(email._account_id))
-    : displayEmails;
+    ? categoryFiltered.filter((email: any) => {
+        const accountId = email._account_id || email.account_id;
+        return accountId && selectedAccountIds.includes(accountId);
+      })
+    : categoryFiltered;
+
+  // Read filter
+  const readFiltered = useMemo(() => {
+    if (readFilter === "all") return accountFiltered;
+    if (readFilter === "unread") return accountFiltered.filter((e: any) => !e.is_read);
+    return accountFiltered.filter((e: any) => !!e.is_read);
+  }, [accountFiltered, readFilter]);
+
+  // Status filter (inbox only)
+  const statusFiltered = useMemo(() => {
+    if (statusFilter === "all" || currentFolder !== "inbox") return readFiltered;
+    return readFiltered.filter((e: any) => e.status === statusFilter);
+  }, [readFiltered, statusFilter, currentFolder]);
 
   // Search
-  const searchedEmails = accountFiltered.filter((email: any) => {
+  const searchedEmails = statusFiltered.filter((email: any) => {
     if (!search) return true;
     const q = search.toLowerCase();
     const toStr = currentFolder === "sent"
@@ -397,13 +424,12 @@ const InboxPage = () => {
   // Sort
   const filteredEmails = useMemo(() => {
     const sorted = [...searchedEmails];
-    const dateField = currentFolder === "sent" ? "created_at" : "created_at";
     switch (sortKey) {
       case "date_desc":
-        sorted.sort((a: any, b: any) => new Date(b[dateField]).getTime() - new Date(a[dateField]).getTime());
+        sorted.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         break;
       case "date_asc":
-        sorted.sort((a: any, b: any) => new Date(a[dateField]).getTime() - new Date(b[dateField]).getTime());
+        sorted.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         break;
       case "name_asc":
         sorted.sort((a: any, b: any) => (a.from_name || a.from_email || "").localeCompare(b.from_name || b.from_email || ""));
@@ -416,10 +442,10 @@ const InboxPage = () => {
         break;
     }
     return sorted;
-  }, [searchedEmails, sortKey, currentFolder]);
+  }, [searchedEmails, sortKey]);
 
   const selectedEmail: any = currentFolder === "inbox"
-    ? allInboundEmails.find((e: any) => e.id === selectedEmailId)
+    ? mergedInboxEmails.find((e: any) => e.id === selectedEmailId)
     : currentFolder === "sent"
     ? mergedSentEmails.find((e: any) => e.id === selectedEmailId)
     : allDraftEmails.find((e: any) => e.id === selectedEmailId);
@@ -572,26 +598,34 @@ const InboxPage = () => {
     isLoading: isFetchingMore,
   });
 
+  // Sidebar props
+  const sidebarProps = {
+    currentFolder,
+    onFolderChange: setCurrentFolder,
+    selectedAccountIds,
+    onAccountToggle: handleAccountToggle,
+    onCompose: () => { setReplyData(null); setForwardData(null); setComposeOpen(true); },
+    unreadCounts,
+    accounts: emailAccounts,
+  };
+
   // ============ EMAIL DETAIL VIEW ============
   if (selectedEmail && currentFolder === "inbox") {
     return (
       <div className="flex h-[calc(100vh-4rem)]">
-        {!isMobile && (
-          <InboxSidebar
-            currentFolder={currentFolder}
-            onFolderChange={setCurrentFolder}
-            selectedAccountIds={selectedAccountIds}
-            onAccountToggle={handleAccountToggle}
-            onCompose={() => { setReplyData(null); setForwardData(null); setComposeOpen(true); }}
-            unreadCounts={unreadCounts}
-          />
-        )}
+        {!isMobile && <InboxSidebar {...sidebarProps} />}
         <div className={`flex-1 overflow-y-auto ${isMobile ? "p-3 pb-20" : "p-6"}`}>
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center gap-2 mb-4">
               <Button variant="ghost" size="sm" onClick={() => setSearchParams({})} className="gap-1.5">
                 ← Retour
               </Button>
+              {/* Show receiving account */}
+              {selectedEmail._account && (
+                <Badge variant="outline" className="text-xs">
+                  Reçu sur : {selectedEmail._account.email_address}
+                </Badge>
+              )}
               <div className="flex-1" />
               <Button variant="ghost" size="sm" onClick={() => handleReply(selectedEmail)} className="gap-1.5">
                 <Reply className="h-4 w-4" /> Répondre
@@ -626,22 +660,18 @@ const InboxPage = () => {
       : "";
     return (
       <div className="flex h-[calc(100vh-4rem)]">
-        {!isMobile && (
-          <InboxSidebar
-            currentFolder={currentFolder}
-            onFolderChange={setCurrentFolder}
-            selectedAccountIds={selectedAccountIds}
-            onAccountToggle={handleAccountToggle}
-            onCompose={() => { setReplyData(null); setForwardData(null); setComposeOpen(true); }}
-            unreadCounts={unreadCounts}
-          />
-        )}
+        {!isMobile && <InboxSidebar {...sidebarProps} />}
         <div className={`flex-1 overflow-y-auto ${isMobile ? "p-3 pb-20" : "p-6"}`}>
           <div className="max-w-4xl mx-auto space-y-4">
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" onClick={() => setSearchParams({})} className="gap-1.5">
                 ← Retour
               </Button>
+              {selectedEmail._account && (
+                <Badge variant="outline" className="text-xs">
+                  Envoyé via : {selectedEmail._account.email_address}
+                </Badge>
+              )}
               <div className="flex-1" />
               <Button variant="ghost" size="sm" onClick={() => handleForward(selectedEmail)} className="gap-1.5">
                 <Forward className="h-4 w-4" /> Transférer
@@ -653,11 +683,6 @@ const InboxPage = () => {
                 <Send className="h-3.5 w-3.5" />
                 <span>À : {recipients}</span>
               </div>
-              {selectedEmail._account_id && emailAccountsMap[selectedEmail._account_id] && (
-                <div className="text-xs text-muted-foreground">
-                  Via : {emailAccountsMap[selectedEmail._account_id].email_address}
-                </div>
-              )}
               <div className="text-xs text-muted-foreground">
                 {format(new Date(selectedEmail.created_at), "dd/MM/yyyy HH:mm", { locale: fr })}
               </div>
@@ -691,6 +716,12 @@ const InboxPage = () => {
     : currentFolder === "trash" ? "Corbeille"
     : "Inbox";
 
+  const providerColors: Record<string, string> = {
+    gmail: "bg-red-500",
+    outlook: "bg-blue-500",
+    imap_smtp: "bg-muted-foreground",
+  };
+
   return (
     <div className="flex h-[calc(100vh-4rem)]">
       {/* Mobile sidebar toggle */}
@@ -709,12 +740,9 @@ const InboxPage = () => {
                 </Button>
               </div>
               <InboxSidebar
-                currentFolder={currentFolder}
+                {...sidebarProps}
                 onFolderChange={(folder) => { setCurrentFolder(folder); setMobileSidebarOpen(false); }}
-                selectedAccountIds={selectedAccountIds}
-                onAccountToggle={handleAccountToggle}
                 onCompose={() => { setReplyData(null); setForwardData(null); setComposeOpen(true); setMobileSidebarOpen(false); }}
-                unreadCounts={unreadCounts}
                 isMobile
               />
             </motion.div>
@@ -723,16 +751,7 @@ const InboxPage = () => {
       )}
 
       {/* Desktop sidebar */}
-      {!isMobile && (
-        <InboxSidebar
-          currentFolder={currentFolder}
-          onFolderChange={setCurrentFolder}
-          selectedAccountIds={selectedAccountIds}
-          onAccountToggle={handleAccountToggle}
-          onCompose={() => { setReplyData(null); setForwardData(null); setComposeOpen(true); }}
-          unreadCounts={unreadCounts}
-        />
-      )}
+      {!isMobile && <InboxSidebar {...sidebarProps} />}
 
       {/* Main content */}
       <div className={`flex-1 overflow-y-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-5 space-y-4"}`}>
@@ -786,20 +805,61 @@ const InboxPage = () => {
           </div>
         )}
 
-        {/* Search + Sort */}
+        {/* Filters row: Search + Read filter + Status filter + Sort */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[200px] flex-1">
+          <div className="relative min-w-[180px] flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
-              placeholder={currentFolder === "sent" ? "Rechercher par destinataire ou sujet…" : "Rechercher par sujet, expéditeur ou client…"}
+              placeholder={currentFolder === "sent" ? "Rechercher par destinataire ou sujet…" : "Rechercher…"}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className={`w-full rounded-lg border bg-card pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring ${isMobile ? "py-2 text-xs" : "py-2.5"}`}
             />
           </div>
+
+          {/* Read filter (inbox only) */}
+          {currentFolder === "inbox" && (
+            <div className="flex rounded-lg border bg-card overflow-hidden">
+              {(Object.keys(readFilterLabels) as ReadFilter[]).map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setReadFilter(key)}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    readFilter === key
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  {readFilterLabels[key]}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Status filter (inbox only) */}
+          {currentFolder === "inbox" && (
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
+                <Filter className="h-3.5 w-3.5" />
+                {statusFilter === "all" ? "Statut" : statusFilter === "processed" ? "Traité" : "Non traité"}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setStatusFilter("all")} className={statusFilter === "all" ? "font-semibold" : ""}>
+                  Tous
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("processed")} className={statusFilter === "processed" ? "font-semibold" : ""}>
+                  Traité
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatusFilter("pending")} className={statusFilter === "pending" ? "font-semibold" : ""}>
+                  Non traité
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
+            <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-lg border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
               <ArrowUpDown className="h-3.5 w-3.5" />
               {sortLabels[sortKey]}
             </DropdownMenuTrigger>
@@ -872,9 +932,8 @@ const InboxPage = () => {
                 const isChecked = selectedIds.has(email.id);
 
                 // Account info
-                const accountId = email._account_id || email.account_id;
-                const account = accountId ? emailAccountsMap[accountId] : null;
-                const toEmail = email._to_email || email.to_email;
+                const account = email._account || (email.account_id ? emailAccountsMap[email.account_id] : null);
+                const accountColor = account ? (providerColors[account.provider] || "bg-muted-foreground") : null;
 
                 // For sent emails, show recipients
                 const recipients = isSent && Array.isArray(email.to_recipients)
@@ -896,6 +955,7 @@ const InboxPage = () => {
                     )}
 
                     <div className="flex min-w-0 flex-1 items-start gap-3">
+                      {/* Read indicator */}
                       {isInbox && (
                         <div className="mt-1 flex w-4 shrink-0 items-center justify-center">
                           {!isRead ? (
@@ -927,19 +987,13 @@ const InboxPage = () => {
                           <p className="mt-0.5 truncate text-xs text-muted-foreground">{analysis.resume}</p>
                         )}
 
-                        {/* Account badge */}
-                        {(account || toEmail) && (
+                        {/* Account badge with colored dot */}
+                        {account && (
                           <div className="mt-1 flex items-center gap-1.5">
-                            {account && (
-                              <Badge variant="outline" className="px-1.5 py-0 text-[9px] text-muted-foreground">
-                                {account.label}
-                              </Badge>
-                            )}
-                            {toEmail && !account && (
-                              <Badge variant="outline" className="px-1.5 py-0 text-[9px] text-muted-foreground">
-                                → {toEmail}
-                              </Badge>
-                            )}
+                            <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${accountColor}`} />
+                            <span className="text-[9px] text-muted-foreground truncate max-w-[180px]">
+                              {account.email_address}
+                            </span>
                           </div>
                         )}
 
@@ -977,7 +1031,7 @@ const InboxPage = () => {
                             <TooltipContent side="left">
                               <p className="text-xs">
                                 Lu par {readByProfile.full_name || readByProfile.email}
-                                {email.read_at && <> · {formatDistanceToNow(new Date(email.read_at), { addSuffix: true, locale: fr })}</>}
+                                {email.read_at && <> · {format(new Date(email.read_at), "dd/MM/yyyy à HH:mm", { locale: fr })}</>}
                               </p>
                             </TooltipContent>
                           </Tooltip>
