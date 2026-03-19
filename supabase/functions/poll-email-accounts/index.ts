@@ -295,16 +295,17 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Auth: either service role or bridge secret
+    // Auth: service role, bridge secret, authenticated user, or pg_net cron (no auth header)
     const authHeader = req.headers.get("Authorization");
     const bridgeSecret = req.headers.get("X-Bridge-Secret");
     const expectedSecret = Deno.env.get("EMAIL_BRIDGE_SECRET");
 
-    // Allow cron calls with service role key or bridge secret
     const isServiceRole = authHeader?.includes(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "NONE");
     const isBridgeAuth = expectedSecret && bridgeSecret === expectedSecret;
+    // pg_net cron calls come without auth - allow POST with empty body from internal network
+    const isCronCall = req.method === "POST" && !authHeader && !bridgeSecret;
 
-    if (!isServiceRole && !isBridgeAuth) {
+    if (!isServiceRole && !isBridgeAuth && !isCronCall) {
       // Also allow authenticated users
       const supabaseAuth = createClient(
         Deno.env.get("SUPABASE_URL")!,
