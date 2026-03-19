@@ -381,17 +381,17 @@ const InboxPage = () => {
             </div>
           )}
 
-          {/* Select all header */}
-          <div className="flex items-center gap-3 px-5 py-2">
-            <Checkbox
-              checked={allVisibleSelected}
-              onCheckedChange={toggleSelectAll}
-              aria-label="Tout sélectionner"
-            />
-            <span className="text-xs text-muted-foreground">
-              {someSelected ? `${selectedIds.size} / ${filteredEmails.length}` : "Sélectionner"}
-            </span>
-          </div>
+          {/* Select mode toggle */}
+          {!selectionMode && (
+            <div className="flex items-center px-5 py-1">
+              <button
+                onClick={() => setSelectionMode(true)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Sélectionner
+              </button>
+            </div>
+          )}
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="card-elevated divide-y">
             {filteredEmails.map((email: any) => {
