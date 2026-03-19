@@ -312,7 +312,7 @@ const InboxPage = () => {
 
       {/* Selection action bar */}
       <AnimatePresence>
-        {someSelected && (
+        {selectionMode && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
@@ -320,27 +320,34 @@ const InboxPage = () => {
             className="overflow-hidden"
           >
             <div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2.5">
+              <Checkbox
+                checked={allVisibleSelected}
+                onCheckedChange={toggleSelectAll}
+                aria-label="Tout sélectionner"
+              />
               <span className="text-sm font-medium text-foreground">
-                {selectedIds.size} sélectionné{selectedIds.size > 1 ? "s" : ""}
+                {someSelected ? `${selectedIds.size} sélectionné${selectedIds.size > 1 ? "s" : ""}` : "Tout sélectionner"}
               </span>
               <div className="flex-1" />
+              {someSelected && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  disabled={isDeleting}
+                  className="gap-1.5"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Supprimer ({selectedIds.size})
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={toggleSelectAll}
+                onClick={exitSelectionMode}
                 className="text-xs"
               >
-                {allVisibleSelected ? "Tout désélectionner" : `Tout sélectionner (${filteredEmails.length})`}
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setDeleteDialogOpen(true)}
-                disabled={isDeleting}
-                className="gap-1.5"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Supprimer
+                Annuler
               </Button>
             </div>
           </motion.div>
