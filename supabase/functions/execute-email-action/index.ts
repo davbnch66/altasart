@@ -114,6 +114,12 @@ serve(async (req) => {
           if (error) throw error;
           createdId = data.id;
 
+          const { error: linkError } = await supabase.from("client_companies").insert({
+            client_id: data.id,
+            company_id: companyId,
+          });
+          if (linkError) throw linkError;
+
           if (payload.contact_name) {
             const nameParts = String(payload.contact_name).trim().split(/\s+/);
             const lastName = nameParts.pop() || String(payload.contact_name);
