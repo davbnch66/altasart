@@ -474,8 +474,17 @@ const InboxPage = () => {
     return readFiltered.filter((e: any) => e.status === statusFilter);
   }, [readFiltered, statusFilter, currentFolder]);
 
+  // Flag filter
+  const flagFiltered = useMemo(() => {
+    if (flagFilter.length === 0) return statusFiltered;
+    return statusFiltered.filter((e: any) => {
+      const flags = emailFlagsMap[e.id] || [];
+      return flagFilter.some((f) => flags.includes(f));
+    });
+  }, [statusFiltered, flagFilter, emailFlagsMap]);
+
   // Search
-  const searchedEmails = statusFiltered.filter((email: any) => {
+  const searchedEmails = flagFiltered.filter((email: any) => {
     if (!search) return true;
     const q = search.toLowerCase();
     const toStr = currentFolder === "sent"
