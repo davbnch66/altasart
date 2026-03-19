@@ -1,8 +1,13 @@
 import {
-  AlertDialog, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 
 interface DeleteConfirmDialogProps {
   open: boolean;
@@ -13,7 +18,14 @@ interface DeleteConfirmDialogProps {
   isPending?: boolean;
 }
 
-export const DeleteConfirmDialog = ({ open, onOpenChange, onConfirm, title, description, isPending }: DeleteConfirmDialogProps) => (
+export const DeleteConfirmDialog = ({
+  open,
+  onOpenChange,
+  onConfirm,
+  title,
+  description,
+  isPending,
+}: DeleteConfirmDialogProps) => (
   <AlertDialog open={open} onOpenChange={onOpenChange}>
     <AlertDialogContent>
       <AlertDialogHeader>
@@ -22,8 +34,8 @@ export const DeleteConfirmDialog = ({ open, onOpenChange, onConfirm, title, desc
       </AlertDialogHeader>
       <AlertDialogFooter>
         <AlertDialogCancel disabled={isPending}>Annuler</AlertDialogCancel>
-        <Button
-          variant="destructive"
+        <AlertDialogAction
+          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
           onClick={(e) => {
             e.preventDefault();
             onConfirm();
@@ -31,7 +43,7 @@ export const DeleteConfirmDialog = ({ open, onOpenChange, onConfirm, title, desc
           disabled={isPending}
         >
           {isPending ? "Suppression..." : "Supprimer"}
-        </Button>
+        </AlertDialogAction>
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>
