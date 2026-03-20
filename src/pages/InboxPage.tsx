@@ -891,6 +891,22 @@ const InboxPage = () => {
     queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
   };
 
+  const handleQuickRowAction = useCallback(async (emailId: string, folder: "archive" | "trash") => {
+    try {
+      const { error } = await supabase
+        .from("inbound_emails")
+        .update({ folder })
+        .eq("id", emailId);
+      if (error) throw error;
+      toast.success(folder === "archive" ? "Email archivé" : "Email mis en corbeille");
+      removeEmailsFromCache([emailId]);
+      queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+      queryClient.invalidateQueries({ queryKey: ["global-unread-counts"] });
+    } catch {
+      toast.error("Erreur");
+    }
+  }, [queryClient, removeEmailsFromCache]);
+
   const handleRowClick = (emailId: string) => {
     if (selectionMode) { toggleSelect(emailId); return; }
     setSearchParams({ email: emailId });
