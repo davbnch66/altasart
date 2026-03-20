@@ -1717,6 +1717,43 @@ const InboxPage = () => {
                             </TooltipContent>
                           </Tooltip>
                         )}
+                        {/* Quick action buttons */}
+                        {isInboxLikeFolder && !selectionMode && (
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                            {email.folder !== "archive" && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleQuickRowAction(email.id, "archive");
+                                    }}
+                                    className="p-1 rounded hover:bg-muted transition-colors"
+                                  >
+                                    <Archive className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="left"><p className="text-xs">Archiver</p></TooltipContent>
+                              </Tooltip>
+                            )}
+                            {email.folder !== "trash" && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleQuickRowAction(email.id, "trash");
+                                    }}
+                                    className="p-1 rounded hover:bg-destructive/10 transition-colors"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="left"><p className="text-xs">Corbeille</p></TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
