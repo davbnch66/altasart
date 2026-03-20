@@ -648,6 +648,13 @@ const Parametres = () => {
             <AppearanceSettingsTab />
           </motion.div>
         </TabsContent>
+
+        {/* Notifications Tab */}
+        <TabsContent value="notifications">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <NotificationSettingsTab />
+          </motion.div>
+        </TabsContent>
       </Tabs>
     </div>
   );
