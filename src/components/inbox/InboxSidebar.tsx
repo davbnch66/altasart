@@ -98,7 +98,27 @@ export const InboxSidebar = ({
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
   const [favoritesExpanded, setFavoritesExpanded] = useState(true);
-  const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>({});
+  const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>(() => {
+    // Initialize all accounts as expanded by default
+    const init: Record<string, boolean> = {};
+    accounts.forEach((a) => { init[a.id] = true; });
+    return init;
+  });
+
+  // Keep new accounts expanded when accounts list changes
+  const prevAccountIdsRef = useRef<string[]>(accounts.map(a => a.id));
+  useEffect(() => {
+    const currentIds = accounts.map(a => a.id);
+    const newIds = currentIds.filter(id => !prevAccountIdsRef.current.includes(id));
+    if (newIds.length > 0) {
+      setExpandedAccounts(prev => {
+        const next = { ...prev };
+        newIds.forEach(id => { next[id] = true; });
+        return next;
+      });
+    }
+    prevAccountIdsRef.current = currentIds;
+  }, [accounts]);
   const [labelsExpanded, setLabelsExpanded] = useState(true);
   const [createLabelOpen, setCreateLabelOpen] = useState(false);
   const [newLabelName, setNewLabelName] = useState("");
