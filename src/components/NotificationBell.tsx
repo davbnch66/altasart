@@ -119,24 +119,23 @@ export const NotificationBell = () => {
     toast.success("Notifications effacées");
   };
 
-  const handleClick = useCallback((notif: any) => {
+  const handleClick = useCallback(async (notif: any) => {
     if (!notif.read) markAsRead(notif.id);
     if (notif.link) {
-      // If we're already on the same base path, navigate away first then back
-      // to force React Router to re-render with new params
       const targetPath = notif.link.split("?")[0];
       const currentPath = location.pathname;
+      
       if (currentPath === targetPath || currentPath.startsWith(targetPath + "/")) {
-        // Force navigation by going to a blank state first, then the target
-        navigate(notif.link, { replace: true, state: { _t: Date.now() } });
-        // For search params changes on same route, we need to force update
-        window.dispatchEvent(new PopStateEvent("popstate"));
+        // Already on the same route — navigate away briefly then back to force re-render
+        navigate("/", { replace: true });
+        // Use setTimeout to let React Router process the first navigation
+        setTimeout(() => navigate(notif.link, { replace: true }), 0);
       } else {
         navigate(notif.link);
       }
       setOpen(false);
     }
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, markAsRead]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
