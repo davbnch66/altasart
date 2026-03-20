@@ -391,6 +391,7 @@ const Parametres = () => {
           <TabsTrigger value="roles" className="text-xs gap-1.5"><Shield className="h-3.5 w-3.5" /> Rôles</TabsTrigger>
           <TabsTrigger value="import" className="text-xs gap-1.5"><Upload className="h-3.5 w-3.5" /> Import</TabsTrigger>
           <TabsTrigger value="appearance" className="text-xs gap-1.5"><Paintbrush className="h-3.5 w-3.5" /> Apparence</TabsTrigger>
+          <TabsTrigger value="notifications" className="text-xs gap-1.5"><Bell className="h-3.5 w-3.5" /> Notifications</TabsTrigger>
         </TabsList>
 
         {/* Profile Tab */}
