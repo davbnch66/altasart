@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Inbox, Send, FileEdit, Trash2, Archive, Star, Plus, ChevronDown, ChevronRight,
   FolderPlus, X, AlertTriangle, Mail, ShieldAlert
