@@ -1593,7 +1593,7 @@ const InboxPage = () => {
                     }}
                     onTouchEnd={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
                     onTouchMove={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
-                    className={`flex items-start gap-3 transition-colors ${
+                    className={`group/row flex items-start gap-3 transition-colors ${
                       selectionMode ? "cursor-default" : "cursor-pointer"
                     } ${!isRead ? "bg-primary/[0.03]" : ""} ${isChecked ? "bg-primary/[0.06]" : ""} ${draggedEmailIds.includes(email.id) ? "opacity-50" : ""} hover:bg-muted/30 ${isMobile ? "px-3 py-3" : "px-5 py-3.5"}`}
                   >
