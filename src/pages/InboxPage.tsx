@@ -518,27 +518,36 @@ const InboxPage = () => {
        ? mergedSentEmails.find((e: any) => e.id === selectedEmailId)
        : allDraftEmails.find((e: any) => e.id === selectedEmailId);
      if (foundInCurrent) return;
-     // Search across all inbound emails (all folders)
-     const inAll = allInboundEmails.find((e: any) => e.id === selectedEmailId);
-     if (inAll) {
-       const folder = (inAll.folder || "inbox") as MailFolder;
-       if (folder !== currentFolder) {
-         setCurrentFolder(folder);
+     // Email not in current folder data — look it up directly in DB
+     const lookupEmail = async () => {
+       // Try inbound_emails first
+       const { data: inbound } = await supabase
+         .from("inbound_emails")
+         .select("id, folder")
+         .eq("id", selectedEmailId)
+         .maybeSingle();
+       if (inbound) {
+         const folder = (inbound.folder || "inbox") as MailFolder;
+         if (folder !== currentFolder) {
+           setCurrentFolder(folder);
+         }
+         return;
        }
-       return;
-     }
-     // Check sent
-     const inSent = allSentEmails.find((e: any) => e.id === selectedEmailId);
-     if (inSent && currentFolder !== "sent") {
-       setCurrentFolder("sent");
-       return;
-     }
-     // Check drafts
-     const inDraft = allDraftEmails.find((e: any) => e.id === selectedEmailId);
-     if (inDraft && currentFolder !== "drafts") {
-       setCurrentFolder("drafts");
-     }
-   }, [selectedEmailId, currentFolder, mergedInboxEmails, mergedSentEmails, allDraftEmails, allInboundEmails, allSentEmails, isInboxLikeFolder]);
+       // Try email_outbox (sent or draft)
+       const { data: outbox } = await supabase
+         .from("email_outbox")
+         .select("id, status")
+         .eq("id", selectedEmailId)
+         .maybeSingle();
+       if (outbox) {
+         const targetFolder = outbox.status === "draft" ? "drafts" : "sent";
+         if (targetFolder !== currentFolder) {
+           setCurrentFolder(targetFolder as MailFolder);
+         }
+       }
+     };
+     lookupEmail();
+   }, [selectedEmailId, currentFolder, mergedInboxEmails, mergedSentEmails, allDraftEmails, isInboxLikeFolder]);
 
   // Category filtering for inbox only
   const demandesEmails = currentDataset.filter(isClientRequest);
