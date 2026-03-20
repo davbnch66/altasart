@@ -876,6 +876,7 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
     }
 
     // Step 2: Determine what action to suggest based on matching results
+    const actions: any[] = [];
     const clientEmail = realClientEmail || (isForwardedOrSelfSent ? analysis.email : safeFromEmail);
     const clientName = analysis.societe || (isForwardedOrSelfSent ? analysis.contact : safeFromName) || clientEmail;
 
