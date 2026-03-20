@@ -298,7 +298,17 @@ Réponds en JSON strict :
       throw new Error("Erreur du service IA");
     }
 
-    const aiData = await aiResponse.json();
+    const aiText = await aiResponse.text();
+    if (!aiText || aiText.trim().length === 0) {
+      throw new Error("Réponse vide du service IA");
+    }
+    let aiData;
+    try {
+      aiData = JSON.parse(aiText);
+    } catch (parseErr) {
+      console.error("AI response parse error, raw:", aiText.substring(0, 500));
+      throw new Error("Réponse IA invalide");
+    }
     
     let parsed;
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
