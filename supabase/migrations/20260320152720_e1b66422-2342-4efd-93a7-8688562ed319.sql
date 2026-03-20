@@ -1,0 +1,1 @@
+UPDATE synced_emails SET folder = LOWER(folder) WHERE folder != LOWER(folder);
