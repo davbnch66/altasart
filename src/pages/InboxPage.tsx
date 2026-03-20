@@ -594,6 +594,23 @@ const InboxPage = () => {
   const allVisibleSelected = filteredEmails.length > 0 && filteredEmails.every((email: any) => selectedIds.has(email.id));
   const someSelected = selectedIds.size > 0;
 
+  // ============ GLOBAL UNREAD COUNTS (all folders, always fetched) ============
+  const { data: globalUnreadData } = useQuery({
+    queryKey: ["global-unread-counts", companyIds],
+    queryFn: async () => {
+      // Fetch unread counts from inbound_emails grouped by folder and account
+      const { data, error } = await supabase
+        .from("inbound_emails")
+        .select("id, folder, email_account_id, is_read")
+        .in("company_id", companyIds)
+        .eq("is_read", false);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: companyIds.length > 0,
+    refetchInterval: 30000, // refresh every 30s
+  });
+
   // Compute dynamic unread counts per folder and per account+folder
   const unreadCounts = useMemo(() => {
     const counts: Record<string, number> = {
@@ -605,29 +622,33 @@ const InboxPage = () => {
       starred: 0,
       spam: 0,
     };
-    const unreadEmails = mergedInboxEmails.filter((e: any) => !e.is_read);
+
+    // Use the global unread data (not filtered by current folder)
+    const unreadEmails = globalUnreadData || [];
     for (const email of unreadEmails) {
-      const folder = email.folder || "inbox";
+      const folder = (email.folder || "inbox").toLowerCase();
       // Global folder counts
       if (counts[folder] !== undefined) {
         counts[folder]++;
       }
       // Per-account global count
-      if (email._account_id) {
-        const accKey = `account:${email._account_id}`;
+      if (email.email_account_id) {
+        const accKey = `account:${email.email_account_id}`;
         counts[accKey] = (counts[accKey] || 0) + 1;
         // Per-account per-folder count
-        const accFolderKey = `account:${email._account_id}:${folder}`;
+        const accFolderKey = `account:${email.email_account_id}:${folder}`;
         counts[accFolderKey] = (counts[accFolderKey] || 0) + 1;
       }
     }
-    // Starred count (across all folders)
+
+    // Starred count from current view data
     counts.starred = mergedInboxEmails.filter((e: any) => {
       const flags = e.email_flag_assignments;
       return flags && (Array.isArray(flags) ? flags.length > 0 : true);
     }).filter((e: any) => !e.is_read).length;
+
     return counts;
-  }, [mergedInboxEmails, allDraftEmails]);
+  }, [globalUnreadData, mergedInboxEmails, allDraftEmails]);
 
   const exitSelectionMode = () => {
     setSelectionMode(false);
