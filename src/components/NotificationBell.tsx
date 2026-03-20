@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Bell, Check, ExternalLink, Trash2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -28,6 +28,7 @@ export const NotificationBell = () => {
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
 
   const { data: notifications = [] } = useQuery({
@@ -118,13 +119,24 @@ export const NotificationBell = () => {
     toast.success("Notifications effacées");
   };
 
-  const handleClick = (notif: any) => {
+  const handleClick = useCallback((notif: any) => {
     if (!notif.read) markAsRead(notif.id);
     if (notif.link) {
-      navigate(notif.link);
+      // If we're already on the same base path, navigate away first then back
+      // to force React Router to re-render with new params
+      const targetPath = notif.link.split("?")[0];
+      const currentPath = location.pathname;
+      if (currentPath === targetPath || currentPath.startsWith(targetPath + "/")) {
+        // Force navigation by going to a blank state first, then the target
+        navigate(notif.link, { replace: true, state: { _t: Date.now() } });
+        // For search params changes on same route, we need to force update
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      } else {
+        navigate(notif.link);
+      }
       setOpen(false);
     }
-  };
+  }, [navigate, location.pathname]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
