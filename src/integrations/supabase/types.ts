@@ -1965,6 +1965,68 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          company_id: string
+          created_at: string
+          devis_signed: boolean
+          email_action_suggested: boolean
+          id: string
+          new_client: boolean
+          new_email: boolean
+          popup_devis_signed: boolean
+          popup_email_action: boolean
+          popup_new_client: boolean
+          popup_new_email: boolean
+          popup_visite_reminder: boolean
+          updated_at: string
+          user_id: string
+          visite_reminder: boolean
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          devis_signed?: boolean
+          email_action_suggested?: boolean
+          id?: string
+          new_client?: boolean
+          new_email?: boolean
+          popup_devis_signed?: boolean
+          popup_email_action?: boolean
+          popup_new_client?: boolean
+          popup_new_email?: boolean
+          popup_visite_reminder?: boolean
+          updated_at?: string
+          user_id: string
+          visite_reminder?: boolean
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          devis_signed?: boolean
+          email_action_suggested?: boolean
+          id?: string
+          new_client?: boolean
+          new_email?: boolean
+          popup_devis_signed?: boolean
+          popup_email_action?: boolean
+          popup_new_client?: boolean
+          popup_new_email?: boolean
+          popup_visite_reminder?: boolean
+          updated_at?: string
+          user_id?: string
+          visite_reminder?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_preferences_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
