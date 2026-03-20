@@ -144,7 +144,10 @@ const InboxPage = () => {
     queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
     queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
     queryClient.invalidateQueries({ queryKey: ["sent-emails"] });
+    queryClient.invalidateQueries({ queryKey: ["draft-emails"] });
     queryClient.invalidateQueries({ queryKey: ["synced-emails"] });
+    queryClient.invalidateQueries({ queryKey: ["email-actions"] });
+    queryClient.invalidateQueries({ queryKey: ["global-unread-counts"] });
   }, [queryClient]);
 
   // ============ REALTIME SUBSCRIPTION ============
@@ -500,12 +503,10 @@ const InboxPage = () => {
         .update({ is_read: true, read_by: user.id, read_at: new Date().toISOString() })
         .eq("id", selectedEmailId)
         .then(() => {
-          queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
-          queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
-          queryClient.invalidateQueries({ queryKey: ["global-unread-counts"] });
+          refreshMailboxQueries();
         });
     }
-  }, [selectedEmailId, user, allInboundEmails, queryClient, currentFolder, isInboxLikeFolder]);
+  }, [selectedEmailId, user, allInboundEmails, currentFolder, isInboxLikeFolder, refreshMailboxQueries]);
 
   // Category filtering for inbox only
   const demandesEmails = currentDataset.filter(isClientRequest);
@@ -711,8 +712,7 @@ const InboxPage = () => {
       removeEmailsFromCache(deletedIds);
       toast.success(`${deletedIds.length} email${deletedIds.length > 1 ? "s" : ""} supprimé${deletedIds.length > 1 ? "s" : ""}`);
       exitSelectionMode();
-      queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
-      queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+      refreshMailboxQueries();
     } catch (error) {
       console.error(error);
       toast.error("La suppression a échoué");
@@ -742,8 +742,7 @@ const InboxPage = () => {
       if (error) throw error;
       toast.success(`${ids.length} email${ids.length > 1 ? "s" : ""} marqué${ids.length > 1 ? "s" : ""} comme ${markAsRead ? "lu" : "non lu"}${ids.length > 1 ? "s" : ""}`);
       exitSelectionMode();
-      queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
-      queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+      refreshMailboxQueries();
     } catch (e) {
       console.error(e);
       toast.error("Erreur lors de la mise à jour");
@@ -762,7 +761,7 @@ const InboxPage = () => {
       const folderNames: Record<string, string> = { inbox: "Réception", archive: "Archives", trash: "Corbeille" };
       toast.success(`${ids.length} email${ids.length > 1 ? "s" : ""} déplacé${ids.length > 1 ? "s" : ""} vers ${folderNames[targetFolder] || targetFolder}`);
       exitSelectionMode();
-      queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+      refreshMailboxQueries();
     } catch (e) {
       console.error(e);
       toast.error("Erreur lors du déplacement");
@@ -875,21 +874,15 @@ const InboxPage = () => {
       }
       setDraggedEmailIds([]);
       exitSelectionMode();
-      queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
-      queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+      refreshMailboxQueries();
     } catch (e) {
       console.error(e);
       toast.error("Erreur lors du déplacement");
     }
-  }, [draggedEmailIds, selectedIds, emailLabels, queryClient, exitSelectionMode]);
+  }, [draggedEmailIds, selectedIds, emailLabels, exitSelectionMode, refreshMailboxQueries]);
 
   const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
-    queryClient.invalidateQueries({ queryKey: ["sent-emails"] });
-    queryClient.invalidateQueries({ queryKey: ["draft-emails"] });
-    queryClient.invalidateQueries({ queryKey: ["synced-emails"] });
-    queryClient.invalidateQueries({ queryKey: ["email-actions"] });
-    queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+    refreshMailboxQueries();
   };
 
   const handleQuickRowAction = useCallback(async (emailId: string, folder: "archive" | "trash") => {
@@ -901,12 +894,11 @@ const InboxPage = () => {
       if (error) throw error;
       toast.success(folder === "archive" ? "Email archivé" : "Email mis en corbeille");
       removeEmailsFromCache([emailId]);
-      queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
-      queryClient.invalidateQueries({ queryKey: ["global-unread-counts"] });
+      refreshMailboxQueries();
     } catch {
       toast.error("Erreur");
     }
-  }, [queryClient, removeEmailsFromCache]);
+  }, [refreshMailboxQueries, removeEmailsFromCache]);
 
   const handleRowClick = (emailId: string) => {
     if (selectionMode) { toggleSelect(emailId); return; }
@@ -987,8 +979,7 @@ const InboxPage = () => {
         const names: Record<string, string> = { inbox: "Réception", archive: "Archives", trash: "Corbeille", spam: "Indésirables" };
         toast.success(`Email déplacé vers ${names[folder] || folder}`);
         setSearchParams({});
-        queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
-        queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+        refreshMailboxQueries();
       } catch (e) {
         toast.error("Erreur lors du déplacement");
       }
@@ -1002,8 +993,7 @@ const InboxPage = () => {
         if (error) throw error;
         toast.success("Email supprimé définitivement");
         setSearchParams({});
-        queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
-        queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+        refreshMailboxQueries();
       } catch (e) {
         toast.error("Erreur lors de la suppression");
       }
