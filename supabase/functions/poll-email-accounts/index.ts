@@ -500,10 +500,10 @@ serve(async (req) => {
             if (clientId) linked++;
           }
 
-          // Insert only new synced email rows to keep overlap/concurrent syncs idempotent
+          // Upsert synced email rows — idempotent on (email_account_id, message_id)
           const { error: insertErr } = await supabase
             .from("synced_emails")
-            .insert({
+            .upsert({
               company_id: account.company_id,
               email_account_id: account.id,
               message_id: messageId,
@@ -520,10 +520,10 @@ serve(async (req) => {
               client_id: clientId,
               folder: normalizedFolder,
               in_reply_to: email.in_reply_to || null,
-            });
+            }, { onConflict: "email_account_id,message_id", ignoreDuplicates: true });
 
           if (insertErr) {
-            console.error("Insert error:", insertErr.message);
+            console.error("Upsert error:", insertErr.message);
             skipped++;
             continue;
           }
