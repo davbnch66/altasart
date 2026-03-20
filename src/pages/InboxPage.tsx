@@ -508,6 +508,47 @@ const InboxPage = () => {
     }
   }, [selectedEmailId, user, allInboundEmails, currentFolder, isInboxLikeFolder, refreshMailboxQueries]);
 
+   // Auto-switch folder when navigating via notification with ?email=ID
+   useEffect(() => {
+     if (!selectedEmailId) return;
+     // Check if email is already found in current folder
+     const foundInCurrent = isInboxLikeFolder
+       ? mergedInboxEmails.find((e: any) => e.id === selectedEmailId)
+       : currentFolder === "sent"
+       ? mergedSentEmails.find((e: any) => e.id === selectedEmailId)
+       : allDraftEmails.find((e: any) => e.id === selectedEmailId);
+     if (foundInCurrent) return;
+     // Email not in current folder data — look it up directly in DB
+     const lookupEmail = async () => {
+       // Try inbound_emails first
+       const { data: inbound } = await supabase
+         .from("inbound_emails")
+         .select("id, folder")
+         .eq("id", selectedEmailId)
+         .maybeSingle();
+       if (inbound) {
+         const folder = (inbound.folder || "inbox") as MailFolder;
+         if (folder !== currentFolder) {
+           setCurrentFolder(folder);
+         }
+         return;
+       }
+       // Try email_outbox (sent or draft)
+       const { data: outbox } = await supabase
+         .from("email_outbox")
+         .select("id, status")
+         .eq("id", selectedEmailId)
+         .maybeSingle();
+       if (outbox) {
+         const targetFolder = outbox.status === "draft" ? "drafts" : "sent";
+         if (targetFolder !== currentFolder) {
+           setCurrentFolder(targetFolder as MailFolder);
+         }
+       }
+     };
+     lookupEmail();
+   }, [selectedEmailId, currentFolder, mergedInboxEmails, mergedSentEmails, allDraftEmails, isInboxLikeFolder]);
+
   // Category filtering for inbox only
   const demandesEmails = currentDataset.filter(isClientRequest);
   const autreEmails = currentDataset.filter(isOther);
