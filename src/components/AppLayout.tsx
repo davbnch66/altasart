@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
+import { EmailNewMailToast } from "@/components/inbox/EmailNewMailToast";
 import { useMyRole, canAccessRoute } from "@/hooks/useMyRole";
 import { useCompany } from "@/contexts/CompanyContext";
 
