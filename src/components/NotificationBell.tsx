@@ -74,13 +74,13 @@ export const NotificationBell = () => {
 
   const unreadCount = notifications.filter((n: any) => !n.read).length;
 
-  const markAsRead = async (id: string) => {
+  const markAsRead = useCallback(async (id: string) => {
     await supabase
       .from("notifications")
       .update({ read: true })
       .eq("id", id);
     queryClient.invalidateQueries({ queryKey: ["notifications", user?.id] });
-  };
+  }, [queryClient, user?.id]);
 
   const markAllRead = async () => {
     if (!user) return;
