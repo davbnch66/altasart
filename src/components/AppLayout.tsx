@@ -111,6 +111,7 @@ export const AppLayout: React.FC = () => {
         )}
         <OfflineBanner />
         <OnboardingWizard />
+        <EmailNewMailToast />
         {isMobile && (
           <div className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/80 backdrop-blur-xl px-3 py-2.5">
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen((v) => !v)} className="h-8 w-8 shrink-0">
