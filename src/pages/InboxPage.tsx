@@ -1553,8 +1553,8 @@ const InboxPage = () => {
                 const isSent = currentFolder === "sent";
                 const analysis = email.ai_analysis;
                 const hasActions = isInbox && analysis?.type_demande?.length > 0 && analysis.type_demande.some((t: string) => t !== "autre");
-                const isRead = isInbox ? !!email.is_read : true;
-                const readByProfile = isInbox && email.read_by ? (profilesMap as any)[email.read_by] : null;
+                const isRead = isInboxLikeFolder ? !!email.is_read : true;
+                const readByProfile = isInboxLikeFolder && email.read_by ? (profilesMap as any)[email.read_by] : null;
                 const isChecked = selectedIds.has(email.id);
                 const emailFlags = emailFlagsMap[email.id] || [];
 
