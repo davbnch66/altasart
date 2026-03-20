@@ -508,6 +508,38 @@ const InboxPage = () => {
     }
   }, [selectedEmailId, user, allInboundEmails, currentFolder, isInboxLikeFolder, refreshMailboxQueries]);
 
+   // Auto-switch folder when navigating via notification with ?email=ID
+   useEffect(() => {
+     if (!selectedEmailId) return;
+     // Check if email is already found in current folder
+     const foundInCurrent = isInboxLikeFolder
+       ? mergedInboxEmails.find((e: any) => e.id === selectedEmailId)
+       : currentFolder === "sent"
+       ? mergedSentEmails.find((e: any) => e.id === selectedEmailId)
+       : allDraftEmails.find((e: any) => e.id === selectedEmailId);
+     if (foundInCurrent) return;
+     // Search across all inbound emails (all folders)
+     const inAll = allInboundEmails.find((e: any) => e.id === selectedEmailId);
+     if (inAll) {
+       const folder = (inAll.folder || "inbox") as MailFolder;
+       if (folder !== currentFolder) {
+         setCurrentFolder(folder);
+       }
+       return;
+     }
+     // Check sent
+     const inSent = allSentEmails.find((e: any) => e.id === selectedEmailId);
+     if (inSent && currentFolder !== "sent") {
+       setCurrentFolder("sent");
+       return;
+     }
+     // Check drafts
+     const inDraft = allDraftEmails.find((e: any) => e.id === selectedEmailId);
+     if (inDraft && currentFolder !== "drafts") {
+       setCurrentFolder("drafts");
+     }
+   }, [selectedEmailId, currentFolder, mergedInboxEmails, mergedSentEmails, allDraftEmails, allInboundEmails, allSentEmails, isInboxLikeFolder]);
+
   // Category filtering for inbox only
   const demandesEmails = currentDataset.filter(isClientRequest);
   const autreEmails = currentDataset.filter(isOther);
