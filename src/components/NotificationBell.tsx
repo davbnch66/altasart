@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Bell, Check, ExternalLink, Trash2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -28,6 +28,7 @@ export const NotificationBell = () => {
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
 
   const { data: notifications = [] } = useQuery({
@@ -73,13 +74,13 @@ export const NotificationBell = () => {
 
   const unreadCount = notifications.filter((n: any) => !n.read).length;
 
-  const markAsRead = async (id: string) => {
+  const markAsRead = useCallback(async (id: string) => {
     await supabase
       .from("notifications")
       .update({ read: true })
       .eq("id", id);
     queryClient.invalidateQueries({ queryKey: ["notifications", user?.id] });
-  };
+  }, [queryClient, user?.id]);
 
   const markAllRead = async () => {
     if (!user) return;
@@ -118,13 +119,23 @@ export const NotificationBell = () => {
     toast.success("Notifications effacées");
   };
 
-  const handleClick = (notif: any) => {
+  const handleClick = useCallback(async (notif: any) => {
     if (!notif.read) markAsRead(notif.id);
     if (notif.link) {
-      navigate(notif.link);
+      const targetPath = notif.link.split("?")[0];
+      const currentPath = location.pathname;
+      
+      if (currentPath === targetPath || currentPath.startsWith(targetPath + "/")) {
+        // Already on the same route — navigate away briefly then back to force re-render
+        navigate("/", { replace: true });
+        // Use setTimeout to let React Router process the first navigation
+        setTimeout(() => navigate(notif.link, { replace: true }), 0);
+      } else {
+        navigate(notif.link);
+      }
       setOpen(false);
     }
-  };
+  }, [navigate, location.pathname, markAsRead]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
