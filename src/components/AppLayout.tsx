@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
+import { EmailNewMailToast } from "@/components/inbox/EmailNewMailToast";
 import { useMyRole, canAccessRoute } from "@/hooks/useMyRole";
 import { useCompany } from "@/contexts/CompanyContext";
 
@@ -110,6 +111,7 @@ export const AppLayout: React.FC = () => {
         )}
         <OfflineBanner />
         <OnboardingWizard />
+        <EmailNewMailToast />
         {isMobile && (
           <div className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/80 backdrop-blur-xl px-3 py-2.5">
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen((v) => !v)} className="h-8 w-8 shrink-0">

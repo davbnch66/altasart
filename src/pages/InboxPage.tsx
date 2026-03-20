@@ -891,6 +891,22 @@ const InboxPage = () => {
     queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
   };
 
+  const handleQuickRowAction = useCallback(async (emailId: string, folder: "archive" | "trash") => {
+    try {
+      const { error } = await supabase
+        .from("inbound_emails")
+        .update({ folder })
+        .eq("id", emailId);
+      if (error) throw error;
+      toast.success(folder === "archive" ? "Email archivé" : "Email mis en corbeille");
+      removeEmailsFromCache([emailId]);
+      queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
+      queryClient.invalidateQueries({ queryKey: ["global-unread-counts"] });
+    } catch {
+      toast.error("Erreur");
+    }
+  }, [queryClient, removeEmailsFromCache]);
+
   const handleRowClick = (emailId: string) => {
     if (selectionMode) { toggleSelect(emailId); return; }
     setSearchParams({ email: emailId });
@@ -1577,7 +1593,7 @@ const InboxPage = () => {
                     }}
                     onTouchEnd={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
                     onTouchMove={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
-                    className={`flex items-start gap-3 transition-colors ${
+                    className={`group/row flex items-start gap-3 transition-colors ${
                       selectionMode ? "cursor-default" : "cursor-pointer"
                     } ${!isRead ? "bg-primary/[0.03]" : ""} ${isChecked ? "bg-primary/[0.06]" : ""} ${draggedEmailIds.includes(email.id) ? "opacity-50" : ""} hover:bg-muted/30 ${isMobile ? "px-3 py-3" : "px-5 py-3.5"}`}
                   >
@@ -1716,6 +1732,43 @@ const InboxPage = () => {
                               </p>
                             </TooltipContent>
                           </Tooltip>
+                        )}
+                        {/* Quick action buttons */}
+                        {isInboxLikeFolder && !selectionMode && (
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                            {email.folder !== "archive" && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleQuickRowAction(email.id, "archive");
+                                    }}
+                                    className="p-1 rounded hover:bg-muted transition-colors"
+                                  >
+                                    <Archive className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="left"><p className="text-xs">Archiver</p></TooltipContent>
+                              </Tooltip>
+                            )}
+                            {email.folder !== "trash" && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleQuickRowAction(email.id, "trash");
+                                    }}
+                                    className="p-1 rounded hover:bg-destructive/10 transition-colors"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="left"><p className="text-xs">Corbeille</p></TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
