@@ -502,6 +502,7 @@ const InboxPage = () => {
         .then(() => {
           queryClient.invalidateQueries({ queryKey: ["inbound-emails"] });
           queryClient.invalidateQueries({ queryKey: ["inbox-unread-count"] });
+          queryClient.invalidateQueries({ queryKey: ["global-unread-counts"] });
         });
     }
   }, [selectedEmailId, user, allInboundEmails, queryClient, currentFolder, isInboxLikeFolder]);
