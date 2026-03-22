@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Save, Loader2 } from "lucide-react";
+import { Save, Loader2, Map } from "lucide-react";
 import { toast } from "sonner";
 
 const VOIRIE_TYPES = [
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export const MobileVoirieSheet = ({ open, onClose, visiteId, needsVoirie, voirieType, voirieStatus, voirieNotes, onSaved }: Props) => {
+  const navigate = useNavigate();
   const [needs, setNeeds] = useState(needsVoirie);
   const [type, setType] = useState(voirieType || "");
   const [status, setStatus] = useState(voirieStatus || "a_faire");
@@ -138,6 +140,19 @@ export const MobileVoirieSheet = ({ open, onClose, visiteId, needsVoirie, voirie
                   className="min-h-[80px] rounded-xl"
                 />
               </div>
+
+              {/* Plan voirie button */}
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => {
+                  onClose();
+                  navigate(`/voirie?visite_id=${visiteId}`);
+                }}
+              >
+                <Map className="h-4 w-4" />
+                Ouvrir l'éditeur de plan voirie
+              </Button>
             </>
           )}
 
