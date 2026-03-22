@@ -1130,6 +1130,10 @@ const InboxPage = () => {
               actions={emailActions}
               onBack={() => setSearchParams({})}
               onActionExecuted={handleRefresh}
+              onReply={(data) => {
+                setReplyData(data);
+                setComposeOpen(true);
+              }}
             />
           </div>
         </div>
