@@ -404,7 +404,7 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                     </div>
                   );
                   return (
-                  <div key={photo.id} className="space-y-1">
+                  <div key={photo.id} className="space-y-1.5">
                     <div className="relative group w-full max-w-[200px] aspect-square rounded-lg overflow-hidden border cursor-pointer" onClick={() => setLightboxSrc(photoSrc)}>
                       <img src={photoSrc} alt={photo.file_name || ""} className="w-full h-full object-cover" loading="lazy" />
                       <button
@@ -427,6 +427,15 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                       placeholder="Légende / description..."
                       className="text-xs h-7"
                     />
+                    {getMaterielForPiece(piece.id).length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {getMaterielForPiece(piece.id).map((item: any) => (
+                          <span key={item.id} className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                            {item.label || item.type}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   );
                 })}
