@@ -165,6 +165,26 @@ export const MobileMoyensSheet = ({ open, onClose, visiteId, companyId }: Props)
             </div>
           ) : (
             <div className="space-y-3">
+              {/* Current vehicles - shown first */}
+              {vehicules.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Affectés à cette visite</p>
+                  {vehicules.map((item: any) => (
+                    <div key={item.id} className="flex items-center justify-between px-4 py-3 rounded-xl bg-card border border-border/50 mb-1.5">
+                      <div>
+                        <p className="font-medium text-sm">
+                          {item.label || VEHICLE_TYPES.find((v) => v.value === item.type)?.label || item.type}
+                        </p>
+                        <p className="text-xs text-muted-foreground">× {item.quantity}</p>
+                      </div>
+                      <button onClick={() => deleteVehicle.mutate(item.id)} className="p-2 text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Quick add generic types */}
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-2">Ajout rapide par type</p>
@@ -221,25 +241,6 @@ export const MobileMoyensSheet = ({ open, onClose, visiteId, companyId }: Props)
                 </div>
               )}
 
-              {/* Current vehicles */}
-              {vehicules.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-2">Affectés à cette visite</p>
-                  {vehicules.map((item: any) => (
-                    <div key={item.id} className="flex items-center justify-between px-4 py-3 rounded-xl bg-card border border-border/50 mb-1.5">
-                      <div>
-                        <p className="font-medium text-sm">
-                          {item.label || VEHICLE_TYPES.find((v) => v.value === item.type)?.label || item.type}
-                        </p>
-                        <p className="text-xs text-muted-foreground">× {item.quantity}</p>
-                      </div>
-                      <button onClick={() => deleteVehicle.mutate(item.id)} className="p-2 text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
               {vehicules.length === 0 && !loadingResources && (
                 <p className="text-center text-muted-foreground text-sm py-6">Aucun véhicule défini</p>
               )}
