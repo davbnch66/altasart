@@ -3,8 +3,8 @@ import { Outlet, useLocation, NavLink, Navigate } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
-  Menu, X, LayoutDashboard, FolderOpen, ClipboardCheck,
-  CalendarDays, MoreHorizontal, HardHat,
+  Menu, X, LayoutDashboard, FolderOpen,
+  CalendarDays, MoreHorizontal, FileText, Euro,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OfflineBanner } from "@/components/OfflineBanner";
