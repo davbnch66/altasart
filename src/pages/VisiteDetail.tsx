@@ -290,11 +290,11 @@ const VisiteDetail = () => {
         <select
           value={editData.status}
           onChange={(e) => updateField("status", e.target.value)}
-          className={`flex h-8 rounded-full border-0 px-3 py-1 text-xs font-medium cursor-pointer ${statusStyle[editData.status]}`}
+          className={`flex h-auto rounded-full border-0 px-4 py-1.5 text-sm font-medium cursor-pointer ${statusStyle[editData.status]}`}
         >
-          <option value="planifiee">Planifiée</option>
-          <option value="realisee">Réalisée</option>
-          <option value="annulee">Annulée</option>
+          <option value="planifiee">▼ Planifiée</option>
+          <option value="realisee">▼ Réalisée</option>
+          <option value="annulee">▼ Annulée</option>
         </select>
       </div>
 
