@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { ClipboardCheck, MapPin, Camera, Calendar, User, Search, Plus, Loader2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useNavigate } from "react-router-dom";
@@ -423,6 +423,7 @@ const MobileCard = ({ visite, navigate }: { visite: any; navigate: (path: string
   const colors = statusColors[visite.status] || statusColors.planifiee;
   const [menuOpen, setMenuOpen] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryClient = useQueryClient();
 
   const handleStatusChange = useCallback(async (newStatus: "planifiee" | "realisee" | "annulee") => {
     const { error } = await supabase
@@ -431,10 +432,11 @@ const MobileCard = ({ visite, navigate }: { visite: any; navigate: (path: string
       .eq("id", visite.id);
     if (error) {
       toast.error("Erreur lors de la mise à jour");
-    } else {
-      toast.success(`Visite marquée comme ${statusLabels[newStatus]?.toLowerCase() || newStatus}`);
+      return;
     }
-  }, [visite.id]);
+    toast.success(newStatus === "realisee" ? "Visite marquée réalisée" : "Visite annulée");
+    queryClient.invalidateQueries({ queryKey: ["visites"] });
+  }, [visite.id, queryClient]);
 
   const onPointerDown = useCallback(() => {
     longPressTimer.current = setTimeout(() => {
