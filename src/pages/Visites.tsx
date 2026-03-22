@@ -1,5 +1,5 @@
-import { motion } from "framer-motion";
-import { ClipboardCheck, MapPin, Camera, Calendar, User, Search, ChevronRight, Plus, ArrowUpDown, Loader2 } from "lucide-react";
+import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
+import { ClipboardCheck, MapPin, Camera, Calendar, User, Search, Plus, Loader2, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -8,32 +8,44 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useMemo } from "react";
-import { format } from "date-fns";
+import { useState, useMemo, useCallback } from "react";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CreateVisiteDialog } from "@/components/forms/CreateVisiteDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useProgressiveList } from "@/hooks/useProgressiveList";
+import { toast } from "sonner";
 
+// ─── Constants ──────────────────────────────────────────
 const statusLabels: Record<string, string> = {
-  planifiee: "Planifiée",
-  realisee: "Réalisée",
-  annulee: "Annulée",
+  planifiee: "Planifiées",
+  realisee: "Réalisées",
+  annulee: "Annulées",
 };
 
-const statusStyle: Record<string, string> = {
-  planifiee: "bg-info/10 text-info",
-  realisee: "bg-success/10 text-success",
-  annulee: "bg-destructive/10 text-destructive",
+const statusColors: Record<string, { bg: string; text: string; dot: string; headerBg: string }> = {
+  planifiee: { bg: "bg-blue-50 dark:bg-blue-950/30", text: "text-blue-700 dark:text-blue-300", dot: "bg-blue-500", headerBg: "bg-blue-100/80 dark:bg-blue-900/40" },
+  realisee: { bg: "bg-emerald-50 dark:bg-emerald-950/30", text: "text-emerald-700 dark:text-emerald-300", dot: "bg-emerald-500", headerBg: "bg-emerald-100/80 dark:bg-emerald-900/40" },
+  annulee: { bg: "bg-red-50 dark:bg-red-950/30", text: "text-red-700 dark:text-red-300", dot: "bg-red-500", headerBg: "bg-red-100/80 dark:bg-red-900/40" },
 };
 
+const statusEmojis: Record<string, string> = {
+  planifiee: "🔵",
+  realisee: "🟢",
+  annulee: "🔴",
+};
+
+type PeriodFilter = "all" | "week" | "month";
+
+// ─── Main Page ──────────────────────────────────────────
 const Visites = () => {
   const { current, dbCompanies } = useCompany();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("date_desc");
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>("all");
+  const [techFilter, setTechFilter] = useState<string>("all");
 
   const { data: visites = [], isLoading } = useQuery({
     queryKey: ["visites", current],
@@ -53,240 +65,345 @@ const Visites = () => {
     },
   });
 
-  const filtered = useMemo(() => {
-    const base = visites.filter((v: any) => {
-      const matchSearch = !search || 
-        v.title?.toLowerCase().includes(search.toLowerCase()) ||
-        v.code?.toLowerCase().includes(search.toLowerCase()) ||
-        (v.clients as any)?.name?.toLowerCase().includes(search.toLowerCase()) ||
-        v.address?.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = statusFilter === "all" || v.status === statusFilter;
-      return matchSearch && matchStatus;
-    });
-
-    return [...base].sort((a: any, b: any) => {
-      switch (sortBy) {
-        case "date_asc":
-          return (a.scheduled_date || "").localeCompare(b.scheduled_date || "");
-        case "date_desc":
-          return (b.scheduled_date || "").localeCompare(a.scheduled_date || "");
-        case "client_asc":
-          return ((a.clients as any)?.name || "").localeCompare((b.clients as any)?.name || "");
-        case "client_desc":
-          return ((b.clients as any)?.name || "").localeCompare((a.clients as any)?.name || "");
-        case "title_asc":
-          return (a.title || "").localeCompare(b.title || "");
-        case "title_desc":
-          return (b.title || "").localeCompare(a.title || "");
-        case "created_desc":
-          return (b.created_at || "").localeCompare(a.created_at || "");
-        case "created_asc":
-          return (a.created_at || "").localeCompare(b.created_at || "");
-        case "status":
-          return (a.status || "").localeCompare(b.status || "");
-        default:
-          return 0;
+  // Extract unique technicians
+  const technicians = useMemo(() => {
+    const map = new Map<string, string>();
+    visites.forEach((v: any) => {
+      const tech = v.resources as any;
+      if (tech?.name && v.technician_id) {
+        map.set(v.technician_id, tech.name);
       }
     });
-  }, [visites, search, statusFilter, sortBy]);
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [visites]);
 
-  const counts = {
-    all: visites.length,
-    planifiee: visites.filter((v: any) => v.status === "planifiee").length,
-    realisee: visites.filter((v: any) => v.status === "realisee").length,
-    annulee: visites.filter((v: any) => v.status === "annulee").length,
-  };
+  // Filter logic
+  const filtered = useMemo(() => {
+    const now = new Date();
+    const weekStart = startOfWeek(now, { locale: fr });
+    const weekEnd = endOfWeek(now, { locale: fr });
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+
+    return visites.filter((v: any) => {
+      // Status
+      if (statusFilter !== "all" && v.status !== statusFilter) return false;
+      // Technician
+      if (techFilter !== "all" && v.technician_id !== techFilter) return false;
+      // Search
+      if (search) {
+        const s = search.toLowerCase();
+        const matchClient = (v.clients as any)?.name?.toLowerCase().includes(s);
+        const matchAddr = v.address?.toLowerCase().includes(s);
+        const matchTitle = v.title?.toLowerCase().includes(s);
+        const matchCode = v.code?.toLowerCase().includes(s);
+        if (!matchClient && !matchAddr && !matchTitle && !matchCode) return false;
+      }
+      // Period
+      if (periodFilter !== "all" && v.scheduled_date) {
+        const d = new Date(v.scheduled_date);
+        if (periodFilter === "week" && (d < weekStart || d > weekEnd)) return false;
+        if (periodFilter === "month" && (d < monthStart || d > monthEnd)) return false;
+      }
+      return true;
+    });
+  }, [visites, search, statusFilter, periodFilter, techFilter]);
+
+  const counts = useMemo(() => ({
+    all: filtered.length,
+    planifiee: filtered.filter((v: any) => v.status === "planifiee").length,
+    realisee: filtered.filter((v: any) => v.status === "realisee").length,
+    annulee: filtered.filter((v: any) => v.status === "annulee").length,
+  }), [filtered]);
+
+  const allFiltersDefault = statusFilter === "all" && periodFilter === "all" && techFilter === "all" && !search;
 
   return (
-    <div className={`max-w-7xl mx-auto animate-fade-in space-y-4 ${isMobile ? "p-3 pb-20" : "p-6 lg:p-8 space-y-6"}`}>
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between">
-        <div>
-          <h1 className={`page-title ${isMobile ? "!text-lg" : ""}`}>Visites techniques</h1>
-          {!isMobile && <p className="page-subtitle">Planification et comptes rendus</p>}
+    <div className={`max-w-[1400px] mx-auto animate-fade-in ${isMobile ? "p-3 pb-24" : "p-6 lg:p-8"}`}>
+      {/* ─── Header ─── */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between mb-6">
+        <div className="flex items-baseline gap-3">
+          <h1 className="text-2xl font-bold tracking-tight">Visites</h1>
+          <span className="text-sm text-muted-foreground">{visites.length} visite{visites.length !== 1 ? "s" : ""}</span>
         </div>
         <CreateVisiteDialog
-          trigger={isMobile ? (
-            <Button size="icon" className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg">
-              <Plus className="h-6 w-6" />
-            </Button>
-          ) : undefined}
+          trigger={
+            isMobile ? (
+              <Button size="icon" className="fixed bottom-20 right-4 z-50 h-14 w-14 rounded-full shadow-lg bg-success hover:bg-success/90 text-white">
+                <Plus className="h-6 w-6" />
+              </Button>
+            ) : (
+              <Button className="bg-success hover:bg-success/90 text-white gap-2">
+                <Plus className="h-4 w-4" />
+                Nouvelle visite
+              </Button>
+            )
+          }
         />
       </motion.div>
 
-      {/* Status filter chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-        {([
-          { key: "all", label: "Toutes" },
-          { key: "planifiee", label: "Planifiées" },
-          { key: "realisee", label: "Réalisées" },
-          { key: "annulee", label: "Annulées" },
-        ] as const).map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setStatusFilter(key)}
-            className={`filter-chip ${
-              statusFilter === key
-                ? "filter-chip-active"
-                : "filter-chip-inactive"
-            }`}
-          >
-            {label} ({counts[key]})
-          </button>
-        ))}
-      </div>
-
-      {/* Search + Sort */}
-      <div className={`flex gap-2 ${isMobile ? "flex-col" : "items-center"}`}>
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher client, adresse, code..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-9"
-          />
+      {/* ─── Filters ─── */}
+      <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+        className={`flex gap-2 mb-5 ${isMobile ? "flex-col" : "items-center flex-wrap"}`}
+      >
+        {/* Status pills */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {([
+            { key: "all", label: "Toutes" },
+            { key: "planifiee", label: "Planifiées" },
+            { key: "realisee", label: "Réalisées" },
+            { key: "annulee", label: "Annulées" },
+          ] as const).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setStatusFilter(key)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+                statusFilter === key
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {label}
+              <span className="ml-1 opacity-70">
+                {key === "all" ? filtered.length : counts[key]}
+              </span>
+            </button>
+          ))}
         </div>
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className={`h-9 ${isMobile ? "w-full" : "w-[200px]"} shrink-0`}>
-            <ArrowUpDown className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-            <SelectValue placeholder="Trier par..." />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="date_desc">Date ↓ (récent)</SelectItem>
-            <SelectItem value="date_asc">Date ↑ (ancien)</SelectItem>
-            <SelectItem value="client_asc">Client A→Z</SelectItem>
-            <SelectItem value="client_desc">Client Z→A</SelectItem>
-            <SelectItem value="title_asc">Titre A→Z</SelectItem>
-            <SelectItem value="title_desc">Titre Z→A</SelectItem>
-            <SelectItem value="created_desc">Réception ↓</SelectItem>
-            <SelectItem value="created_asc">Réception ↑</SelectItem>
-            <SelectItem value="status">Statut</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
 
-      {/* List */}
+        {/* Period pills */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {([
+            { key: "all" as PeriodFilter, label: "Tout" },
+            { key: "week" as PeriodFilter, label: "Cette semaine" },
+            { key: "month" as PeriodFilter, label: "Ce mois" },
+          ]).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setPeriodFilter(key)}
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+                periodFilter === key
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className={`flex gap-2 ${isMobile ? "w-full" : "ml-auto"}`}>
+          {/* Technician filter */}
+          {technicians.length > 0 && (
+            <Select value={techFilter} onValueChange={setTechFilter}>
+              <SelectTrigger className={`h-9 text-xs ${isMobile ? "flex-1" : "w-[180px]"}`}>
+                <User className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                <SelectValue placeholder="Technicien" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les techniciens</SelectItem>
+                {technicians.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {/* Search */}
+          <div className={`relative ${isMobile ? "flex-1" : "w-[260px]"}`}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher un client, une adresse..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-9 text-xs"
+            />
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ─── Content ─── */}
       {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className={`w-full rounded-xl ${isMobile ? "h-20" : "h-24"}`} />)}
-        </div>
+        <LoadingSkeleton isMobile={isMobile} />
       ) : filtered.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">Aucune visite trouvée</div>
+        <EmptyState allFiltersDefault={allFiltersDefault} />
+      ) : isMobile ? (
+        <MobileVisiteList filtered={filtered} navigate={navigate} />
       ) : (
-        <VisiteList filtered={filtered} isMobile={isMobile} navigate={navigate} statusStyle={statusStyle} statusLabels={statusLabels} />
+        <KanbanView filtered={filtered} counts={counts} navigate={navigate} />
       )}
     </div>
   );
 };
 
-const VisiteList = ({ filtered, isMobile, navigate, statusStyle, statusLabels }: any) => {
+// ─── Loading Skeleton ───────────────────────────────────
+const LoadingSkeleton = ({ isMobile }: { isMobile: boolean }) => (
+  <div className={isMobile ? "space-y-3" : "grid grid-cols-3 gap-5"}>
+    {[1, 2, 3].map((i) => (
+      <div key={i} className="space-y-3">
+        <Skeleton className="h-10 w-full rounded-xl" />
+        <Skeleton className="h-28 w-full rounded-xl" />
+        <Skeleton className="h-28 w-full rounded-xl" />
+      </div>
+    ))}
+  </div>
+);
+
+// ─── Empty State ────────────────────────────────────────
+const EmptyState = ({ allFiltersDefault }: { allFiltersDefault: boolean }) => (
+  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+    className="flex flex-col items-center justify-center py-20 text-center"
+  >
+    <div className="h-16 w-16 rounded-2xl bg-muted/80 flex items-center justify-center mb-4">
+      <ClipboardCheck className="h-8 w-8 text-muted-foreground/60" />
+    </div>
+    <p className="text-lg font-medium text-muted-foreground mb-1">Aucune visite trouvée</p>
+    <p className="text-sm text-muted-foreground/70 mb-4">
+      {allFiltersDefault ? "Commencez par créer votre première visite" : "Essayez de modifier vos filtres"}
+    </p>
+    {allFiltersDefault && (
+      <CreateVisiteDialog
+        trigger={
+          <Button className="bg-success hover:bg-success/90 text-white gap-2">
+            <Plus className="h-4 w-4" />
+            Créer une visite
+          </Button>
+        }
+      />
+    )}
+  </motion.div>
+);
+
+// ─── Kanban Desktop View ────────────────────────────────
+const KanbanView = ({ filtered, counts, navigate }: {
+  filtered: any[];
+  counts: Record<string, number>;
+  navigate: (path: string) => void;
+}) => {
+  const columns: Array<{ status: string; label: string }> = [
+    { status: "planifiee", label: "Planifiées" },
+    { status: "realisee", label: "Réalisées" },
+    { status: "annulee", label: "Annulées" },
+  ];
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
+      className="grid grid-cols-3 gap-5"
+    >
+      {columns.map(({ status, label }) => {
+        const items = filtered.filter((v: any) => v.status === status);
+        const colors = statusColors[status];
+        return (
+          <KanbanColumn key={status} status={status} label={label} items={items} count={counts[status]} colors={colors} navigate={navigate} />
+        );
+      })}
+    </motion.div>
+  );
+};
+
+const KanbanColumn = ({ status, label, items, count, colors, navigate }: {
+  status: string; label: string; items: any[]; count: number;
+  colors: typeof statusColors["planifiee"]; navigate: (path: string) => void;
+}) => {
+  const { visibleItems, sentinelRef, hasMore } = useProgressiveList(items);
+
+  return (
+    <div className="flex flex-col rounded-xl border bg-card/50 overflow-hidden">
+      {/* Column header */}
+      <div className={`flex items-center justify-between px-4 py-3 ${colors.headerBg}`}>
+        <div className="flex items-center gap-2">
+          <span className="text-base">{statusEmojis[status]}</span>
+          <span className={`text-sm font-semibold ${colors.text}`}>{label}</span>
+        </div>
+        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${colors.bg} ${colors.text}`}>
+          {count}
+        </span>
+      </div>
+
+      {/* Cards */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-2.5 max-h-[calc(100vh-280px)]">
+        <AnimatePresence>
+          {visibleItems.map((visite: any) => (
+            <KanbanCard key={visite.id} visite={visite} colors={colors} navigate={navigate} />
+          ))}
+        </AnimatePresence>
+
+        {items.length === 0 && (
+          <p className="text-xs text-muted-foreground/60 text-center py-8">Aucune visite</p>
+        )}
+
+        <div ref={sentinelRef} className="flex items-center justify-center py-2">
+          {hasMore && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const KanbanCard = ({ visite, colors, navigate }: {
+  visite: any;
+  colors: typeof statusColors["planifiee"];
+  navigate: (path: string) => void;
+}) => {
+  const client = visite.clients as any;
+  const tech = visite.resources as any;
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      onClick={() => navigate(`/visites/${visite.id}`)}
+      className="rounded-xl border bg-card p-3.5 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+    >
+      <p className="font-semibold text-sm leading-snug mb-1 group-hover:text-primary transition-colors">
+        {client?.name || "—"}
+      </p>
+      {visite.address && (
+        <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mb-2">
+          <MapPin className="h-3 w-3 shrink-0" />
+          {visite.address}
+        </p>
+      )}
+      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-2.5">
+          {visite.scheduled_date && (
+            <span className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              {format(new Date(visite.scheduled_date), "d MMM", { locale: fr })}
+            </span>
+          )}
+          {tech?.name && (
+            <span className="flex items-center gap-1">
+              <User className="h-3 w-3" />
+              {tech.name}
+            </span>
+          )}
+        </div>
+        {(visite.photos_count || 0) > 0 && (
+          <span className="flex items-center gap-1 text-muted-foreground/80">
+            <Camera className="h-3 w-3" />
+            {visite.photos_count}
+          </span>
+        )}
+      </div>
+    </motion.div>
+  );
+};
+
+// ─── Mobile List View with Swipe ────────────────────────
+const MobileVisiteList = ({ filtered, navigate }: {
+  filtered: any[];
+  navigate: (path: string) => void;
+}) => {
   const { visibleItems, sentinelRef, hasMore } = useProgressiveList(filtered);
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="grid gap-3">
-      {visibleItems.map((visite: any) => {
-        const client = visite.clients as any;
-        const tech = visite.resources as any;
-
-        if (isMobile) {
-          return (
-            <div
-              key={visite.id}
-              onClick={() => navigate(`/visites/${visite.id}`)}
-              className="rounded-xl border bg-card p-3 active:bg-muted/50 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                  <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-sm break-words">{visite.title}</p>
-                    {visite.on_hold && <span className="text-[10px] bg-warning/10 text-warning rounded-full px-1.5 py-0.5 shrink-0">Att.</span>}
-                  </div>
-                  <p className="text-xs text-muted-foreground break-words">{client?.name || "—"}</p>
-                  <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
-                    {visite.scheduled_date && (
-                      <span className="flex items-center gap-0.5">
-                        <Calendar className="h-3 w-3" />
-                        {format(new Date(visite.scheduled_date), "d MMM", { locale: fr })}
-                      </span>
-                    )}
-                    {visite.address && (
-                      <span className="flex items-center gap-0.5 truncate">
-                        <MapPin className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{visite.address.length > 20 ? visite.address.slice(0, 20) + "…" : visite.address}</span>
-                      </span>
-                    )}
-                    {(visite.photos_count || 0) > 0 && (
-                      <span className="flex items-center gap-0.5 shrink-0">
-                        <Camera className="h-3 w-3" /> {visite.photos_count}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${statusStyle[visite.status] || "bg-muted text-muted-foreground"}`}>
-                    {statusLabels[visite.status] || visite.status}
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </div>
-            </div>
-          );
-        }
-
-        // Desktop card
-        return (
-          <div
-            key={visite.id}
-            onClick={() => navigate(`/visites/${visite.id}`)}
-            className="card-interactive p-5"
-          >
-            <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4 min-w-0 flex-1">
-                 <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center mt-0.5 shrink-0">
-                   <ClipboardCheck className="h-5 w-5 text-muted-foreground" />
-                 </div>
-                 <div className="min-w-0">
-                   <div className="flex items-center gap-2 flex-wrap">
-                     <p className="font-medium break-words">{visite.title}</p>
-                    {visite.code && <span className="text-xs font-mono text-muted-foreground">#{visite.code}</span>}
-                    {visite.on_hold && <span className="text-xs bg-warning/10 text-warning rounded-full px-2 py-0.5">En attente</span>}
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-0.5 break-words">{client?.name || "—"}</p>
-                  <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-muted-foreground">
-                    {visite.address && (
-                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {visite.address}</span>
-                    )}
-                    {visite.scheduled_date && (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        {format(new Date(visite.scheduled_date), "d MMM yyyy", { locale: fr })}
-                        {visite.scheduled_time && ` à ${visite.scheduled_time.slice(0, 5)}`}
-                      </span>
-                    )}
-                    {visite.zone && (
-                      <span className="flex items-center gap-1">Zone: {visite.zone}</span>
-                    )}
-                    {tech?.name && (
-                      <span className="flex items-center gap-1"><User className="h-3 w-3" /> {tech.name}</span>
-                    )}
-                    {visite.volume > 0 && (
-                      <span>{visite.volume} m³</span>
-                    )}
-                    <span className="flex items-center gap-1"><Camera className="h-3 w-3" /> {visite.photos_count || 0} photos</span>
-                  </div>
-                </div>
-              </div>
-              <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${statusStyle[visite.status] || "bg-muted text-muted-foreground"}`}>
-                {statusLabels[visite.status] || visite.status}
-              </span>
-            </div>
-          </div>
-        );
-      })}
+    <div className="space-y-2">
+      {visibleItems.map((visite: any) => (
+        <SwipeableCard key={visite.id} visite={visite} navigate={navigate} />
+      ))}
       <div ref={sentinelRef} className="flex items-center justify-center py-3">
         {hasMore && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -295,7 +412,97 @@ const VisiteList = ({ filtered, isMobile, navigate, statusStyle, statusLabels }:
           </div>
         )}
       </div>
-    </motion.div>
+    </div>
+  );
+};
+
+const SwipeableCard = ({ visite, navigate }: { visite: any; navigate: (path: string) => void }) => {
+  const client = visite.clients as any;
+  const tech = visite.resources as any;
+  const colors = statusColors[visite.status] || statusColors.planifiee;
+  const x = useMotionValue(0);
+  const bgOpacity = useTransform(x, [-120, -60, 0, 60, 120], [1, 0.8, 0, 0.8, 1]);
+  const [swiped, setSwiped] = useState<"left" | "right" | null>(null);
+
+  const handleStatusChange = useCallback(async (newStatus: string) => {
+    const { error } = await supabase
+      .from("visites")
+      .update({ status: newStatus })
+      .eq("id", visite.id);
+    if (error) {
+      toast.error("Erreur lors de la mise à jour");
+    } else {
+      toast.success(`Visite marquée comme ${statusLabels[newStatus]?.toLowerCase() || newStatus}`);
+    }
+    setSwiped(null);
+  }, [visite.id]);
+
+  return (
+    <div className="relative overflow-hidden rounded-xl">
+      {/* Background actions */}
+      <motion.div style={{ opacity: bgOpacity }} className="absolute inset-0 flex">
+        <div className="flex-1 bg-success flex items-center justify-start pl-4">
+          <span className="text-white text-xs font-medium">✓ Réalisée</span>
+        </div>
+        <div className="flex-1 bg-destructive flex items-center justify-end pr-4">
+          <span className="text-white text-xs font-medium">✕ Annuler</span>
+        </div>
+      </motion.div>
+
+      {/* Foreground card */}
+      <motion.div
+        style={{ x }}
+        drag="x"
+        dragConstraints={{ left: -120, right: 120 }}
+        dragElastic={0.1}
+        onDragEnd={(_, info) => {
+          if (info.offset.x < -80) {
+            handleStatusChange("annulee");
+          } else if (info.offset.x > 80) {
+            handleStatusChange("realisee");
+          }
+        }}
+        onClick={() => navigate(`/visites/${visite.id}`)}
+        className="relative rounded-xl border bg-card p-3 active:bg-muted/30 transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-3">
+          <div className={`h-9 w-9 rounded-lg ${colors.bg} flex items-center justify-center shrink-0`}>
+            <div className={`h-2.5 w-2.5 rounded-full ${colors.dot}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-semibold text-sm truncate">{client?.name || "—"}</p>
+              <span className={`shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${colors.bg} ${colors.text}`}>
+                {statusLabels[visite.status] || visite.status}
+              </span>
+            </div>
+            {visite.address && (
+              <p className="text-xs text-muted-foreground truncate mt-0.5">{visite.address}</p>
+            )}
+            <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
+              {visite.scheduled_date && (
+                <span className="flex items-center gap-0.5">
+                  <Calendar className="h-3 w-3" />
+                  {format(new Date(visite.scheduled_date), "d MMM", { locale: fr })}
+                </span>
+              )}
+              {tech?.name && (
+                <span className="flex items-center gap-0.5">
+                  <User className="h-3 w-3" />
+                  {tech.name}
+                </span>
+              )}
+              {(visite.photos_count || 0) > 0 && (
+                <span className="flex items-center gap-0.5">
+                  <Camera className="h-3 w-3" /> {visite.photos_count}
+                </span>
+              )}
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+        </div>
+      </motion.div>
+    </div>
   );
 };
 
