@@ -1080,11 +1080,18 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
       body: safeBodyText.slice(0, 10000), inbound_email_id: emailId, is_read: false,
     });
 
-    // ── Notifications ──
+    // ── Notifications (with dedup to prevent duplicates) ──
+    const { data: existingNotifs } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("company_id", companyId)
+      .like("link", `%email=${emailId}%`)
+      .limit(1);
+
     const { data: members } = await supabase
       .from("company_memberships").select("profile_id").eq("company_id", companyId);
 
-    if (members && members.length > 0) {
+    if ((!existingNotifs || existingNotifs.length === 0) && members && members.length > 0) {
       const materialCount = allMaterials.length;
       const notifTitle = materialCount > 0
         ? `📦 ${materialCount} matériels détectés: ${safeSubject.slice(0, 60)}`
