@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import {
-  Pencil, MousePointer2, ArrowUp, Type, Square, Circle,
-  Highlighter, Undo2, Trash2, Save, X, Move
+  Pencil, ArrowUp, Type, Square, Circle,
+  Eraser, Undo2, Trash2, Save, X, Ruler, Move
 } from "lucide-react";
 
-type Tool = "select" | "pen" | "arrow" | "text" | "rect" | "circle" | "highlight";
+type Tool = "select" | "pen" | "arrow" | "text" | "rect" | "circle" | "eraser" | "cote";
 
 interface Annotation {
   id: string;
@@ -31,9 +31,14 @@ interface Props {
   onSave: (blob: Blob) => void;
 }
 
-const COLORS = [
-  "#ef4444", "#f97316", "#eab308", "#22c55e",
-  "#3b82f6", "#8b5cf6", "#ec4899", "#ffffff", "#000000",
+const TOOL_COLORS = [
+  { value: "#ef4444", label: "Rouge" },
+  { value: "#f97316", label: "Orange" },
+  { value: "#eab308", label: "Jaune" },
+  { value: "#22c55e", label: "Vert" },
+  { value: "#3b82f6", label: "Bleu" },
+  { value: "#ffffff", label: "Blanc" },
+  { value: "#000000", label: "Noir" },
 ];
 
 // Hit-test helpers
@@ -49,7 +54,7 @@ const distToSegment = (px: number, py: number, x1: number, y1: number, x2: numbe
 const hitTestAnnotation = (a: Annotation, px: number, py: number, threshold = 15): boolean => {
   switch (a.tool) {
     case "pen":
-    case "highlight": {
+    case "eraser": {
       if (!a.points || a.points.length < 2) return false;
       for (let i = 1; i < a.points.length; i++) {
         if (distToSegment(px, py, a.points[i - 1].x, a.points[i - 1].y, a.points[i].x, a.points[i].y) < threshold)
@@ -57,7 +62,8 @@ const hitTestAnnotation = (a: Annotation, px: number, py: number, threshold = 15
       }
       return false;
     }
-    case "arrow": {
+    case "arrow":
+    case "cote": {
       if (a.startX == null || a.startY == null || a.endX == null || a.endY == null) return false;
       return distToSegment(px, py, a.startX, a.startY, a.endX, a.endY) < threshold;
     }
@@ -72,7 +78,6 @@ const hitTestAnnotation = (a: Annotation, px: number, py: number, threshold = 15
       if (a.startX == null || a.startY == null || a.endX == null || a.endY == null) return false;
       const minX = Math.min(a.startX, a.endX), maxX = Math.max(a.startX, a.endX);
       const minY = Math.min(a.startY, a.endY), maxY = Math.max(a.startY, a.endY);
-      // Check proximity to edges
       const nearLeft = Math.abs(px - minX) < threshold && py >= minY - threshold && py <= maxY + threshold;
       const nearRight = Math.abs(px - maxX) < threshold && py >= minY - threshold && py <= maxY + threshold;
       const nearTop = Math.abs(py - minY) < threshold && px >= minX - threshold && px <= maxX + threshold;
@@ -93,7 +98,7 @@ const hitTestAnnotation = (a: Annotation, px: number, py: number, threshold = 15
 };
 
 const getAnnotationBounds = (a: Annotation): { cx: number; cy: number } => {
-  if (a.tool === "pen" || a.tool === "highlight") {
+  if (a.tool === "pen" || a.tool === "eraser") {
     if (!a.points || a.points.length === 0) return { cx: 0, cy: 0 };
     const sumX = a.points.reduce((s, p) => s + p.x, 0);
     const sumY = a.points.reduce((s, p) => s + p.y, 0);
@@ -133,6 +138,8 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
   const [currentAnnotation, setCurrentAnnotation] = useState<Annotation | null>(null);
   const [textInput, setTextInput] = useState<{ x: number; y: number } | null>(null);
   const [textValue, setTextValue] = useState("");
+  const [coteInput, setCoteInput] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
+  const [coteValue, setCoteValue] = useState("");
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 600 });
   const [imageLoaded, setImageLoaded] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -149,8 +156,8 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     img.onload = () => {
       if (cancelled) return;
       imgRef.current = img;
-      const maxW = window.innerWidth - 40;
-      const maxH = window.innerHeight - 200;
+      const maxW = window.innerWidth - 16;
+      const maxH = window.innerHeight - 280;
       const scale = Math.min(maxW / img.width, maxH / img.height, 1);
       setCanvasSize({ w: Math.round(img.width * scale), h: Math.round(img.height * scale) });
       setImageLoaded(true);
@@ -180,6 +187,7 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
       setAnnotations([]);
       setImageLoaded(false);
       setTextInput(null);
+      setCoteInput(null);
       setSelectedId(null);
     };
   }, [open, imageSrc]);
@@ -194,7 +202,6 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     ctx.drawImage(imgRef.current, 0, 0, canvas.width, canvas.height);
     annotations.forEach((a) => drawAnnotation(ctx, a));
 
-    // Draw selection indicator
     if (selectedId) {
       const sel = annotations.find((a) => a.id === selectedId);
       if (sel) {
@@ -224,14 +231,8 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
-    if (a.tool === "highlight") {
-      ctx.globalAlpha = 0.3;
-      ctx.lineWidth = a.lineWidth * 4;
-    }
-
     switch (a.tool) {
       case "pen":
-      case "highlight":
         if (a.points && a.points.length > 1) {
           ctx.beginPath();
           ctx.moveTo(a.points[0].x, a.points[0].y);
@@ -239,19 +240,45 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
           ctx.stroke();
         }
         break;
+      case "eraser":
+        if (a.points && a.points.length > 1) {
+          ctx.globalCompositeOperation = "destination-out";
+          ctx.lineWidth = a.lineWidth * 4;
+          ctx.beginPath();
+          ctx.moveTo(a.points[0].x, a.points[0].y);
+          a.points.forEach((p) => ctx.lineTo(p.x, p.y));
+          ctx.stroke();
+          ctx.globalCompositeOperation = "source-over";
+        }
+        break;
       case "arrow":
         if (a.startX != null && a.startY != null && a.endX != null && a.endY != null) {
           drawArrow(ctx, a.startX, a.startY, a.endX, a.endY, a.lineWidth);
         }
         break;
+      case "cote":
+        if (a.startX != null && a.startY != null && a.endX != null && a.endY != null) {
+          drawCote(ctx, a.startX, a.startY, a.endX, a.endY, a.lineWidth, a.text || "", a.fontSize || 16);
+        }
+        break;
       case "text":
         if (a.text && a.startX != null && a.startY != null) {
-          ctx.font = `bold ${a.fontSize || 24}px sans-serif`;
-          ctx.globalAlpha = 1;
-          ctx.strokeStyle = a.color === "#ffffff" ? "#000000" : "#ffffff";
-          ctx.lineWidth = 3;
-          ctx.strokeText(a.text, a.startX, a.startY);
-          ctx.fillText(a.text, a.startX, a.startY);
+          const fs = a.fontSize || 24;
+          ctx.font = `bold ${fs}px sans-serif`;
+          const metrics = ctx.measureText(a.text);
+          const textW = metrics.width;
+          const textH = fs;
+          const padX = 6, padY = 4;
+          // Background
+          ctx.fillStyle = "rgba(255,255,255,0.85)";
+          ctx.fillRect(a.startX - padX, a.startY - textH - padY, textW + padX * 2, textH + padY * 2);
+          // Border
+          ctx.strokeStyle = a.color;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(a.startX - padX, a.startY - textH - padY, textW + padX * 2, textH + padY * 2);
+          // Text
+          ctx.fillStyle = a.color;
+          ctx.fillText(a.text, a.startX, a.startY - padY);
         }
         break;
       case "rect":
@@ -292,6 +319,78 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     ctx.fill();
   };
 
+  const drawCote = (
+    ctx: CanvasRenderingContext2D,
+    x1: number, y1: number, x2: number, y2: number,
+    lw: number, text: string, fs: number
+  ) => {
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const headLen = Math.max(lw * 3, 10);
+    const perpLen = 8;
+    const perpAngle = angle + Math.PI / 2;
+
+    // Main line
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // Arrowhead at start
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x1 + headLen * Math.cos(angle - Math.PI / 6), y1 + headLen * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(x1 + headLen * Math.cos(angle + Math.PI / 6), y1 + headLen * Math.sin(angle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+
+    // Arrowhead at end
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
+    ctx.closePath();
+    ctx.fill();
+
+    // Perpendicular ticks at ends
+    ctx.beginPath();
+    ctx.moveTo(x1 + perpLen * Math.cos(perpAngle), y1 + perpLen * Math.sin(perpAngle));
+    ctx.lineTo(x1 - perpLen * Math.cos(perpAngle), y1 - perpLen * Math.sin(perpAngle));
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x2 + perpLen * Math.cos(perpAngle), y2 + perpLen * Math.sin(perpAngle));
+    ctx.lineTo(x2 - perpLen * Math.cos(perpAngle), y2 - perpLen * Math.sin(perpAngle));
+    ctx.stroke();
+
+    // Text label centered on line
+    if (text) {
+      const midX = (x1 + x2) / 2;
+      const midY = (y1 + y2) / 2;
+      ctx.save();
+      ctx.font = `bold ${fs}px sans-serif`;
+      const metrics = ctx.measureText(text);
+      const textW = metrics.width;
+      const textH = fs;
+      const padX = 6, padY = 3;
+      // Background
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.translate(midX, midY);
+      // Rotate text to match line angle, but keep readable
+      let displayAngle = angle;
+      if (displayAngle > Math.PI / 2) displayAngle -= Math.PI;
+      if (displayAngle < -Math.PI / 2) displayAngle += Math.PI;
+      ctx.rotate(displayAngle);
+      ctx.fillRect(-textW / 2 - padX, -textH / 2 - padY, textW + padX * 2, textH + padY * 2);
+      ctx.strokeStyle = ctx.strokeStyle; // keep current color
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-textW / 2 - padX, -textH / 2 - padY, textW + padX * 2, textH + padY * 2);
+      ctx.fillStyle = "#000000";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    }
+  };
+
   const getPos = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -308,9 +407,7 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     e.preventDefault();
     const pos = getPos(e);
 
-    // Select mode: try to pick an annotation
     if (tool === "select") {
-      // Check from top (last drawn) to bottom
       for (let i = annotations.length - 1; i >= 0; i--) {
         if (hitTestAnnotation(annotations[i], pos.x, pos.y)) {
           setSelectedId(annotations[i].id);
@@ -332,13 +429,14 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     setSelectedId(null);
     drawingRef.current = true;
     setDrawing(true);
+    const isFreehand = tool === "pen" || tool === "eraser";
     const newAnnotation: Annotation = {
       id: crypto.randomUUID(),
       tool,
       color,
       lineWidth,
       fontSize,
-      points: tool === "pen" || tool === "highlight" ? [pos] : undefined,
+      points: isFreehand ? [pos] : undefined,
       startX: pos.x,
       startY: pos.y,
       endX: pos.x,
@@ -351,7 +449,6 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
   const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
 
-    // Handle drag move for selected annotation
     if (tool === "select" && dragging && selectedId && dragStartRef.current) {
       const pos = getPos(e);
       const dx = pos.x - dragStartRef.current.x;
@@ -368,7 +465,7 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
 
     const prev = currentAnnotationRef.current;
     let updated: Annotation;
-    if (prev.tool === "pen" || prev.tool === "highlight") {
+    if (prev.tool === "pen" || prev.tool === "eraser") {
       updated = { ...prev, points: [...(prev.points || []), pos] };
     } else {
       updated = { ...prev, endX: pos.x, endY: pos.y };
@@ -394,6 +491,23 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     drawingRef.current = false;
     setDrawing(false);
     const finalAnnotation = currentAnnotationRef.current;
+
+    // Cote tool: after drawing the line, ask for the dimension value
+    if (finalAnnotation.tool === "cote") {
+      setCoteInput({
+        startX: finalAnnotation.startX!,
+        startY: finalAnnotation.startY!,
+        endX: finalAnnotation.endX!,
+        endY: finalAnnotation.endY!,
+      });
+      setCoteValue("");
+      currentAnnotationRef.current = null;
+      setCurrentAnnotation(null);
+      const overlay = overlayRef.current;
+      overlay?.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
+      return;
+    }
+
     setAnnotations((prev) => [...prev, finalAnnotation]);
     currentAnnotationRef.current = null;
     setCurrentAnnotation(null);
@@ -423,6 +537,28 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     setTextValue("");
   };
 
+  const addCoteAnnotation = () => {
+    if (!coteInput) return;
+    const text = coteValue.trim() || "";
+    setAnnotations((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        tool: "cote",
+        color,
+        lineWidth,
+        fontSize: 16,
+        text,
+        startX: coteInput.startX,
+        startY: coteInput.startY,
+        endX: coteInput.endX,
+        endY: coteInput.endY,
+      },
+    ]);
+    setCoteInput(null);
+    setCoteValue("");
+  };
+
   const undo = () => {
     setAnnotations((prev) => prev.slice(0, -1));
     setSelectedId(null);
@@ -441,7 +577,6 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     const canvas = canvasRef.current;
     if (!canvas || !imgRef.current) return;
 
-    // Deselect before saving so selection indicator isn't baked in
     setSelectedId(null);
 
     const fullCanvas = document.createElement("canvas");
@@ -455,14 +590,12 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
       if (imageSrc.startsWith("http")) {
         const resp = await fetch(imageSrc);
         const blob = await resp.blob();
-        // Safari < 16.4 doesn't support ImageBitmap.close(), use Image fallback
         if (typeof createImageBitmap === "function") {
           try {
             const bmpOrImg = await createImageBitmap(blob);
             fctx.drawImage(bmpOrImg, 0, 0, fullCanvas.width, fullCanvas.height);
             if (typeof bmpOrImg.close === "function") bmpOrImg.close();
           } catch {
-            // Fallback: draw from loaded img element
             fctx.drawImage(imgRef.current!, 0, 0, fullCanvas.width, fullCanvas.height);
           }
         } else {
@@ -509,80 +642,34 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
   };
 
   const toolItems: { id: Tool; icon: any; label: string }[] = [
-    { id: "select", icon: MousePointer2, label: "Sélectionner / Déplacer" },
-    { id: "pen", icon: Pencil, label: "Stylo" },
+    { id: "pen", icon: Pencil, label: "Crayon" },
     { id: "arrow", icon: ArrowUp, label: "Flèche" },
     { id: "text", icon: Type, label: "Texte" },
-    { id: "rect", icon: Square, label: "Rectangle" },
+    { id: "rect", icon: Square, label: "Rect" },
     { id: "circle", icon: Circle, label: "Cercle" },
-    { id: "highlight", icon: Highlighter, label: "Surligneur" },
+    { id: "cote", icon: Ruler, label: "Cote" },
+    { id: "eraser", icon: Eraser, label: "Gomme" },
   ];
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-[100vw] max-h-[100vh] w-screen h-screen p-3 overflow-hidden flex flex-col rounded-none" style={{ margin: 0 }}>
-        <DialogHeader>
-          <DialogTitle className="text-sm">Annoter la photo</DialogTitle>
-        </DialogHeader>
-
-        {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-1 pb-2 border-b overflow-x-auto">
-          {toolItems.map((t) => (
-            <Button
-              key={t.id}
-              variant={tool === t.id ? "default" : "outline"}
-              size="sm"
-              className="h-8 w-8 p-0 shrink-0"
-              onClick={() => { setTool(t.id); if (t.id !== "select") setSelectedId(null); }}
-              title={t.label}
-            >
-              <t.icon className="h-4 w-4" />
-            </Button>
-          ))}
-          <div className="w-px h-6 bg-border mx-0.5 shrink-0" />
-          {COLORS.map((c) => (
-            <button
-              key={c}
-              className={`h-6 w-6 rounded-full border-2 transition-transform shrink-0 ${
-                color === c ? "scale-125 border-foreground" : "border-transparent"
-              }`}
-              style={{ backgroundColor: c }}
-              onClick={() => setColor(c)}
-            />
-          ))}
+      <DialogContent
+        className="max-w-[100vw] max-h-[100vh] w-screen h-screen p-0 overflow-hidden flex flex-col rounded-none gap-0"
+        style={{ margin: 0 }}
+      >
+        {/* ── Slim header ── */}
+        <div className="flex items-center justify-between px-4 h-12 border-b border-border bg-card shrink-0">
+          <h2 className="text-sm font-semibold text-foreground">Annoter</h2>
+          <button
+            onClick={onClose}
+            className="p-2 -mr-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
-        {/* Size controls + actions row */}
-        <div className="flex items-center gap-2 pb-1">
-          <div className="flex items-center gap-1 flex-1 min-w-0">
-            <span className="text-[10px] text-muted-foreground shrink-0">Trait</span>
-            <Slider value={[lineWidth]} min={1} max={10} step={1} onValueChange={(v) => setLineWidth(v[0])} className="w-20" />
-            <span className="text-xs font-mono w-4 text-center">{lineWidth}</span>
-          </div>
-          {tool === "text" && (
-            <div className="flex items-center gap-1 flex-1 min-w-0">
-              <span className="text-[10px] text-muted-foreground shrink-0">Taille</span>
-              <Slider value={[fontSize]} min={12} max={72} step={2} onValueChange={(v) => setFontSize(v[0])} className="w-20" />
-              <span className="text-xs font-mono w-6 text-center">{fontSize}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1 shrink-0">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={undo} title="Annuler dernière">
-              <Undo2 className="h-4 w-4" />
-            </Button>
-            {selectedId && (
-              <Button variant="destructive" size="sm" className="h-8 px-2 text-xs" onClick={deleteSelected} title="Supprimer la sélection">
-                <Trash2 className="h-3.5 w-3.5 mr-1" /> Suppr.
-              </Button>
-            )}
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={clearAll} title="Tout effacer">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Canvas */}
-        <div ref={containerRef} className="relative flex-1 flex items-center justify-center overflow-hidden">
+        {/* ── Canvas area (takes all remaining space) ── */}
+        <div ref={containerRef} className="relative flex-1 flex items-center justify-center overflow-hidden bg-black/5">
           <div className="relative" style={{ width: canvasSize.w, height: canvasSize.h }}>
             <canvas
               ref={canvasRef}
@@ -603,33 +690,174 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
               onTouchMove={handlePointerMove}
               onTouchEnd={handlePointerUp}
             />
+
+            {/* Text input popup */}
             {textInput && (
               <div
-                className="absolute z-10"
-                style={{ left: textInput.x, top: textInput.y - 16 }}
+                className="absolute z-10 animate-in fade-in-0 zoom-in-95"
+                style={{ left: Math.min(textInput.x, canvasSize.w - 200), top: Math.max(textInput.y - 50, 0) }}
               >
-                <Input
-                  autoFocus
-                  value={textValue}
-                  onChange={(e) => setTextValue(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addTextAnnotation()}
-                  onBlur={addTextAnnotation}
-                  className="h-7 text-sm w-40"
-                  placeholder="Tapez votre texte..."
-                />
+                <div className="bg-card border-2 rounded-xl shadow-lg p-2 flex gap-1.5" style={{ borderColor: color }}>
+                  <Input
+                    autoFocus
+                    value={textValue}
+                    onChange={(e) => setTextValue(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addTextAnnotation()}
+                    className="h-9 text-sm w-36 rounded-lg border-none bg-muted/50"
+                    placeholder="Votre texte..."
+                  />
+                  <Button size="sm" className="h-9 px-3 rounded-lg" onClick={addTextAnnotation}>
+                    OK
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Cote input popup */}
+            {coteInput && (
+              <div
+                className="absolute z-10 animate-in fade-in-0 zoom-in-95"
+                style={{
+                  left: Math.min((coteInput.startX + coteInput.endX) / 2, canvasSize.w - 200),
+                  top: Math.max((coteInput.startY + coteInput.endY) / 2 - 50, 0),
+                }}
+              >
+                <div className="bg-card border-2 border-primary rounded-xl shadow-lg p-2 flex gap-1.5">
+                  <Input
+                    autoFocus
+                    value={coteValue}
+                    onChange={(e) => setCoteValue(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addCoteAnnotation()}
+                    className="h-9 text-sm w-28 rounded-lg border-none bg-muted/50"
+                    placeholder="ex: 2m80"
+                  />
+                  <Button size="sm" className="h-9 px-3 rounded-lg" onClick={addCoteAnnotation}>
+                    OK
+                  </Button>
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-2 pt-2 border-t">
-          <Button variant="outline" size="sm" onClick={onClose}>
-            <X className="h-4 w-4 mr-1" /> Annuler
-          </Button>
-          <Button size="sm" onClick={handleSave} disabled={annotations.length === 0}>
-            <Save className="h-4 w-4 mr-1" /> Sauvegarder
-          </Button>
+        {/* ── Bottom toolbar panel ── */}
+        <div className="shrink-0 bg-card border-t border-border pb-safe">
+          {/* Row 1: Tools + Undo */}
+          <div className="flex items-center justify-center gap-1.5 px-3 pt-2.5 pb-1">
+            {toolItems.map((t) => {
+              const isActive = tool === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => { setTool(t.id); if (t.id !== "select") setSelectedId(null); }}
+                  className={`flex flex-col items-center justify-center rounded-xl transition-all ${
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : "text-muted-foreground hover:bg-muted"
+                  }`}
+                  style={{ width: 44, height: 44 }}
+                  title={t.label}
+                >
+                  <t.icon className="h-5 w-5" />
+                  <span className="text-[9px] font-medium mt-0.5 leading-none">{t.label}</span>
+                </button>
+              );
+            })}
+            {/* Separator */}
+            <div className="w-px h-8 bg-border mx-0.5" />
+            {/* Undo button in toolbar */}
+            <button
+              onClick={undo}
+              disabled={annotations.length === 0}
+              className="flex flex-col items-center justify-center rounded-xl text-muted-foreground hover:bg-muted disabled:opacity-30 transition-all"
+              style={{ width: 44, height: 44 }}
+              title="Annuler"
+            >
+              <Undo2 className="h-5 w-5" />
+              <span className="text-[9px] font-medium mt-0.5 leading-none">Annuler</span>
+            </button>
+            {/* Move / select */}
+            <button
+              onClick={() => { setTool("select"); }}
+              className={`flex flex-col items-center justify-center rounded-xl transition-all ${
+                tool === "select"
+                  ? "bg-primary text-primary-foreground shadow-md"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+              style={{ width: 44, height: 44 }}
+              title="Déplacer"
+            >
+              <Move className="h-5 w-5" />
+              <span className="text-[9px] font-medium mt-0.5 leading-none">Déplacer</span>
+            </button>
+            {/* Delete selected */}
+            {selectedId && (
+              <button
+                onClick={deleteSelected}
+                className="flex flex-col items-center justify-center rounded-xl bg-destructive text-destructive-foreground transition-all"
+                style={{ width: 44, height: 44 }}
+              >
+                <Trash2 className="h-5 w-5" />
+                <span className="text-[9px] font-medium mt-0.5 leading-none">Suppr</span>
+              </button>
+            )}
+          </div>
+
+          {/* Slider: stroke width */}
+          <div className="flex items-center gap-2 px-4 py-1.5">
+            <span className="text-[10px] text-muted-foreground shrink-0 w-8">Trait</span>
+            <Slider
+              value={[lineWidth]}
+              min={1}
+              max={10}
+              step={1}
+              onValueChange={(v) => setLineWidth(v[0])}
+              className="flex-1"
+            />
+            <span className="text-xs font-mono text-muted-foreground w-5 text-right">{lineWidth}</span>
+          </div>
+
+          {/* Row 2: Colors */}
+          <div className="flex items-center justify-center gap-2.5 px-3 pb-2">
+            {TOOL_COLORS.map((c) => {
+              const isActive = color === c.value;
+              return (
+                <button
+                  key={c.value}
+                  onClick={() => setColor(c.value)}
+                  className={`rounded-full border-2 transition-all shrink-0 ${
+                    isActive
+                      ? "scale-110 border-foreground ring-2 ring-primary/30"
+                      : "border-border hover:scale-105"
+                  } ${c.value === "#ffffff" ? "shadow-sm" : ""}`}
+                  style={{
+                    backgroundColor: c.value,
+                    width: 32,
+                    height: 32,
+                  }}
+                  title={c.label}
+                />
+              );
+            })}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-2 px-3 pb-3">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="flex-1 h-[52px] rounded-2xl text-base gap-2 border-border"
+            >
+              <X className="h-5 w-5" /> Annuler
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={annotations.length === 0}
+              className="flex-1 h-[52px] rounded-2xl text-base gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              <Save className="h-5 w-5" /> Sauvegarder
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
