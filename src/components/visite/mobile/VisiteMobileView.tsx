@@ -447,8 +447,23 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
         onExportPdf={handleExportPdf}
         exporting={exporting}
       />
+      <MobileVoirieSheet
+        open={activeSheet === "voirie"}
+        onClose={() => setActiveSheet(null)}
+        visiteId={visite.id}
+        needsVoirie={editData.needs_voirie ?? false}
+        voirieType={editData.voirie_type ?? null}
+        voirieStatus={editData.voirie_status ?? "a_faire"}
+        voirieNotes={editData.voirie_notes ?? null}
+        onSaved={(data) => {
+          updateField("needs_voirie", data.needs_voirie);
+          updateField("voirie_type", data.voirie_type);
+          updateField("voirie_status", data.voirie_status);
+          updateField("voirie_notes", data.voirie_notes);
+        }}
+      />
 
-      <PdfPreviewDialog
+
         open={!!pdfPreview}
         onClose={() => setPdfPreview(null)}
         blobUrl={pdfPreview?.blobUrl || null}
