@@ -169,30 +169,49 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
   const handleAnnotateSave = async (blob: Blob) => {
     if (!annotatingPhoto) return;
     try {
-      // 1. Convertir le blob en ArrayBuffer pour l'upload
       const arrayBuffer = await blob.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
 
-      // 2. Uploader en remplaçant le fichier existant (même path, upsert: true)
+      // Detect actual content type from blob
+      const contentType = blob.type || "image/jpeg";
+
+      // 1. Delete old file first to bust CDN cache, then re-upload
+      await supabase.storage.from("visite-photos").remove([annotatingPhoto.path]);
+
       const { error: uploadError } = await supabase.storage
         .from("visite-photos")
         .upload(annotatingPhoto.path, uint8Array, {
-          contentType: "image/png",
+          contentType,
           upsert: true,
           cacheControl: "0",
         });
 
       if (uploadError) throw uploadError;
 
-      // 3. Forcer le rechargement de l'URL signée en invalidant le cache
-      setSignedUrls((prev) => {
-        const next = { ...prev };
-        delete next[annotatingPhoto.path];
-        return next;
-      });
+      // 2. Immediately get a fresh signed URL to avoid stale cache
+      const { data: freshUrl } = await supabase.storage
+        .from("visite-photos")
+        .createSignedUrl(annotatingPhoto.path, 3600);
+
+      // 3. Update signed URL directly in state with cache-bust param
+      if (freshUrl?.signedUrl) {
+        const bustUrl = freshUrl.signedUrl + "&t=" + Date.now();
+        setSignedUrls((prev) => ({
+          ...prev,
+          [annotatingPhoto.path]: bustUrl,
+        }));
+      } else {
+        // Fallback: remove from cache so useEffect re-fetches
+        setSignedUrls((prev) => {
+          const next = { ...prev };
+          delete next[annotatingPhoto.path];
+          return next;
+        });
+      }
+
       invalidatePhotos();
 
-      // 4. Fermer l'éditeur et confirmer
+      // 4. Close editor and confirm
       setAnnotatingPhoto(null);
       toast.success("Photo annotée sauvegardée");
     } catch (err: any) {
