@@ -1,7 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Fuel, Wrench } from "lucide-react";
+import { Fuel, Wrench, Bell } from "lucide-react";
 import { motion } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +27,7 @@ import { VehicleExpenseDialog } from "@/components/terrain/VehicleExpenseDialog"
 import { Receipt } from "lucide-react";
 import { PlanningOperationDialog } from "@/components/planning/PlanningOperationDialog";
 import { ARPhotoOverlay } from "@/components/ar/ARPhotoOverlay";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const todayStr = () => {
   const d = new Date();
@@ -60,6 +61,7 @@ export default function TerrainPage() {
   const { role } = useMyRole();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { permission, subscribe: subscribePush } = usePushNotifications();
 
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [signatureTarget, setSignatureTarget] = useState<SignatureTarget>(null);
@@ -230,6 +232,32 @@ export default function TerrainPage() {
     enabled: companyIds.length > 0 && showEvents && (mode === "admin" || !!myResource?.id),
   });
 
+  // ===== REALTIME PUSH FOR BT CHANGES =====
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel("bt-changes-push")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "operations" },
+        async (payload) => {
+          const op = payload.new as any;
+          if (op.loading_date === todayStr() && document.hidden) {
+            await supabase.functions.invoke("send-push-notification", {
+              body: {
+                user_id: userId,
+                title: "📋 Mission mise à jour",
+                body: `BT ${op.lv_bt_number || op.operation_number} — ${op.loading_city || ""}`,
+                link: "/terrain",
+              },
+            });
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [userId]);
+
   // ===== MUTATIONS =====
 
   const completeBT = useMutation({
@@ -368,6 +396,25 @@ export default function TerrainPage() {
           <p className="text-xs text-muted-foreground capitalize">{formatDate(dateToUse)}</p>
         )}
       </motion.div>
+
+      {/* Push notification activation banner */}
+      {permission === "default" && (
+        <motion.div
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3"
+        >
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Bell className="h-4 w-4 text-primary shrink-0" />
+            <p className="text-xs text-foreground">
+              Activez les notifications pour recevoir vos missions en temps réel
+            </p>
+          </div>
+          <Button size="sm" className="shrink-0 h-7 text-xs gap-1" onClick={subscribePush}>
+            <Bell className="h-3 w-3" /> Activer
+          </Button>
+        </motion.div>
+      )}
 
       {/* Summary badges */}
       <div className={`grid gap-2 ${showVisites ? "grid-cols-3" : "grid-cols-1"}`}>
