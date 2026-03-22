@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Save, Loader2, Map } from "lucide-react";
+import { Save, Loader2, Map, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 const VOIRIE_TYPES = [
@@ -33,15 +33,22 @@ interface Props {
   voirieStatus: string;
   voirieNotes: string | null;
   onSaved: (data: { needs_voirie: boolean; voirie_type: string | null; voirie_status: string; voirie_notes: string | null }) => void;
+  visiteAddress?: string | null;
+  visiteCity?: string | null;
+  companyId?: string;
 }
 
-export const MobileVoirieSheet = ({ open, onClose, visiteId, needsVoirie, voirieType, voirieStatus, voirieNotes, onSaved }: Props) => {
+export const MobileVoirieSheet = ({
+  open, onClose, visiteId, needsVoirie, voirieType, voirieStatus, voirieNotes,
+  onSaved, visiteAddress, visiteCity, companyId,
+}: Props) => {
   const navigate = useNavigate();
   const [needs, setNeeds] = useState(needsVoirie);
   const [type, setType] = useState(voirieType || "");
   const [status, setStatus] = useState(voirieStatus || "a_faire");
   const [notes, setNotes] = useState(voirieNotes || "");
   const [saving, setSaving] = useState(false);
+  const [sendingDvd, setSendingDvd] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -73,6 +80,30 @@ export const MobileVoirieSheet = ({ open, onClose, visiteId, needsVoirie, voirie
       toast.error(err.message || "Erreur");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSendDvdEmail = async () => {
+    if (!companyId) return;
+    setSendingDvd(true);
+    try {
+      const { error } = await supabase.functions.invoke("send-visite-email", {
+        body: {
+          visite_id: visiteId,
+          company_id: companyId,
+          template_type: "demande_plan_voirie",
+          address: visiteAddress || "",
+          city: visiteCity || "",
+        },
+      });
+      if (error) throw error;
+      toast.success("Demande envoyée à la DVD ✓");
+      // Auto-update status to demandee
+      setStatus("demandee");
+    } catch (err: any) {
+      toast.error(err.message || "Erreur envoi");
+    } finally {
+      setSendingDvd(false);
     }
   };
 
@@ -141,7 +172,28 @@ export const MobileVoirieSheet = ({ open, onClose, visiteId, needsVoirie, voirie
                 />
               </div>
 
-              {/* Plan voirie button */}
+              {/* DVD plan request section */}
+              {type === "plan_voirie" && (
+                <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 space-y-3">
+                  <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">
+                    Demande de plan voirie {visiteCity ? `— ${visiteCity}` : ""}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Envoyer un email formel à la DVD pour demander un plan au 1/200ème
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 border-blue-500/30 text-blue-700 dark:text-blue-400"
+                    onClick={handleSendDvdEmail}
+                    disabled={sendingDvd || !companyId}
+                  >
+                    {sendingDvd ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                    Envoyer la demande à la DVD {visiteCity || ""}
+                  </Button>
+                </div>
+              )}
+
+              {/* Plan voirie editor button */}
               <Button
                 variant="outline"
                 className="w-full gap-2"
