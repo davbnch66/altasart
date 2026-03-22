@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
-import { Camera, Tag, Pencil, Loader2, Trash2 } from "lucide-react";
+import { Camera, Tag, Pencil, Loader2, Trash2, Package } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PhotoAnnotationEditor } from "../PhotoAnnotationEditor";
@@ -35,10 +35,11 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
   const [caption, setCaption] = useState("");
   const [selectedPieceId, setSelectedPieceId] = useState("");
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
-  const [annotatingPhoto, setAnnotatingPhoto] = useState<{ url: string; path: string; photoId: string; pieceId: string } | null>(null);
+  const [annotatingPhoto, setAnnotatingPhoto] = useState<{ id: string; path: string; url: string } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; path: string } | null>(null);
   const [captions, setCaptions] = useState<Record<string, string>>({});
   const [pieceSelect, setPieceSelect] = useState<string | null>(null);
+  const [materielSelect, setMaterielSelect] = useState<string | null>(null);
 
   const { data: pieces = [] } = useQuery({
     queryKey: ["visite-pieces", visiteId],
@@ -46,6 +47,29 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
       const { data } = await supabase.from("visite_pieces").select("*").eq("visite_id", visiteId).order("sort_order");
       return data || [];
     },
+  });
+
+  const { data: materielList = [] } = useQuery({
+    queryKey: ["visite-materiel", visiteId],
+    queryFn: async () => {
+      const { data } = await supabase.from("visite_materiel").select("*").eq("visite_id", visiteId).order("sort_order");
+      return data || [];
+    },
+    enabled: open,
+  });
+
+  const { data: affectations = [] } = useQuery({
+    queryKey: ["visite-materiel-affectations", visiteId],
+    queryFn: async () => {
+      const pieceIds = pieces.map((p: any) => p.id);
+      if (!pieceIds.length) return [];
+      const { data } = await supabase
+        .from("visite_materiel_affectations")
+        .select("*")
+        .in("piece_id", pieceIds);
+      return data || [];
+    },
+    enabled: open && pieces.length > 0,
   });
 
   const { data: existingPhotos = [] } = useQuery({
@@ -142,7 +166,7 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
     queryClient.invalidateQueries({ queryKey: ["visite-photos-full", visiteId] });
   };
 
-  // Bug 1 fix: upsert on same path, update existing row, no new insert
+  // Bug 1 fix: upsert on same path, update existing row by id, no new insert
   const handleAnnotateSave = async (blob: Blob) => {
     if (!annotatingPhoto) return;
     try {
@@ -150,11 +174,11 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
         contentType: "image/png",
         upsert: true,
       });
-      // Update existing row timestamp (no new insert)
+      // Update existing row — no new insert
       await supabase
         .from("visite_photos")
         .update({ storage_path: annotatingPhoto.path })
-        .eq("id", annotatingPhoto.photoId);
+        .eq("id", annotatingPhoto.id);
       // Clear cached signed URL so it reloads
       setSignedUrls((prev) => {
         const next = { ...prev };
@@ -205,10 +229,48 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
     }
   };
 
+  // Assign materiel to the photo's piece
+  const handleAssignMateriel = async (photoId: string, materielId: string) => {
+    const photo = existingPhotos.find((p: any) => p.id === photoId);
+    if (!photo?.piece_id) {
+      toast.error("Assignez d'abord une pièce à cette photo");
+      setMaterielSelect(null);
+      return;
+    }
+    try {
+      // Check if affectation already exists
+      const exists = affectations.some(
+        (a: any) => a.materiel_id === materielId && a.piece_id === photo.piece_id
+      );
+      if (!exists) {
+        await supabase.from("visite_materiel_affectations").insert({
+          materiel_id: materielId,
+          piece_id: photo.piece_id,
+          company_id: companyId,
+          quantity: 1,
+        });
+        queryClient.invalidateQueries({ queryKey: ["visite-materiel-affectations", visiteId] });
+      }
+      toast.success("Matériel lié à la pièce ✓");
+      setMaterielSelect(null);
+    } catch {
+      toast.error("Erreur liaison matériel");
+    }
+  };
+
   const getPieceName = (pieceId: string | null) => {
     if (!pieceId) return null;
     const p = pieces.find((pc: any) => pc.id === pieceId);
     return p ? p.name : null;
+  };
+
+  // Get materiel linked to a photo's piece
+  const getMaterielForPiece = (pieceId: string | null) => {
+    if (!pieceId) return [];
+    const materielIds = affectations
+      .filter((a: any) => a.piece_id === pieceId)
+      .map((a: any) => a.materiel_id);
+    return materielList.filter((m: any) => materielIds.includes(m.id));
   };
 
   return (
@@ -236,6 +298,7 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
               {existingPhotos.map((photo: any) => {
                 const url = signedUrls[photo.storage_path];
                 const pieceName = getPieceName(photo.piece_id);
+                const linkedMateriel = getMaterielForPiece(photo.piece_id);
                 return (
                   <div key={photo.id} className="flex flex-col gap-1.5">
                     {/* Image with annotate overlay */}
@@ -251,7 +314,7 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
                             if (onAnnotate) {
                               onAnnotate(url, photo.id, photo.storage_path, photo.piece_id);
                             } else {
-                              setAnnotatingPhoto({ url, path: photo.storage_path, photoId: photo.id, pieceId: photo.piece_id });
+                              setAnnotatingPhoto({ id: photo.id, path: photo.storage_path, url });
                             }
                           }}
                           className="absolute bottom-2 right-2 h-8 w-8 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
@@ -268,8 +331,8 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
                       placeholder="Légende..."
                       className="h-8 text-xs rounded-lg"
                     />
-                    {/* Piece badge + delete */}
-                    <div className="flex items-center justify-between gap-1">
+                    {/* Piece badge + materiel badge + delete */}
+                    <div className="flex items-center flex-wrap gap-1">
                       {pieceSelect === photo.id ? (
                         <div className="flex flex-wrap gap-1 flex-1">
                           {pieces.map((p: any) => (
@@ -292,9 +355,45 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
                           {pieceName || "+ Pièce"}
                         </button>
                       )}
+
+                      {/* Materiel badge */}
+                      {materielSelect === photo.id ? (
+                        <div className="flex flex-wrap gap-1 flex-1">
+                          {materielList.map((m: any) => (
+                            <button
+                              key={m.id}
+                              onClick={() => handleAssignMateriel(photo.id, m.id)}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-700"
+                            >
+                              {m.designation}
+                            </button>
+                          ))}
+                          {materielList.length === 0 && (
+                            <span className="text-[10px] text-muted-foreground px-1">Aucun matériel</span>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          {linkedMateriel.length > 0 ? (
+                            linkedMateriel.slice(0, 2).map((m: any) => (
+                              <span key={m.id} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/15 text-amber-700">
+                                {m.designation}
+                              </span>
+                            ))
+                          ) : null}
+                          <button
+                            onClick={() => setMaterielSelect(photo.id)}
+                            className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground flex items-center gap-0.5"
+                          >
+                            <Package className="h-2.5 w-2.5" />
+                            + Matériel
+                          </button>
+                        </>
+                      )}
+
                       <button
                         onClick={() => setDeleteConfirm({ id: photo.id, path: photo.storage_path })}
-                        className="p-1 text-destructive"
+                        className="p-1 text-destructive ml-auto"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
