@@ -101,41 +101,46 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return;
       }
 
-      await supabase.rpc("auto_assign_companies_for_new_user", { p_user_id: user.id });
+      try {
+        await supabase.rpc("auto_assign_companies_for_new_user", { p_user_id: user.id });
 
-      const [membershipsRes, themeRes] = await Promise.all([
-        supabase.from("company_memberships").select("company_id").eq("profile_id", user.id),
-        supabase.from("user_theme_settings").select("*").eq("user_id", user.id).maybeSingle(),
-      ]);
+        const [membershipsRes, themeRes] = await Promise.all([
+          supabase.from("company_memberships").select("company_id").eq("profile_id", user.id),
+          supabase.from("user_theme_settings").select("*").eq("user_id", user.id).maybeSingle(),
+        ]);
 
-      if (themeRes.data) {
-        const ts = themeRes.data;
-        setUserTheme((ts.company_colors as Record<string, string>) || {});
-        setSidebarStyle(ts.sidebar_style || "default");
+        if (themeRes.data) {
+          const ts = themeRes.data;
+          setUserTheme((ts.company_colors as Record<string, string>) || {});
+          setSidebarStyle(ts.sidebar_style || "default");
 
-        if (ts.dark_mode) document.documentElement.classList.add("dark");
-        else document.documentElement.classList.remove("dark");
+          if (ts.dark_mode) document.documentElement.classList.add("dark");
+          else document.documentElement.classList.remove("dark");
 
-        if (ts.border_radius) document.documentElement.style.setProperty("--radius", ts.border_radius);
-        document.documentElement.style.fontSize = fontScales[ts.font_size] || "16px";
-      }
-
-      if (membershipsRes.data && membershipsRes.data.length > 0) {
-        const companyIds = membershipsRes.data.map((m) => m.company_id);
-        const { data: companiesData } = await supabase.from("companies").select("*").in("id", companyIds);
-
-        if (companiesData) {
-          setDbCompanies(
-            companiesData.map((c) => ({
-              id: c.id,
-              name: c.name,
-              shortName: c.short_name,
-              color: c.color,
-            })),
-          );
+          if (ts.border_radius) document.documentElement.style.setProperty("--radius", ts.border_radius);
+          document.documentElement.style.fontSize = fontScales[ts.font_size] || "16px";
         }
+
+        if (membershipsRes.data && membershipsRes.data.length > 0) {
+          const companyIds = membershipsRes.data.map((m) => m.company_id);
+          const { data: companiesData } = await supabase.from("companies").select("*").in("id", companyIds);
+
+          if (companiesData) {
+            setDbCompanies(
+              companiesData.map((c) => ({
+                id: c.id,
+                name: c.name,
+                shortName: c.short_name,
+                color: c.color,
+              })),
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Erreur chargement entreprises:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchCompanies();
