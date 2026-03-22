@@ -3,8 +3,8 @@ import { Outlet, useLocation, NavLink, Navigate } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
-  Menu, X, LayoutDashboard, FolderOpen, ClipboardCheck,
-  CalendarDays, MoreHorizontal, HardHat,
+  Menu, X, LayoutDashboard, FolderOpen,
+  CalendarDays, MoreHorizontal, FileText, Euro,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OfflineBanner } from "@/components/OfflineBanner";
@@ -41,9 +41,9 @@ const PAGE_NAMES: Record<string, string> = {
 const ALL_BOTTOM_NAV = [
   { to: "/", icon: LayoutDashboard, label: "Accueil", exact: true },
   { to: "/dossiers", icon: FolderOpen, label: "Dossiers" },
-  { to: "/visites", icon: ClipboardCheck, label: "Visites" },
-  { to: "/terrain", icon: HardHat, label: "Terrain" },
   { to: "/planning", icon: CalendarDays, label: "Planning" },
+  { to: "/devis", icon: FileText, label: "Devis" },
+  { to: "/finance", icon: Euro, label: "Finance" },
 ];
 
 function RouteGuard({ children }: { children: React.ReactNode }) {
@@ -52,7 +52,7 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
 
   if (loading) return null;
 
-  if (role === "terrain" && location.pathname !== "/terrain") {
+  if (role === "terrain" && !canAccessRoute(role, location.pathname)) {
     return <Navigate to="/terrain" replace />;
   }
 

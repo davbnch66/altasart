@@ -78,6 +78,10 @@ export function useMyRole(): { role: AppRole; loading: boolean; allRoles: AppRol
     return (ROLE_PRIORITY[r] ?? 0) > (ROLE_PRIORITY[best] ?? 0) ? r : best;
   }, "readonly");
 
+  if (allRoles.length === 0 && user) {
+    console.warn("Aucun rôle trouvé pour l'utilisateur", user.id, "— rôle readonly appliqué par défaut");
+  }
+
   return { role: highestRole, loading: isLoading, allRoles };
 }
 
