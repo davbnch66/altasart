@@ -526,8 +526,7 @@ const VisiteDetail = () => {
                 size="sm"
                 className="w-full gap-2 bg-emerald-500/10 text-emerald-700 border-emerald-500/20 hover:bg-emerald-500/20"
                 onClick={() => {
-                  updateField("status", "realisee");
-                  handleSave();
+                  handleSave({ status: "realisee" });
                 }}
               >
                 <CheckCircle2 className="h-4 w-4" />

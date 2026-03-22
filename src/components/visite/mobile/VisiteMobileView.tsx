@@ -136,8 +136,7 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
   };
 
   const handleFinishVisite = async () => {
-    updateField("status", "realisee");
-    const ok = await handleSave();
+    const ok = await handleSave({ status: "realisee" });
     setFinishConfirm(false);
     if (ok) {
       toast.success("Visite terminée ✓", {
