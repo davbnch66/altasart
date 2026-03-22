@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Camera, Image, X, Loader2, PenTool, Trash2, Tag } from "lucide-react";
+import { Camera, Image, Loader2, Tag, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 const PHOTO_CATEGORIES = [
@@ -34,6 +34,19 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
       const { data } = await supabase.from("visite_pieces").select("*").eq("visite_id", visiteId).order("sort_order");
       return data || [];
     },
+  });
+
+  const { data: existingPhotos = [] } = useQuery({
+    queryKey: ["visite-photos-full", visiteId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("visite_photos")
+        .select("id, storage_path, piece_id, file_name, caption")
+        .eq("visite_id", visiteId)
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+    enabled: open,
   });
 
   const [selectedPieceId, setSelectedPieceId] = useState("");
@@ -78,6 +91,7 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
       setCaption("");
       setSelectedCategory("");
       queryClient.invalidateQueries({ queryKey: ["visite-photos", visiteId] });
+      queryClient.invalidateQueries({ queryKey: ["visite-photos-full", visiteId] });
     } catch (err: any) {
       toast.error(err.message || "Erreur upload");
     } finally {
@@ -85,16 +99,17 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
     }
   };
 
-  const triggerInput = () => {
-    fileInputRef.current?.click();
+  const getPhotoUrl = (storagePath: string) => {
+    const { data } = supabase.storage.from("visite-photos").getPublicUrl(storagePath);
+    return data?.publicUrl || "";
   };
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="bottom" className="rounded-t-3xl max-h-[85vh] overflow-y-auto pb-safe">
+      <SheetContent side="bottom" className="rounded-t-3xl max-h-[90vh] overflow-y-auto pb-safe">
         <SheetHeader className="pb-2">
           <SheetTitle className="text-lg">
-            {mode === "camera" ? "📸 Prendre une photo" : "🖼 Choisir depuis la galerie"}
+            📸 Photos ({existingPhotos.length})
           </SheetTitle>
         </SheetHeader>
 
@@ -107,8 +122,35 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
           onChange={handleFileSelect}
         />
 
+        {/* Existing photos grid */}
+        {existingPhotos.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 mt-3 mb-4">
+            {existingPhotos.map((photo: any) => {
+              const url = getPhotoUrl(photo.storage_path);
+              return (
+                <div key={photo.id} className="relative rounded-xl overflow-hidden border border-border/50 aspect-square">
+                  <img src={url} alt={photo.caption || ""} className="w-full h-full object-cover" loading="lazy" />
+                  {photo.caption && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
+                      <p className="text-[10px] text-white truncate">{photo.caption}</p>
+                    </div>
+                  )}
+                  {onAnnotate && (
+                    <button
+                      onClick={() => onAnnotate(url, photo.id, photo.storage_path, photo.piece_id)}
+                      className="absolute bottom-2 right-2 h-8 w-8 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Piece selector */}
-        <div className="space-y-3 mt-2">
+        <div className="space-y-2 mt-2">
           <p className="text-sm font-medium text-muted-foreground">📍 Pièce / Zone</p>
           <div className="flex flex-wrap gap-2">
             {pieces.map((p: any) => (
@@ -131,16 +173,16 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
         </div>
 
         {/* Category selector */}
-        <div className="space-y-3 mt-4">
+        <div className="space-y-2 mt-3">
           <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
             <Tag className="h-3.5 w-3.5" /> Catégorie
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {PHOTO_CATEGORIES.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(selectedCategory === cat ? "" : cat)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
                   selectedCategory === cat
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-muted-foreground"
@@ -153,30 +195,25 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
         </div>
 
         {/* Caption */}
-        <div className="mt-4">
+        <div className="mt-3">
           <Input
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
             placeholder="Légende / dimensions (optionnel)"
-            className="h-12 text-base rounded-xl"
+            className="h-11 text-base rounded-xl"
           />
         </div>
 
-        {/* Action button */}
-        <Button
-          onClick={triggerInput}
-          disabled={uploading}
-          className="w-full h-14 text-base rounded-2xl mt-4 gap-2"
-          size="lg"
-        >
-          {uploading ? (
-            <><Loader2 className="h-5 w-5 animate-spin" /> Upload en cours...</>
-          ) : mode === "camera" ? (
-            <><Camera className="h-5 w-5" /> Prendre la photo</>
-          ) : (
-            <><Image className="h-5 w-5" /> Choisir une image</>
-          )}
-        </Button>
+        {/* FAB Camera button */}
+        <div className="fixed bottom-6 right-6 z-50">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="h-14 w-14 rounded-full bg-emerald-600 text-white shadow-lg flex items-center justify-center active:scale-90 transition-transform disabled:opacity-50"
+          >
+            {uploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
+          </button>
+        </div>
       </SheetContent>
     </Sheet>
   );
