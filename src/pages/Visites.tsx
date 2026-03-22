@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, memo } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -399,11 +399,29 @@ const MobileVisiteList = ({ filtered, navigate }: {
   navigate: (path: string) => void;
 }) => {
   const { visibleItems, sentinelRef, hasMore } = useProgressiveList(filtered);
+  const queryClient = useQueryClient();
+
+  const handleStatusChange = useCallback(async (visiteId: string, newStatus: "planifiee" | "realisee" | "annulee") => {
+    const { error } = await supabase
+      .from("visites")
+      .update({ status: newStatus })
+      .eq("id", visiteId);
+    if (error) {
+      toast.error("Erreur lors de la mise à jour");
+      return;
+    }
+    toast.success(newStatus === "realisee" ? "Visite marquée réalisée" : "Visite annulée");
+    queryClient.invalidateQueries({ queryKey: ["visites"] });
+  }, [queryClient]);
+
+  const handleTap = useCallback((visiteId: string) => {
+    navigate(`/visites/${visiteId}`);
+  }, [navigate]);
 
   return (
     <div className="space-y-2">
       {visibleItems.map((visite: any) => (
-        <MobileCard key={visite.id} visite={visite} navigate={navigate} />
+        <MobileCard key={visite.id} visite={visite} onTap={handleTap} onStatusChange={handleStatusChange} />
       ))}
       <div ref={sentinelRef} className="flex items-center justify-center py-3">
         {hasMore && (
@@ -417,26 +435,16 @@ const MobileVisiteList = ({ filtered, navigate }: {
   );
 };
 
-const MobileCard = ({ visite, navigate }: { visite: any; navigate: (path: string) => void }) => {
+const MobileCard = memo(({ visite, onTap, onStatusChange }: {
+  visite: any;
+  onTap: (id: string) => void;
+  onStatusChange: (id: string, status: "planifiee" | "realisee" | "annulee") => void;
+}) => {
   const client = visite.clients as any;
   const tech = visite.resources as any;
   const colors = statusColors[visite.status] || statusColors.planifiee;
   const [menuOpen, setMenuOpen] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const queryClient = useQueryClient();
-
-  const handleStatusChange = useCallback(async (newStatus: "planifiee" | "realisee" | "annulee") => {
-    const { error } = await supabase
-      .from("visites")
-      .update({ status: newStatus })
-      .eq("id", visite.id);
-    if (error) {
-      toast.error("Erreur lors de la mise à jour");
-      return;
-    }
-    toast.success(newStatus === "realisee" ? "Visite marquée réalisée" : "Visite annulée");
-    queryClient.invalidateQueries({ queryKey: ["visites"] });
-  }, [visite.id, queryClient]);
 
   const onPointerDown = useCallback(() => {
     longPressTimer.current = setTimeout(() => {
@@ -455,29 +463,24 @@ const MobileCard = ({ visite, navigate }: { visite: any; navigate: (path: string
     <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
       <DropdownMenuTrigger asChild>
         <div
-          onClick={() => { if (!menuOpen) navigate(`/visites/${visite.id}`); }}
+          onClick={() => { if (!menuOpen) onTap(visite.id); }}
           onPointerDown={onPointerDown}
           onPointerUp={onPointerUpOrLeave}
           onPointerLeave={onPointerUpOrLeave}
           className="rounded-2xl border bg-card p-4 mb-2 active:bg-muted/30 transition-colors cursor-pointer select-none"
         >
-          {/* Row 1: Client name + status badge */}
           <div className="flex items-center justify-between gap-2 mb-1">
             <p className="text-base font-semibold truncate">{client?.name || "—"}</p>
             <span className={`shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${colors.bg} ${colors.text}`}>
               {statusLabels[visite.status] || visite.status}
             </span>
           </div>
-
-          {/* Row 2: Address */}
           {visite.address && (
             <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mb-1">
               <MapPin className="h-3 w-3 shrink-0" />
               {visite.address}
             </p>
           )}
-
-          {/* Row 3: Date + Tech */}
           <div className="flex items-center gap-3 text-xs text-muted-foreground mb-0.5">
             {visite.scheduled_date && (
               <span className="flex items-center gap-1">
@@ -492,25 +495,23 @@ const MobileCard = ({ visite, navigate }: { visite: any; navigate: (path: string
               </span>
             )}
           </div>
-
-          {/* Row 4: Photos count */}
           {(visite.photos_count || 0) > 0 && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
               <Camera className="h-3 w-3" /> {visite.photos_count} photo{visite.photos_count > 1 ? "s" : ""}
             </span>
           )}
         </div>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => handleStatusChange("realisee")} className="text-emerald-600">
+        <DropdownMenuItem onClick={() => onStatusChange(visite.id, "realisee")} className="text-emerald-600">
           ✓ Marquer Réalisée
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleStatusChange("annulee")} className="text-destructive">
+        <DropdownMenuItem onClick={() => onStatusChange(visite.id, "annulee")} className="text-destructive">
           ✕ Annuler la visite
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
-};
+});
 
 export default Visites;
