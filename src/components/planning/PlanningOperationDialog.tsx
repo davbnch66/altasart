@@ -300,11 +300,33 @@ export const PlanningOperationDialog = ({ open, onOpenChange, operationId }: Pro
       if (!operationId) return;
       const { error } = await supabase.from("operation_resources").insert({ operation_id: operationId, resource_id: resourceId } as any);
       if (error) throw error;
+      return resourceId;
     },
-    onSuccess: () => {
+    onSuccess: async (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["planning-op-resources"] });
       queryClient.invalidateQueries({ queryKey: ["planning-operations"] });
       toast.success("Ressource affectée");
+
+      // Send push to newly assigned resource
+      try {
+        const { data: resData } = await supabase
+          .from("resources")
+          .select("linked_profile_id, name")
+          .eq("id", variables.resourceId)
+          .maybeSingle();
+        if (resData?.linked_profile_id) {
+          await supabase.functions.invoke("send-push-notification", {
+            body: {
+              user_id: resData.linked_profile_id,
+              title: "🏗️ Nouvelle mission assignée",
+              body: `${form.loading_city || "Chantier"} → ${form.delivery_city || ""} le ${form.loading_date}`,
+              link: "/terrain",
+            },
+          });
+        }
+      } catch (e) {
+        console.error("Push notification error:", e);
+      }
     },
     onError: (e: any) => toast.error(e.message?.includes("duplicate") ? "Déjà affecté" : "Erreur"),
   });
