@@ -70,7 +70,7 @@ export const AppLayout: React.FC = () => {
   const location = useLocation();
   const { role } = useMyRole();
   const { currentCompany } = useCompany();
-  const watermarkLogo = companyLogoMap[currentCompany.color];
+  const watermarkLogo = companyLogoMap[currentCompany.id] ?? companyLogoMap[currentCompany.color];
 
   useEffect(() => {
     if (isMobile) setSidebarOpen(false);
