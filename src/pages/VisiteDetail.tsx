@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { ArrowLeft, MapPin, Calendar, Clock, User, FileText, FolderOpen, BookOpen, Save, Loader2, LayoutGrid, Package, Users, Truck, ShieldAlert, ClipboardList, Download, Camera, ChevronDown, Wrench, Info, Mail, ImageIcon, MoreHorizontal, Phone, ExternalLink } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Clock, User, FileText, FolderOpen, BookOpen, Save, Loader2, LayoutGrid, Package, Users, Truck, ShieldAlert, ClipboardList, Download, Camera, ChevronDown, Wrench, Info, Mail, ImageIcon, MoreHorizontal, Phone, ExternalLink, Sparkles, CheckCircle2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -290,11 +290,11 @@ const VisiteDetail = () => {
         <select
           value={editData.status}
           onChange={(e) => updateField("status", e.target.value)}
-          className={`flex h-8 rounded-full border-0 px-3 py-1 text-xs font-medium cursor-pointer ${statusStyle[editData.status]}`}
+          className={`flex h-auto rounded-full border-0 px-4 py-1.5 text-sm font-medium cursor-pointer ${statusStyle[editData.status]}`}
         >
-          <option value="planifiee">Planifiée</option>
-          <option value="realisee">Réalisée</option>
-          <option value="annulee">Annulée</option>
+          <option value="planifiee">▼ Planifiée</option>
+          <option value="realisee">▼ Réalisée</option>
+          <option value="annulee">▼ Annulée</option>
         </select>
       </div>
 
@@ -514,22 +514,24 @@ const VisiteDetail = () => {
             />
           </div>
 
-          {/* Status */}
+          {/* Actions rapides */}
           <div className="rounded-xl border bg-card p-5 space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Statut</h3>
-            <select
-              value={editData.status}
-              onChange={(e) => updateField("status", e.target.value)}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-            >
-              <option value="planifiee">Planifiée</option>
-              <option value="realisee">Réalisée</option>
-              <option value="annulee">Annulée</option>
-            </select>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={editData.on_hold || false} onCheckedChange={(v) => updateField("on_hold", v)} />
-              En attente
-            </label>
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Actions rapides</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <GenerateDevisDialog visiteId={visite.id} companyId={visite.company_id} dossierId={visite.dossier_id} />
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2 bg-emerald-500/10 text-emerald-700 border-emerald-500/20 hover:bg-emerald-500/20"
+                onClick={() => {
+                  updateField("status", "realisee");
+                  handleSave();
+                }}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Terminer la visite
+              </Button>
+            </div>
           </div>
         </div>
 
