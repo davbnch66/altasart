@@ -41,9 +41,9 @@ const PAGE_NAMES: Record<string, string> = {
 const ALL_BOTTOM_NAV = [
   { to: "/", icon: LayoutDashboard, label: "Accueil", exact: true },
   { to: "/dossiers", icon: FolderOpen, label: "Dossiers" },
-  { to: "/visites", icon: ClipboardCheck, label: "Visites" },
-  { to: "/terrain", icon: HardHat, label: "Terrain" },
   { to: "/planning", icon: CalendarDays, label: "Planning" },
+  { to: "/devis", icon: FileText, label: "Devis" },
+  { to: "/finance", icon: Euro, label: "Finance" },
 ];
 
 function RouteGuard({ children }: { children: React.ReactNode }) {
