@@ -256,6 +256,11 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
                     {tile.badge}
                   </span>
                 )}
+                {(tile as any).badgeText && (
+                  <span className="bg-foreground/10 text-foreground text-[10px] font-medium rounded-full px-2 py-0.5">
+                    {(tile as any).badgeText}
+                  </span>
+                )}
               </div>
               <p className="text-sm font-semibold text-foreground mt-2">{tile.label}</p>
               {tile.preview && (
