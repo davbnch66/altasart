@@ -166,30 +166,38 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
     queryClient.invalidateQueries({ queryKey: ["visite-photos-full", visiteId] });
   };
 
-  // Bug 1 fix: upsert on same path, update existing row by id, no new insert
   const handleAnnotateSave = async (blob: Blob) => {
     if (!annotatingPhoto) return;
     try {
-      await supabase.storage.from("visite-photos").upload(annotatingPhoto.path, blob, {
-        contentType: "image/png",
-        upsert: true,
-      });
-      // Update existing row — no new insert
-      await supabase
-        .from("visite_photos")
-        .update({ storage_path: annotatingPhoto.path })
-        .eq("id", annotatingPhoto.id);
-      // Clear cached signed URL so it reloads
+      // 1. Convertir le blob en ArrayBuffer pour l'upload
+      const arrayBuffer = await blob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+
+      // 2. Uploader en remplaçant le fichier existant (même path, upsert: true)
+      const { error: uploadError } = await supabase.storage
+        .from("visite-photos")
+        .upload(annotatingPhoto.path, uint8Array, {
+          contentType: "image/png",
+          upsert: true,
+          cacheControl: "0",
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 3. Forcer le rechargement de l'URL signée en invalidant le cache
       setSignedUrls((prev) => {
         const next = { ...prev };
         delete next[annotatingPhoto.path];
         return next;
       });
-      toast.success("Photo annotée sauvegardée ✓");
       invalidatePhotos();
+
+      // 4. Fermer l'éditeur et confirmer
       setAnnotatingPhoto(null);
+      toast.success("Photo annotée sauvegardée");
     } catch (err: any) {
-      toast.error(err.message || "Erreur sauvegarde");
+      console.error("Erreur sauvegarde annotation:", err);
+      toast.error("Erreur lors de la sauvegarde : " + (err.message || "réessayez"));
     }
   };
 
