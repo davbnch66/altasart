@@ -367,21 +367,28 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
           imageSrc={annotatingPhoto.src}
           onSave={async (blob) => {
             try {
-              // Bug 1 fix: upsert on same path, update existing row
-              await supabase.storage.from("visite-photos").upload(annotatingPhoto.storagePath, blob, {
-                contentType: "image/png",
-                upsert: true,
-              });
-              await supabase
-                .from("visite_photos")
-                .update({ storage_path: annotatingPhoto.storagePath })
-                .eq("id", annotatingPhoto.photoId);
-              // Clear cached signed URL so it reloads
+              const localPreviewUrl = URL.createObjectURL(blob);
+
               setSignedUrls((prev) => {
-                const next = { ...prev };
-                delete next[annotatingPhoto.storagePath];
-                return next;
+                const currentUrl = prev[annotatingPhoto.storagePath];
+                if (currentUrl?.startsWith("blob:")) {
+                  URL.revokeObjectURL(currentUrl);
+                }
+
+                return {
+                  ...prev,
+                  [annotatingPhoto.storagePath]: localPreviewUrl,
+                };
               });
+
+              const { error } = await supabase.storage.from("visite-photos").upload(annotatingPhoto.storagePath, blob, {
+                contentType: blob.type || "image/png",
+                upsert: true,
+                cacheControl: "0",
+              });
+
+              if (error) throw error;
+
               toast.success("Photo annotée sauvegardée ✓");
               queryClient.invalidateQueries({ queryKey: ["visite-photos-full", visite.id] });
               queryClient.invalidateQueries({ queryKey: ["visite-photos", visite.id] });

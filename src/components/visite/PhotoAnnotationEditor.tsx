@@ -574,71 +574,35 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     setSelectedId(null);
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     const canvas = canvasRef.current;
-    if (!canvas || !imgRef.current) return;
+    const image = imgRef.current;
+    if (!canvas || !image) return;
 
     setSelectedId(null);
 
-    const fullCanvas = document.createElement("canvas");
-    fullCanvas.width = imgRef.current.naturalWidth || imgRef.current.width;
-    fullCanvas.height = imgRef.current.naturalHeight || imgRef.current.height;
-    const fctx = fullCanvas.getContext("2d")!;
-    const scaleX = fullCanvas.width / canvas.width;
-    const scaleY = fullCanvas.height / canvas.height;
+    const exportCanvas = document.createElement("canvas");
+    exportCanvas.width = canvas.width;
+    exportCanvas.height = canvas.height;
 
-    try {
-      if (imageSrc.startsWith("http")) {
-        const resp = await fetch(imageSrc);
-        const blob = await resp.blob();
-        if (typeof createImageBitmap === "function") {
-          try {
-            const bmpOrImg = await createImageBitmap(blob);
-            fctx.drawImage(bmpOrImg, 0, 0, fullCanvas.width, fullCanvas.height);
-            if (typeof bmpOrImg.close === "function") bmpOrImg.close();
-          } catch {
-            fctx.drawImage(imgRef.current!, 0, 0, fullCanvas.width, fullCanvas.height);
-          }
-        } else {
-          fctx.drawImage(imgRef.current!, 0, 0, fullCanvas.width, fullCanvas.height);
-        }
-      } else {
-        fctx.drawImage(imgRef.current, 0, 0, fullCanvas.width, fullCanvas.height);
-      }
-    } catch {
-      fctx.drawImage(canvas, 0, 0, fullCanvas.width, fullCanvas.height);
-    }
+    const exportCtx = exportCanvas.getContext("2d");
+    if (!exportCtx) return;
 
-    annotations.forEach((a) => {
-      const scaled: Annotation = {
-        ...a,
-        lineWidth: a.lineWidth * scaleX,
-        fontSize: (a.fontSize || 24) * scaleX,
-        startX: a.startX != null ? a.startX * scaleX : undefined,
-        startY: a.startY != null ? a.startY * scaleY : undefined,
-        endX: a.endX != null ? a.endX * scaleX : undefined,
-        endY: a.endY != null ? a.endY * scaleY : undefined,
-        points: a.points?.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })),
-      };
-      drawAnnotation(fctx, scaled);
-    });
+    exportCtx.drawImage(image, 0, 0, exportCanvas.width, exportCanvas.height);
+    annotations.forEach((annotation) => drawAnnotation(exportCtx, annotation));
 
-    fullCanvas.toBlob(
+    exportCanvas.toBlob(
       (blob) => {
         if (blob) {
           onSave(blob);
-        } else {
-          canvas.toBlob(
-            (fallbackBlob) => {
-              if (fallbackBlob) onSave(fallbackBlob);
-            },
-            "image/jpeg",
-            0.9
-          );
+          return;
         }
+
+        canvas.toBlob((fallbackBlob) => {
+          if (fallbackBlob) onSave(fallbackBlob);
+        }, "image/png");
       },
-      "image/jpeg",
-      0.9
+      "image/png"
     );
   };
 
