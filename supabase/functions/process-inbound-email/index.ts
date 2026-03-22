@@ -1081,32 +1081,44 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
     });
 
     // ── Notifications (with dedup to prevent duplicates) ──
-    const { data: existingNotifs } = await supabase
-      .from("notifications")
-      .select("id")
-      .eq("company_id", companyId)
-      .like("link", `%email=${emailId}%`)
-      .limit(1);
+    // Skip notifications for spam, trash and sent folders — only notify for relevant emails
+    const { data: emailRecord } = await supabase
+      .from("inbound_emails")
+      .select("folder")
+      .eq("id", emailId)
+      .single();
+    const emailFolder = (emailRecord?.folder || "inbox").toLowerCase();
+    const skipNotifFolders = ["spam", "junk", "trash", "deleted", "corbeille", "poubelle", "sent"];
+    const shouldNotify = !skipNotifFolders.includes(emailFolder);
 
-    const { data: members } = await supabase
-      .from("company_memberships").select("profile_id").eq("company_id", companyId);
+    if (shouldNotify) {
+      const { data: existingNotifs } = await supabase
+        .from("notifications")
+        .select("id")
+        .eq("company_id", companyId)
+        .like("link", `%email=${emailId}%`)
+        .limit(1);
 
-    if ((!existingNotifs || existingNotifs.length === 0) && members && members.length > 0) {
-      const materialCount = allMaterials.length;
-      const notifTitle = materialCount > 0
-        ? `📦 ${materialCount} matériels détectés: ${safeSubject.slice(0, 60)}`
-        : voirieDocs.length > 0
-          ? `📋 Document voirie reçu: ${safeSubject.slice(0, 80)}`
-          : `Nouvel email: ${safeSubject.slice(0, 100)}`;
+      const { data: members } = await supabase
+        .from("company_memberships").select("profile_id").eq("company_id", companyId);
 
-      const notifications = members.map((m: any) => ({
-        company_id: companyId, user_id: m.profile_id,
-        type: materialCount > 0 ? "materiel_detected" : voirieDocs.length > 0 ? "new_lead" : types.includes("visite") ? "visite_requested" : "new_lead",
-        title: notifTitle,
-        body: String(analysis.resume || `De ${safeFromName || safeFromEmail}`).slice(0, 500),
-        link: `/inbox?email=${emailId}`,
-      }));
-      await supabase.from("notifications").insert(notifications);
+      if ((!existingNotifs || existingNotifs.length === 0) && members && members.length > 0) {
+        const materialCount = allMaterials.length;
+        const notifTitle = materialCount > 0
+          ? `📦 ${materialCount} matériels détectés: ${safeSubject.slice(0, 60)}`
+          : voirieDocs.length > 0
+            ? `📋 Document voirie reçu: ${safeSubject.slice(0, 80)}`
+            : `Nouvel email: ${safeSubject.slice(0, 100)}`;
+
+        const notifications = members.map((m: any) => ({
+          company_id: companyId, user_id: m.profile_id,
+          type: materialCount > 0 ? "materiel_detected" : voirieDocs.length > 0 ? "new_lead" : types.includes("visite") ? "visite_requested" : "new_lead",
+          title: notifTitle,
+          body: String(analysis.resume || `De ${safeFromName || safeFromEmail}`).slice(0, 500),
+          link: `/inbox?email=${emailId}`,
+        }));
+        await supabase.from("notifications").insert(notifications);
+      }
     }
 
     return new Response(JSON.stringify({
