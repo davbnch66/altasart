@@ -514,22 +514,24 @@ const VisiteDetail = () => {
             />
           </div>
 
-          {/* Status */}
+          {/* Actions rapides */}
           <div className="rounded-xl border bg-card p-5 space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Statut</h3>
-            <select
-              value={editData.status}
-              onChange={(e) => updateField("status", e.target.value)}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
-            >
-              <option value="planifiee">Planifiée</option>
-              <option value="realisee">Réalisée</option>
-              <option value="annulee">Annulée</option>
-            </select>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={editData.on_hold || false} onCheckedChange={(v) => updateField("on_hold", v)} />
-              En attente
-            </label>
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Actions rapides</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <GenerateDevisDialog visiteId={visite.id} companyId={visite.company_id} dossierId={visite.dossier_id} />
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full gap-2 bg-emerald-500/10 text-emerald-700 border-emerald-500/20 hover:bg-emerald-500/20"
+                onClick={() => {
+                  updateField("status", "realisee");
+                  handleSave();
+                }}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Terminer la visite
+              </Button>
+            </div>
           </div>
         </div>
 
