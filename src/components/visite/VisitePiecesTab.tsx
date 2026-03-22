@@ -79,7 +79,7 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("visite_materiel")
-        .select("id, label, type")
+        .select("id, designation, quantity")
         .eq("visite_id", visiteId)
         .order("sort_order");
       if (error) throw error;
