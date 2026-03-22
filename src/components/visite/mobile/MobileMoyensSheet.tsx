@@ -117,12 +117,14 @@ export const MobileMoyensSheet = ({ open, onClose, visiteId, companyId }: Props)
 
   const deleteVehicle = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from("visite_vehicules").delete().eq("id", id);
+      const { error } = await supabase.from("visite_vehicules").delete().eq("id", id);
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["visite-vehicules", visiteId] });
       queryClient.invalidateQueries({ queryKey: ["visite-moyens-count", visiteId] });
     },
+    onError: (err: any) => toast.error("Erreur suppression : " + (err.message || "réessayez")),
   });
 
   return (
