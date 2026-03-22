@@ -1,11 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, Save, Loader2, Download, Phone, MapPin, Calendar,
-  CheckCircle2, Camera, Package, StickyNote, ShieldAlert, Wrench, Home, FileText, Pencil
+  CheckCircle2, Camera, Package, StickyNote, ShieldAlert, Wrench, Home, FileText, Pencil, Construction
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -17,10 +17,12 @@ import { MobileContraintesSheet } from "./MobileContraintesSheet";
 import { MobileMoyensSheet } from "./MobileMoyensSheet";
 import { MobileNotesSheet } from "./MobileNotesSheet";
 import { MobileVisiteSummary } from "./MobileVisiteSummary";
+import { MobileVoirieSheet } from "./MobileVoirieSheet";
 import { VisiteSmartAlerts } from "../VisiteSmartAlerts";
 import { generateVisitePdf } from "@/lib/generateVisitePdf";
 import { PdfPreviewDialog } from "../PdfPreviewDialog";
 import { PhotoAnnotationEditor } from "../PhotoAnnotationEditor";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -56,6 +58,7 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
   const [pdfPreview, setPdfPreview] = useState<any>(null);
   const [finishConfirm, setFinishConfirm] = useState(false);
   const [annotatingPhoto, setAnnotatingPhoto] = useState<{ src: string; photoId: string; storagePath: string; pieceId: string } | null>(null);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
   const client = visite.clients as any;
   const dossier = visite.dossiers as any;
@@ -143,11 +146,23 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
     }
   };
 
-  // Get photo public URLs
-  const getPhotoUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from("visite-photos").getPublicUrl(storagePath);
-    return data?.publicUrl || "";
-  };
+  // Generate signed URLs for photo strip
+  useEffect(() => {
+    if (!photosData.length) return;
+    const paths = photosData.map((p: any) => p.storage_path).filter((p: string) => !signedUrls[p]);
+    if (!paths.length) return;
+    const load = async () => {
+      const newUrls: Record<string, string> = {};
+      await Promise.all(
+        paths.map(async (path: string) => {
+          const { data } = await supabase.storage.from("visite-photos").createSignedUrl(path, 3600);
+          if (data?.signedUrl) newUrls[path] = data.signedUrl;
+        })
+      );
+      setSignedUrls((prev) => ({ ...prev, ...newUrls }));
+    };
+    load();
+  }, [photosData]);
 
   const actionTiles = [
     { key: "photo", icon: Camera, label: "Photos", badge: photosData.length, bgClass: "bg-blue-50 dark:bg-blue-500/10", iconClass: "text-blue-600" },
@@ -156,6 +171,7 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
     { key: "piece", icon: Home, label: "Pièces/Zones", badge: pieces.length, bgClass: "bg-green-50 dark:bg-green-500/10", iconClass: "text-green-600" },
     { key: "contraintes", icon: ShieldAlert, label: "Contraintes", badge: contraintes.length, bgClass: "bg-red-50 dark:bg-red-500/10", iconClass: "text-red-600" },
     { key: "moyens", icon: Wrench, label: "Moyens RH", badge: rh.length + vehicules.length, bgClass: "bg-purple-50 dark:bg-purple-500/10", iconClass: "text-purple-600" },
+    { key: "voirie", icon: Construction, label: "Voirie", badge: null, badgeText: editData.needs_voirie ? (editData.voirie_status || "a_faire") : "Non requis", bgClass: "bg-yellow-50 dark:bg-yellow-500/10", iconClass: "text-yellow-600" },
   ];
 
   return (
@@ -240,6 +256,11 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
                     {tile.badge}
                   </span>
                 )}
+                {(tile as any).badgeText && (
+                  <span className="bg-foreground/10 text-foreground text-[10px] font-medium rounded-full px-2 py-0.5">
+                    {(tile as any).badgeText}
+                  </span>
+                )}
               </div>
               <p className="text-sm font-semibold text-foreground mt-2">{tile.label}</p>
               {tile.preview && (
@@ -257,18 +278,24 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
             </p>
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-3 px-3">
               {photosData.slice(0, 12).map((photo: any) => {
-                const url = getPhotoUrl(photo.storage_path);
+                const url = signedUrls[photo.storage_path];
                 return (
                   <button
                     key={photo.id}
-                    onClick={() => setAnnotatingPhoto({ src: url, photoId: photo.id, storagePath: photo.storage_path, pieceId: photo.piece_id })}
+                    onClick={() => url && setAnnotatingPhoto({ src: url, photoId: photo.id, storagePath: photo.storage_path, pieceId: photo.piece_id })}
                     className="relative rounded-xl overflow-hidden shrink-0 active:scale-95 transition-transform border border-border/50"
                     style={{ width: 80, height: 80 }}
                   >
-                    <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
-                    <div className="absolute bottom-0 right-0 bg-black/50 rounded-tl-lg p-1">
-                      <Pencil className="h-3 w-3 text-white" />
-                    </div>
+                    {url ? (
+                      <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <Skeleton className="w-full h-full" />
+                    )}
+                    {url && (
+                      <div className="absolute bottom-0 right-0 bg-black/50 rounded-tl-lg p-1">
+                        <Pencil className="h-3 w-3 text-white" />
+                      </div>
+                    )}
                   </button>
                 );
               })}
@@ -420,6 +447,22 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
         onExportPdf={handleExportPdf}
         exporting={exporting}
       />
+      <MobileVoirieSheet
+        open={activeSheet === "voirie"}
+        onClose={() => setActiveSheet(null)}
+        visiteId={visite.id}
+        needsVoirie={editData.needs_voirie ?? false}
+        voirieType={editData.voirie_type ?? null}
+        voirieStatus={editData.voirie_status ?? "a_faire"}
+        voirieNotes={editData.voirie_notes ?? null}
+        onSaved={(data) => {
+          updateField("needs_voirie", data.needs_voirie);
+          updateField("voirie_type", data.voirie_type);
+          updateField("voirie_status", data.voirie_status);
+          updateField("voirie_notes", data.voirie_notes);
+        }}
+      />
+
 
       <PdfPreviewDialog
         open={!!pdfPreview}

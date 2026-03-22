@@ -1,11 +1,12 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Camera, Image, Loader2, Tag, Pencil } from "lucide-react";
+import { Camera, Tag, Pencil, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PhotoAnnotationEditor } from "../PhotoAnnotationEditor";
 
 const PHOTO_CATEGORIES = [
   "Accès extérieur", "Passage", "Porte", "Escalier", "Toiture",
@@ -27,6 +28,9 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
   const [uploading, setUploading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [caption, setCaption] = useState("");
+  const [selectedPieceId, setSelectedPieceId] = useState("");
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [annotatingPhoto, setAnnotatingPhoto] = useState<{ url: string; path: string; photoId: string; pieceId: string } | null>(null);
 
   const { data: pieces = [] } = useQuery({
     queryKey: ["visite-pieces", visiteId],
@@ -49,7 +53,24 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
     enabled: open,
   });
 
-  const [selectedPieceId, setSelectedPieceId] = useState("");
+  // Generate signed URLs for all photos
+  useEffect(() => {
+    if (!existingPhotos.length) return;
+    const paths = existingPhotos.map((p: any) => p.storage_path).filter((p: string) => !signedUrls[p]);
+    if (!paths.length) return;
+
+    const loadUrls = async () => {
+      const newUrls: Record<string, string> = {};
+      await Promise.all(
+        paths.map(async (path: string) => {
+          const { data } = await supabase.storage.from("visite-photos").createSignedUrl(path, 3600);
+          if (data?.signedUrl) newUrls[path] = data.signedUrl;
+        })
+      );
+      setSignedUrls((prev) => ({ ...prev, ...newUrls }));
+    };
+    loadUrls();
+  }, [existingPhotos]);
 
   const ensureDefaultPiece = async (): Promise<string> => {
     if (selectedPieceId) return selectedPieceId;
@@ -76,9 +97,9 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
       const path = `${visiteId}/${pieceId}/${Date.now()}_${file.name}`;
       const { error: uploadErr } = await supabase.storage.from("visite-photos").upload(path, file);
       if (uploadErr) throw uploadErr;
-      
+
       const captionText = [selectedCategory, caption].filter(Boolean).join(" — ");
-      
+
       await supabase.from("visite_photos").insert({
         visite_id: visiteId,
         piece_id: pieceId,
@@ -99,122 +120,160 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
     }
   };
 
-  const getPhotoUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from("visite-photos").getPublicUrl(storagePath);
-    return data?.publicUrl || "";
+  const handleAnnotateSave = async (blob: Blob) => {
+    if (!annotatingPhoto) return;
+    try {
+      const file = new File([blob], `annotated-${Date.now()}.jpg`, { type: "image/jpeg" });
+      // Replace original file in storage
+      await supabase.storage.from("visite-photos").update(annotatingPhoto.path, file, { upsert: true });
+      // Clear cached signed URL so it reloads
+      setSignedUrls((prev) => {
+        const next = { ...prev };
+        delete next[annotatingPhoto.path];
+        return next;
+      });
+      toast.success("Photo annotée sauvegardée ✓");
+      queryClient.invalidateQueries({ queryKey: ["visite-photos-full", visiteId] });
+      queryClient.invalidateQueries({ queryKey: ["visite-photos", visiteId] });
+      setAnnotatingPhoto(null);
+    } catch (err: any) {
+      toast.error(err.message || "Erreur sauvegarde");
+    }
   };
 
   return (
-    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="bottom" className="rounded-t-3xl max-h-[90vh] overflow-y-auto pb-safe">
-        <SheetHeader className="pb-2">
-          <SheetTitle className="text-lg">
-            📸 Photos ({existingPhotos.length})
-          </SheetTitle>
-        </SheetHeader>
+    <>
+      <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
+        <SheetContent side="bottom" className="rounded-t-3xl max-h-[90vh] overflow-y-auto pb-safe">
+          <SheetHeader className="pb-2">
+            <SheetTitle className="text-lg">
+              📸 Photos ({existingPhotos.length})
+            </SheetTitle>
+          </SheetHeader>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture={mode === "camera" ? "environment" : undefined}
-          className="hidden"
-          onChange={handleFileSelect}
-        />
-
-        {/* Existing photos grid */}
-        {existingPhotos.length > 0 && (
-          <div className="grid grid-cols-2 gap-2 mt-3 mb-4">
-            {existingPhotos.map((photo: any) => {
-              const url = getPhotoUrl(photo.storage_path);
-              return (
-                <div key={photo.id} className="relative rounded-xl overflow-hidden border border-border/50 aspect-square">
-                  <img src={url} alt={photo.caption || ""} className="w-full h-full object-cover" loading="lazy" />
-                  {photo.caption && (
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
-                      <p className="text-[10px] text-white truncate">{photo.caption}</p>
-                    </div>
-                  )}
-                  {onAnnotate && (
-                    <button
-                      onClick={() => onAnnotate(url, photo.id, photo.storage_path, photo.piece_id)}
-                      className="absolute bottom-2 right-2 h-8 w-8 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Piece selector */}
-        <div className="space-y-2 mt-2">
-          <p className="text-sm font-medium text-muted-foreground">📍 Pièce / Zone</p>
-          <div className="flex flex-wrap gap-2">
-            {pieces.map((p: any) => (
-              <button
-                key={p.id}
-                onClick={() => setSelectedPieceId(p.id)}
-                className={`px-3 py-2 rounded-xl text-sm font-medium transition-all ${
-                  selectedPieceId === p.id
-                    ? "bg-primary text-primary-foreground shadow-md"
-                    : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {p.name}
-              </button>
-            ))}
-            {pieces.length === 0 && (
-              <p className="text-xs text-muted-foreground">Zone "Général" sera créée automatiquement</p>
-            )}
-          </div>
-        </div>
-
-        {/* Category selector */}
-        <div className="space-y-2 mt-3">
-          <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
-            <Tag className="h-3.5 w-3.5" /> Catégorie
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {PHOTO_CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(selectedCategory === cat ? "" : cat)}
-                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                  selectedCategory === cat
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Caption */}
-        <div className="mt-3">
-          <Input
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            placeholder="Légende / dimensions (optionnel)"
-            className="h-11 text-base rounded-xl"
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture={mode === "camera" ? "environment" : undefined}
+            className="hidden"
+            onChange={handleFileSelect}
           />
-        </div>
 
-        {/* FAB Camera button */}
-        <div className="fixed bottom-6 right-6 z-50">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="h-14 w-14 rounded-full bg-emerald-600 text-white shadow-lg flex items-center justify-center active:scale-90 transition-transform disabled:opacity-50"
-          >
-            {uploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
-          </button>
-        </div>
-      </SheetContent>
-    </Sheet>
+          {/* Existing photos grid */}
+          {existingPhotos.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 mt-3 mb-4">
+              {existingPhotos.map((photo: any) => {
+                const url = signedUrls[photo.storage_path];
+                return (
+                  <div key={photo.id} className="relative rounded-xl overflow-hidden border border-border/50 aspect-square">
+                    {url ? (
+                      <img src={url} alt={photo.caption || ""} className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <Skeleton className="w-full h-full" />
+                    )}
+                    {photo.caption && url && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
+                        <p className="text-[10px] text-white truncate">{photo.caption}</p>
+                      </div>
+                    )}
+                    {url && (
+                      <button
+                        onClick={() => {
+                          if (onAnnotate) {
+                            onAnnotate(url, photo.id, photo.storage_path, photo.piece_id);
+                          } else {
+                            setAnnotatingPhoto({ url, path: photo.storage_path, photoId: photo.id, pieceId: photo.piece_id });
+                          }
+                        }}
+                        className="absolute bottom-2 right-2 h-8 w-8 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Piece selector */}
+          <div className="space-y-2 mt-2">
+            <p className="text-sm font-medium text-muted-foreground">📍 Pièce / Zone</p>
+            <div className="flex flex-wrap gap-2">
+              {pieces.map((p: any) => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedPieceId(p.id)}
+                  className={`px-3 py-2 rounded-xl text-sm font-medium transition-all ${
+                    selectedPieceId === p.id
+                      ? "bg-primary text-primary-foreground shadow-md"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {p.name}
+                </button>
+              ))}
+              {pieces.length === 0 && (
+                <p className="text-xs text-muted-foreground">Zone "Général" sera créée automatiquement</p>
+              )}
+            </div>
+          </div>
+
+          {/* Category selector */}
+          <div className="space-y-2 mt-3">
+            <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+              <Tag className="h-3.5 w-3.5" /> Catégorie
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {PHOTO_CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(selectedCategory === cat ? "" : cat)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+                    selectedCategory === cat
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Caption */}
+          <div className="mt-3">
+            <Input
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="Légende / dimensions (optionnel)"
+              className="h-11 text-base rounded-xl"
+            />
+          </div>
+
+          {/* FAB Camera button */}
+          <div className="fixed bottom-6 right-6 z-50">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="h-14 w-14 rounded-full bg-emerald-600 text-white shadow-lg flex items-center justify-center active:scale-90 transition-transform disabled:opacity-50"
+            >
+              {uploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Camera className="h-6 w-6" />}
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Inline annotation editor */}
+      {annotatingPhoto && (
+        <PhotoAnnotationEditor
+          open={true}
+          onClose={() => setAnnotatingPhoto(null)}
+          imageSrc={annotatingPhoto.url}
+          onSave={handleAnnotateSave}
+        />
+      )}
+    </>
   );
 };
