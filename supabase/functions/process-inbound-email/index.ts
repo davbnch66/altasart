@@ -1081,17 +1081,71 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
     });
 
     // ── Notifications (with dedup to prevent duplicates) ──
-    // Skip notifications for spam, trash and sent folders — only notify for relevant emails
     const { data: emailRecord } = await supabase
       .from("inbound_emails")
       .select("folder")
       .eq("id", emailId)
       .single();
     const emailFolder = (emailRecord?.folder || "inbox").toLowerCase();
-    const skipNotifFolders = ["spam", "junk", "trash", "deleted", "corbeille", "poubelle", "sent"];
-    const shouldNotify = !skipNotifFolders.includes(emailFolder);
+    const spamTrashFolders = ["spam", "junk", "trash", "deleted", "corbeille", "poubelle"];
+    const isSpamOrTrash = spamTrashFolders.includes(emailFolder);
+    const isSent = emailFolder === "sent";
+    const isSpamCheckOnly = body.spam_check_only === true;
 
-    if (shouldNotify) {
+    // For spam/trash emails: do a lightweight AI false-positive check
+    if (isSpamOrTrash) {
+      try {
+        // Check if this email might be from a known client
+        const isFromClient = !!clientId;
+        // Check AI analysis for business relevance
+        const isBusinessRelevant = types.some((t: string) => ["devis", "visite", "confirmation", "relance", "information"].includes(t));
+        const hasCompanyName = !!(analysis.societe && analysis.societe.length > 2);
+        const hasMaterials = allMaterials.length > 0;
+
+        const mightBeFalsePositive = isFromClient || isBusinessRelevant || hasCompanyName || hasMaterials;
+
+        if (mightBeFalsePositive) {
+          // Check dedup
+          const { data: existingSpamNotifs } = await supabase
+            .from("notifications")
+            .select("id")
+            .eq("company_id", companyId)
+            .like("link", `%email=${emailId}%`)
+            .limit(1);
+
+          if (!existingSpamNotifs || existingSpamNotifs.length === 0) {
+            const { data: members } = await supabase
+              .from("company_memberships").select("profile_id").eq("company_id", companyId);
+
+            if (members && members.length > 0) {
+              const reasons: string[] = [];
+              if (isFromClient) reasons.push("client connu");
+              if (isBusinessRelevant) reasons.push(`demande ${types.filter((t: string) => t !== "autre").join("/")}`);
+              if (hasMaterials) reasons.push(`${allMaterials.length} matériels détectés`);
+              if (hasCompanyName) reasons.push(`société: ${analysis.societe}`);
+
+              const folderLabel = emailFolder === "spam" || emailFolder === "junk" ? "SPAM" : "CORBEILLE";
+              const notifTitle = `⚠️ Email en ${folderLabel} potentiellement important`;
+              const notifBody = `De ${safeFromName || safeFromEmail} — "${safeSubject.slice(0, 60)}" — Raison: ${reasons.join(", ")}`;
+
+              const notifications = members.map((m: any) => ({
+                company_id: companyId,
+                user_id: m.profile_id,
+                type: "spam_false_positive",
+                title: notifTitle,
+                body: notifBody.slice(0, 500),
+                link: `/inbox?email=${emailId}&folder=${emailFolder}`,
+              }));
+              await supabase.from("notifications").insert(notifications);
+              console.log(`Spam false positive alert created for email ${emailId} (${reasons.join(", ")})`);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Spam false positive check error:", e);
+      }
+    } else if (!isSent) {
+      // Normal notification for inbox emails
       const { data: existingNotifs } = await supabase
         .from("notifications")
         .select("id")
