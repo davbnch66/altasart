@@ -431,7 +431,7 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                       <div className="flex flex-wrap gap-1">
                         {getMaterielForPiece(piece.id).map((item: any) => (
                           <span key={item.id} className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                            {item.label || item.type}
+                            {item.designation}
                           </span>
                         ))}
                       </div>

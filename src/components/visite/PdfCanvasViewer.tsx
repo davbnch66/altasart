@@ -3,31 +3,28 @@ import * as pdfjsLib from "pdfjs-dist";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from "lucide-react";
 
-// Use the same version worker from CDN
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
 
 interface PdfCanvasViewerProps {
-  data: Uint8Array | ArrayBuffer | string; // raw bytes or data URI
+  data: Uint8Array | ArrayBuffer | string;
 }
 
 export function PdfCanvasViewer({ data }: PdfCanvasViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
+  const renderTasksRef = useRef<Map<number, pdfjsLib.RenderTask>>(new Map());
   const [pdf, setPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
-  const [page, setPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [numPages, setNumPages] = useState(0);
   const [scale, setScale] = useState(1.5);
-  const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
 
-  // Load document
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       try {
-        let source: any;
+        let source: { data?: Uint8Array | ArrayBuffer; url?: string };
         if (typeof data === "string" && data.startsWith("data:")) {
-          // Convert data URI to Uint8Array
           const base64 = data.split(",")[1];
           const binary = atob(base64);
           const bytes = new Uint8Array(binary.length);
@@ -43,7 +40,8 @@ export function PdfCanvasViewer({ data }: PdfCanvasViewerProps) {
         if (!cancelled) {
           setPdf(doc);
           setNumPages(doc.numPages);
-          setPage(1);
+          setCurrentPage(1);
+          canvasRefs.current = Array.from({ length: doc.numPages }, () => null);
         }
       } catch (err) {
         console.error("pdf.js load error:", err);
@@ -51,69 +49,120 @@ export function PdfCanvasViewer({ data }: PdfCanvasViewerProps) {
     }
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [data]);
 
-  // Render current page
   useEffect(() => {
-    if (!pdf || !canvasRef.current) return;
+    if (!pdf) return;
     let cancelled = false;
 
-    async function render() {
-      const pageObj = await pdf!.getPage(page);
-      if (cancelled) return;
+    const renderAllPages = async () => {
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+        const canvas = canvasRefs.current[pageNumber - 1];
+        if (!canvas) continue;
 
-      const viewport = pageObj.getViewport({ scale });
-      const canvas = canvasRef.current!;
-      const ctx = canvas.getContext("2d")!;
+        const page = await pdf.getPage(pageNumber);
+        if (cancelled) return;
 
-      // HiDPI support
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = viewport.width * dpr;
-      canvas.height = viewport.height * dpr;
-      canvas.style.width = `${viewport.width}px`;
-      canvas.style.height = `${viewport.height}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const viewport = page.getViewport({ scale });
+        const ctx = canvas.getContext("2d");
+        if (!ctx) continue;
 
-      // Cancel previous render
-      if (renderTaskRef.current) {
-        try { renderTaskRef.current.cancel(); } catch {}
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = viewport.width * dpr;
+        canvas.height = viewport.height * dpr;
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const existingTask = renderTasksRef.current.get(pageNumber);
+        if (existingTask) {
+          try {
+            existingTask.cancel();
+          } catch {}
+        }
+
+        const task = page.render({ canvasContext: ctx, viewport });
+        renderTasksRef.current.set(pageNumber, task);
+
+        try {
+          await task.promise;
+        } catch (e: any) {
+          if (e?.name !== "RenderingCancelledException") {
+            console.error(e);
+          }
+        }
       }
+    };
 
-      const task = pageObj.render({ canvasContext: ctx, viewport });
-      renderTaskRef.current = task;
-      try {
-        await task.promise;
-      } catch (e: any) {
-        if (e?.name !== "RenderingCancelledException") console.error(e);
-      }
-    }
+    renderAllPages();
 
-    render();
-    return () => { cancelled = true; };
-  }, [pdf, page, scale]);
+    return () => {
+      cancelled = true;
+      renderTasksRef.current.forEach((task) => {
+        try {
+          task.cancel();
+        } catch {}
+      });
+      renderTasksRef.current.clear();
+    };
+  }, [pdf, scale]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || numPages === 0) return;
+
+    const updateCurrentPage = () => {
+      const containerTop = container.getBoundingClientRect().top;
+      let nearestPage = 1;
+      let nearestDistance = Number.POSITIVE_INFINITY;
+
+      canvasRefs.current.forEach((canvas, index) => {
+        if (!canvas) return;
+        const distance = Math.abs(canvas.getBoundingClientRect().top - containerTop - 16);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestPage = index + 1;
+        }
+      });
+
+      setCurrentPage(nearestPage);
+    };
+
+    updateCurrentPage();
+    container.addEventListener("scroll", updateCurrentPage, { passive: true });
+    return () => container.removeEventListener("scroll", updateCurrentPage);
+  }, [numPages, scale]);
+
+  const scrollToPage = (pageNumber: number) => {
+    const canvas = canvasRefs.current[pageNumber - 1];
+    if (!canvas) return;
+    canvas.scrollIntoView({ behavior: "smooth", block: "start" });
+    setCurrentPage(pageNumber);
+  };
 
   return (
     <div className="flex flex-col h-full">
-      {/* Toolbar */}
       <div className="flex items-center justify-center gap-2 py-2 px-3 border-b bg-muted/30 shrink-0">
         <Button
           size="icon"
           variant="ghost"
-          onClick={() => setPage((p) => Math.max(1, p - 1))}
-          disabled={page <= 1}
+          onClick={() => scrollToPage(Math.max(1, currentPage - 1))}
+          disabled={currentPage <= 1}
           className="h-8 w-8"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <span className="text-sm text-muted-foreground min-w-[80px] text-center">
-          {page} / {numPages}
+          {currentPage} / {numPages}
         </span>
         <Button
           size="icon"
           variant="ghost"
-          onClick={() => setPage((p) => Math.min(numPages, p + 1))}
-          disabled={page >= numPages}
+          onClick={() => scrollToPage(Math.min(numPages, currentPage + 1))}
+          disabled={currentPage >= numPages}
           className="h-8 w-8"
         >
           <ChevronRight className="h-4 w-4" />
@@ -142,9 +191,18 @@ export function PdfCanvasViewer({ data }: PdfCanvasViewerProps) {
         </Button>
       </div>
 
-      {/* Canvas area */}
-      <div ref={containerRef} className="flex-1 min-h-0 overflow-auto flex justify-center p-4 bg-muted/10">
-        <canvas ref={canvasRef} className="shadow-lg" />
+      <div ref={containerRef} className="flex-1 min-h-0 overflow-auto bg-muted/10 p-4">
+        <div className="mx-auto flex w-fit flex-col gap-4">
+          {Array.from({ length: numPages }, (_, index) => (
+            <canvas
+              key={index + 1}
+              ref={(node) => {
+                canvasRefs.current[index] = node;
+              }}
+              className="shadow-lg bg-background"
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
