@@ -578,8 +578,11 @@ serve(async (req) => {
             inboundEmail = newInbound;
           }
 
-          // Trigger AI analysis only for NEW inbound emails (not re-synced ones)
-          if (inboundEmail && isNewInbound) {
+          // Trigger AI analysis only for NEW inbound emails in relevant folders
+          // Skip spam and trash — no notifications or AI processing for those
+          const skipAiFolders = ["spam", "junk", "trash", "deleted", "corbeille", "poubelle"];
+          const shouldAnalyze = inboundEmail && isNewInbound && !skipAiFolders.includes(normalizedFolder);
+          if (shouldAnalyze) {
             try {
               const processUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/process-inbound-email`;
               await fetch(processUrl, {
