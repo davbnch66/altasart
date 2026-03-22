@@ -201,10 +201,62 @@ export const InboxActionBar = ({ actions, onActionExecuted, clientEmail, clientN
     );
   };
 
+  const handleAcceptAll = async () => {
+    setLoadingActionId("all");
+    const ordered = [
+      ...suggestedActions.filter(a => ["create_client", "link_existing_client"].includes(a.action_type)),
+      ...suggestedActions.filter(a => a.action_type === "create_dossier"),
+      ...suggestedActions.filter(a => a.action_type === "plan_visite"),
+      ...suggestedActions.filter(a => a.action_type === "create_devis"),
+      ...suggestedActions.filter(a => !["create_client", "link_existing_client", "create_dossier", "plan_visite", "create_devis"].includes(a.action_type)),
+    ];
+    for (const action of ordered) {
+      try {
+        let overridePayload: any = undefined;
+        if (action.action_type === "link_existing_client") {
+          const best = (action.payload?.candidates || []).sort((a: any, b: any) => (b.score || 0) - (a.score || 0))[0];
+          if (best) overridePayload = { selected_client_id: best.client_id };
+        }
+        await supabase.functions.invoke("execute-email-action", {
+          body: {
+            action_id: action.id,
+            status: "accepted",
+            ...(overridePayload ? { override_payload: overridePayload } : {}),
+          },
+        });
+      } catch (err) {
+        console.error(`Erreur action ${action.action_type}:`, err);
+      }
+    }
+    toast.success("Toutes les actions ont été validées !");
+    queryClient.invalidateQueries({ queryKey: ["clients"] });
+    queryClient.invalidateQueries({ queryKey: ["dossiers"] });
+    queryClient.invalidateQueries({ queryKey: ["visites"] });
+    queryClient.invalidateQueries({ queryKey: ["devis"] });
+    queryClient.invalidateQueries({ queryKey: ["dossier-voirie"] });
+    setLoadingActionId(null);
+    onActionExecuted();
+  };
+
   return (
     <>
       <div className="rounded-xl border bg-card p-4 space-y-3">
         <h3 className="text-sm font-semibold">Actions suggérées</h3>
+
+        {suggestedActions.length >= 2 && (
+          <Button
+            className="w-full gap-2 bg-success hover:bg-success/90 text-success-foreground"
+            onClick={handleAcceptAll}
+            disabled={!!loadingActionId}
+          >
+            {loadingActionId === "all"
+              ? <Loader2 className="h-4 w-4 animate-spin" />
+              : <Check className="h-4 w-4" />
+            }
+            Valider toutes les actions ({suggestedActions.length})
+          </Button>
+        )}
+
         <div className="space-y-2">
           {suggestedActions.map((action) => {
             const config = actionConfig[action.action_type] || { label: action.action_type, icon: Link, color: "", successMsg: "OK" };
