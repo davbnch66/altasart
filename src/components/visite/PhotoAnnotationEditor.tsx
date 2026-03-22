@@ -37,6 +37,7 @@ const TOOL_COLORS = [
   { value: "#eab308", label: "Jaune" },
   { value: "#22c55e", label: "Vert" },
   { value: "#3b82f6", label: "Bleu" },
+  { value: "#8b5cf6", label: "Violet" },
   { value: "#ffffff", label: "Blanc" },
   { value: "#000000", label: "Noir" },
 ];
