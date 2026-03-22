@@ -401,7 +401,7 @@ const MobileVisiteList = ({ filtered, navigate }: {
   const { visibleItems, sentinelRef, hasMore } = useProgressiveList(filtered);
   const queryClient = useQueryClient();
 
-  const handleStatusChange = useCallback(async (visiteId: string, newStatus: string) => {
+  const handleStatusChange = useCallback(async (visiteId: string, newStatus: "planifiee" | "realisee" | "annulee") => {
     const { error } = await supabase
       .from("visites")
       .update({ status: newStatus })
