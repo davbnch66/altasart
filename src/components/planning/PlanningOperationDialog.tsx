@@ -259,12 +259,38 @@ export const PlanningOperationDialog = ({ open, onOpenChange, operationId }: Pro
       const { error } = await (supabase.from("operations") as any).update(formToPayload(form)).eq("id", operationId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.success("Opération mise à jour");
       queryClient.invalidateQueries({ queryKey: ["planning-operations"] });
       queryClient.invalidateQueries({ queryKey: ["dossier-operations"] });
       queryClient.invalidateQueries({ queryKey: ["dossier-operations-count"] });
       onOpenChange(false);
+
+      // Send push notifications to assigned resources
+      if (operationId) {
+        try {
+          const { data: orData } = await supabase
+            .from("operation_resources")
+            .select("resources(linked_profile_id, name)")
+            .eq("operation_id", operationId);
+
+          for (const or of orData || []) {
+            const profileId = (or.resources as any)?.linked_profile_id;
+            if (profileId) {
+              await supabase.functions.invoke("send-push-notification", {
+                body: {
+                  user_id: profileId,
+                  title: "🏗️ Mission mise à jour",
+                  body: `${form.loading_city || "Chantier"} → ${form.delivery_city || ""} le ${form.loading_date}`,
+                  link: "/terrain",
+                },
+              });
+            }
+          }
+        } catch (e) {
+          console.error("Push notification error:", e);
+        }
+      }
     },
     onError: () => toast.error("Erreur lors de la mise à jour"),
   });
