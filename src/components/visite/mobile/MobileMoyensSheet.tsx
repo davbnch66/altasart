@@ -65,14 +65,16 @@ export const MobileMoyensSheet = ({ open, onClose, visiteId, companyId }: Props)
 
   const addRH = useMutation({
     mutationFn: async (role: string) => {
-      await supabase.from("visite_ressources_humaines").insert({
+      const { error } = await supabase.from("visite_ressources_humaines").insert({
         visite_id: visiteId, company_id: companyId, role, quantity: 1, sort_order: rh.length,
       });
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Ajouté ✓");
       queryClient.invalidateQueries({ queryKey: ["visite-rh", visiteId] });
     },
+    onError: (err: any) => toast.error("Erreur : " + (err.message || "réessayez")),
   });
 
   const deleteRH = useMutation({
@@ -84,27 +86,45 @@ export const MobileMoyensSheet = ({ open, onClose, visiteId, companyId }: Props)
     },
   });
 
+  // Map resource_type → vehicule_type for company resources
+  const mapToVehiculeType = (resType: string): string => {
+    const mapping: Record<string, string> = {
+      grue: "grue_mobile",
+      vehicule: "utilitaire",
+      equipement: "autre",
+    };
+    return mapping[resType] || resType;
+  };
+
   const addVehicle = useMutation({
     mutationFn: async (params: { type: string; label?: string }) => {
-      await supabase.from("visite_vehicules").insert([{
-        visite_id: visiteId, company_id: companyId, type: params.type as any, label: params.label || null, quantity: 1, sort_order: vehicules.length,
+      const mappedType = mapToVehiculeType(params.type);
+      const { error } = await supabase.from("visite_vehicules").insert([{
+        visite_id: visiteId, company_id: companyId, type: mappedType as any, label: params.label || null, sort_order: vehicules.length,
       }]);
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Ajouté ✓");
       queryClient.invalidateQueries({ queryKey: ["visite-vehicules", visiteId] });
       queryClient.invalidateQueries({ queryKey: ["visite-moyens-count", visiteId] });
     },
+    onError: (err: any) => {
+      console.error("Erreur ajout véhicule:", err);
+      toast.error("Erreur : " + (err.message || "impossible d'ajouter"));
+    },
   });
 
   const deleteVehicle = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from("visite_vehicules").delete().eq("id", id);
+      const { error } = await supabase.from("visite_vehicules").delete().eq("id", id);
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["visite-vehicules", visiteId] });
       queryClient.invalidateQueries({ queryKey: ["visite-moyens-count", visiteId] });
     },
+    onError: (err: any) => toast.error("Erreur suppression : " + (err.message || "réessayez")),
   });
 
   return (
@@ -175,7 +195,7 @@ export const MobileMoyensSheet = ({ open, onClose, visiteId, companyId }: Props)
                         <p className="font-medium text-sm">
                           {item.label || VEHICLE_TYPES.find((v) => v.value === item.type)?.label || item.type}
                         </p>
-                        <p className="text-xs text-muted-foreground">× {item.quantity}</p>
+                        <p className="text-xs text-muted-foreground">{VEHICLE_TYPES.find((v) => v.value === item.type)?.label || item.type}</p>
                       </div>
                       <button onClick={() => deleteVehicle.mutate(item.id)} className="p-2 text-destructive">
                         <Trash2 className="h-4 w-4" />
