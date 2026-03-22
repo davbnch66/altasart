@@ -21,6 +21,8 @@ const typeIcons: Record<string, string> = {
   visite_requested: "📋",
   client_response: "💬",
   date_to_validate: "📅",
+  spam_false_positive: "⚠️",
+  info: "ℹ️",
 };
 
 export const NotificationBell = () => {
