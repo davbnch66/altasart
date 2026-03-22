@@ -1,5 +1,5 @@
-import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
-import { ClipboardCheck, MapPin, Camera, Calendar, User, Search, Plus, Loader2, ChevronRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ClipboardCheck, MapPin, Camera, Calendar, User, Search, Plus, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -8,7 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CreateVisiteDialog } from "@/components/forms/CreateVisiteDialog";
@@ -392,7 +393,7 @@ const KanbanCard = ({ visite, colors, navigate }: {
   );
 };
 
-// ─── Mobile List View with Swipe ────────────────────────
+// ─── Mobile List View ───────────────────────────────────
 const MobileVisiteList = ({ filtered, navigate }: {
   filtered: any[];
   navigate: (path: string) => void;
@@ -402,7 +403,7 @@ const MobileVisiteList = ({ filtered, navigate }: {
   return (
     <div className="space-y-2">
       {visibleItems.map((visite: any) => (
-        <SwipeableCard key={visite.id} visite={visite} navigate={navigate} />
+        <MobileCard key={visite.id} visite={visite} navigate={navigate} />
       ))}
       <div ref={sentinelRef} className="flex items-center justify-center py-3">
         {hasMore && (
@@ -416,13 +417,12 @@ const MobileVisiteList = ({ filtered, navigate }: {
   );
 };
 
-const SwipeableCard = ({ visite, navigate }: { visite: any; navigate: (path: string) => void }) => {
+const MobileCard = ({ visite, navigate }: { visite: any; navigate: (path: string) => void }) => {
   const client = visite.clients as any;
   const tech = visite.resources as any;
   const colors = statusColors[visite.status] || statusColors.planifiee;
-  const x = useMotionValue(0);
-  const bgOpacity = useTransform(x, [-120, -60, 0, 60, 120], [1, 0.8, 0, 0.8, 1]);
-  const [swiped, setSwiped] = useState<"left" | "right" | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleStatusChange = useCallback(async (newStatus: "planifiee" | "realisee" | "annulee") => {
     const { error } = await supabase
@@ -434,75 +434,80 @@ const SwipeableCard = ({ visite, navigate }: { visite: any; navigate: (path: str
     } else {
       toast.success(`Visite marquée comme ${statusLabels[newStatus]?.toLowerCase() || newStatus}`);
     }
-    setSwiped(null);
   }, [visite.id]);
 
-  return (
-    <div className="relative overflow-hidden rounded-xl">
-      {/* Background actions */}
-      <motion.div style={{ opacity: bgOpacity }} className="absolute inset-0 flex">
-        <div className="flex-1 bg-success flex items-center justify-start pl-4">
-          <span className="text-white text-xs font-medium">✓ Réalisée</span>
-        </div>
-        <div className="flex-1 bg-destructive flex items-center justify-end pr-4">
-          <span className="text-white text-xs font-medium">✕ Annuler</span>
-        </div>
-      </motion.div>
+  const onPointerDown = useCallback(() => {
+    longPressTimer.current = setTimeout(() => {
+      setMenuOpen(true);
+    }, 500);
+  }, []);
 
-      {/* Foreground card */}
-      <motion.div
-        style={{ x }}
-        drag="x"
-        dragConstraints={{ left: -120, right: 120 }}
-        dragElastic={0.1}
-        onDragEnd={(_, info) => {
-          if (info.offset.x < -80) {
-            handleStatusChange("annulee");
-          } else if (info.offset.x > 80) {
-            handleStatusChange("realisee");
-          }
-        }}
-        onClick={() => navigate(`/visites/${visite.id}`)}
-        className="relative rounded-xl border bg-card p-3 active:bg-muted/30 transition-colors cursor-pointer"
-      >
-        <div className="flex items-center gap-3">
-          <div className={`h-9 w-9 rounded-lg ${colors.bg} flex items-center justify-center shrink-0`}>
-            <div className={`h-2.5 w-2.5 rounded-full ${colors.dot}`} />
+  const onPointerUpOrLeave = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  return (
+    <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+      <DropdownMenuTrigger asChild>
+        <div
+          onClick={() => { if (!menuOpen) navigate(`/visites/${visite.id}`); }}
+          onPointerDown={onPointerDown}
+          onPointerUp={onPointerUpOrLeave}
+          onPointerLeave={onPointerUpOrLeave}
+          className="rounded-2xl border bg-card p-4 mb-2 active:bg-muted/30 transition-colors cursor-pointer select-none"
+        >
+          {/* Row 1: Client name + status badge */}
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <p className="text-base font-semibold truncate">{client?.name || "—"}</p>
+            <span className={`shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${colors.bg} ${colors.text}`}>
+              {statusLabels[visite.status] || visite.status}
+            </span>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <p className="font-semibold text-sm truncate">{client?.name || "—"}</p>
-              <span className={`shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${colors.bg} ${colors.text}`}>
-                {statusLabels[visite.status] || visite.status}
+
+          {/* Row 2: Address */}
+          {visite.address && (
+            <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mb-1">
+              <MapPin className="h-3 w-3 shrink-0" />
+              {visite.address}
+            </p>
+          )}
+
+          {/* Row 3: Date + Tech */}
+          <div className="flex items-center gap-3 text-xs text-muted-foreground mb-0.5">
+            {visite.scheduled_date && (
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {format(new Date(visite.scheduled_date), "d MMM", { locale: fr })}
               </span>
-            </div>
-            {visite.address && (
-              <p className="text-xs text-muted-foreground truncate mt-0.5">{visite.address}</p>
             )}
-            <div className="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground">
-              {visite.scheduled_date && (
-                <span className="flex items-center gap-0.5">
-                  <Calendar className="h-3 w-3" />
-                  {format(new Date(visite.scheduled_date), "d MMM", { locale: fr })}
-                </span>
-              )}
-              {tech?.name && (
-                <span className="flex items-center gap-0.5">
-                  <User className="h-3 w-3" />
-                  {tech.name}
-                </span>
-              )}
-              {(visite.photos_count || 0) > 0 && (
-                <span className="flex items-center gap-0.5">
-                  <Camera className="h-3 w-3" /> {visite.photos_count}
-                </span>
-              )}
-            </div>
+            {tech?.name && (
+              <span className="flex items-center gap-1">
+                <User className="h-3 w-3" />
+                {tech.name}
+              </span>
+            )}
           </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+
+          {/* Row 4: Photos count */}
+          {(visite.photos_count || 0) > 0 && (
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Camera className="h-3 w-3" /> {visite.photos_count} photo{visite.photos_count > 1 ? "s" : ""}
+            </span>
+          )}
         </div>
-      </motion.div>
-    </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => handleStatusChange("realisee")} className="text-emerald-600">
+          ✓ Marquer Réalisée
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleStatusChange("annulee")} className="text-destructive">
+          ✕ Annuler la visite
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 
