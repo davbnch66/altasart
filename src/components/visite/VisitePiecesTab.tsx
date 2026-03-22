@@ -74,6 +74,34 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
     },
   });
 
+  const { data: materiel = [] } = useQuery({
+    queryKey: ["visite-materiel", visiteId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("visite_materiel")
+        .select("id, label, type")
+        .eq("visite_id", visiteId)
+        .order("sort_order");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: affectations = [] } = useQuery({
+    queryKey: ["visite-materiel-affectations", visiteId, pieces.map((p: any) => p.id).join(",")],
+    queryFn: async () => {
+      const pieceIds = pieces.map((p: any) => p.id);
+      if (!pieceIds.length) return [];
+      const { data, error } = await supabase
+        .from("visite_materiel_affectations")
+        .select("id, piece_id, materiel_id, quantity")
+        .in("piece_id", pieceIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: pieces.length > 0,
+  });
+
   const reorderMutation = useMutation({
     mutationFn: async (updates: { id: string; sort_order: number }[]) => {
       const promises = updates.map(({ id, sort_order }) =>
