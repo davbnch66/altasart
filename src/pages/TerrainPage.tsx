@@ -61,6 +61,7 @@ export default function TerrainPage() {
   const { role } = useMyRole();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { permission, subscribe: subscribePush } = usePushNotifications();
 
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [signatureTarget, setSignatureTarget] = useState<SignatureTarget>(null);
