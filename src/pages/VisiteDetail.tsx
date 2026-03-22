@@ -162,10 +162,12 @@ const VisiteDetail = () => {
     onError: () => toast.error("Erreur lors de la sauvegarde"),
   });
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (overrides?: Record<string, any>) => {
     if (!editData) return false;
+    const dataToSave = overrides ? { ...editData, ...overrides } : editData;
+    if (overrides) setEditData(dataToSave);
     try {
-      await saveMutation.mutateAsync(editData);
+      await saveMutation.mutateAsync(dataToSave);
       return true;
     } catch {
       return false;
