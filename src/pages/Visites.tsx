@@ -398,7 +398,7 @@ const MobileVisiteList = ({ filtered, navigate }: {
   filtered: any[];
   navigate: (path: string) => void;
 }) => {
-  const { visibleItems, sentinelRef, hasMore } = useProgressiveList(filtered);
+  const { visibleItems, sentinelRef, hasMore } = useProgressiveList(filtered, 12);
   const queryClient = useQueryClient();
 
   const handleStatusChange = useCallback(async (visiteId: string, newStatus: "planifiee" | "realisee" | "annulee") => {
