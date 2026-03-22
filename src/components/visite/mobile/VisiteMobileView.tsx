@@ -278,18 +278,24 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
             </p>
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-3 px-3">
               {photosData.slice(0, 12).map((photo: any) => {
-                const url = getPhotoUrl(photo.storage_path);
+                const url = signedUrls[photo.storage_path];
                 return (
                   <button
                     key={photo.id}
-                    onClick={() => setAnnotatingPhoto({ src: url, photoId: photo.id, storagePath: photo.storage_path, pieceId: photo.piece_id })}
+                    onClick={() => url && setAnnotatingPhoto({ src: url, photoId: photo.id, storagePath: photo.storage_path, pieceId: photo.piece_id })}
                     className="relative rounded-xl overflow-hidden shrink-0 active:scale-95 transition-transform border border-border/50"
                     style={{ width: 80, height: 80 }}
                   >
-                    <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
-                    <div className="absolute bottom-0 right-0 bg-black/50 rounded-tl-lg p-1">
-                      <Pencil className="h-3 w-3 text-white" />
-                    </div>
+                    {url ? (
+                      <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <Skeleton className="w-full h-full" />
+                    )}
+                    {url && (
+                      <div className="absolute bottom-0 right-0 bg-black/50 rounded-tl-lg p-1">
+                        <Pencil className="h-3 w-3 text-white" />
+                      </div>
+                    )}
                   </button>
                 );
               })}
