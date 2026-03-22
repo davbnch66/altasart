@@ -97,7 +97,10 @@ export async function generateVisitePdf(visiteId: string, options?: { photosPerR
   const company = visite.companies as any;
   const pieces = piecesRes.data || [];
   const materiel = materielRes.data || [];
-  const affectations = (affectationsRes.data || []).filter((a: any) => materiel.some((m: any) => m.id === a.materiel_id));
+  const pieceIds = new Set(pieces.map((p: any) => p.id));
+  const affectations = (affectationsRes.data || []).filter(
+    (a: any) => pieceIds.has(a.piece_id) && materiel.some((m: any) => m.id === a.materiel_id)
+  );
   const rh = rhRes.data || [];
   const vehicules = vehiculesRes.data || [];
   const contraintes = contraintesRes.data;
@@ -304,9 +307,24 @@ export async function generateVisitePdf(visiteId: string, options?: { photosPerR
     for (const [pieceId, piecePhotos] of Object.entries(photosByPiece)) {
       if (piecePhotos.length === 0) continue;
       const pieceName = pieceId ? (pieces.find((p: any) => p.id === pieceId) as any)?.name || "Zone" : "Sans piece";
+      const pieceAff = affectations.filter((a: any) => a.piece_id === pieceId);
 
-      y = checkPage(doc, y, 15, logo, company, pageW, marginL, marginR);
+      y = checkPage(doc, y, pieceAff.length > 0 ? 20 : 15, logo, company, pageW, marginL, marginR);
       y = subTitle(doc, pieceName, y, marginL);
+      if (pieceAff.length > 0) {
+        const pieceMaterielLine = pieceAff
+          .map((aff: any) => `${(aff as any).visite_materiel?.designation || "—"} x ${aff.quantity}`)
+          .join("  •  ");
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(7);
+        doc.setTextColor(100, 100, 100);
+        const infoLines = doc.splitTextToSize(`Matériel : ${pieceMaterielLine}`, contentW - 6);
+        for (const line of infoLines) {
+          doc.text(line, marginL + 3, y);
+          y += 3.5;
+        }
+        doc.setFont("helvetica", "normal");
+      }
 
       // Try to load and add photos
       let rowMaxH = 0;
