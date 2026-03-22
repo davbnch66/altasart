@@ -157,8 +157,8 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     img.onload = () => {
       if (cancelled) return;
       imgRef.current = img;
-      const maxW = window.innerWidth - 16;
-      const maxH = window.innerHeight - 280;
+      const maxW = window.innerWidth;
+      const maxH = window.innerHeight - 260;
       const scale = Math.min(maxW / img.width, maxH / img.height, 1);
       setCanvasSize({ w: Math.round(img.width * scale), h: Math.round(img.height * scale) });
       setImageLoaded(true);
