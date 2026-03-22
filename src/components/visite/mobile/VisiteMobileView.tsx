@@ -464,6 +464,7 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
       />
 
 
+      <PdfPreviewDialog
         open={!!pdfPreview}
         onClose={() => setPdfPreview(null)}
         blobUrl={pdfPreview?.blobUrl || null}
