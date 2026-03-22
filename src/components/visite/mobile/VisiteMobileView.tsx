@@ -1,11 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
   ArrowLeft, Save, Loader2, Download, Phone, MapPin, Calendar,
-  CheckCircle2, Camera, Package, StickyNote, ShieldAlert, Wrench, Home, FileText, Pencil
+  CheckCircle2, Camera, Package, StickyNote, ShieldAlert, Wrench, Home, FileText, Pencil, Construction
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -17,10 +17,12 @@ import { MobileContraintesSheet } from "./MobileContraintesSheet";
 import { MobileMoyensSheet } from "./MobileMoyensSheet";
 import { MobileNotesSheet } from "./MobileNotesSheet";
 import { MobileVisiteSummary } from "./MobileVisiteSummary";
+import { MobileVoirieSheet } from "./MobileVoirieSheet";
 import { VisiteSmartAlerts } from "../VisiteSmartAlerts";
 import { generateVisitePdf } from "@/lib/generateVisitePdf";
 import { PdfPreviewDialog } from "../PdfPreviewDialog";
 import { PhotoAnnotationEditor } from "../PhotoAnnotationEditor";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
