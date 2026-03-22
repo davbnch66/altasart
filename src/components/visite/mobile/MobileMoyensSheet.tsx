@@ -84,16 +84,32 @@ export const MobileMoyensSheet = ({ open, onClose, visiteId, companyId }: Props)
     },
   });
 
+  // Map resource_type → vehicule_type for company resources
+  const mapToVehiculeType = (resType: string): string => {
+    const mapping: Record<string, string> = {
+      grue: "grue_mobile",
+      vehicule: "utilitaire",
+      equipement: "autre",
+    };
+    return mapping[resType] || resType;
+  };
+
   const addVehicle = useMutation({
     mutationFn: async (params: { type: string; label?: string }) => {
-      await supabase.from("visite_vehicules").insert([{
-        visite_id: visiteId, company_id: companyId, type: params.type as any, label: params.label || null, quantity: 1, sort_order: vehicules.length,
+      const mappedType = mapToVehiculeType(params.type);
+      const { error } = await supabase.from("visite_vehicules").insert([{
+        visite_id: visiteId, company_id: companyId, type: mappedType as any, label: params.label || null, sort_order: vehicules.length,
       }]);
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Ajouté ✓");
       queryClient.invalidateQueries({ queryKey: ["visite-vehicules", visiteId] });
       queryClient.invalidateQueries({ queryKey: ["visite-moyens-count", visiteId] });
+    },
+    onError: (err: any) => {
+      console.error("Erreur ajout véhicule:", err);
+      toast.error("Erreur : " + (err.message || "impossible d'ajouter"));
     },
   });
 
