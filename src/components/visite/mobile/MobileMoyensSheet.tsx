@@ -103,6 +103,7 @@ export const MobileMoyensSheet = ({ open, onClose, visiteId, companyId }: Props)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["visite-vehicules", visiteId] });
+      queryClient.invalidateQueries({ queryKey: ["visite-moyens-count", visiteId] });
     },
   });
 
