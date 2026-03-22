@@ -9,12 +9,14 @@ const BATCH_SIZE = 50;
  */
 export function useProgressiveList<T>(items: T[], batchSize = BATCH_SIZE) {
   const [visibleCount, setVisibleCount] = useState(batchSize);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const prevLengthRef = useRef(items.length);
 
   // Reset when items change (new filter, new data)
   useEffect(() => {
     if (items.length !== prevLengthRef.current) {
       setVisibleCount(batchSize);
+      setIsLoadingMore(false);
       prevLengthRef.current = items.length;
     }
   }, [items.length, batchSize]);
@@ -22,13 +24,21 @@ export function useProgressiveList<T>(items: T[], batchSize = BATCH_SIZE) {
   const hasMore = visibleCount < items.length;
 
   const loadMore = useCallback(() => {
-    setVisibleCount((prev) => Math.min(prev + batchSize, items.length));
-  }, [items.length, batchSize]);
+    if (!hasMore || isLoadingMore) return;
+
+    setIsLoadingMore(true);
+    requestAnimationFrame(() => {
+      setVisibleCount((prev) => Math.min(prev + batchSize, items.length));
+      requestAnimationFrame(() => {
+        setIsLoadingMore(false);
+      });
+    });
+  }, [batchSize, hasMore, isLoadingMore, items.length]);
 
   const sentinelRef = useInfiniteScroll({
     onLoadMore: loadMore,
     hasMore,
-    isLoading: false,
+    isLoading: isLoadingMore,
   });
 
   const visibleItems = items.slice(0, visibleCount);
