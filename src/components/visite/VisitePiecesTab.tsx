@@ -74,6 +74,34 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
     },
   });
 
+  const { data: materiel = [] } = useQuery({
+    queryKey: ["visite-materiel", visiteId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("visite_materiel")
+        .select("id, label, type")
+        .eq("visite_id", visiteId)
+        .order("sort_order");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: affectations = [] } = useQuery({
+    queryKey: ["visite-materiel-affectations", visiteId, pieces.map((p: any) => p.id).join(",")],
+    queryFn: async () => {
+      const pieceIds = pieces.map((p: any) => p.id);
+      if (!pieceIds.length) return [];
+      const { data, error } = await supabase
+        .from("visite_materiel_affectations")
+        .select("id, piece_id, materiel_id, quantity")
+        .in("piece_id", pieceIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: pieces.length > 0,
+  });
+
   const reorderMutation = useMutation({
     mutationFn: async (updates: { id: string; sort_order: number }[]) => {
       const promises = updates.map(({ id, sort_order }) =>
@@ -237,6 +265,12 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
   };
 
   const piecePhotos = (pieceId: string) => photos.filter((p) => p.piece_id === pieceId);
+  const getMaterielForPiece = (pieceId: string) => {
+    const materielIds = affectations
+      .filter((a: any) => a.piece_id === pieceId)
+      .map((a: any) => a.materiel_id);
+    return materiel.filter((m: any) => materielIds.includes(m.id));
+  };
 
   const handleAnnotationSave = async (blob: Blob) => {
     if (!annotating) return;
@@ -370,7 +404,7 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                     </div>
                   );
                   return (
-                  <div key={photo.id} className="space-y-1">
+                  <div key={photo.id} className="space-y-1.5">
                     <div className="relative group w-full max-w-[200px] aspect-square rounded-lg overflow-hidden border cursor-pointer" onClick={() => setLightboxSrc(photoSrc)}>
                       <img src={photoSrc} alt={photo.file_name || ""} className="w-full h-full object-cover" loading="lazy" />
                       <button
@@ -393,6 +427,15 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
                       placeholder="Légende / description..."
                       className="text-xs h-7"
                     />
+                    {getMaterielForPiece(piece.id).length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {getMaterielForPiece(piece.id).map((item: any) => (
+                          <span key={item.id} className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                            {item.label || item.type}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   );
                 })}
