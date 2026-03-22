@@ -192,7 +192,9 @@ export const NotificationBell = () => {
                   key={notif.id}
                   onClick={() => handleClick(notif)}
                   className={`w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex gap-3 group ${
-                    !notif.read ? "bg-primary/[0.03]" : ""
+                    notif.type === "spam_false_positive"
+                      ? "bg-orange-500/10 border-l-4 border-orange-500"
+                      : !notif.read ? "bg-primary/[0.03]" : ""
                   }`}
                 >
                   <span className="text-base mt-0.5 shrink-0">
