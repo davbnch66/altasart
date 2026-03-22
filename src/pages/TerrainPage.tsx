@@ -27,6 +27,7 @@ import { VehicleExpenseDialog } from "@/components/terrain/VehicleExpenseDialog"
 import { Receipt } from "lucide-react";
 import { PlanningOperationDialog } from "@/components/planning/PlanningOperationDialog";
 import { ARPhotoOverlay } from "@/components/ar/ARPhotoOverlay";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const todayStr = () => {
   const d = new Date();
