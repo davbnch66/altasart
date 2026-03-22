@@ -554,6 +554,7 @@ serve(async (req) => {
             .maybeSingle();
 
           let inboundEmail = existingInbound;
+          const isNewInbound = !existingInbound;
           if (!existingInbound) {
             const { data: newInbound } = await supabase
               .from("inbound_emails")
@@ -577,8 +578,8 @@ serve(async (req) => {
             inboundEmail = newInbound;
           }
 
-          // Trigger AI analysis via process-inbound-email
-          if (inboundEmail) {
+          // Trigger AI analysis only for NEW inbound emails (not re-synced ones)
+          if (inboundEmail && isNewInbound) {
             try {
               const processUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/process-inbound-email`;
               await fetch(processUrl, {
