@@ -3,10 +3,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
-import { Camera, Tag, Pencil, Loader2 } from "lucide-react";
+import { Camera, Tag, Pencil, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PhotoAnnotationEditor } from "../PhotoAnnotationEditor";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const PHOTO_CATEGORIES = [
   "Accès extérieur", "Passage", "Porte", "Escalier", "Toiture",
@@ -31,6 +36,9 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
   const [selectedPieceId, setSelectedPieceId] = useState("");
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [annotatingPhoto, setAnnotatingPhoto] = useState<{ url: string; path: string; photoId: string; pieceId: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; path: string } | null>(null);
+  const [captions, setCaptions] = useState<Record<string, string>>({});
+  const [pieceSelect, setPieceSelect] = useState<string | null>(null);
 
   const { data: pieces = [] } = useQuery({
     queryKey: ["visite-pieces", visiteId],
@@ -52,6 +60,16 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
     },
     enabled: open,
   });
+
+  // Init captions from DB data
+  useEffect(() => {
+    if (!existingPhotos.length) return;
+    const init: Record<string, string> = {};
+    existingPhotos.forEach((p: any) => {
+      if (captions[p.id] === undefined) init[p.id] = p.caption || "";
+    });
+    if (Object.keys(init).length) setCaptions((prev) => ({ ...prev, ...init }));
+  }, [existingPhotos]);
 
   // Generate signed URLs for all photos
   useEffect(() => {
@@ -111,8 +129,7 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
       toast.success("Photo ajoutée ✓");
       setCaption("");
       setSelectedCategory("");
-      queryClient.invalidateQueries({ queryKey: ["visite-photos", visiteId] });
-      queryClient.invalidateQueries({ queryKey: ["visite-photos-full", visiteId] });
+      invalidatePhotos();
     } catch (err: any) {
       toast.error(err.message || "Erreur upload");
     } finally {
@@ -120,14 +137,24 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
     }
   };
 
+  const invalidatePhotos = () => {
+    queryClient.invalidateQueries({ queryKey: ["visite-photos", visiteId] });
+    queryClient.invalidateQueries({ queryKey: ["visite-photos-full", visiteId] });
+  };
+
+  // Bug 1 fix: upsert on same path, update existing row, no new insert
   const handleAnnotateSave = async (blob: Blob) => {
     if (!annotatingPhoto) return;
     try {
-      // Replace original file using upload with upsert (not update)
       await supabase.storage.from("visite-photos").upload(annotatingPhoto.path, blob, {
         contentType: "image/png",
         upsert: true,
       });
+      // Update existing row (no new insert)
+      await supabase
+        .from("visite_photos")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", annotatingPhoto.photoId);
       // Clear cached signed URL so it reloads
       setSignedUrls((prev) => {
         const next = { ...prev };
@@ -135,12 +162,53 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
         return next;
       });
       toast.success("Photo annotée sauvegardée ✓");
-      queryClient.invalidateQueries({ queryKey: ["visite-photos-full", visiteId] });
-      queryClient.invalidateQueries({ queryKey: ["visite-photos", visiteId] });
+      invalidatePhotos();
       setAnnotatingPhoto(null);
     } catch (err: any) {
       toast.error(err.message || "Erreur sauvegarde");
     }
+  };
+
+  // Caption save on blur
+  const handleCaptionBlur = async (photoId: string) => {
+    const val = captions[photoId] ?? "";
+    try {
+      await supabase.from("visite_photos").update({ caption: val || null }).eq("id", photoId);
+    } catch {
+      // silent
+    }
+  };
+
+  // Delete photo
+  const handleDeletePhoto = async () => {
+    if (!deleteConfirm) return;
+    try {
+      await supabase.storage.from("visite-photos").remove([deleteConfirm.path]);
+      await supabase.from("visite_photos").delete().eq("id", deleteConfirm.id);
+      toast.success("Photo supprimée");
+      invalidatePhotos();
+    } catch (err: any) {
+      toast.error(err.message || "Erreur suppression");
+    } finally {
+      setDeleteConfirm(null);
+    }
+  };
+
+  // Assign piece to photo
+  const handleAssignPiece = async (photoId: string, newPieceId: string) => {
+    try {
+      await supabase.from("visite_photos").update({ piece_id: newPieceId }).eq("id", photoId);
+      invalidatePhotos();
+      setPieceSelect(null);
+    } catch {
+      toast.error("Erreur");
+    }
+  };
+
+  const getPieceName = (pieceId: string | null) => {
+    if (!pieceId) return null;
+    const p = pieces.find((pc: any) => pc.id === pieceId);
+    return p ? p.name : null;
   };
 
   return (
@@ -164,42 +232,80 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
 
           {/* Existing photos grid */}
           {existingPhotos.length > 0 && (
-            <div className="grid grid-cols-2 gap-2 mt-3 mb-4">
+            <div className="grid grid-cols-2 gap-3 mt-3 mb-4">
               {existingPhotos.map((photo: any) => {
                 const url = signedUrls[photo.storage_path];
+                const pieceName = getPieceName(photo.piece_id);
                 return (
-                  <div key={photo.id} className="relative rounded-xl overflow-hidden border border-border/50 aspect-square">
-                    {url ? (
-                      <img src={url} alt={photo.caption || ""} className="w-full h-full object-cover" loading="lazy" />
-                    ) : (
-                      <Skeleton className="w-full h-full" />
-                    )}
-                    {photo.caption && url && (
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/60 px-2 py-1">
-                        <p className="text-[10px] text-white truncate">{photo.caption}</p>
-                      </div>
-                    )}
-                    {url && (
+                  <div key={photo.id} className="flex flex-col gap-1.5">
+                    {/* Image with annotate overlay */}
+                    <div className="relative rounded-xl overflow-hidden border border-border/50" style={{ height: 160 }}>
+                      {url ? (
+                        <img src={url} alt={photo.caption || ""} className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <Skeleton className="w-full h-full" />
+                      )}
+                      {url && (
+                        <button
+                          onClick={() => {
+                            if (onAnnotate) {
+                              onAnnotate(url, photo.id, photo.storage_path, photo.piece_id);
+                            } else {
+                              setAnnotatingPhoto({ url, path: photo.storage_path, photoId: photo.id, pieceId: photo.piece_id });
+                            }
+                          }}
+                          className="absolute bottom-2 right-2 h-8 w-8 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    {/* Caption input */}
+                    <Input
+                      value={captions[photo.id] ?? photo.caption ?? ""}
+                      onChange={(e) => setCaptions((prev) => ({ ...prev, [photo.id]: e.target.value }))}
+                      onBlur={() => handleCaptionBlur(photo.id)}
+                      placeholder="Légende..."
+                      className="h-8 text-xs rounded-lg"
+                    />
+                    {/* Piece badge + delete */}
+                    <div className="flex items-center justify-between gap-1">
+                      {pieceSelect === photo.id ? (
+                        <div className="flex flex-wrap gap-1 flex-1">
+                          {pieces.map((p: any) => (
+                            <button
+                              key={p.id}
+                              onClick={() => handleAssignPiece(photo.id, p.id)}
+                              className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary"
+                            >
+                              {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setPieceSelect(photo.id)}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            pieceName ? "bg-blue-500/15 text-blue-600" : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {pieceName || "+ Pièce"}
+                        </button>
+                      )}
                       <button
-                        onClick={() => {
-                          if (onAnnotate) {
-                            onAnnotate(url, photo.id, photo.storage_path, photo.piece_id);
-                          } else {
-                            setAnnotatingPhoto({ url, path: photo.storage_path, photoId: photo.id, pieceId: photo.piece_id });
-                          }
-                        }}
-                        className="absolute bottom-2 right-2 h-8 w-8 rounded-full bg-black/60 text-white flex items-center justify-center active:scale-90 transition-transform"
+                        onClick={() => setDeleteConfirm({ id: photo.id, path: photo.storage_path })}
+                        className="p-1 text-destructive"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
-                    )}
+                    </div>
                   </div>
                 );
               })}
             </div>
           )}
 
-          {/* Piece selector */}
+          {/* Piece selector for new photos */}
           <div className="space-y-2 mt-2">
             <p className="text-sm font-medium text-muted-foreground">📍 Pièce / Zone</p>
             <div className="flex flex-wrap gap-2">
@@ -244,7 +350,7 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
             </div>
           </div>
 
-          {/* Caption */}
+          {/* Caption for new photo */}
           <div className="mt-3">
             <Input
               value={caption}
@@ -276,6 +382,24 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
           onSave={handleAnnotateSave}
         />
       )}
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(v) => !v && setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer cette photo ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletePhoto} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
