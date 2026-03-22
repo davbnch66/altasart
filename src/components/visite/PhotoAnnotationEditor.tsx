@@ -37,6 +37,7 @@ const TOOL_COLORS = [
   { value: "#eab308", label: "Jaune" },
   { value: "#22c55e", label: "Vert" },
   { value: "#3b82f6", label: "Bleu" },
+  { value: "#8b5cf6", label: "Violet" },
   { value: "#ffffff", label: "Blanc" },
   { value: "#000000", label: "Noir" },
 ];
@@ -156,8 +157,8 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
     img.onload = () => {
       if (cancelled) return;
       imgRef.current = img;
-      const maxW = window.innerWidth - 16;
-      const maxH = window.innerHeight - 280;
+      const maxW = window.innerWidth;
+      const maxH = window.innerHeight - 260;
       const scale = Math.min(maxW / img.width, maxH / img.height, 1);
       setCanvasSize({ w: Math.round(img.width * scale), h: Math.round(img.height * scale) });
       setImageLoaded(true);
@@ -657,31 +658,31 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
         className="max-w-[100vw] max-h-[100vh] w-screen h-screen p-0 overflow-hidden flex flex-col rounded-none gap-0"
         style={{ margin: 0 }}
       >
-        {/* ── Slim header ── */}
-        <div className="flex items-center justify-between px-4 h-12 border-b border-border bg-card shrink-0">
-          <h2 className="text-sm font-semibold text-foreground">Annoter</h2>
+        {/* ── Slim header with backdrop blur ── */}
+        <div className="flex items-center justify-between px-4 h-11 border-b border-border bg-background/95 backdrop-blur-sm shrink-0 z-10">
+          <h2 className="text-[13px] font-semibold text-foreground">Annoter la photo</h2>
           <button
             onClick={onClose}
-            className="p-2 -mr-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="p-1.5 -mr-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4.5 w-4.5" />
           </button>
         </div>
 
-        {/* ── Canvas area (takes all remaining space) ── */}
-        <div ref={containerRef} className="relative flex-1 flex items-center justify-center overflow-hidden bg-black/5">
+        {/* ── Canvas area — fills all space between header and toolbar ── */}
+        <div ref={containerRef} className="relative flex-1 flex items-center justify-center overflow-hidden bg-black">
           <div className="relative" style={{ width: canvasSize.w, height: canvasSize.h }}>
             <canvas
               ref={canvasRef}
               width={canvasSize.w}
               height={canvasSize.h}
-              className="absolute inset-0 rounded"
+              className="absolute inset-0"
             />
             <canvas
               ref={overlayRef}
               width={canvasSize.w}
               height={canvasSize.h}
-              className={`absolute inset-0 rounded ${tool === "select" ? "cursor-grab" : "cursor-crosshair"}`}
+              className={`absolute inset-0 ${tool === "select" ? "cursor-grab" : "cursor-crosshair"}`}
               onMouseDown={handlePointerDown}
               onMouseMove={handlePointerMove}
               onMouseUp={handlePointerUp}
@@ -695,7 +696,7 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
             {textInput && (
               <div
                 className="absolute z-10 animate-in fade-in-0 zoom-in-95"
-                style={{ left: Math.min(textInput.x, canvasSize.w - 200), top: Math.max(textInput.y - 50, 0) }}
+                style={{ left: Math.min(textInput.x, canvasSize.w - 220), top: Math.max(textInput.y - 50, 0) }}
               >
                 <div className="bg-card border-2 rounded-xl shadow-lg p-2 flex gap-1.5" style={{ borderColor: color }}>
                   <Input
@@ -718,7 +719,7 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
               <div
                 className="absolute z-10 animate-in fade-in-0 zoom-in-95"
                 style={{
-                  left: Math.min((coteInput.startX + coteInput.endX) / 2, canvasSize.w - 200),
+                  left: Math.min((coteInput.startX + coteInput.endX) / 2, canvasSize.w - 220),
                   top: Math.max((coteInput.startY + coteInput.endY) / 2 - 50, 0),
                 }}
               >
@@ -740,109 +741,104 @@ export const PhotoAnnotationEditor = ({ open, onClose, imageSrc, onSave }: Props
           </div>
         </div>
 
-        {/* ── Bottom toolbar panel ── */}
-        <div className="shrink-0 bg-card border-t border-border pb-safe">
-          {/* Row 1: Tools + Undo */}
-          <div className="flex items-center justify-center gap-1.5 px-3 pt-2.5 pb-1">
+        {/* ── Bottom toolbar — sticky bottom ── */}
+        <div className="shrink-0 bg-card border-t border-border" style={{ position: "sticky", bottom: 0 }}>
+          {/* Row 1: Tools 48×48 */}
+          <div className="flex items-center justify-center gap-1 px-2 pt-2 pb-1 overflow-x-auto">
             {toolItems.map((t) => {
               const isActive = tool === t.id;
               return (
                 <button
                   key={t.id}
                   onClick={() => { setTool(t.id); if (t.id !== "select") setSelectedId(null); }}
-                  className={`flex flex-col items-center justify-center rounded-xl transition-all ${
+                  className={`flex flex-col items-center justify-center rounded-xl transition-all shrink-0 ${
                     isActive
                       ? "bg-primary text-primary-foreground shadow-md"
                       : "text-muted-foreground hover:bg-muted"
                   }`}
-                  style={{ width: 44, height: 44 }}
+                  style={{ width: 48, height: 48 }}
                   title={t.label}
                 >
                   <t.icon className="h-5 w-5" />
-                  <span className="text-[9px] font-medium mt-0.5 leading-none">{t.label}</span>
+                  <span className="text-[10px] font-medium mt-0.5 leading-none">{t.label}</span>
                 </button>
               );
             })}
-            {/* Separator */}
-            <div className="w-px h-8 bg-border mx-0.5" />
-            {/* Undo button in toolbar */}
+            <div className="w-px h-8 bg-border mx-0.5 shrink-0" />
             <button
               onClick={undo}
               disabled={annotations.length === 0}
-              className="flex flex-col items-center justify-center rounded-xl text-muted-foreground hover:bg-muted disabled:opacity-30 transition-all"
-              style={{ width: 44, height: 44 }}
+              className="flex flex-col items-center justify-center rounded-xl text-muted-foreground hover:bg-muted disabled:opacity-30 transition-all shrink-0"
+              style={{ width: 48, height: 48 }}
               title="Annuler"
             >
               <Undo2 className="h-5 w-5" />
-              <span className="text-[9px] font-medium mt-0.5 leading-none">Annuler</span>
+              <span className="text-[10px] font-medium mt-0.5 leading-none">Annuler</span>
             </button>
-            {/* Move / select */}
             <button
-              onClick={() => { setTool("select"); }}
-              className={`flex flex-col items-center justify-center rounded-xl transition-all ${
+              onClick={() => setTool("select")}
+              className={`flex flex-col items-center justify-center rounded-xl transition-all shrink-0 ${
                 tool === "select"
                   ? "bg-primary text-primary-foreground shadow-md"
                   : "text-muted-foreground hover:bg-muted"
               }`}
-              style={{ width: 44, height: 44 }}
+              style={{ width: 48, height: 48 }}
               title="Déplacer"
             >
               <Move className="h-5 w-5" />
-              <span className="text-[9px] font-medium mt-0.5 leading-none">Déplacer</span>
+              <span className="text-[10px] font-medium mt-0.5 leading-none">Déplacer</span>
             </button>
-            {/* Delete selected */}
             {selectedId && (
               <button
                 onClick={deleteSelected}
-                className="flex flex-col items-center justify-center rounded-xl bg-destructive text-destructive-foreground transition-all"
-                style={{ width: 44, height: 44 }}
+                className="flex flex-col items-center justify-center rounded-xl bg-destructive text-destructive-foreground transition-all shrink-0"
+                style={{ width: 48, height: 48 }}
               >
                 <Trash2 className="h-5 w-5" />
-                <span className="text-[9px] font-medium mt-0.5 leading-none">Suppr</span>
+                <span className="text-[10px] font-medium mt-0.5 leading-none">Suppr</span>
               </button>
             )}
           </div>
 
-          {/* Slider: stroke width */}
-          <div className="flex items-center gap-2 px-4 py-1.5">
-            <span className="text-[10px] text-muted-foreground shrink-0 w-8">Trait</span>
-            <Slider
-              value={[lineWidth]}
-              min={1}
-              max={10}
-              step={1}
-              onValueChange={(v) => setLineWidth(v[0])}
-              className="flex-1"
-            />
-            <span className="text-xs font-mono text-muted-foreground w-5 text-right">{lineWidth}</span>
+          {/* Row 2: Thickness slider (80px) + 8 color circles (28px) */}
+          <div className="flex items-center gap-3 px-3 py-1.5">
+            <div className="flex items-center gap-1.5 shrink-0" style={{ width: 100 }}>
+              <span className="text-[10px] text-muted-foreground shrink-0">Trait</span>
+              <Slider
+                value={[lineWidth]}
+                min={1}
+                max={10}
+                step={1}
+                onValueChange={(v) => setLineWidth(v[0])}
+                className="flex-1"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 flex-1 justify-center">
+              {TOOL_COLORS.map((c) => {
+                const isActive = color === c.value;
+                return (
+                  <button
+                    key={c.value}
+                    onClick={() => setColor(c.value)}
+                    className={`rounded-full border-2 transition-all shrink-0 ${
+                      isActive
+                        ? "scale-110 border-foreground ring-2 ring-primary/30"
+                        : "border-border hover:scale-105"
+                    } ${c.value === "#ffffff" ? "shadow-sm" : ""}`}
+                    style={{
+                      backgroundColor: c.value,
+                      width: 28,
+                      height: 28,
+                    }}
+                    title={c.label}
+                  />
+                );
+              })}
+            </div>
           </div>
 
-          {/* Row 2: Colors */}
-          <div className="flex items-center justify-center gap-2.5 px-3 pb-2">
-            {TOOL_COLORS.map((c) => {
-              const isActive = color === c.value;
-              return (
-                <button
-                  key={c.value}
-                  onClick={() => setColor(c.value)}
-                  className={`rounded-full border-2 transition-all shrink-0 ${
-                    isActive
-                      ? "scale-110 border-foreground ring-2 ring-primary/30"
-                      : "border-border hover:scale-105"
-                  } ${c.value === "#ffffff" ? "shadow-sm" : ""}`}
-                  style={{
-                    backgroundColor: c.value,
-                    width: 32,
-                    height: 32,
-                  }}
-                  title={c.label}
-                />
-              );
-            })}
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-2 px-3 pb-3">
+          {/* Row 3: Action buttons */}
+          <div className="flex gap-2 px-3 pb-3 pt-1">
             <Button
               variant="outline"
               onClick={onClose}
