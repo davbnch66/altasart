@@ -438,7 +438,7 @@ const MobileVisiteList = ({ filtered, navigate }: {
 const MobileCard = memo(({ visite, onTap, onStatusChange }: {
   visite: any;
   onTap: (id: string) => void;
-  onStatusChange: (id: string, status: string) => void;
+  onStatusChange: (id: string, status: "planifiee" | "realisee" | "annulee") => void;
 }) => {
   const client = visite.clients as any;
   const tech = visite.resources as any;
