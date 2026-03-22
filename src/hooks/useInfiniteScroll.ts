@@ -23,27 +23,52 @@ export function useInfiniteScroll({
 }: UseInfiniteScrollOptions) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const onLoadMoreRef = useRef(onLoadMore);
+  const hasTriggeredRef = useRef(false);
+  const frameRef = useRef<number | null>(null);
   onLoadMoreRef.current = onLoadMore;
 
   const setSentinelRef = useCallback((node: HTMLDivElement | null) => {
     sentinelRef.current = node;
+    hasTriggeredRef.current = false;
   }, []);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
-    if (!sentinel || !hasMore || isLoading) return;
+    if (!sentinel || !hasMore) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) {
-          onLoadMoreRef.current();
+        const entry = entries[0];
+        if (!entry) return;
+
+        if (!entry.isIntersecting) {
+          hasTriggeredRef.current = false;
+          return;
         }
+
+        if (isLoading || hasTriggeredRef.current) return;
+
+        hasTriggeredRef.current = true;
+
+        if (frameRef.current !== null) {
+          cancelAnimationFrame(frameRef.current);
+        }
+
+        frameRef.current = requestAnimationFrame(() => {
+          onLoadMoreRef.current();
+        });
       },
-      { rootMargin }
+      { rootMargin, threshold: 0.1 }
     );
 
     observer.observe(sentinel);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+    };
   }, [hasMore, isLoading, rootMargin]);
 
   return setSentinelRef;

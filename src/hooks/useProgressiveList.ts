@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, startTransition } from "react";
 import { useInfiniteScroll } from "./useInfiniteScroll";
 
 const BATCH_SIZE = 50;
@@ -9,14 +9,14 @@ const BATCH_SIZE = 50;
  */
 export function useProgressiveList<T>(items: T[], batchSize = BATCH_SIZE) {
   const [visibleCount, setVisibleCount] = useState(batchSize);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const prevLengthRef = useRef(items.length);
+  const isLoadingMoreRef = useRef(false);
 
   // Reset when items change (new filter, new data)
   useEffect(() => {
     if (items.length !== prevLengthRef.current) {
       setVisibleCount(batchSize);
-      setIsLoadingMore(false);
+      isLoadingMoreRef.current = false;
       prevLengthRef.current = items.length;
     }
   }, [items.length, batchSize]);
@@ -24,21 +24,24 @@ export function useProgressiveList<T>(items: T[], batchSize = BATCH_SIZE) {
   const hasMore = visibleCount < items.length;
 
   const loadMore = useCallback(() => {
-    if (!hasMore || isLoadingMore) return;
+    if (!hasMore || isLoadingMoreRef.current) return;
 
-    setIsLoadingMore(true);
+    isLoadingMoreRef.current = true;
     requestAnimationFrame(() => {
-      setVisibleCount((prev) => Math.min(prev + batchSize, items.length));
+      startTransition(() => {
+        setVisibleCount((prev) => Math.min(prev + batchSize, items.length));
+      });
+
       requestAnimationFrame(() => {
-        setIsLoadingMore(false);
+        isLoadingMoreRef.current = false;
       });
     });
-  }, [batchSize, hasMore, isLoadingMore, items.length]);
+  }, [batchSize, hasMore, items.length]);
 
   const sentinelRef = useInfiniteScroll({
     onLoadMore: loadMore,
     hasMore,
-    isLoading: isLoadingMore,
+    isLoading: false,
   });
 
   const visibleItems = items.slice(0, visibleCount);
