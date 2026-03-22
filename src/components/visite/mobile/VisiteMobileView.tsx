@@ -58,6 +58,7 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
   const [pdfPreview, setPdfPreview] = useState<any>(null);
   const [finishConfirm, setFinishConfirm] = useState(false);
   const [annotatingPhoto, setAnnotatingPhoto] = useState<{ src: string; photoId: string; storagePath: string; pieceId: string } | null>(null);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
   const client = visite.clients as any;
   const dossier = visite.dossiers as any;
