@@ -397,6 +397,25 @@ export default function TerrainPage() {
         )}
       </motion.div>
 
+      {/* Push notification activation banner */}
+      {permission === "default" && (
+        <motion.div
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3"
+        >
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Bell className="h-4 w-4 text-primary shrink-0" />
+            <p className="text-xs text-foreground">
+              Activez les notifications pour recevoir vos missions en temps réel
+            </p>
+          </div>
+          <Button size="sm" className="shrink-0 h-7 text-xs gap-1" onClick={subscribePush}>
+            <Bell className="h-3 w-3" /> Activer
+          </Button>
+        </motion.div>
+      )}
+
       {/* Summary badges */}
       <div className={`grid gap-2 ${showVisites ? "grid-cols-3" : "grid-cols-1"}`}>
         <div className="rounded-xl border bg-card p-3 text-center">
