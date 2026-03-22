@@ -150,10 +150,10 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
         contentType: "image/png",
         upsert: true,
       });
-      // Update existing row (no new insert)
+      // Update existing row timestamp (no new insert)
       await supabase
         .from("visite_photos")
-        .update({ updated_at: new Date().toISOString() })
+        .update({ storage_path: annotatingPhoto.path })
         .eq("id", annotatingPhoto.photoId);
       // Clear cached signed URL so it reloads
       setSignedUrls((prev) => {
