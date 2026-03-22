@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Save, Loader2, Map, Mail } from "lucide-react";
+import { Save, Loader2, Map, Mail, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 const VOIRIE_TYPES = [
@@ -36,17 +37,20 @@ interface Props {
   visiteAddress?: string | null;
   visiteCity?: string | null;
   companyId?: string;
+  visiteCode?: string | null;
+  clientName?: string | null;
 }
 
 export const MobileVoirieSheet = ({
   open, onClose, visiteId, needsVoirie, voirieType, voirieStatus, voirieNotes,
-  onSaved, visiteAddress, visiteCity, companyId,
+  onSaved, visiteAddress, visiteCity, companyId, visiteCode, clientName,
 }: Props) => {
   const navigate = useNavigate();
   const [needs, setNeeds] = useState(needsVoirie);
   const [type, setType] = useState(voirieType || "");
   const [status, setStatus] = useState(voirieStatus || "a_faire");
   const [notes, setNotes] = useState(voirieNotes || "");
+  const [dvdAddress, setDvdAddress] = useState(visiteAddress || "");
   const [saving, setSaving] = useState(false);
   const [sendingDvd, setSendingDvd] = useState(false);
 
@@ -56,8 +60,9 @@ export const MobileVoirieSheet = ({
       setType(voirieType || "");
       setStatus(voirieStatus || "a_faire");
       setNotes(voirieNotes || "");
+      setDvdAddress(visiteAddress || "");
     }
-  }, [open, needsVoirie, voirieType, voirieStatus, voirieNotes]);
+  }, [open, needsVoirie, voirieType, voirieStatus, voirieNotes, visiteAddress]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -83,22 +88,30 @@ export const MobileVoirieSheet = ({
     }
   };
 
+  // Bug 3 fix: Match exactly the desktop payload from VisiteDetail.tsx
   const handleSendDvdEmail = async () => {
     if (!companyId) return;
     setSendingDvd(true);
     try {
+      const addr = dvdAddress || "";
+      const code = visiteCode || visiteId.slice(0, 8);
+      const client = clientName || "notre client";
+
+      const subject = `Demande de plan au 1/200ème – Emprise voirie – ${addr}`;
+      const body = `Madame, Monsieur,\n\nDans le cadre d'une intervention de levage et manutention lourde prévue pour le compte de ${client}, nous avons l'honneur de solliciter auprès de vos services :\n\n1. La communication d'un plan au 1/200ème de la voirie située à l'adresse suivante :\n   ${addr}\n\n2. Les informations relatives aux conditions d'occupation temporaire de la voie publique (emprise voirie) nécessaires à la mise en place de nos engins de levage.\n\nCette demande s'inscrit dans le cadre de la visite technique référence ${code}.\n\nNous vous serions reconnaissants de bien vouloir nous transmettre ces éléments dans les meilleurs délais afin de nous permettre d'établir notre plan d'installation et de constituer le dossier de demande d'autorisation.\n\nNous restons à votre entière disposition pour tout renseignement complémentaire.\n\nVeuillez agréer, Madame, Monsieur, l'expression de nos salutations distinguées.`;
+
       const { error } = await supabase.functions.invoke("send-visite-email", {
         body: {
-          visite_id: visiteId,
-          company_id: companyId,
-          template_type: "demande_plan_voirie",
-          address: visiteAddress || "",
-          city: visiteCity || "",
+          to: "dvd-pvp.dvd@paris.fr",
+          subject,
+          body,
+          visiteId,
+          companyId,
+          clientName: client,
         },
       });
       if (error) throw error;
-      toast.success("Demande envoyée à la DVD ✓");
-      // Auto-update status to demandee
+      toast.success("Demande de plan voirie envoyée à la DVD Paris ✓");
       setStatus("demandee");
     } catch (err: any) {
       toast.error(err.message || "Erreur envoi");
@@ -176,19 +189,40 @@ export const MobileVoirieSheet = ({
               {type === "plan_voirie" && (
                 <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 space-y-3">
                   <p className="text-sm font-semibold text-blue-700 dark:text-blue-400">
-                    Demande de plan voirie {visiteCity ? `— ${visiteCity}` : ""}
+                    Demande de plan voirie — Paris
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Envoyer un email formel à la DVD pour demander un plan au 1/200ème
+                    Envoyer un email formel à la DVD de Paris pour demander un plan au 1/200ème et une autorisation d'emprise voirie.
                   </p>
+
+                  {/* Bug 4: Editable address field */}
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-blue-700 dark:text-blue-400">Adresse concernée</p>
+                    <Input
+                      value={dvdAddress}
+                      onChange={(e) => setDvdAddress(e.target.value)}
+                      placeholder="Adresse du chantier..."
+                      className="text-sm rounded-lg"
+                    />
+                    {visiteAddress && dvdAddress !== visiteAddress && (
+                      <button
+                        onClick={() => setDvdAddress(visiteAddress)}
+                        className="flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        Utiliser l'adresse du chantier
+                      </button>
+                    )}
+                  </div>
+
                   <Button
                     variant="outline"
                     className="w-full gap-2 border-blue-500/30 text-blue-700 dark:text-blue-400"
                     onClick={handleSendDvdEmail}
-                    disabled={sendingDvd || !companyId}
+                    disabled={sendingDvd || !companyId || !dvdAddress.trim()}
                   >
                     {sendingDvd ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                    Envoyer la demande à la DVD {visiteCity || ""}
+                    Envoyer la demande à la DVD Paris
                   </Button>
                 </div>
               )}
