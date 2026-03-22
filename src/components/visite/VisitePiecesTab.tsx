@@ -265,6 +265,12 @@ export const VisitePiecesTab = ({ visiteId, companyId }: Props) => {
   };
 
   const piecePhotos = (pieceId: string) => photos.filter((p) => p.piece_id === pieceId);
+  const getMaterielForPiece = (pieceId: string) => {
+    const materielIds = affectations
+      .filter((a: any) => a.piece_id === pieceId)
+      .map((a: any) => a.materiel_id);
+    return materiel.filter((m: any) => materielIds.includes(m.id));
+  };
 
   const handleAnnotationSave = async (blob: Blob) => {
     if (!annotating) return;
