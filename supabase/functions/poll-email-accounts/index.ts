@@ -578,11 +578,11 @@ serve(async (req) => {
             inboundEmail = newInbound;
           }
 
-          // Trigger AI analysis only for NEW inbound emails in relevant folders
-          // Skip spam and trash — no notifications or AI processing for those
-          const skipAiFolders = ["spam", "junk", "trash", "deleted", "corbeille", "poubelle"];
-          const shouldAnalyze = inboundEmail && isNewInbound && !skipAiFolders.includes(normalizedFolder);
-          if (shouldAnalyze) {
+          // Trigger AI analysis for NEW inbound emails
+          // For spam/trash: pass flag so AI only checks for false positives
+          const spamTrashFolders = ["spam", "junk", "trash", "deleted", "corbeille", "poubelle"];
+          const isSpamOrTrash = spamTrashFolders.includes(normalizedFolder);
+          if (inboundEmail && isNewInbound) {
             try {
               const processUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/process-inbound-email`;
               await fetch(processUrl, {
@@ -591,7 +591,10 @@ serve(async (req) => {
                   "Content-Type": "application/json",
                   "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
                 },
-                body: JSON.stringify({ inbound_email_id: inboundEmail.id }),
+                body: JSON.stringify({
+                  inbound_email_id: inboundEmail.id,
+                  ...(isSpamOrTrash ? { spam_check_only: true } : {}),
+                }),
               });
             } catch (e) {
               console.error("AI analysis trigger error:", e);
