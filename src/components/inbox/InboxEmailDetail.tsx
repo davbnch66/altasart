@@ -1,6 +1,7 @@
-import { ArrowLeft, Mail, Clock, User } from "lucide-react";
+import { ArrowLeft, Mail, Clock, User, Sparkles, Send } from "lucide-react";
 import DOMPurify from "dompurify";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { InboxAiSummary } from "./InboxAiSummary";
 import { InboxActionBar } from "./InboxActionBar";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -17,6 +18,9 @@ interface InboundEmail {
   client_id: string | null;
   created_at: string;
   clients?: { name: string } | null;
+  message_id?: string | null;
+  email_account_id?: string | null;
+  _account_id?: string | null;
 }
 
 interface EmailAction {
@@ -31,6 +35,7 @@ interface Props {
   actions: EmailAction[];
   onBack: () => void;
   onActionExecuted: () => void;
+  onReply?: (data: { to: string; subject: string; body: string; messageId?: string; accountId?: string }) => void;
 }
 
 const statusLabels: Record<string, string> = {
@@ -47,7 +52,7 @@ const statusStyles: Record<string, string> = {
   error: "bg-destructive/10 text-destructive",
 };
 
-export const InboxEmailDetail = ({ email, actions, onBack, onActionExecuted }: Props) => {
+export const InboxEmailDetail = ({ email, actions, onBack, onActionExecuted, onReply }: Props) => {
   const isMobile = useIsMobile();
 
   return (
@@ -103,6 +108,35 @@ export const InboxEmailDetail = ({ email, actions, onBack, onActionExecuted }: P
         clientName={email.from_name || email.clients?.name}
         emailSubject={email.subject || undefined}
       />
+
+      {/* AI Suggested Reply */}
+      {email.ai_analysis?.reponse_suggeree && onReply && (
+        <div className="rounded-xl border bg-blue-50/50 dark:bg-blue-950/20 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Réponse suggérée
+            </h3>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
+              onClick={() => onReply({
+                to: email.from_email || "",
+                subject: `Re: ${email.subject || ""}`,
+                body: email.ai_analysis.reponse_suggeree,
+                messageId: email.message_id || undefined,
+                accountId: email._account_id || email.email_account_id || undefined,
+              })}
+            >
+              <Send className="h-3 w-3" /> Utiliser cette réponse
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">
+            {email.ai_analysis.reponse_suggeree}
+          </p>
+        </div>
+      )}
 
       {/* Body */}
       <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>

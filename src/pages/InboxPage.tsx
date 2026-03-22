@@ -1130,6 +1130,10 @@ const InboxPage = () => {
               actions={emailActions}
               onBack={() => setSearchParams({})}
               onActionExecuted={handleRefresh}
+              onReply={(data) => {
+                setReplyData(data);
+                setComposeOpen(true);
+              }}
             />
           </div>
         </div>
@@ -1661,9 +1665,16 @@ const InboxPage = () => {
                               : (email.from_name || email.from_email || "Inconnu")}
                           </p>
                         </div>
-                        <p className={`truncate ${!isRead ? "font-medium text-foreground" : "text-foreground/70"} ${isMobile ? "text-xs" : "text-sm"}`}>
-                          {email.subject || "(sans objet)"}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className={`truncate ${!isRead ? "font-medium text-foreground" : "text-foreground/70"} ${isMobile ? "text-xs" : "text-sm"}`}>
+                            {email.subject || "(sans objet)"}
+                          </p>
+                          {analysis?.urgence === true && (
+                            <Badge className="bg-destructive/15 text-destructive border-destructive/30 px-1.5 py-0 text-[10px] shrink-0 gap-0.5">
+                              ⚡ Urgent
+                            </Badge>
+                          )}
+                        </div>
                         {!isMobile && isInbox && analysis?.resume && (
                           <p className="mt-0.5 truncate text-xs text-muted-foreground">{analysis.resume}</p>
                         )}
