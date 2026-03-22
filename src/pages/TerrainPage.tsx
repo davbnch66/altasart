@@ -232,6 +232,32 @@ export default function TerrainPage() {
     enabled: companyIds.length > 0 && showEvents && (mode === "admin" || !!myResource?.id),
   });
 
+  // ===== REALTIME PUSH FOR BT CHANGES =====
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabase
+      .channel("bt-changes-push")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "operations" },
+        async (payload) => {
+          const op = payload.new as any;
+          if (op.loading_date === todayStr() && document.hidden) {
+            await supabase.functions.invoke("send-push-notification", {
+              body: {
+                user_id: userId,
+                title: "📋 Mission mise à jour",
+                body: `BT ${op.lv_bt_number || op.operation_number} — ${op.loading_city || ""}`,
+                link: "/terrain",
+              },
+            });
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [userId]);
+
   // ===== MUTATIONS =====
 
   const completeBT = useMutation({
