@@ -424,7 +424,7 @@ const SwipeableCard = ({ visite, navigate }: { visite: any; navigate: (path: str
   const bgOpacity = useTransform(x, [-120, -60, 0, 60, 120], [1, 0.8, 0, 0.8, 1]);
   const [swiped, setSwiped] = useState<"left" | "right" | null>(null);
 
-  const handleStatusChange = useCallback(async (newStatus: string) => {
+  const handleStatusChange = useCallback(async (newStatus: "planifiee" | "realisee" | "annulee") => {
     const { error } = await supabase
       .from("visites")
       .update({ status: newStatus })
