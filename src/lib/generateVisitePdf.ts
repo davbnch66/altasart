@@ -97,7 +97,10 @@ export async function generateVisitePdf(visiteId: string, options?: { photosPerR
   const company = visite.companies as any;
   const pieces = piecesRes.data || [];
   const materiel = materielRes.data || [];
-  const affectations = (affectationsRes.data || []).filter((a: any) => materiel.some((m: any) => m.id === a.materiel_id));
+  const pieceIds = new Set(pieces.map((p: any) => p.id));
+  const affectations = (affectationsRes.data || []).filter(
+    (a: any) => pieceIds.has(a.piece_id) && materiel.some((m: any) => m.id === a.materiel_id)
+  );
   const rh = rhRes.data || [];
   const vehicules = vehiculesRes.data || [];
   const contraintes = contraintesRes.data;
