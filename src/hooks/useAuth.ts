@@ -7,14 +7,18 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setLoading(false);
-    });
-
+    // 1. D'abord on récupère la session existante
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setLoading(false);
+      setLoading(false); // ← loading passe à false UNE SEULE FOIS ici
+    });
+
+    // 2. Ensuite on écoute les changements futurs (login/logout)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      // ← PAS de setLoading ici, c'est le fix principal
     });
 
     return () => subscription.unsubscribe();
