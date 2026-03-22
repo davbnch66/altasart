@@ -65,14 +65,16 @@ export const MobileMoyensSheet = ({ open, onClose, visiteId, companyId }: Props)
 
   const addRH = useMutation({
     mutationFn: async (role: string) => {
-      await supabase.from("visite_ressources_humaines").insert({
+      const { error } = await supabase.from("visite_ressources_humaines").insert({
         visite_id: visiteId, company_id: companyId, role, quantity: 1, sort_order: rh.length,
       });
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Ajouté ✓");
       queryClient.invalidateQueries({ queryKey: ["visite-rh", visiteId] });
     },
+    onError: (err: any) => toast.error("Erreur : " + (err.message || "réessayez")),
   });
 
   const deleteRH = useMutation({
