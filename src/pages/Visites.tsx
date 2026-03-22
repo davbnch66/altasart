@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { ClipboardCheck, MapPin, Camera, Calendar, User, Search, Plus, Loader2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useNavigate } from "react-router-dom";
