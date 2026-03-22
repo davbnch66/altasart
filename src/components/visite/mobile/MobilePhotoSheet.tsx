@@ -230,11 +230,14 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
   // Assign piece to photo
   const handleAssignPiece = async (photoId: string, newPieceId: string) => {
     try {
-      await supabase.from("visite_photos").update({ piece_id: newPieceId }).eq("id", photoId);
+      const { error } = await supabase.from("visite_photos").update({ piece_id: newPieceId }).eq("id", photoId);
+      if (error) throw error;
       invalidatePhotos();
       setPieceSelect(null);
-    } catch {
-      toast.error("Erreur");
+      toast.success("Pièce assignée ✓");
+    } catch (err: any) {
+      console.error("Assign piece error:", err);
+      toast.error(err?.message || "Erreur assignation pièce");
     }
   };
 
@@ -252,18 +255,20 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
         (a: any) => a.materiel_id === materielId && a.piece_id === photo.piece_id
       );
       if (!exists) {
-        await supabase.from("visite_materiel_affectations").insert({
+        const { error } = await supabase.from("visite_materiel_affectations").insert({
           materiel_id: materielId,
           piece_id: photo.piece_id,
           company_id: companyId,
           quantity: 1,
         });
+        if (error) throw error;
         queryClient.invalidateQueries({ queryKey: ["visite-materiel-affectations", visiteId] });
       }
       toast.success("Matériel lié à la pièce ✓");
       setMaterielSelect(null);
-    } catch {
-      toast.error("Erreur liaison matériel");
+    } catch (err: any) {
+      console.error("Assign materiel error:", err);
+      toast.error(err?.message || "Erreur liaison matériel");
     }
   };
 
