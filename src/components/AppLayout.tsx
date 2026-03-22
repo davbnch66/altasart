@@ -52,7 +52,7 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
 
   if (loading) return null;
 
-  if (role === "terrain" && location.pathname !== "/terrain") {
+  if (role === "terrain" && !canAccessRoute(role, location.pathname)) {
     return <Navigate to="/terrain" replace />;
   }
 
