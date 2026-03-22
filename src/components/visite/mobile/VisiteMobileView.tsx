@@ -33,7 +33,7 @@ interface Props {
   visite: any;
   editData: any;
   updateField: (field: string, value: any) => void;
-  handleSave: () => Promise<boolean>;
+  handleSave: (overrides?: Record<string, any>) => Promise<boolean>;
   saving: boolean;
   isDirty: boolean;
 }
