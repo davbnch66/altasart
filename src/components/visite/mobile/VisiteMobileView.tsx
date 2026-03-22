@@ -462,6 +462,8 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
         visiteAddress={client?.address || visite.address || null}
         visiteCity={client?.city || null}
         companyId={visite.company_id}
+        visiteCode={visite.code || null}
+        clientName={client?.name || null}
         onSaved={(data) => {
           updateField("needs_voirie", data.needs_voirie);
           updateField("voirie_type", data.voirie_type);
