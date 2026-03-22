@@ -8,8 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useMemo, useCallback, useRef, memo } from "react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
+import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { fr } from "date-fns/locale";
 import { CreateVisiteDialog } from "@/components/forms/CreateVisiteDialog";
@@ -443,74 +443,102 @@ const MobileCard = memo(({ visite, onTap, onStatusChange }: {
   const client = visite.clients as any;
   const tech = visite.resources as any;
   const colors = statusColors[visite.status] || statusColors.planifiee;
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggeredRef = useRef(false);
 
   const onPointerDown = useCallback(() => {
+    longPressTriggeredRef.current = false;
     longPressTimer.current = setTimeout(() => {
-      setMenuOpen(true);
+      longPressTriggeredRef.current = true;
+      setActionsOpen(true);
     }, 500);
   }, []);
 
-  const onPointerUpOrLeave = useCallback(() => {
+  const clearLongPress = useCallback(() => {
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
   }, []);
 
+  useEffect(() => clearLongPress, [clearLongPress]);
+
+  const handleClick = useCallback(() => {
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return;
+    }
+
+    onTap(visite.id);
+  }, [onTap, visite.id]);
+
+  const handleStatusSelect = useCallback((status: "planifiee" | "realisee" | "annulee") => {
+    setActionsOpen(false);
+    onStatusChange(visite.id, status);
+  }, [onStatusChange, visite.id]);
+
   return (
-    <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-      <DropdownMenuTrigger asChild>
-        <div
-          onClick={() => { if (!menuOpen) onTap(visite.id); }}
-          onPointerDown={onPointerDown}
-          onPointerUp={onPointerUpOrLeave}
-          onPointerLeave={onPointerUpOrLeave}
-          className="rounded-2xl border bg-card p-4 mb-2 active:bg-muted/30 transition-colors cursor-pointer select-none"
-        >
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <p className="text-base font-semibold truncate">{client?.name || "—"}</p>
-            <span className={`shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${colors.bg} ${colors.text}`}>
-              {statusLabels[visite.status] || visite.status}
+    <>
+      <div
+        onClick={handleClick}
+        onPointerDown={onPointerDown}
+        onPointerUp={clearLongPress}
+        onPointerLeave={clearLongPress}
+        onPointerCancel={clearLongPress}
+        onPointerMove={clearLongPress}
+        className="rounded-2xl border bg-card p-4 mb-2 active:bg-muted/30 transition-colors cursor-pointer select-none touch-pan-y"
+      >
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <p className="text-base font-semibold truncate">{client?.name || "—"}</p>
+          <span className={`shrink-0 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${colors.bg} ${colors.text}`}>
+            {statusLabels[visite.status] || visite.status}
+          </span>
+        </div>
+        {visite.address && (
+          <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mb-1">
+            <MapPin className="h-3 w-3 shrink-0" />
+            {visite.address}
+          </p>
+        )}
+        <div className="flex items-center gap-3 text-xs text-muted-foreground mb-0.5">
+          {visite.scheduled_date && (
+            <span className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              {format(new Date(visite.scheduled_date), "d MMM", { locale: fr })}
             </span>
-          </div>
-          {visite.address && (
-            <p className="text-xs text-muted-foreground truncate flex items-center gap-1 mb-1">
-              <MapPin className="h-3 w-3 shrink-0" />
-              {visite.address}
-            </p>
           )}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground mb-0.5">
-            {visite.scheduled_date && (
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                {format(new Date(visite.scheduled_date), "d MMM", { locale: fr })}
-              </span>
-            )}
-            {tech?.name && (
-              <span className="flex items-center gap-1">
-                <User className="h-3 w-3" />
-                {tech.name}
-              </span>
-            )}
-          </div>
-          {(visite.photos_count || 0) > 0 && (
-            <span className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-              <Camera className="h-3 w-3" /> {visite.photos_count} photo{visite.photos_count > 1 ? "s" : ""}
+          {tech?.name && (
+            <span className="flex items-center gap-1">
+              <User className="h-3 w-3" />
+              {tech.name}
             </span>
           )}
         </div>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onStatusChange(visite.id, "realisee")} className="text-emerald-600">
-          ✓ Marquer Réalisée
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onStatusChange(visite.id, "annulee")} className="text-destructive">
-          ✕ Annuler la visite
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        {(visite.photos_count || 0) > 0 && (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+            <Camera className="h-3 w-3" /> {visite.photos_count} photo{visite.photos_count > 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
+
+      <Drawer open={actionsOpen} onOpenChange={setActionsOpen}>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>{client?.name || "Visite"}</DrawerTitle>
+            <DrawerDescription>Choisissez une action rapide pour cette visite.</DrawerDescription>
+          </DrawerHeader>
+          <DrawerFooter>
+            <Button variant="outline" onClick={() => handleStatusSelect("realisee")}>
+              Marquer Réalisée
+            </Button>
+            <Button variant="destructive" onClick={() => handleStatusSelect("annulee")}>
+              Annuler la visite
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
+    </>
   );
 });
 
