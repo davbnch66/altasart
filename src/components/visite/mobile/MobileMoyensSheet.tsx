@@ -195,7 +195,7 @@ export const MobileMoyensSheet = ({ open, onClose, visiteId, companyId }: Props)
                         <p className="font-medium text-sm">
                           {item.label || VEHICLE_TYPES.find((v) => v.value === item.type)?.label || item.type}
                         </p>
-                        <p className="text-xs text-muted-foreground">× {item.quantity}</p>
+                        <p className="text-xs text-muted-foreground">{VEHICLE_TYPES.find((v) => v.value === item.type)?.label || item.type}</p>
                       </div>
                       <button onClick={() => deleteVehicle.mutate(item.id)} className="p-2 text-destructive">
                         <Trash2 className="h-4 w-4" />
