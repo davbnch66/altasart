@@ -146,11 +146,23 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
     }
   };
 
-  // Get photo public URLs
-  const getPhotoUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from("visite-photos").getPublicUrl(storagePath);
-    return data?.publicUrl || "";
-  };
+  // Generate signed URLs for photo strip
+  useEffect(() => {
+    if (!photosData.length) return;
+    const paths = photosData.map((p: any) => p.storage_path).filter((p: string) => !signedUrls[p]);
+    if (!paths.length) return;
+    const load = async () => {
+      const newUrls: Record<string, string> = {};
+      await Promise.all(
+        paths.map(async (path: string) => {
+          const { data } = await supabase.storage.from("visite-photos").createSignedUrl(path, 3600);
+          if (data?.signedUrl) newUrls[path] = data.signedUrl;
+        })
+      );
+      setSignedUrls((prev) => ({ ...prev, ...newUrls }));
+    };
+    load();
+  }, [photosData]);
 
   const actionTiles = [
     { key: "photo", icon: Camera, label: "Photos", badge: photosData.length, bgClass: "bg-blue-50 dark:bg-blue-500/10", iconClass: "text-blue-600" },
@@ -159,6 +171,7 @@ export const VisiteMobileView = ({ visite, editData, updateField, handleSave, sa
     { key: "piece", icon: Home, label: "Pièces/Zones", badge: pieces.length, bgClass: "bg-green-50 dark:bg-green-500/10", iconClass: "text-green-600" },
     { key: "contraintes", icon: ShieldAlert, label: "Contraintes", badge: contraintes.length, bgClass: "bg-red-50 dark:bg-red-500/10", iconClass: "text-red-600" },
     { key: "moyens", icon: Wrench, label: "Moyens RH", badge: rh.length + vehicules.length, bgClass: "bg-purple-50 dark:bg-purple-500/10", iconClass: "text-purple-600" },
+    { key: "voirie", icon: Construction, label: "Voirie", badge: null, badgeText: editData.needs_voirie ? (editData.voirie_status || "a_faire") : "Non requis", bgClass: "bg-yellow-50 dark:bg-yellow-500/10", iconClass: "text-yellow-600" },
   ];
 
   return (
