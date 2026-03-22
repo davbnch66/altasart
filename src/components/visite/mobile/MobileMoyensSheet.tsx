@@ -3,9 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Plus, Users, Truck, Trash2, Loader2 } from "lucide-react";
+import { Plus, Users, Truck, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const RH_ROLES = ["Chef d'équipe", "Manutentionnaire", "Grutier", "Chauffeur", "Monteur", "Électricien"];
 const VEHICLE_TYPES = [
@@ -47,6 +47,22 @@ export const MobileMoyensSheet = ({ open, onClose, visiteId, companyId }: Props)
     enabled: open,
   });
 
+  // Fetch real company resources (véhicules & grues)
+  const { data: realResources = [], isLoading: loadingResources } = useQuery({
+    queryKey: ["company-fleet-resources", companyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("resource_companies")
+        .select("resource_id, resources!inner(id, name, type, status)")
+        .eq("company_id", companyId);
+      if (!data) return [];
+      return data
+        .map((rc: any) => rc.resources)
+        .filter((r: any) => r && ["vehicule", "grue", "grue_mobile", "camion", "utilitaire", "nacelle", "chariot", "semi"].includes(r.type));
+    },
+    enabled: open,
+  });
+
   const addRH = useMutation({
     mutationFn: async (role: string) => {
       await supabase.from("visite_ressources_humaines").insert({
@@ -69,9 +85,9 @@ export const MobileMoyensSheet = ({ open, onClose, visiteId, companyId }: Props)
   });
 
   const addVehicle = useMutation({
-    mutationFn: async (type: string) => {
+    mutationFn: async (params: { type: string; label?: string }) => {
       await supabase.from("visite_vehicules").insert([{
-        visite_id: visiteId, company_id: companyId, type: type as any, quantity: 1, sort_order: vehicules.length,
+        visite_id: visiteId, company_id: companyId, type: params.type as any, label: params.label || null, quantity: 1, sort_order: vehicules.length,
       }]);
     },
     onSuccess: () => {
@@ -146,32 +162,85 @@ export const MobileMoyensSheet = ({ open, onClose, visiteId, companyId }: Props)
               {rh.length === 0 && <p className="text-center text-muted-foreground text-sm py-6">Aucun personnel défini</p>}
             </div>
           ) : (
-            <div className="space-y-2">
-              {/* Quick add vehicle */}
-              <div className="flex flex-wrap gap-2 mb-3">
-                {VEHICLE_TYPES.map((vt) => (
-                  <button
-                    key={vt.value}
-                    onClick={() => addVehicle.mutate(vt.value)}
-                    className="px-3 py-2 rounded-xl text-sm bg-card border border-border/50 active:scale-95 transition-transform"
-                  >
-                    {vt.label}
-                  </button>
-                ))}
-              </div>
-              {/* Current vehicles */}
-              {vehicules.map((item: any) => (
-                <div key={item.id} className="flex items-center justify-between px-4 py-3 rounded-xl bg-card border border-border/50">
-                  <div>
-                    <p className="font-medium text-sm">{VEHICLE_TYPES.find((v) => v.value === item.type)?.label || item.type}</p>
-                    <p className="text-xs text-muted-foreground">× {item.quantity}{item.label ? ` — ${item.label}` : ""}</p>
-                  </div>
-                  <button onClick={() => deleteVehicle.mutate(item.id)} className="p-2 text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+            <div className="space-y-3">
+              {/* Quick add generic types */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Ajout rapide par type</p>
+                <div className="flex flex-wrap gap-2">
+                  {VEHICLE_TYPES.map((vt) => (
+                    <button
+                      key={vt.value}
+                      onClick={() => addVehicle.mutate({ type: vt.value })}
+                      className="px-3 py-2 rounded-xl text-sm bg-card border border-border/50 active:scale-95 transition-transform"
+                    >
+                      {vt.label}
+                    </button>
+                  ))}
                 </div>
-              ))}
-              {vehicules.length === 0 && <p className="text-center text-muted-foreground text-sm py-6">Aucun véhicule défini</p>}
+              </div>
+
+              {/* Real company resources */}
+              {loadingResources ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-12 w-full rounded-xl" />
+                  <Skeleton className="h-12 w-full rounded-xl" />
+                </div>
+              ) : realResources.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Ressources de l'entreprise</p>
+                  <div className="space-y-1.5">
+                    {realResources.map((res: any) => {
+                      const alreadyAdded = vehicules.some((v: any) => v.label === res.name);
+                      return (
+                        <button
+                          key={res.id}
+                          onClick={() => {
+                            if (!alreadyAdded) {
+                              addVehicle.mutate({ type: res.type, label: res.name });
+                            }
+                          }}
+                          disabled={alreadyAdded}
+                          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm border transition-all ${
+                            alreadyAdded
+                              ? "bg-muted/50 border-border/30 text-muted-foreground"
+                              : "bg-card border-border/50 active:scale-[0.98]"
+                          }`}
+                        >
+                          <span className="font-medium">{res.name}</span>
+                          {alreadyAdded ? (
+                            <Check className="h-4 w-4 text-emerald-500" />
+                          ) : (
+                            <Plus className="h-4 w-4 text-muted-foreground" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Current vehicles */}
+              {vehicules.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Affectés à cette visite</p>
+                  {vehicules.map((item: any) => (
+                    <div key={item.id} className="flex items-center justify-between px-4 py-3 rounded-xl bg-card border border-border/50 mb-1.5">
+                      <div>
+                        <p className="font-medium text-sm">
+                          {item.label || VEHICLE_TYPES.find((v) => v.value === item.type)?.label || item.type}
+                        </p>
+                        <p className="text-xs text-muted-foreground">× {item.quantity}</p>
+                      </div>
+                      <button onClick={() => deleteVehicle.mutate(item.id)} className="p-2 text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {vehicules.length === 0 && !loadingResources && (
+                <p className="text-center text-muted-foreground text-sm py-6">Aucun véhicule défini</p>
+              )}
             </div>
           )}
         </div>

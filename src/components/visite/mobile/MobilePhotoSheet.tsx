@@ -123,9 +123,11 @@ export const MobilePhotoSheet = ({ open, onClose, visiteId, companyId, mode, onA
   const handleAnnotateSave = async (blob: Blob) => {
     if (!annotatingPhoto) return;
     try {
-      const file = new File([blob], `annotated-${Date.now()}.jpg`, { type: "image/jpeg" });
-      // Replace original file in storage
-      await supabase.storage.from("visite-photos").update(annotatingPhoto.path, file, { upsert: true });
+      // Replace original file using upload with upsert (not update)
+      await supabase.storage.from("visite-photos").upload(annotatingPhoto.path, blob, {
+        contentType: "image/png",
+        upsert: true,
+      });
       // Clear cached signed URL so it reloads
       setSignedUrls((prev) => {
         const next = { ...prev };
