@@ -133,6 +133,9 @@ const Planning = () => {
   const [defaultResourceId, setDefaultResourceId] = useState<string | undefined>();
   const [opDialogOpen, setOpDialogOpen] = useState(false);
   const [editingOpId, setEditingOpId] = useState<string | null>(null);
+  const [missionPanelOpen, setMissionPanelOpen] = useState(false);
+  const [missionDefaultDate, setMissionDefaultDate] = useState<Date | undefined>();
+  const [missionDefaultResource, setMissionDefaultResource] = useState<string | undefined>();
   const [editingVisite, setEditingVisite] = useState<any>(null);
   const [visiteDate, setVisiteDate] = useState("");
   const [visiteTime, setVisiteTime] = useState("");
