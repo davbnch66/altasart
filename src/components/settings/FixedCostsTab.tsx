@@ -89,7 +89,7 @@ export const FixedCostsTab = () => {
   const addMutation = useMutation({
     mutationFn: async () => {
       if (!form.label.trim()) throw new Error("Libellé requis");
-      const { error } = await (supabase.from("company_fixed_costs" as any).insert as any)({
+      const { error } = await (supabase.from("company_fixed_costs" as any) as any).insert({
         company_id: companyId,
         category: form.category,
         label: form.label.trim(),
