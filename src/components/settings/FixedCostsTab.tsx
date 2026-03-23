@@ -89,7 +89,7 @@ export const FixedCostsTab = () => {
   const addMutation = useMutation({
     mutationFn: async () => {
       if (!form.label.trim()) throw new Error("Libellé requis");
-      const { error } = await (supabase.from("company_fixed_costs" as any).insert as any)({
+      const { error } = await (supabase.from("company_fixed_costs" as any) as any).insert({
         company_id: companyId,
         category: form.category,
         label: form.label.trim(),
@@ -112,7 +112,7 @@ export const FixedCostsTab = () => {
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase.from("company_fixed_costs" as any).update as any)({
+      const { error } = await (supabase.from("company_fixed_costs" as any) as any).update({
         category: editForm.category,
         label: editForm.label.trim(),
         unit: editForm.unit,
@@ -132,7 +132,7 @@ export const FixedCostsTab = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await (supabase.from("company_fixed_costs" as any).delete() as any).eq("id", id);
+      const { error } = await (supabase.from("company_fixed_costs" as any) as any).delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -153,7 +153,7 @@ export const FixedCostsTab = () => {
         notes: d.notes || null,
         sort_order: i,
       }));
-      const { error } = await (supabase.from("company_fixed_costs" as any).insert as any)(inserts);
+      const { error } = await (supabase.from("company_fixed_costs" as any) as any).insert(inserts);
       if (error) throw error;
     },
     onSuccess: () => {
