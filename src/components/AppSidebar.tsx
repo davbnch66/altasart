@@ -242,7 +242,7 @@ export const AppSidebar: React.FC = () => {
       {/* Footer */}
       <div className="border-t border-sidebar-border p-3">
         <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg bg-sidebar-accent flex items-center justify-center text-[11px] font-semibold text-sidebar-accent-foreground shrink-0">
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-sidebar-accent to-sidebar-ring/30 flex items-center justify-center text-[11px] font-semibold text-sidebar-accent-foreground shrink-0">
             {user?.email?.substring(0, 2).toUpperCase() || "??"}
           </div>
           <div className="flex-1 min-w-0">
