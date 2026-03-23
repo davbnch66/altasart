@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList, Clock, ExternalLink, CalendarSync, Copy, Check, Construction } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList, Clock, ExternalLink, CalendarSync, Copy, Check, Construction, Sparkles } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useState, useMemo, useEffect, useCallback, DragEvent } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { PlanningEventDialog } from "@/components/planning/PlanningEventDialog";
 import { PlanningOperationDialog } from "@/components/planning/PlanningOperationDialog";
 import { PlanningMissionPanel } from "@/components/planning/PlanningMissionPanel";
+import { PlanningAIAssistant, type AISuggestion } from "@/components/planning/PlanningAIAssistant";
 import { toast } from "sonner";
 import {
   format,
@@ -138,6 +139,15 @@ const Planning = () => {
   const [missionDefaultResource, setMissionDefaultResource] = useState<string | undefined>();
   const [editingVisite, setEditingVisite] = useState<any>(null);
   const [visiteDate, setVisiteDate] = useState("");
+  const [aiPlannerOpen, setAiPlannerOpen] = useState(false);
+  const [aiPreFill, setAiPreFill] = useState<AISuggestion | null>(null);
+
+  const handleAISuggestion = (suggestion: AISuggestion) => {
+    setMissionDefaultDate(suggestion.loading_date ? new Date(suggestion.loading_date) : undefined);
+    setMissionDefaultResource(undefined);
+    setAiPreFill(suggestion);
+    setMissionPanelOpen(true);
+  };
   const [visiteTime, setVisiteTime] = useState("");
   const [savingVisite, setSavingVisite] = useState(false);
 
@@ -1454,8 +1464,13 @@ const Planning = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Bouton IA */}
+          <Button variant="outline" size="sm" onClick={() => setAiPlannerOpen(true)} className="gap-1.5 text-xs border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-950">
+            <Sparkles className="h-3.5 w-3.5" />
+            {isMobile ? "IA" : "Planifier avec l'IA"}
+          </Button>
           {/* Bouton Nouvelle mission — vert prominent */}
-          <Button onClick={() => { setMissionDefaultDate(undefined); setMissionDefaultResource(undefined); setMissionPanelOpen(true); }} className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs">
+          <Button onClick={() => { setMissionDefaultDate(undefined); setMissionDefaultResource(undefined); setAiPreFill(null); setMissionPanelOpen(true); }} className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs">
             <Plus className="h-3.5 w-3.5" /> {isMobile ? "Mission" : "Nouvelle mission"}
           </Button>
           {/* Bouton Événement — secondaire */}
@@ -1593,10 +1608,16 @@ const Planning = () => {
       />
       <PlanningMissionPanel
         open={missionPanelOpen}
-        onOpenChange={setMissionPanelOpen}
+        onOpenChange={(v) => { setMissionPanelOpen(v); if (!v) setAiPreFill(null); }}
         defaultDate={missionDefaultDate}
         defaultResourceId={missionDefaultResource}
         onOpenFullDialog={() => { setEditingOpId(null); setOpDialogOpen(true); }}
+        preFill={aiPreFill}
+      />
+      <PlanningAIAssistant
+        open={aiPlannerOpen}
+        onOpenChange={setAiPlannerOpen}
+        onApply={handleAISuggestion}
       />
     </div>
   );
