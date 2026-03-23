@@ -332,40 +332,149 @@ function ExportDataTab({ companyIds }: { companyIds: string[] }) {
     {
       key: "devis",
       label: "Devis",
-      description: "Code, objet, montant, statut, client, date",
+      description: "Code, objet, montant, statut, client, lignes détaillées",
       icon: FileText,
       color: "text-primary",
       fn: async () => {
-        const { data } = await supabase.from("devis")
-          .select("code, objet, amount, status, created_at, valid_until, clients(name), companies(short_name)")
+        const { data: devisData } = await supabase.from("devis")
+          .select("id, code, objet, amount, status, created_at, valid_until, notes, clients(name, email), companies(short_name)")
           .in("company_id", companyIds);
-        exportToCSV(data || [], "devis", ["code", "objet", "amount", "status", "created_at", "valid_until", "clients.name", "companies.short_name"]);
+
+        const devisIds = (devisData || []).map((d: any) => d.id);
+        const { data: lines } = devisIds.length > 0
+          ? await supabase.from("devis_lines").select("devis_id, description, quantity, unit_price, total").in("devis_id", devisIds)
+          : { data: [] };
+
+        const rows: any[] = [];
+        const devisWithLines = new Set((lines || []).map((l: any) => l.devis_id));
+
+        (lines || []).forEach((line: any) => {
+          const devis = (devisData || []).find((d: any) => d.id === line.devis_id);
+          rows.push({
+            devis_code: devis?.code || "", devis_objet: devis?.objet || "",
+            client: (devis?.clients as any)?.name || "", client_email: (devis?.clients as any)?.email || "",
+            societe: (devis?.companies as any)?.short_name || "", statut: devis?.status || "",
+            montant_total: devis?.amount || 0, date_creation: devis?.created_at?.split("T")[0] || "",
+            validite: devis?.valid_until || "",
+            ligne_description: line.description || "", ligne_quantite: line.quantity || 0,
+            ligne_prix_unitaire: line.unit_price || 0, ligne_total: line.total || (line.quantity * line.unit_price) || 0,
+          });
+        });
+
+        (devisData || []).filter((d: any) => !devisWithLines.has(d.id)).forEach((d: any) => {
+          rows.push({
+            devis_code: d.code || "", devis_objet: d.objet || "",
+            client: (d.clients as any)?.name || "", client_email: (d.clients as any)?.email || "",
+            societe: (d.companies as any)?.short_name || "", statut: d.status || "",
+            montant_total: d.amount || 0, date_creation: d.created_at?.split("T")[0] || "",
+            validite: d.valid_until || "",
+            ligne_description: "", ligne_quantite: 0, ligne_prix_unitaire: 0, ligne_total: 0,
+          });
+        });
+
+        exportToCSV(rows, "devis_avec_lignes", [
+          "devis_code", "devis_objet", "client", "client_email", "societe", "statut",
+          "montant_total", "date_creation", "validite",
+          "ligne_description", "ligne_quantite", "ligne_prix_unitaire", "ligne_total"
+        ]);
       },
     },
     {
       key: "factures",
       label: "Factures",
-      description: "Code, montant, réglé, solde, statut, échéance",
+      description: "Code, montant, réglé, solde, statut, règlements détaillés",
       icon: Euro,
       color: "text-success",
       fn: async () => {
-        const { data } = await supabase.from("factures")
-          .select("code, amount, paid_amount, status, created_at, due_date, clients(name), companies(short_name)")
+        const { data: facturesData } = await supabase.from("factures")
+          .select("id, code, amount, paid_amount, status, created_at, due_date, notes, clients(name, email), companies(short_name), dossiers(code, title)")
           .in("company_id", companyIds);
-        exportToCSV(data || [], "factures", ["code", "amount", "paid_amount", "status", "created_at", "due_date", "clients.name", "companies.short_name"]);
+
+        const factureIds = (facturesData || []).map((f: any) => f.id);
+        const { data: reglements } = factureIds.length > 0
+          ? await supabase.from("reglements").select("facture_id, amount, payment_date, bank, code, notes").in("facture_id", factureIds)
+          : { data: [] };
+
+        const rows: any[] = [];
+        (facturesData || []).forEach((f: any) => {
+          const factureReglements = (reglements || []).filter((r: any) => r.facture_id === f.id);
+          if (factureReglements.length === 0) {
+            rows.push({
+              facture_code: f.code || "", client: (f.clients as any)?.name || "",
+              client_email: (f.clients as any)?.email || "", societe: (f.companies as any)?.short_name || "",
+              dossier: (f.dossiers as any)?.code || "", statut: f.status || "",
+              montant_facture: f.amount || 0, montant_regle: f.paid_amount || 0,
+              solde: (f.amount || 0) - (f.paid_amount || 0),
+              date_facture: f.created_at?.split("T")[0] || "", echeance: f.due_date || "",
+              reglement_code: "", reglement_montant: "", reglement_date: "", reglement_banque: "",
+            });
+          } else {
+            factureReglements.forEach((r: any) => {
+              rows.push({
+                facture_code: f.code || "", client: (f.clients as any)?.name || "",
+                client_email: (f.clients as any)?.email || "", societe: (f.companies as any)?.short_name || "",
+                dossier: (f.dossiers as any)?.code || "", statut: f.status || "",
+                montant_facture: f.amount || 0, montant_regle: f.paid_amount || 0,
+                solde: (f.amount || 0) - (f.paid_amount || 0),
+                date_facture: f.created_at?.split("T")[0] || "", echeance: f.due_date || "",
+                reglement_code: r.code || "", reglement_montant: r.amount || 0,
+                reglement_date: r.payment_date || "", reglement_banque: r.bank || "",
+              });
+            });
+          }
+        });
+
+        exportToCSV(rows, "factures_avec_reglements", [
+          "facture_code", "client", "client_email", "societe", "dossier", "statut",
+          "montant_facture", "montant_regle", "solde", "date_facture", "echeance",
+          "reglement_code", "reglement_montant", "reglement_date", "reglement_banque"
+        ]);
       },
     },
     {
       key: "operations",
       label: "Opérations / BT",
-      description: "Numéro BT, client, villes, dates, volume",
+      description: "Numéro BT, client, villes, dates, ressources assignées",
       icon: Truck,
       color: "text-orange-500",
       fn: async () => {
-        const { data } = await supabase.from("operations")
-          .select("lv_bt_number, operation_number, loading_date, delivery_date, loading_city, delivery_city, volume, dossiers(clients(name), code)")
+        const { data: opsData } = await supabase.from("operations")
+          .select("id, lv_bt_number, operation_number, loading_date, delivery_date, loading_city, delivery_city, volume, notes, completed, dossiers(code, title, clients(name, email)), companies(short_name)")
           .in("company_id", companyIds);
-        exportToCSV(data || [], "operations", ["lv_bt_number", "operation_number", "loading_date", "delivery_date", "loading_city", "delivery_city", "volume"]);
+
+        const opIds = (opsData || []).map((op: any) => op.id);
+        const { data: opResources } = opIds.length > 0
+          ? await supabase.from("operation_resources").select("operation_id, resources(name, type)").in("operation_id", opIds)
+          : { data: [] };
+
+        const rows: any[] = [];
+        (opsData || []).forEach((op: any) => {
+          const resources = (opResources || []).filter((r: any) => r.operation_id === op.id);
+          const base = {
+            bt_numero: op.lv_bt_number || op.operation_number || "",
+            client: (op.dossiers as any)?.clients?.name || "",
+            client_email: (op.dossiers as any)?.clients?.email || "",
+            dossier_code: (op.dossiers as any)?.code || "",
+            societe: (op.companies as any)?.short_name || "",
+            date_chargement: op.loading_date || "", date_livraison: op.delivery_date || "",
+            ville_chargement: op.loading_city || "", ville_livraison: op.delivery_city || "",
+            volume_m3: op.volume || "", termine: op.completed ? "Oui" : "Non",
+            notes: op.notes || "",
+          };
+          if (resources.length === 0) {
+            rows.push({ ...base, ressource_nom: "", ressource_type: "" });
+          } else {
+            resources.forEach((r: any) => {
+              rows.push({ ...base, ressource_nom: (r.resources as any)?.name || "", ressource_type: (r.resources as any)?.type || "" });
+            });
+          }
+        });
+
+        exportToCSV(rows, "operations_bt_avec_ressources", [
+          "bt_numero", "client", "client_email", "dossier_code", "societe",
+          "date_chargement", "date_livraison", "ville_chargement", "ville_livraison",
+          "volume_m3", "termine", "notes", "ressource_nom", "ressource_type"
+        ]);
       },
     },
     {
