@@ -25,6 +25,7 @@ const Finance = lazy(() => import("@/pages/Finance"));
 const FactureDetail = lazy(() => import("@/pages/FactureDetail"));
 const Ressources = lazy(() => import("@/pages/Ressources"));
 const Parametres = lazy(() => import("@/pages/Parametres"));
+const Fournisseurs = lazy(() => import("@/pages/Fournisseurs"));
 const PipelineKanban = lazy(() => import("@/pages/PipelineKanban"));
 const FleetPage = lazy(() => import("@/pages/FleetPage"));
 const StoragePage = lazy(() => import("@/pages/StoragePage"));
@@ -90,6 +91,7 @@ const ProtectedRoutes = () => {
             <Route path="/rentabilite" element={<RentabiliteReport />} />
             <Route path="/terrain" element={<TerrainPage />} />
             <Route path="/voirie" element={<VoiriePage />} />
+            <Route path="/fournisseurs" element={<Fournisseurs />} />
             <Route path="/parametres" element={<Parametres />} />
           </Route>
           <Route path="*" element={<NotFound />} />

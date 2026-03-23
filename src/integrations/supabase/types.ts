@@ -442,6 +442,7 @@ export type Database = {
           address: string | null
           color: string
           created_at: string
+          default_tva_rate: number
           email: string | null
           id: string
           name: string
@@ -453,6 +454,7 @@ export type Database = {
           address?: string | null
           color?: string
           created_at?: string
+          default_tva_rate?: number
           email?: string | null
           id?: string
           name: string
@@ -464,6 +466,7 @@ export type Database = {
           address?: string | null
           color?: string
           created_at?: string
+          default_tva_rate?: number
           email?: string | null
           id?: string
           name?: string
@@ -579,6 +582,10 @@ export type Database = {
         Row: {
           accepted_at: string | null
           amount: number
+          archive_reason: string | null
+          archived: boolean
+          archived_at: string | null
+          archived_by: string | null
           client_id: string
           code: string | null
           company_id: string
@@ -600,6 +607,10 @@ export type Database = {
         Insert: {
           accepted_at?: string | null
           amount?: number
+          archive_reason?: string | null
+          archived?: boolean
+          archived_at?: string | null
+          archived_by?: string | null
           client_id: string
           code?: string | null
           company_id: string
@@ -621,6 +632,10 @@ export type Database = {
         Update: {
           accepted_at?: string | null
           amount?: number
+          archive_reason?: string | null
+          archived?: boolean
+          archived_at?: string | null
+          archived_by?: string | null
           client_id?: string
           code?: string | null
           company_id?: string
@@ -979,6 +994,7 @@ export type Database = {
           client_id: string
           code: string | null
           company_id: string
+          complexity_score: number | null
           confirmation_date: string | null
           coordinator: string | null
           cost: number | null
@@ -998,6 +1014,9 @@ export type Database = {
           execution_mode: string | null
           id: string
           instructions: string | null
+          lifting_charge_kg: number | null
+          lifting_height_m: number | null
+          lifting_reach_m: number | null
           loading_access: string | null
           loading_address: string | null
           loading_city: string | null
@@ -1025,6 +1044,7 @@ export type Database = {
           client_id: string
           code?: string | null
           company_id: string
+          complexity_score?: number | null
           confirmation_date?: string | null
           coordinator?: string | null
           cost?: number | null
@@ -1044,6 +1064,9 @@ export type Database = {
           execution_mode?: string | null
           id?: string
           instructions?: string | null
+          lifting_charge_kg?: number | null
+          lifting_height_m?: number | null
+          lifting_reach_m?: number | null
           loading_access?: string | null
           loading_address?: string | null
           loading_city?: string | null
@@ -1071,6 +1094,7 @@ export type Database = {
           client_id?: string
           code?: string | null
           company_id?: string
+          complexity_score?: number | null
           confirmation_date?: string | null
           coordinator?: string | null
           cost?: number | null
@@ -1090,6 +1114,9 @@ export type Database = {
           execution_mode?: string | null
           id?: string
           instructions?: string | null
+          lifting_charge_kg?: number | null
+          lifting_height_m?: number | null
+          lifting_reach_m?: number | null
           loading_access?: string | null
           loading_address?: string | null
           loading_city?: string | null
@@ -1587,9 +1614,67 @@ export type Database = {
           },
         ]
       }
+      facture_relances: {
+        Row: {
+          company_id: string
+          created_at: string
+          facture_id: string
+          id: string
+          recipient_email: string
+          recipient_name: string | null
+          relance_num: number
+          sent_at: string
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          facture_id: string
+          id?: string
+          recipient_email: string
+          recipient_name?: string | null
+          relance_num?: number
+          sent_at?: string
+          status?: string
+          subject?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          facture_id?: string
+          id?: string
+          recipient_email?: string
+          recipient_name?: string | null
+          relance_num?: number
+          sent_at?: string
+          status?: string
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facture_relances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "facture_relances_facture_id_fkey"
+            columns: ["facture_id"]
+            isOneToOne: false
+            referencedRelation: "factures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       factures: {
         Row: {
           amount: number
+          archive_reason: string | null
+          archived: boolean
+          archived_at: string | null
+          archived_by: string | null
           client_id: string
           code: string | null
           company_id: string
@@ -1607,6 +1692,10 @@ export type Database = {
         }
         Insert: {
           amount?: number
+          archive_reason?: string | null
+          archived?: boolean
+          archived_at?: string | null
+          archived_by?: string | null
           client_id: string
           code?: string | null
           company_id: string
@@ -1624,6 +1713,10 @@ export type Database = {
         }
         Update: {
           amount?: number
+          archive_reason?: string | null
+          archived?: boolean
+          archived_at?: string | null
+          archived_by?: string | null
           client_id?: string
           code?: string | null
           company_id?: string
@@ -2163,6 +2256,51 @@ export type Database = {
             columns: ["resource_id"]
             isOneToOne: false
             referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operation_suppliers: {
+        Row: {
+          amount: number | null
+          created_at: string
+          id: string
+          notes: string | null
+          operation_id: string
+          role: string | null
+          supplier_id: string
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          operation_id: string
+          role?: string | null
+          supplier_id: string
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          operation_id?: string
+          role?: string | null
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operation_suppliers_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operation_suppliers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -2755,6 +2893,57 @@ export type Database = {
           },
         ]
       }
+      resource_absences: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          end_date: string
+          id: string
+          reason: string | null
+          resource_id: string
+          start_date: string
+          type: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          end_date: string
+          id?: string
+          reason?: string | null
+          resource_id: string
+          start_date: string
+          type?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          end_date?: string
+          id?: string
+          reason?: string | null
+          resource_id?: string
+          start_date?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_absences_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resource_absences_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resource_companies: {
         Row: {
           company_id: string
@@ -3228,6 +3417,71 @@ export type Database = {
             columns: ["dossier_id"]
             isOneToOne: false
             referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          category: string
+          company_id: string
+          contact_name: string | null
+          created_at: string
+          daily_rate: number | null
+          email: string | null
+          hourly_rate: number | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          siret: string | null
+          specialties: string[] | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          category?: string
+          company_id: string
+          contact_name?: string | null
+          created_at?: string
+          daily_rate?: number | null
+          email?: string | null
+          hourly_rate?: number | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          siret?: string | null
+          specialties?: string[] | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          category?: string
+          company_id?: string
+          contact_name?: string | null
+          created_at?: string
+          daily_rate?: number | null
+          email?: string | null
+          hourly_rate?: number | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          siret?: string | null
+          specialties?: string[] | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -3914,6 +4168,7 @@ export type Database = {
           comment: string | null
           company_id: string
           completed_date: string | null
+          complexity_score: number | null
           contractor: string | null
           coordinator: string | null
           created_at: string
@@ -3939,6 +4194,10 @@ export type Database = {
           duration: string | null
           id: string
           instructions: string | null
+          lifting_charge_kg: number | null
+          lifting_ground_pressure: number | null
+          lifting_height_m: number | null
+          lifting_reach_m: number | null
           loading_date: string | null
           nature: string | null
           needs_voirie: boolean
@@ -3995,6 +4254,7 @@ export type Database = {
           comment?: string | null
           company_id: string
           completed_date?: string | null
+          complexity_score?: number | null
           contractor?: string | null
           coordinator?: string | null
           created_at?: string
@@ -4020,6 +4280,10 @@ export type Database = {
           duration?: string | null
           id?: string
           instructions?: string | null
+          lifting_charge_kg?: number | null
+          lifting_ground_pressure?: number | null
+          lifting_height_m?: number | null
+          lifting_reach_m?: number | null
           loading_date?: string | null
           nature?: string | null
           needs_voirie?: boolean
@@ -4076,6 +4340,7 @@ export type Database = {
           comment?: string | null
           company_id?: string
           completed_date?: string | null
+          complexity_score?: number | null
           contractor?: string | null
           coordinator?: string | null
           created_at?: string
@@ -4101,6 +4366,10 @@ export type Database = {
           duration?: string | null
           id?: string
           instructions?: string | null
+          lifting_charge_kg?: number | null
+          lifting_ground_pressure?: number | null
+          lifting_height_m?: number | null
+          lifting_reach_m?: number | null
           loading_date?: string | null
           nature?: string | null
           needs_voirie?: boolean
