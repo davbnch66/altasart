@@ -1253,76 +1253,54 @@ const InboxPage = () => {
 
       {/* Main content */}
       <div className={`flex-1 overflow-y-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-5 space-y-4"}`}>
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex items-center gap-3">
-            {isMobile && (
-              <Button variant="ghost" size="sm" onClick={() => setMobileSidebarOpen(true)}>
-                <Menu className="h-5 w-5" />
-              </Button>
+        <div className="flex items-center gap-3 pb-2">
+          {isMobile && (
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setMobileSidebarOpen(true)}>
+              <Menu className="h-4 w-4" />
+            </Button>
+          )}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-black tracking-tight">{folderTitle}</h1>
+            {currentFolder === "inbox" && !isMobile && (
+              <p className="text-xs text-muted-foreground">
+                {unreadCounts.inbox > 0 ? `${unreadCounts.inbox} non lu${unreadCounts.inbox > 1 ? "s" : ""}` : "Tout est lu ✓"}
+                {" · "}Emails analysés par l'IA
+              </p>
             )}
-            <div className="flex-1">
-              <h1 className={`font-bold ${isMobile ? "text-lg" : "text-xl"}`}>{folderTitle}</h1>
-              {!isMobile && currentFolder === "inbox" && (
-                <p className="text-xs text-muted-foreground">Emails entrants et actions suggérées par l'IA</p>
-              )}
-            </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" onClick={handleManualSync} disabled={isSyncing}>
-                  <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-                  {!isMobile && <span className="ml-1">Sync</span>}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Synchroniser les emails maintenant</TooltipContent>
-            </Tooltip>
           </div>
-        </motion.div>
+          <Button variant="outline" size="sm" onClick={handleManualSync} disabled={isSyncing} className="gap-1.5 text-xs shrink-0">
+            <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+            {!isMobile && (isSyncing ? "Sync..." : "Sync")}
+          </Button>
+          <Button size="sm" onClick={() => { setReplyData(null); setForwardData(null); setComposeOpen(true); }}
+            className="gap-1.5 text-xs shrink-0 bg-primary hover:bg-primary/90">
+            <Send className="h-3.5 w-3.5" /> {!isMobile && "Nouveau mail"}
+          </Button>
+        </div>
 
         {/* Category tabs (only for inbox) */}
         {currentFolder === "inbox" && (
-          <div className="flex gap-1 border-b">
-            <button
-              onClick={() => setCategory("tous")}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                category === "tous"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Inbox className="h-4 w-4" />
-              Tous
-              {unreadCounts.inbox > 0 && (
-                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">{unreadCounts.inbox}</Badge>
-              )}
-            </button>
-            <button
-              onClick={() => setCategory("demandes")}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                category === "demandes"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              Demandes client
-              {unreadDemandesCount > 0 && (
-                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">{unreadDemandesCount}</Badge>
-              )}
-            </button>
-            <button
-              onClick={() => setCategory("autre")}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                category === "autre"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <MailWarning className="h-4 w-4" />
-              Autre
-              {autreEmails.length > 0 && (
-                <Badge variant="outline" className="ml-1 px-1.5 py-0 text-[10px] text-muted-foreground">{autreEmails.length}</Badge>
-              )}
-            </button>
+          <div className="flex gap-1.5 pb-1 border-b">
+            {[
+              { key: "tous" as CategoryTab, label: "Tous", icon: Inbox, count: unreadCounts.inbox },
+              { key: "demandes" as CategoryTab, label: "Demandes", icon: CheckCircle2, count: unreadDemandesCount },
+              { key: "autre" as CategoryTab, label: "Autre", icon: MailWarning, count: 0 },
+            ].map(tab => (
+              <button key={tab.key} onClick={() => setCategory(tab.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t-lg border-b-2 transition-colors ${
+                  category === tab.key
+                    ? "border-primary text-primary bg-primary/5"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}>
+                <tab.icon className="h-3.5 w-3.5" />
+                {tab.label}
+                {tab.count > 0 && (
+                  <span className={`rounded-full px-1.5 py-0 text-[9px] font-bold leading-4 ${
+                    category === tab.key ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground"
+                  }`}>{tab.count}</span>
+                )}
+              </button>
+            ))}
           </div>
         )}
 
@@ -1629,192 +1607,87 @@ const InboxPage = () => {
                     }}
                     onTouchEnd={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
                     onTouchMove={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
-                    className={`group/row flex items-start gap-3 transition-colors ${
-                      selectionMode ? "cursor-default" : "cursor-pointer"
-                    } ${!isRead ? "bg-primary/[0.03]" : ""} ${isChecked ? "bg-primary/[0.06]" : ""} ${draggedEmailIds.includes(email.id) ? "opacity-50" : ""} hover:bg-muted/30 ${isMobile ? "px-3 py-3" : "px-5 py-3.5"}`}
+                    className={`group/row flex items-center gap-3 transition-colors cursor-pointer
+                      ${!isRead ? "bg-primary/[0.03] hover:bg-primary/[0.05]" : "hover:bg-muted/30"}
+                      ${isChecked ? "bg-primary/[0.06]" : ""}
+                      ${draggedEmailIds.includes(email.id) ? "opacity-50" : ""}
+                      ${isMobile ? "px-3 py-3" : "px-4 py-3"}`}
                   >
+                    {/* Sélection */}
                     {selectionMode && (
-                      <div className="mt-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <div className="shrink-0" onClick={e => e.stopPropagation()}>
                         <Checkbox checked={isChecked} onCheckedChange={() => toggleSelect(email.id)} />
                       </div>
                     )}
 
-                    <div className="flex min-w-0 flex-1 items-start gap-3">
-                      {/* Read indicator */}
-                      {isInbox && (
-                        <div className="mt-1 flex w-4 shrink-0 items-center justify-center">
-                          {!isRead ? (
-                            <div className="h-2.5 w-2.5 rounded-full bg-info" title="Non lu" />
-                          ) : (
-                            <Eye className="h-3.5 w-3.5 text-muted-foreground/40" />
-                          )}
-                        </div>
-                      )}
+                    {/* Avatar expéditeur */}
+                    {!selectionMode && (
+                      <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
+                        !isRead ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                      }`}>
+                        {(email.from_name || email.from_email || "?").substring(0, 2).toUpperCase()}
+                      </div>
+                    )}
 
-                      {isSent && (
-                        <div className="mt-1 flex w-4 shrink-0 items-center justify-center">
-                          <Send className="h-3.5 w-3.5 text-muted-foreground/40" />
-                        </div>
-                      )}
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <p className={`truncate ${!isRead ? "font-semibold text-foreground" : "font-medium text-foreground/80"} ${isMobile ? "text-xs" : "text-sm"}`}>
-                            {isSent
-                              ? `À : ${recipients || "—"}`
-                              : (email.from_name || email.from_email || "Inconnu")}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <p className={`truncate ${!isRead ? "font-medium text-foreground" : "text-foreground/70"} ${isMobile ? "text-xs" : "text-sm"}`}>
-                            {email.subject || "(sans objet)"}
-                          </p>
-                          {analysis?.urgence === true && (
-                            <Badge className="bg-destructive/15 text-destructive border-destructive/30 px-1.5 py-0 text-[10px] shrink-0 gap-0.5">
-                              ⚡ Urgent
-                            </Badge>
-                          )}
-                        </div>
-                        {!isMobile && isInbox && analysis?.resume && (
-                          <p className="mt-0.5 truncate text-xs text-muted-foreground">{analysis.resume}</p>
-                        )}
-
-                        {/* Account badge with colored dot */}
-                        {account && (
-                          <div className="mt-1 flex items-center gap-1.5">
-                            <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${accountColor}`} />
-                            <span className="text-[9px] text-muted-foreground truncate max-w-[180px]">
-                              {account.email_address}
-                            </span>
-                          </div>
-                        )}
-
-                        {hasActions && (
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {analysis.type_demande.filter((t: string) => t !== "autre").slice(0, 3).map((t: string) => (
-                              <Badge key={t} variant="secondary" className="px-1.5 py-0 text-[10px]">{t}</Badge>
+                    {/* Contenu */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <p className={`text-sm truncate flex-1 ${!isRead ? "font-bold text-foreground" : "font-medium text-foreground/80"}`}>
+                          {isSent ? `À : ${recipients || "—"}` : (email.from_name || email.from_email || "Inconnu")}
+                        </p>
+                        {/* Flags */}
+                        {emailFlags.length > 0 && (
+                          <div className="flex gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            {emailFlags.slice(0, 2).map((fc: string) => (
+                              <span key={fc} className="h-2 w-2 rounded-full shrink-0"
+                                style={{ backgroundColor: FLAG_COLORS.find(f => f.key === fc)?.color || "#999" }} />
                             ))}
                           </div>
                         )}
-
-                        {/* Flag display & picker */}
-                        {isInboxLikeFolder && (
-                          <div className="flex items-center gap-0.5 mt-1" onClick={(e) => e.stopPropagation()}>
-                            {emailFlags.length > 0 && emailFlags.map((fc) => {
-                              const flagDef = FLAG_COLORS.find((f) => f.key === fc);
-                              return flagDef ? (
-                                <Tooltip key={fc}>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); toggleFlag(email.id, fc); }}
-                                      className="h-3 w-3 rounded-full shrink-0 hover:scale-125 transition-transform"
-                                      style={{ backgroundColor: flagDef.color }}
-                                    />
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top"><p className="text-xs">{flagDef.label} (clic pour retirer)</p></TooltipContent>
-                                </Tooltip>
-                              ) : null;
-                            })}
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button className="h-4 w-4 flex items-center justify-center rounded hover:bg-muted text-muted-foreground/40 hover:text-muted-foreground transition-colors">
-                                  <Flag className="h-3 w-3" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-40 p-1.5" align="start" onClick={(e) => e.stopPropagation()}>
-                                <div className="space-y-0.5">
-                                  {FLAG_COLORS.map((flag) => {
-                                    const has = emailFlags.includes(flag.key);
-                                    return (
-                                      <button
-                                        key={flag.key}
-                                        onClick={() => toggleFlag(email.id, flag.key)}
-                                        className={`flex w-full items-center gap-2 rounded px-2 py-1 text-xs transition-colors ${
-                                          has ? "bg-primary/10 font-medium" : "hover:bg-muted text-muted-foreground"
-                                        }`}
-                                      >
-                                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: flag.color }} />
-                                        {flag.label.split("—")[0].trim()}
-                                        {has && <span className="ml-auto text-primary text-[10px]">✓</span>}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          </div>
+                        {/* Badge urgent IA */}
+                        {analysis?.urgence && (
+                          <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive">⚡ Urgent</span>
                         )}
-                      </div>
-
-                      <div className="flex shrink-0 flex-col items-end gap-1">
-                        <span className="whitespace-nowrap text-[10px] text-muted-foreground">
-                          {formatDistanceToNow(new Date(email.created_at), { addSuffix: true, locale: fr })}
+                        {/* Date */}
+                        <span className={`text-[10px] shrink-0 ${!isRead ? "text-primary font-semibold" : "text-muted-foreground"}`}>
+                          {formatDistanceToNow(new Date(email.created_at || email.received_at), { addSuffix: false, locale: fr })}
                         </span>
-                        {isInbox && (
-                          <Badge className={`py-0 text-[10px] ${statusStyles[email.status] || ""}`}>
-                            {statusLabels[email.status] || email.status}
-                          </Badge>
-                        )}
-                        {isInbox && (email.clients as any)?.name && (
-                          <span className="max-w-[100px] truncate text-[10px] text-muted-foreground">
-                            {(email.clients as any).name}
-                          </span>
-                        )}
-                        {isRead && readByProfile && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
-                                <CheckCircle2 className="h-3 w-3" />
-                                <span className="max-w-[60px] truncate">{readByProfile.full_name?.split(" ")[0] || "Lu"}</span>
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="left">
-                              <p className="text-xs">
-                                Lu par {readByProfile.full_name || readByProfile.email}
-                                {email.read_at && <> · {format(new Date(email.read_at), "dd/MM/yyyy à HH:mm", { locale: fr })}</>}
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                        {/* Quick action buttons */}
-                        {isInboxLikeFolder && !selectionMode && (
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover/row:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                            {email.folder !== "archive" && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleQuickRowAction(email.id, "archive");
-                                    }}
-                                    className="p-1 rounded hover:bg-muted transition-colors"
-                                  >
-                                    <Archive className="h-3.5 w-3.5 text-muted-foreground" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="left"><p className="text-xs">Archiver</p></TooltipContent>
-                              </Tooltip>
-                            )}
-                            {email.folder !== "trash" && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleQuickRowAction(email.id, "trash");
-                                    }}
-                                    className="p-1 rounded hover:bg-destructive/10 transition-colors"
-                                  >
-                                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="left"><p className="text-xs">Corbeille</p></TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                        )}
                       </div>
+                      <p className={`text-xs truncate ${!isRead ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                        {email.subject || "(sans objet)"}
+                      </p>
+                      {!isMobile && analysis?.resume && (
+                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">{analysis.resume}</p>
+                      )}
+                      {/* Badge IA type demande */}
+                      {!isMobile && hasActions && analysis?.type_demande?.[0] && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-primary mt-1">
+                          <CheckCircle2 className="h-3 w-3" />
+                          {analysis.type_demande[0] === "devis" ? "Demande de devis" :
+                           analysis.type_demande[0] === "visite" ? "Demande de visite" :
+                           analysis.type_demande[0] === "information" ? "Demande d'info" : analysis.type_demande[0]}
+                        </span>
+                      )}
                     </div>
+
+                    {/* Actions rapides au hover */}
+                    {!selectionMode && !isMobile && isInboxLikeFolder && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={e => { e.stopPropagation(); handleQuickRowAction(email.id, "archive"); }}
+                          className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Archiver">
+                          <Archive className="h-3.5 w-3.5 text-muted-foreground" />
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); handleQuickRowAction(email.id, "trash"); }}
+                          className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors" title="Supprimer">
+                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Point non lu à droite sur mobile */}
+                    {isMobile && !isRead && (
+                      <div className="h-2 w-2 rounded-full bg-primary shrink-0" />
+                    )}
                   </div>
                 );
               })}
