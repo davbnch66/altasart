@@ -3,8 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
-const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -36,14 +34,17 @@ export function usePushNotifications() {
       );
       return;
     }
-    if (!VAPID_PUBLIC_KEY) {
-      setError("Clé VAPID manquante");
-      console.error("VITE_VAPID_PUBLIC_KEY manquant");
-      toast.error("Configuration manquante — contactez le support");
-      return;
-    }
 
     try {
+      // Récupérer la clé publique VAPID depuis l'Edge Function
+      const { data: keyData, error: keyError } = await supabase.functions.invoke("get-vapid-public-key");
+      if (keyError || !keyData?.publicKey) {
+        setError("Clé VAPID manquante");
+        console.error("VAPID key error:", keyError);
+        toast.error("Erreur de configuration des notifications");
+        return;
+      }
+
       const perm = await Notification.requestPermission();
       setPermission(perm);
 
@@ -66,7 +67,7 @@ export function usePushNotifications() {
 
       const subscription = await (registration as ServiceWorkerRegistration).pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        applicationServerKey: urlBase64ToUint8Array(keyData.publicKey),
       });
 
       const { error: dbError } = await (supabase.from("push_subscriptions") as any).upsert(
@@ -88,7 +89,7 @@ export function usePushNotifications() {
       setError(err.message);
 
       if (err.message?.includes("timeout")) {
-        toast.error("Service Worker non prêt — installez l'app sur votre écran d'accueil et réessayez");
+        toast.error("Installez l'app sur votre écran d'accueil et réessayez");
       } else if (err.message?.includes("applicationServerKey")) {
         toast.error("Erreur de clé VAPID — vérifiez la configuration");
       } else {
