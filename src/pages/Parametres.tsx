@@ -38,7 +38,6 @@ const tabs = [
   { value: "fixed-costs", label: "Coûts fixes", icon: Euro },
   { value: "import", label: "Import", icon: Upload },
   { value: "export", label: "Export & RGPD", icon: Download },
-  { value: "export", label: "Export & RGPD", icon: Download },
 ];
 
 // ─── Company Edit Card ────────────────────────────────────────────────────────
