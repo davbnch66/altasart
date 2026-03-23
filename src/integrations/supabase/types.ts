@@ -3558,6 +3558,7 @@ export type Database = {
       }
       synced_emails: {
         Row: {
+          ai_analysis: Json | null
           attachments: Json | null
           body_html: string | null
           body_text: string | null
@@ -3565,6 +3566,7 @@ export type Database = {
           client_id: string | null
           company_id: string
           created_at: string
+          devis_id: string | null
           direction: string
           dossier_id: string | null
           email_account_id: string
@@ -3574,13 +3576,20 @@ export type Database = {
           id: string
           in_reply_to: string | null
           is_read: boolean
+          label_id: string | null
           message_id: string
+          processed_at: string | null
           raw_headers: Json | null
+          read_at: string | null
+          read_by: string | null
           received_at: string
+          status: string | null
           subject: string | null
           to_emails: Json | null
+          visite_id: string | null
         }
         Insert: {
+          ai_analysis?: Json | null
           attachments?: Json | null
           body_html?: string | null
           body_text?: string | null
@@ -3588,6 +3597,7 @@ export type Database = {
           client_id?: string | null
           company_id: string
           created_at?: string
+          devis_id?: string | null
           direction?: string
           dossier_id?: string | null
           email_account_id: string
@@ -3597,13 +3607,20 @@ export type Database = {
           id?: string
           in_reply_to?: string | null
           is_read?: boolean
+          label_id?: string | null
           message_id: string
+          processed_at?: string | null
           raw_headers?: Json | null
+          read_at?: string | null
+          read_by?: string | null
           received_at?: string
+          status?: string | null
           subject?: string | null
           to_emails?: Json | null
+          visite_id?: string | null
         }
         Update: {
+          ai_analysis?: Json | null
           attachments?: Json | null
           body_html?: string | null
           body_text?: string | null
@@ -3611,6 +3628,7 @@ export type Database = {
           client_id?: string | null
           company_id?: string
           created_at?: string
+          devis_id?: string | null
           direction?: string
           dossier_id?: string | null
           email_account_id?: string
@@ -3620,11 +3638,17 @@ export type Database = {
           id?: string
           in_reply_to?: string | null
           is_read?: boolean
+          label_id?: string | null
           message_id?: string
+          processed_at?: string | null
           raw_headers?: Json | null
+          read_at?: string | null
+          read_by?: string | null
           received_at?: string
+          status?: string | null
           subject?: string | null
           to_emails?: Json | null
+          visite_id?: string | null
         }
         Relationships: [
           {
@@ -3642,6 +3666,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "synced_emails_devis_id_fkey"
+            columns: ["devis_id"]
+            isOneToOne: false
+            referencedRelation: "devis"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "synced_emails_dossier_id_fkey"
             columns: ["dossier_id"]
             isOneToOne: false
@@ -3653,6 +3684,13 @@ export type Database = {
             columns: ["email_account_id"]
             isOneToOne: false
             referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "synced_emails_visite_id_fkey"
+            columns: ["visite_id"]
+            isOneToOne: false
+            referencedRelation: "visites"
             referencedColumns: ["id"]
           },
         ]
@@ -4600,7 +4638,40 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      unified_emails: {
+        Row: {
+          ai_analysis: Json | null
+          attachments: Json | null
+          body_html: string | null
+          body_text: string | null
+          cc_emails: Json | null
+          client_id: string | null
+          company_id: string | null
+          created_at: string | null
+          devis_id: string | null
+          direction: string | null
+          dossier_id: string | null
+          email_account_id: string | null
+          folder: string | null
+          from_email: string | null
+          from_name: string | null
+          id: string | null
+          in_reply_to: string | null
+          is_read: boolean | null
+          label_id: string | null
+          message_id: string | null
+          processed_at: string | null
+          read_at: string | null
+          read_by: string | null
+          received_at: string | null
+          source: string | null
+          status: string | null
+          subject: string | null
+          to_emails: Json | null
+          visite_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       auto_assign_companies_for_new_user: {
