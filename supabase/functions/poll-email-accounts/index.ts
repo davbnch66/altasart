@@ -583,40 +583,45 @@ serve(async (req) => {
             inboundEmail = newInbound;
           }
 
-          // Trigger AI analysis for NEW inbound emails — with retry
+          // Trigger AI analysis for NEW inbound emails — fire-and-forget (non-blocking)
           // For spam/trash: pass flag so AI only checks for false positives
           const spamTrashFolders = ["spam", "junk", "trash", "deleted", "corbeille", "poubelle"];
           const isSpamOrTrash = spamTrashFolders.includes(normalizedFolder);
           if (inboundEmail && isNewInbound) {
-            let analysisOk = false;
-            for (let attempt = 1; attempt <= 3; attempt++) {
-              try {
-                const processUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/process-inbound-email`;
-                const res = await fetch(processUrl, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-                  },
-                  body: JSON.stringify({
-                    inbound_email_id: inboundEmail.id,
-                    ...(isSpamOrTrash ? { spam_check_only: true } : {}),
-                  }),
-                });
-                if (res.ok) { analysisOk = true; break; }
-                console.warn(`AI analysis attempt ${attempt} failed [${res.status}] for ${inboundEmail.id}`);
-              } catch (e) {
-                console.error(`AI analysis attempt ${attempt} error:`, e);
+            // Fire-and-forget: don't await — prevents sequential timeout with many emails
+            const emailId = inboundEmail.id;
+            const processUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/process-inbound-email`;
+            const analyzeWithRetry = async () => {
+              let analysisOk = false;
+              for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                  const res = await fetch(processUrl, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                    },
+                    body: JSON.stringify({
+                      inbound_email_id: emailId,
+                      ...(isSpamOrTrash ? { spam_check_only: true } : {}),
+                    }),
+                  });
+                  if (res.ok) { analysisOk = true; break; }
+                  console.warn(`AI analysis attempt ${attempt} failed [${res.status}] for ${emailId}`);
+                } catch (e) {
+                  console.error(`AI analysis attempt ${attempt} error:`, e);
+                }
+                if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
               }
-              if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
-            }
-            if (!analysisOk) {
-              // Mark email as analysis error for manual retry
-              await supabase.from("inbound_emails")
-                .update({ status: "error" })
-                .eq("id", inboundEmail.id);
-              console.error(`AI analysis failed after 3 attempts for email ${inboundEmail.id}`);
-            }
+              if (!analysisOk) {
+                await supabase.from("inbound_emails")
+                  .update({ status: "error" })
+                  .eq("id", emailId);
+                console.error(`AI analysis failed after 3 attempts for email ${emailId}`);
+              }
+            };
+            // Launch without awaiting — runs in background
+            analyzeWithRetry().catch(e => console.error("Background analysis error:", e));
           }
         }
 
