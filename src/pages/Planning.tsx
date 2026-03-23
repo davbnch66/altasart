@@ -413,7 +413,25 @@ const Planning = () => {
     enabled: companyIds.length > 0 && planningType === "commercial",
   });
 
-  // Extract unique commercials (advisors) from visites + devis
+  // Fetch voirie status for operations' dossiers
+  const dossierIds = useMemo(() => operations.map((op: any) => op.dossier_id).filter(Boolean), [operations]);
+  const { data: voirieByDossier = {} } = useQuery({
+    queryKey: ["planning-voirie", dossierIds],
+    queryFn: async () => {
+      if (dossierIds.length === 0) return {};
+      const { data, error } = await supabase
+        .from("visites")
+        .select("dossier_id, voirie_status, needs_voirie, loading_date")
+        .in("dossier_id", dossierIds)
+        .eq("needs_voirie", true);
+      if (error) return {};
+      const map: Record<string, string> = {};
+      (data || []).forEach((v: any) => { if (v.dossier_id) map[v.dossier_id] = v.voirie_status; });
+      return map;
+    },
+    enabled: dossierIds.length > 0 && planningType === "exploitation" && exploitationMode === "operation",
+  });
+
   const commercials = useMemo(() => {
     const advisors = new Set<string>();
     visites.forEach((v: any) => { if (v.clients?.advisor) advisors.add(v.clients.advisor); });
