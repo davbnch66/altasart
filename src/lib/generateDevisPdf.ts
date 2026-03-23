@@ -537,6 +537,19 @@ export async function generateDevisPdf(devisId: string, returnBase64 = false, re
   if (returnBase64) {
     return doc.output("datauristring").split(",")[1];
   }
+
+  // Archive PDF to storage (non-blocking)
+  try {
+    const pdfBlob = doc.output("blob");
+    const path = `devis/${devis.company_id}/${devisId}/${devis.code || devisId}.pdf`;
+    await supabase.storage.from("documents-pdf").upload(path, pdfBlob, {
+      contentType: "application/pdf",
+      upsert: true,
+    });
+  } catch (e) {
+    console.warn("PDF archive failed:", e);
+  }
+
   doc.save(fileName);
 }
 

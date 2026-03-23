@@ -362,5 +362,17 @@ export async function generateFacturePdf(factureId: string, returnPreview = fals
     return { blobUrl, fileName, dataUri };
   }
 
+  // Archive PDF to storage (non-blocking)
+  try {
+    const pdfBlob = doc.output("blob");
+    const path = `factures/${facture.company_id}/${factureId}/${facture.code || factureId}.pdf`;
+    await supabase.storage.from("documents-pdf").upload(path, pdfBlob, {
+      contentType: "application/pdf",
+      upsert: true,
+    });
+  } catch (e) {
+    console.warn("PDF archive failed:", e);
+  }
+
   doc.save(fileName);
 }

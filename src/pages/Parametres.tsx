@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield, ChevronDown, ChevronUp, FileText, Upload, Paintbrush, Server, Bell, Download, FolderOpen, Euro, Truck, ClipboardCheck } from "lucide-react";
+import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield, ChevronDown, ChevronUp, FileText, Upload, Paintbrush, Server, Bell, Download, FolderOpen, Euro, Truck, ClipboardCheck, Archive } from "lucide-react";
+import JSZip from "jszip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -544,6 +545,73 @@ function ExportDataTab({ companyIds }: { companyIds: string[] }) {
           {exporting === "all" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
           Exporter toutes les données
         </Button>
+        {/* Archived PDFs */}
+        <div className="border-t pt-4 mt-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold flex items-center gap-2"><Archive className="h-4 w-4 text-primary" /> PDFs archivés</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Téléchargez tous les devis et factures PDF générés en un seul ZIP</p>
+            </div>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8"
+              disabled={exporting === "pdfs"}
+              onClick={async () => {
+                setExporting("pdfs");
+                try {
+                  const zip = new JSZip();
+                  let count = 0;
+
+                  // List all folders recursively
+                  const listAll = async (folder: string): Promise<string[]> => {
+                    const { data } = await supabase.storage.from("documents-pdf").list(folder, { limit: 1000 });
+                    if (!data) return [];
+                    const paths: string[] = [];
+                    for (const item of data) {
+                      const fullPath = folder ? `${folder}/${item.name}` : item.name;
+                      if (!item.id) {
+                        // It's a folder
+                        const sub = await listAll(fullPath);
+                        paths.push(...sub);
+                      } else {
+                        paths.push(fullPath);
+                      }
+                    }
+                    return paths;
+                  };
+
+                  const allFiles = await listAll("");
+                  if (allFiles.length === 0) {
+                    toast.info("Aucun PDF archivé trouvé");
+                    setExporting(null);
+                    return;
+                  }
+
+                  for (const filePath of allFiles) {
+                    const { data } = await supabase.storage.from("documents-pdf").download(filePath);
+                    if (data) {
+                      zip.file(filePath, data);
+                      count++;
+                    }
+                  }
+
+                  const blob = await zip.generateAsync({ type: "blob" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `pdfs_archives_${new Date().toISOString().split("T")[0]}.zip`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  toast.success(`${count} PDF(s) téléchargés en ZIP`);
+                } catch (e: any) {
+                  toast.error("Erreur : " + e.message);
+                } finally {
+                  setExporting(null);
+                }
+              }}>
+              {exporting === "pdfs" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              ZIP
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* RGPD */}
