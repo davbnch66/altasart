@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield, ChevronDown, ChevronUp, FileText, Upload, Paintbrush, Server, Bell } from "lucide-react";
+import { Building2, Users, Mail, User, Save, Loader2, LogOut, Edit2, Check, X, UserPlus, Trash2, Shield, ChevronDown, ChevronUp, FileText, Upload, Paintbrush, Server, Bell, Download, FolderOpen, Euro, Truck, ClipboardCheck } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { EmailTemplatesTab } from "@/components/settings/EmailTemplatesTab";
@@ -23,6 +22,20 @@ import { ROLE_LABELS, ROLE_DESCRIPTIONS, type AppRole } from "@/hooks/useMyRole"
 
 const roleLabels = ROLE_LABELS;
 const ALL_ROLES: AppRole[] = ["admin", "manager", "commercial", "exploitation", "comptable", "terrain", "readonly"];
+
+// ─── Tab config ───────────────────────────────────────────────────────────────
+const tabs = [
+  { value: "profile", label: "Mon profil", icon: User },
+  { value: "companies", label: "Sociétés", icon: Building2 },
+  { value: "team", label: "Équipe", icon: Users },
+  { value: "emails", label: "Comptes email", icon: Mail },
+  { value: "templates-email", label: "Templates email", icon: FileText },
+  { value: "templates-docs", label: "Templates docs", icon: FileText },
+  { value: "appearance", label: "Apparence", icon: Paintbrush },
+  { value: "notifications", label: "Notifications", icon: Bell },
+  { value: "import", label: "Import", icon: Upload },
+  { value: "export", label: "Export & RGPD", icon: Download },
+];
 
 // ─── Company Edit Card ────────────────────────────────────────────────────────
 function CompanyEditCard({ company, isAdmin }: { company: any; isAdmin: boolean }) {
@@ -185,7 +198,6 @@ function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
         <span className="ml-auto text-[10px] text-muted-foreground border rounded-full px-2 py-0.5">Admin uniquement</span>
       </div>
 
-      {/* Toggle email vs pseudo */}
       <div className="flex rounded-lg border bg-muted/30 p-0.5 gap-0.5 w-fit">
         <button
           onClick={() => setUseEmail(true)}
@@ -267,6 +279,195 @@ function CreateUserCard({ adminCompanyIds }: { adminCompanyIds: string[] }) {
   );
 }
 
+// ─── Export & RGPD Tab ────────────────────────────────────────────────────────
+function ExportDataTab({ companyIds }: { companyIds: string[] }) {
+  const [exporting, setExporting] = useState<string | null>(null);
+
+  const exportToCSV = (data: any[], filename: string, columns: string[]) => {
+    const header = columns.join(",");
+    const rows = data.map(row =>
+      columns.map(col => {
+        const val = col.split(".").reduce((o: any, k: string) => o?.[k], row) ?? "";
+        const str = String(val).replace(/"/g, '""');
+        return str.includes(",") || str.includes("\n") ? `"${str}"` : str;
+      }).join(",")
+    );
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filename}_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exports = [
+    {
+      key: "clients",
+      label: "Clients",
+      description: "Nom, email, téléphone, adresse, statut, société",
+      icon: Users,
+      color: "text-info",
+      fn: async () => {
+        const { data } = await supabase.from("clients")
+          .select("name, email, phone, mobile, address, city, postal_code, status, code, companies(short_name)")
+          .in("company_id", companyIds);
+        exportToCSV(data || [], "clients", ["name", "email", "phone", "mobile", "address", "city", "postal_code", "status", "code", "companies.short_name"]);
+      },
+    },
+    {
+      key: "dossiers",
+      label: "Dossiers",
+      description: "Titre, code, statut, montant, client, société",
+      icon: FolderOpen,
+      color: "text-warning",
+      fn: async () => {
+        const { data } = await supabase.from("dossiers")
+          .select("code, title, stage, amount, address, created_at, updated_at, clients(name), companies(short_name)")
+          .in("company_id", companyIds);
+        exportToCSV(data || [], "dossiers", ["code", "title", "stage", "amount", "address", "created_at", "clients.name", "companies.short_name"]);
+      },
+    },
+    {
+      key: "devis",
+      label: "Devis",
+      description: "Code, objet, montant, statut, client, date",
+      icon: FileText,
+      color: "text-primary",
+      fn: async () => {
+        const { data } = await supabase.from("devis")
+          .select("code, objet, amount, status, created_at, valid_until, clients(name), companies(short_name)")
+          .in("company_id", companyIds);
+        exportToCSV(data || [], "devis", ["code", "objet", "amount", "status", "created_at", "valid_until", "clients.name", "companies.short_name"]);
+      },
+    },
+    {
+      key: "factures",
+      label: "Factures",
+      description: "Code, montant, réglé, solde, statut, échéance",
+      icon: Euro,
+      color: "text-success",
+      fn: async () => {
+        const { data } = await supabase.from("factures")
+          .select("code, amount, paid_amount, status, created_at, due_date, clients(name), companies(short_name)")
+          .in("company_id", companyIds);
+        exportToCSV(data || [], "factures", ["code", "amount", "paid_amount", "status", "created_at", "due_date", "clients.name", "companies.short_name"]);
+      },
+    },
+    {
+      key: "operations",
+      label: "Opérations / BT",
+      description: "Numéro BT, client, villes, dates, volume",
+      icon: Truck,
+      color: "text-orange-500",
+      fn: async () => {
+        const { data } = await supabase.from("operations")
+          .select("lv_bt_number, operation_number, loading_date, delivery_date, loading_city, delivery_city, volume, dossiers(clients(name), code)")
+          .in("company_id", companyIds);
+        exportToCSV(data || [], "operations", ["lv_bt_number", "operation_number", "loading_date", "delivery_date", "loading_city", "delivery_city", "volume"]);
+      },
+    },
+    {
+      key: "visites",
+      label: "Visites techniques",
+      description: "Titre, client, date, statut, adresse",
+      icon: ClipboardCheck,
+      color: "text-purple-500",
+      fn: async () => {
+        const { data } = await supabase.from("visites")
+          .select("title, status, scheduled_date, address, clients(name), companies(short_name)")
+          .in("company_id", companyIds);
+        exportToCSV(data || [], "visites", ["title", "status", "scheduled_date", "address", "clients.name", "companies.short_name"]);
+      },
+    },
+  ];
+
+  const handleExport = async (exp: typeof exports[0]) => {
+    setExporting(exp.key);
+    try {
+      await exp.fn();
+      toast.success(`${exp.label} exportés en CSV`);
+    } catch (e: any) {
+      toast.error("Erreur lors de l'export : " + e.message);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Export */}
+      <div className="card-elevated p-5 space-y-4">
+        <div>
+          <h2 className="text-base font-bold">Export des données</h2>
+          <p className="text-xs text-muted-foreground mt-1">Téléchargez vos données au format CSV, compatible Excel et Google Sheets</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {exports.map(exp => (
+            <div key={exp.key} className="card-elevated p-4 flex items-center gap-4">
+              <div className={`h-10 w-10 rounded-xl bg-muted flex items-center justify-center shrink-0`}>
+                <exp.icon className={`h-5 w-5 ${exp.color}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold">{exp.label}</p>
+                <p className="text-xs text-muted-foreground truncate">{exp.description}</p>
+              </div>
+              <Button variant="outline" size="sm" className="shrink-0 gap-1.5 text-xs h-8"
+                onClick={() => handleExport(exp)}
+                disabled={exporting === exp.key}>
+                {exporting === exp.key
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <Download className="h-3.5 w-3.5" />}
+                CSV
+              </Button>
+            </div>
+          ))}
+        </div>
+        <Button variant="outline" className="w-full gap-2 border-dashed" onClick={async () => {
+          setExporting("all");
+          try {
+            for (const exp of exports) { await exp.fn(); await new Promise(r => setTimeout(r, 300)); }
+            toast.success("Toutes les données exportées !");
+          } catch (e: any) { toast.error(e.message); }
+          finally { setExporting(null); }
+        }} disabled={exporting === "all"}>
+          {exporting === "all" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          Exporter toutes les données
+        </Button>
+      </div>
+
+      {/* RGPD */}
+      <div className="card-elevated p-5 space-y-4 border-destructive/20">
+        <div>
+          <h2 className="text-base font-bold flex items-center gap-2">
+            <Shield className="h-5 w-5 text-primary" /> Conformité RGPD
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Vos données sont hébergées sur une infrastructure sécurisée. En tant que responsable de traitement, vous pouvez exporter ou supprimer les données de vos clients sur demande.
+          </p>
+        </div>
+        <div className="rounded-xl bg-muted/50 p-4 space-y-2 text-xs text-muted-foreground">
+          <p className="font-semibold text-foreground">Vos droits et obligations :</p>
+          <ul className="space-y-1 list-disc list-inside">
+            <li>Droit d'accès : exportez les données d'un client via la section ci-dessus</li>
+            <li>Droit à l'effacement : supprimez un client et ses données depuis sa fiche</li>
+            <li>Droit à la portabilité : format CSV compatible avec tous les logiciels</li>
+            <li>Conservation : les données sont conservées jusqu'à suppression manuelle</li>
+          </ul>
+        </div>
+        <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 space-y-2">
+          <p className="text-sm font-semibold text-destructive">Zone dangereuse</p>
+          <p className="text-xs text-muted-foreground">Ces actions sont irréversibles. Exportez vos données avant de procéder.</p>
+          <Button variant="destructive" size="sm" className="text-xs gap-1.5" onClick={() => toast.info("Contactez le support pour supprimer votre compte")}>
+            <Trash2 className="h-3.5 w-3.5" /> Demander la suppression du compte
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const Parametres = () => {
   const isMobile = useIsMobile();
@@ -274,6 +475,7 @@ const Parametres = () => {
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
 
+  const [activeTab, setActiveTab] = useState("profile");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
@@ -314,7 +516,6 @@ const Parametres = () => {
 
   const companyIds = current === "global" ? dbCompanies.map((c) => c.id) : [current];
 
-  // Fetch ALL memberships (RLS handles security filtering automatically)
   const { data: allTeamMembers = [] } = useQuery({
     queryKey: ["team-members-all"],
     queryFn: async () => {
@@ -326,7 +527,6 @@ const Parametres = () => {
     },
   });
 
-  // Group memberships by profile_id into one entry per person
   const groupedMembers = (() => {
     const filtered = current === "global"
       ? allTeamMembers
@@ -343,7 +543,6 @@ const Parametres = () => {
   })();
 
   const [editingMember, setEditingMember] = useState<string | null>(null);
-
 
   const saveProfile = async () => {
     if (!user) return;
@@ -373,77 +572,60 @@ const Parametres = () => {
     else { toast.success("Membre retiré"); queryClient.invalidateQueries({ queryKey: ["team-members-all"] }); }
   };
 
-  return (
-    <div className={`max-w-4xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className={`page-title ${isMobile ? "!text-lg" : ""}`}>Paramètres</h1>
-        {!isMobile && <p className="page-subtitle">Configuration de votre compte et de l'application</p>}
-      </motion.div>
-
-      <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList className={`${isMobile ? "w-full flex-wrap h-auto gap-1" : ""}`}>
-          <TabsTrigger value="profile" className="text-xs gap-1.5"><User className="h-3.5 w-3.5" /> Profil</TabsTrigger>
-          <TabsTrigger value="companies" className="text-xs gap-1.5"><Building2 className="h-3.5 w-3.5" /> Sociétés</TabsTrigger>
-          <TabsTrigger value="team" className="text-xs gap-1.5"><Users className="h-3.5 w-3.5" /> Équipe</TabsTrigger>
-          <TabsTrigger value="email-accounts" className="text-xs gap-1.5"><Server className="h-3.5 w-3.5" /> Connexions</TabsTrigger>
-          <TabsTrigger value="emails" className="text-xs gap-1.5"><Mail className="h-3.5 w-3.5" /> Modèles</TabsTrigger>
-          <TabsTrigger value="documents" className="text-xs gap-1.5"><FileText className="h-3.5 w-3.5" /> Documents</TabsTrigger>
-          <TabsTrigger value="roles" className="text-xs gap-1.5"><Shield className="h-3.5 w-3.5" /> Rôles</TabsTrigger>
-          <TabsTrigger value="import" className="text-xs gap-1.5"><Upload className="h-3.5 w-3.5" /> Import</TabsTrigger>
-          <TabsTrigger value="appearance" className="text-xs gap-1.5"><Paintbrush className="h-3.5 w-3.5" /> Apparence</TabsTrigger>
-          <TabsTrigger value="notifications" className="text-xs gap-1.5"><Bell className="h-3.5 w-3.5" /> Notifications</TabsTrigger>
-        </TabsList>
-
-        {/* Profile Tab */}
-        <TabsContent value="profile">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="rounded-xl border bg-card p-5 space-y-5">
-            <h2 className="text-sm font-semibold">Mon profil</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Email</Label>
-                <Input value={user?.email || ""} disabled className="text-sm bg-muted" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Nom complet</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="text-sm" placeholder="Jean Dupont" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Téléphone</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="text-sm" placeholder="06 12 34 56 78" />
-              </div>
-            </div>
-            <div className="flex items-center justify-between pt-2">
-              <Button variant="outline" size="sm" className="text-xs text-destructive" onClick={signOut}>
-                <LogOut className="h-3.5 w-3.5 mr-1" /> Se déconnecter
-              </Button>
-              <Button size="sm" onClick={saveProfile} disabled={savingProfile} className="text-xs">
-                {savingProfile ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
-                Enregistrer
-              </Button>
-            </div>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className="rounded-xl border bg-card p-5 space-y-3 mt-4">
-            <h2 className="text-sm font-semibold">Mes sociétés</h2>
-            <div className="space-y-2">
-              {memberships.map((m: any) => (
-                <div key={m.id} className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2.5 w-2.5 rounded-full bg-primary" />
-                    <span className="text-sm font-medium">{(m.companies as any)?.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {m.role === "admin" && <Shield className="h-3.5 w-3.5 text-primary" />}
-                    <Badge variant="secondary" className="text-xs">{roleLabels[m.role as AppRole] || m.role}</Badge>
-                  </div>
+  const renderTab = () => {
+    switch (activeTab) {
+      case "profile":
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            <div className="rounded-xl border bg-card p-5 space-y-5">
+              <h2 className="text-sm font-semibold">Mon profil</h2>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Email</Label>
+                  <Input value={user?.email || ""} disabled className="text-sm bg-muted" />
                 </div>
-              ))}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nom complet</Label>
+                  <Input value={fullName} onChange={(e) => setFullName(e.target.value)} className="text-sm" placeholder="Jean Dupont" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Téléphone</Label>
+                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="text-sm" placeholder="06 12 34 56 78" />
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-2">
+                <Button variant="outline" size="sm" className="text-xs text-destructive" onClick={signOut}>
+                  <LogOut className="h-3.5 w-3.5 mr-1" /> Se déconnecter
+                </Button>
+                <Button size="sm" onClick={saveProfile} disabled={savingProfile} className="text-xs">
+                  {savingProfile ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                  Enregistrer
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border bg-card p-5 space-y-3">
+              <h2 className="text-sm font-semibold">Mes sociétés</h2>
+              <div className="space-y-2">
+                {memberships.map((m: any) => (
+                  <div key={m.id} className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2.5 w-2.5 rounded-full bg-primary" />
+                      <span className="text-sm font-medium">{(m.companies as any)?.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {m.role === "admin" && <Shield className="h-3.5 w-3.5 text-primary" />}
+                      <Badge variant="secondary" className="text-xs">{roleLabels[m.role as AppRole] || m.role}</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </motion.div>
-        </TabsContent>
+        );
 
-        {/* Companies Tab */}
-        <TabsContent value="companies">
+      case "companies":
+        return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             {companyDetails.map((company: any) => (
               <CompanyEditCard key={company.id} company={company} isAdmin={adminCompanyIds.includes(company.id)} />
@@ -452,10 +634,10 @@ const Parametres = () => {
               <p className="text-sm text-muted-foreground text-center py-6">Seuls les admins peuvent modifier les informations des sociétés.</p>
             )}
           </motion.div>
-        </TabsContent>
+        );
 
-        {/* Team Tab */}
-        <TabsContent value="team">
+      case "team":
+        return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             <CreateUserCard adminCompanyIds={adminCompanyIds} />
 
@@ -470,7 +652,6 @@ const Parametres = () => {
 
                   return (
                     <div key={group.profileId} className="rounded-lg border overflow-hidden">
-                      {/* Summary row */}
                       <button
                         onClick={() => setEditingMember(isExpanded ? null : group.profileId)}
                         className="flex items-center gap-3 p-3 w-full text-left hover:bg-muted/50 transition-colors"
@@ -500,7 +681,6 @@ const Parametres = () => {
                         )}
                       </button>
 
-                      {/* Expanded edit panel */}
                       <AnimatePresence>
                         {isExpanded && (
                           <motion.div
@@ -542,7 +722,6 @@ const Parametres = () => {
                                   </div>
                                 );
                               })}
-                              {/* Add to missing companies button */}
                               {canEditAny && (() => {
                                 const memberCompanyIds = group.memberships.map((m: any) => m.company_id);
                                 const missingCompanyIds = adminCompanyIds.filter((id: string) => !memberCompanyIds.includes(id));
@@ -593,69 +772,79 @@ const Parametres = () => {
               </div>
             </div>
           </motion.div>
-        </TabsContent>
+        );
 
-        {/* Email Accounts Tab */}
-        <TabsContent value="email-accounts">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <EmailAccountsTab />
-          </motion.div>
-        </TabsContent>
+      case "emails":
+        return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><EmailAccountsTab /></motion.div>;
 
-        {/* Email Templates Tab */}
-        <TabsContent value="emails">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <EmailTemplatesTab />
-          </motion.div>
-        </TabsContent>
+      case "templates-email":
+        return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><EmailTemplatesTab /></motion.div>;
 
-        {/* Document Templates Tab */}
-        <TabsContent value="documents">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <DocumentTemplatesTab />
-          </motion.div>
-        </TabsContent>
+      case "templates-docs":
+        return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><DocumentTemplatesTab /></motion.div>;
 
-        {/* Roles Tab */}
-        <TabsContent value="roles">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-            <div className="rounded-xl border bg-card p-5 space-y-1">
-              <h2 className="text-sm font-semibold">Rôles disponibles</h2>
-              <p className="text-xs text-muted-foreground">Chaque membre se voit attribuer un rôle par société. Les accès sont filtrés automatiquement selon ce rôle.</p>
-            </div>
-            {ALL_ROLES.map((r) => (
-              <div key={r} className="rounded-xl border bg-card p-4 flex items-start gap-3">
-                <Shield className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                <div className="space-y-1">
-                  <span className="text-sm font-semibold">{ROLE_LABELS[r]}</span>
-                  <p className="text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[r]}</p>
-                </div>
-              </div>
+      case "appearance":
+        return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><AppearanceSettingsTab /></motion.div>;
+
+      case "notifications":
+        return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><NotificationSettingsTab /></motion.div>;
+
+      case "import":
+        return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ImportDataTab /></motion.div>;
+
+      case "export":
+        return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ExportDataTab companyIds={companyIds} /></motion.div>;
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className={`max-w-6xl mx-auto ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8"}`}>
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-black tracking-tight">Paramètres</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Gérez votre compte, vos sociétés et vos préférences</p>
+      </div>
+
+      {!isMobile ? (
+        <div className="grid grid-cols-[220px_1fr] gap-6 items-start">
+          {/* Vertical nav */}
+          <div className="card-elevated p-2 space-y-0.5 sticky top-6">
+            {tabs.map(tab => (
+              <button key={tab.value} onClick={() => setActiveTab(tab.value)}
+                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-left ${
+                  activeTab === tab.value
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}>
+                <tab.icon className="h-4 w-4 shrink-0" />
+                {tab.label}
+              </button>
             ))}
-          </motion.div>
-        </TabsContent>
-
-        {/* Import Tab */}
-        <TabsContent value="import">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <ImportDataTab />
-          </motion.div>
-        </TabsContent>
-
-        {/* Appearance Tab */}
-        <TabsContent value="appearance">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <AppearanceSettingsTab />
-          </motion.div>
-        </TabsContent>
-
-        {/* Notifications Tab */}
-        <TabsContent value="notifications">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <NotificationSettingsTab />
-          </motion.div>
-        </TabsContent>
-      </Tabs>
+          </div>
+          {/* Content */}
+          <div className="min-w-0">
+            {renderTab()}
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="flex gap-1 overflow-x-auto scrollbar-none pb-2 mb-4">
+            {tabs.map(tab => (
+              <button key={tab.value} onClick={() => setActiveTab(tab.value)}
+                className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                  activeTab === tab.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}>
+                <tab.icon className="h-3 w-3" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {renderTab()}
+        </div>
+      )}
     </div>
   );
 };
