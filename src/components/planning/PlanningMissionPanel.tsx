@@ -108,6 +108,11 @@ export const PlanningMissionPanel = ({
 
   const handleSave = async () => {
     if (!form.loading_date) { toast.error("Date de chargement requise"); return; }
+    if (!form.dossier_id) {
+      toast.error("Veuillez sélectionner un dossier");
+      setSaving(false);
+      return;
+    }
     setSaving(true);
     try {
       const companyId = current === "global" ? dbCompanies[0]?.id : current;
@@ -115,7 +120,7 @@ export const PlanningMissionPanel = ({
 
       const { data: op, error } = await supabase.from("operations").insert({
         company_id: companyId,
-        dossier_id: form.dossier_id || null,
+        dossier_id: form.dossier_id,
         loading_date: form.loading_date,
         delivery_date: form.delivery_date || form.loading_date,
         loading_city: form.loading_city || null,
@@ -181,21 +186,21 @@ export const PlanningMissionPanel = ({
           </div>
 
           {/* Dossier */}
-          {form.client_id && (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Dossier lié</Label>
-              <Select value={form.dossier_id} onValueChange={(v) => setForm(prev => ({ ...prev, dossier_id: v }))}>
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Sélectionner un dossier..." />
-                </SelectTrigger>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Dossier lié *</Label>
+            {!form.client_id ? (
+              <p className="text-xs text-muted-foreground italic">Sélectionnez d'abord un client</p>
+            ) : dossiers.length === 0 ? (
+              <p className="text-xs text-amber-600">Aucun dossier pour ce client</p>
+            ) : (
+              <Select value={form.dossier_id} onValueChange={v => setForm(prev => ({ ...prev, dossier_id: v }))}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Sélectionner un dossier..." /></SelectTrigger>
                 <SelectContent>
-                  {dossiers.map((d: any) => (
-                    <SelectItem key={d.id} value={d.id}>{d.code} — {d.title}</SelectItem>
-                  ))}
+                  {dossiers.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.code} — {d.title}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
