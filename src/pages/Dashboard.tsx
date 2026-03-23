@@ -259,19 +259,19 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.04 * i, duration: 0.3 }}
-            className="card-interactive p-4 space-y-2"
+            className="stat-card"
             onClick={() => navigate(stat.link)}
           >
             <div className="flex items-center justify-between">
-              <span className="section-label">{stat.label}</span>
+              <span className="stat-label">{stat.label}</span>
               <div className={`h-7 w-7 rounded-lg bg-muted flex items-center justify-center ${stat.color}`}>
                 <stat.icon className="h-3.5 w-3.5" />
               </div>
             </div>
             {statsLoading ? (
-              <Skeleton className="h-7 w-20" />
+              <Skeleton className="h-8 w-24" />
             ) : (
-              <p className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-xl"}`}>{stat.value}</p>
+              <p className="stat-value">{stat.value}</p>
             )}
             <p className="text-2xs text-muted-foreground flex items-center gap-1">
               {stat.trend}

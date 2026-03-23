@@ -280,7 +280,7 @@ export const PlanningMissionPanel = ({
 
         <div className="border-t px-6 py-4 flex gap-2">
           <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>Annuler</Button>
-          <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white gap-1.5" onClick={handleSave} disabled={saving}>
+          <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white gap-1.5 btn-primary-glow" onClick={handleSave} disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
             Créer la mission
           </Button>

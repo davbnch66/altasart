@@ -1465,12 +1465,12 @@ const Planning = () => {
         </div>
         <div className="flex items-center gap-2">
           {/* Bouton IA */}
-          <Button variant="outline" size="sm" onClick={() => setAiPlannerOpen(true)} className="gap-1.5 text-xs border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-950">
+          <Button variant="outline" size="sm" onClick={() => setAiPlannerOpen(true)} className="gap-1.5 text-xs border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-950 btn-primary-glow">
             <Sparkles className="h-3.5 w-3.5" />
             {isMobile ? "IA" : "Planifier avec l'IA"}
           </Button>
           {/* Bouton Nouvelle mission — vert prominent */}
-          <Button onClick={() => { setMissionDefaultDate(undefined); setMissionDefaultResource(undefined); setAiPreFill(null); setMissionPanelOpen(true); }} className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs">
+          <Button onClick={() => { setMissionDefaultDate(undefined); setMissionDefaultResource(undefined); setAiPreFill(null); setMissionPanelOpen(true); }} className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs btn-primary-glow">
             <Plus className="h-3.5 w-3.5" /> {isMobile ? "Mission" : "Nouvelle mission"}
           </Button>
           {/* Bouton Événement — secondaire */}

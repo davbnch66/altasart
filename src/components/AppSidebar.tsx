@@ -125,7 +125,7 @@ export const AppSidebar: React.FC = () => {
   };
 
   return (
-    <aside className="flex h-screen w-[240px] flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
+    <aside className="flex h-screen w-[248px] flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       {/* Company Switcher */}
       <div className="px-3 pt-4 pb-3">
         <DropdownMenu>
@@ -171,6 +171,9 @@ export const AppSidebar: React.FC = () => {
             isActive={location.pathname === "/"}
           />
         )}
+
+        {/* Separator */}
+        <div className="my-2 mx-2 border-t border-sidebar-border" />
 
         {/* Categorized nav items */}
         {NAV_CATEGORIES.map((cat) => {
@@ -239,7 +242,7 @@ export const AppSidebar: React.FC = () => {
       {/* Footer */}
       <div className="border-t border-sidebar-border p-3">
         <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg bg-sidebar-accent flex items-center justify-center text-[11px] font-semibold text-sidebar-accent-foreground shrink-0">
+          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-sidebar-accent to-sidebar-ring/30 flex items-center justify-center text-[11px] font-semibold text-sidebar-accent-foreground shrink-0">
             {user?.email?.substring(0, 2).toUpperCase() || "??"}
           </div>
           <div className="flex-1 min-w-0">
@@ -273,11 +276,11 @@ function SidebarNavLink({ to, icon: Icon, label, isActive, badge }: {
       to={to}
       className={`relative flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] transition-colors ${
         isActive
-          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+          ? "bg-sidebar-accent text-sidebar-primary font-semibold border-l-2 border-sidebar-ring"
+          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground border-l-2 border-transparent"
       }`}
     >
-      <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-sidebar-accent-foreground" : "text-sidebar-muted"}`} />
+      <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-sidebar-ring" : "text-sidebar-muted"}`} />
       <span className="flex-1 truncate">{label}</span>
       {badge !== undefined && badge > 0 && (
         <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold px-1">
