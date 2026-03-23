@@ -108,6 +108,11 @@ export const PlanningMissionPanel = ({
 
   const handleSave = async () => {
     if (!form.loading_date) { toast.error("Date de chargement requise"); return; }
+    if (!form.dossier_id) {
+      toast.error("Veuillez sélectionner un dossier");
+      setSaving(false);
+      return;
+    }
     setSaving(true);
     try {
       const companyId = current === "global" ? dbCompanies[0]?.id : current;
