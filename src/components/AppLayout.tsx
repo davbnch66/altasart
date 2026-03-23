@@ -12,6 +12,7 @@ import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { EmailNewMailToast } from "@/components/inbox/EmailNewMailToast";
 import { useMyRole, canAccessRoute } from "@/hooks/useMyRole";
 import { useCompany } from "@/contexts/CompanyContext";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 
 const companyLogoMap: Record<string, string> = {
   "company-art": "/logos/artlevage.png",
@@ -65,6 +66,7 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
 }
 
 export const AppLayout: React.FC = () => {
+  useKeyboardShortcuts();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();

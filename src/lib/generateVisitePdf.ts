@@ -576,6 +576,67 @@ export async function generateVisitePdf(visiteId: string, options?: { photosPerR
     }
   }
 
+  // ===== SECTION: CALCUL DE LEVAGE =====
+  if (visite.lifting_charge_kg || visite.lifting_height_m || visite.lifting_reach_m) {
+    y = checkPage(doc, y, 30, logo, company, pageW, marginL, marginR);
+    y = sectionTitle(doc, "CALCUL DE LEVAGE", y, marginL, contentW, pageW);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(30, 30, 30);
+
+    const liftItems: [string, string][] = [];
+    if (visite.lifting_charge_kg) liftItems.push(["Charge", `${visite.lifting_charge_kg} kg`]);
+    if (visite.lifting_height_m) liftItems.push(["Hauteur de levage", `${visite.lifting_height_m} m`]);
+    if (visite.lifting_reach_m) liftItems.push(["Déport nécessaire", `${visite.lifting_reach_m} m`]);
+    if (visite.complexity_score) liftItems.push(["Score de complexité", `${visite.complexity_score}/10`]);
+
+    for (const [label, value] of liftItems) {
+      y = checkPage(doc, y, 5, logo, company, pageW, marginL, marginR);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${label} : `, marginL + 3, y + 3);
+      const labelW = doc.getTextWidth(`${label} : `);
+      doc.setFont("helvetica", "normal");
+      doc.text(value, marginL + 3 + labelW, y + 3);
+      y += 5;
+    }
+    y += 5;
+  }
+
+  // ===== SECTION: VOIRIE =====
+  if (visite.needs_voirie) {
+    y = checkPage(doc, y, 20, logo, company, pageW, marginL, marginR);
+    y = sectionTitle(doc, "VOIRIE / ARRÊTÉ MUNICIPAL", y, marginL, contentW, pageW);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(30, 30, 30);
+
+    const voirieItems: [string, string][] = [];
+    if (visite.voirie_type) voirieItems.push(["Type", visite.voirie_type]);
+    if (visite.voirie_status) voirieItems.push(["Statut", visite.voirie_status]);
+    if (visite.voirie_address) voirieItems.push(["Adresse", visite.voirie_address]);
+    if (visite.voirie_requested_at) voirieItems.push(["Demandé le", format(new Date(visite.voirie_requested_at), "dd/MM/yyyy")]);
+    if (visite.voirie_obtained_at) voirieItems.push(["Obtenu le", format(new Date(visite.voirie_obtained_at), "dd/MM/yyyy")]);
+    if (visite.voirie_notes) voirieItems.push(["Notes voirie", visite.voirie_notes]);
+
+    for (const [label, value] of voirieItems) {
+      y = checkPage(doc, y, 5, logo, company, pageW, marginL, marginR);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${label} : `, marginL + 3, y + 3);
+      const labelW = doc.getTextWidth(`${label} : `);
+      doc.setFont("helvetica", "normal");
+      const valLines = doc.splitTextToSize(value, contentW - 10 - labelW);
+      doc.text(valLines[0], marginL + 3 + labelW, y + 3);
+      for (let li = 1; li < valLines.length; li++) {
+        y += 4;
+        doc.text(valLines[li], marginL + 6, y + 3);
+      }
+      y += 5;
+    }
+    y += 3;
+  }
+
   // ===== NOTES / COMMENTAIRES =====
   if (visite.comment || visite.notes || visite.instructions) {
     y = checkPage(doc, y, 20, logo, company, pageW, marginL, marginR);
