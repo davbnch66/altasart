@@ -245,7 +245,7 @@ export const InboxActionBar = ({ actions, onActionExecuted, clientEmail, clientN
 
         {suggestedActions.length >= 2 && (
           <Button
-            className="w-full gap-2 bg-success hover:bg-success/90 text-success-foreground"
+            className="w-full gap-2 bg-success hover:bg-success/90 text-success-foreground btn-primary-glow"
             onClick={handleAcceptAll}
             disabled={!!loadingActionId}
           >

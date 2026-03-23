@@ -131,20 +131,22 @@ export const AppLayout: React.FC = () => {
           {bottomNav.map((item) => {
             const isActive = item.exact ? location.pathname === item.to : location.pathname.startsWith(item.to);
             return (
-              <NavLink key={item.to} to={item.to} className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors">
+              <NavLink key={item.to} to={item.to} className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200">
                 <item.icon className={`h-[18px] w-[18px] ${isActive ? "text-foreground" : "text-muted-foreground"}`} />
                 <span className={`text-[10px] font-medium leading-none ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
                   {item.label}
                 </span>
+                {isActive && <div className="w-1 h-1 rounded-full bg-primary mt-0.5" />}
               </NavLink>
             );
           })}
           <button
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 transition-all duration-200"
             onClick={() => setSidebarOpen((v) => !v)}
           >
             <MoreHorizontal className={`h-[18px] w-[18px] ${sidebarOpen ? "text-foreground" : "text-muted-foreground"}`} />
             <span className={`text-[10px] font-medium leading-none ${sidebarOpen ? "text-foreground" : "text-muted-foreground"}`}>Plus</span>
+            {sidebarOpen && <div className="w-1 h-1 rounded-full bg-primary mt-0.5" />}
           </button>
         </nav>
       )}
