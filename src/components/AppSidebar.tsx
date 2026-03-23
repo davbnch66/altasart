@@ -43,6 +43,7 @@ const NAV_CATEGORIES = [
       { to: "/flotte", icon: Truck, label: "Flotte" },
       { to: "/stockage", icon: Warehouse, label: "Stockage" },
       { to: "/ressources", icon: Wrench, label: "Ressources" },
+      { to: "/fournisseurs", icon: Building2, label: "Fournisseurs" },
     ],
   },
   {
