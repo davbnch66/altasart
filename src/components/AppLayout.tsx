@@ -12,6 +12,8 @@ import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { EmailNewMailToast } from "@/components/inbox/EmailNewMailToast";
 import { useMyRole, canAccessRoute } from "@/hooks/useMyRole";
 import { useCompany } from "@/contexts/CompanyContext";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useCompany } from "@/contexts/CompanyContext";
 
 const companyLogoMap: Record<string, string> = {
   "company-art": "/logos/artlevage.png",
