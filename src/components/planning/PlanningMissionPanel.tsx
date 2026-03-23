@@ -186,21 +186,21 @@ export const PlanningMissionPanel = ({
           </div>
 
           {/* Dossier */}
-          {form.client_id && (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Dossier lié</Label>
-              <Select value={form.dossier_id} onValueChange={(v) => setForm(prev => ({ ...prev, dossier_id: v }))}>
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Sélectionner un dossier..." />
-                </SelectTrigger>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold">Dossier lié *</Label>
+            {!form.client_id ? (
+              <p className="text-xs text-muted-foreground italic">Sélectionnez d'abord un client</p>
+            ) : dossiers.length === 0 ? (
+              <p className="text-xs text-amber-600">Aucun dossier pour ce client</p>
+            ) : (
+              <Select value={form.dossier_id} onValueChange={v => setForm(prev => ({ ...prev, dossier_id: v }))}>
+                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Sélectionner un dossier..." /></SelectTrigger>
                 <SelectContent>
-                  {dossiers.map((d: any) => (
-                    <SelectItem key={d.id} value={d.id}>{d.code} — {d.title}</SelectItem>
-                  ))}
+                  {dossiers.map((d: any) => <SelectItem key={d.id} value={d.id}>{d.code} — {d.title}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
