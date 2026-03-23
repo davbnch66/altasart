@@ -30,6 +30,7 @@ import { VisiteContraintesTab } from "@/components/visite/VisiteContraintesTab";
 import { VisiteMethodologieTab } from "@/components/visite/VisiteMethodologieTab";
 import { VisiteSmartAlerts } from "@/components/visite/VisiteSmartAlerts";
 import { generateVisitePdf } from "@/lib/generateVisitePdf";
+import { LiftingCalculator } from "@/components/visite/LiftingCalculator";
 import { ApplyTemplateDialog } from "@/components/visite/ApplyTemplateDialog";
 import { GenerateDevisDialog } from "@/components/visite/GenerateDevisDialog";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
