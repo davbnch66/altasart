@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { SignaturePad } from "@/components/terrain/SignaturePad";
@@ -65,6 +64,7 @@ export default function TerrainPage() {
 
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [signatureTarget, setSignatureTarget] = useState<SignatureTarget>(null);
+  const [activeTerrainTab, setActiveTerrainTab] = useState("bt");
 
   const userId = user?.id;
 
@@ -112,13 +112,10 @@ export default function TerrainPage() {
 
   // ===== DATA QUERIES =====
 
-  // BTs - filtered based on mode
-  // For vehicle/person: get BTs linked via operation_resources to my resource
   const { data: bts = [], isLoading: btLoading } = useQuery({
     queryKey: ["terrain-bts", companyIds, dateToUse, userId, mode, myResource?.id],
     queryFn: async () => {
       if (mode !== "admin" && myResource?.id) {
-        // Get operation IDs linked to my resource
         const { data: linkedOps } = await supabase
           .from("operation_resources")
           .select("operation_id")
@@ -127,7 +124,6 @@ export default function TerrainPage() {
         const opIds = (linkedOps || []).map((lo: any) => lo.operation_id);
         
         if (opIds.length === 0) {
-          // Fallback: also check assigned_to for backwards compatibility
           const { data, error } = await supabase
             .from("operations")
             .select("*, dossiers(title, code, clients(name, phone))")
@@ -149,7 +145,6 @@ export default function TerrainPage() {
         return data || [];
       }
 
-      // Admin mode: all BTs for the day
       const { data, error } = await supabase
         .from("operations")
         .select("*, dossiers(title, code, clients(name, phone))")
@@ -162,7 +157,6 @@ export default function TerrainPage() {
     enabled: companyIds.length > 0 && !!userId,
   });
 
-  // Vehicle expenses for terrain
   const { data: recentExpenses = [] } = useQuery({
     queryKey: ["terrain-vehicle-expenses", myResource?.id],
     queryFn: async () => {
@@ -183,7 +177,6 @@ export default function TerrainPage() {
   };
   const fmtCurrency = (n: number) => new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
 
-  // Visites - only for person & admin modes
   const showVisites = mode === "person" || mode === "admin";
   const { data: visites = [], isLoading: visiteLoading } = useQuery({
     queryKey: ["terrain-visites", companyIds, dateToUse, userId, mode],
@@ -206,7 +199,6 @@ export default function TerrainPage() {
     enabled: companyIds.length > 0 && showVisites && !!userId,
   });
 
-  // Events - only for person & admin modes
   const showEvents = mode === "person" || mode === "admin";
   const { data: events = [], isLoading: eventsLoading } = useQuery({
     queryKey: ["terrain-events", companyIds, dateToUse, myResource?.id, mode],
@@ -334,18 +326,6 @@ export default function TerrainPage() {
   const uncompletedBTs = bts.filter((bt: any) => !bt.completed);
   const completedBTs = bts.filter((bt: any) => bt.completed);
 
-  // Mode label
-  const modeLabels: Record<TerrainMode, string> = {
-    vehicle: "Mode Véhicule",
-    person: "Mode Personnel",
-    admin: "Mode Admin",
-  };
-  const modeIcons: Record<TerrainMode, React.ReactNode> = {
-    vehicle: <Truck className="h-4 w-4 text-primary" />,
-    person: <HardHat className="h-4 w-4 text-primary" />,
-    admin: <HardHat className="h-4 w-4 text-primary" />,
-  };
-
   // Signature overlay
   if (signatureTarget) {
     const isOperator = signatureTarget.type === "operator";
@@ -360,46 +340,109 @@ export default function TerrainPage() {
     );
   }
 
+  const renderBTList = () => {
+    if (btLoading) {
+      return <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-40 w-full rounded-2xl" />)}</div>;
+    }
+    if (bts.length === 0) {
+      return <EmptyState icon={Package} label="Aucun BT prévu" />;
+    }
+    return (
+      <>
+        {uncompletedBTs.map((bt: any) => (
+          <BTCard
+            key={bt.id}
+            bt={bt}
+            showSignature
+            onComplete={() => completeBT.mutate(bt.id)}
+            onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })}
+            onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })}
+            onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })}
+            onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
+            onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)}
+            onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })}
+            onEdit={() => setEditBtId(bt.id)}
+            onSendReport={() => setReportBtId(bt.id)}
+          />
+        ))}
+        {completedBTs.length > 0 && (
+          <>
+            <div className="flex items-center gap-2 pt-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Terminés ({completedBTs.length})</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            {completedBTs.map((bt: any) => (
+              <BTCard key={bt.id} bt={bt} completed showSignature
+                onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
+                onEdit={() => setEditBtId(bt.id)}
+                onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)}
+                onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })}
+                onSendReport={() => setReportBtId(bt.id)}
+                onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })}
+                onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })}
+                onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })}
+              />
+            ))}
+          </>
+        )}
+      </>
+    );
+  };
+
+  const tabs = [
+    { value: "bt", label: `BT (${bts.length})`, icon: Package },
+    ...(showVisites ? [{ value: "visites", label: `Visites (${visites.length})`, icon: ClipboardCheck }] : []),
+    ...(showEvents ? [{ value: "planning", label: `Planning (${events.length})`, icon: CalendarDays }] : []),
+  ];
+
   return (
     <div className="max-w-xl mx-auto px-3 pb-24 pt-2 space-y-4">
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-1">
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
         <div className="flex items-center gap-2">
-          {modeIcons[mode]}
-          <h1 className="text-lg font-bold">Espace Terrain</h1>
-          <Button variant="outline" size="sm" onClick={() => setShowAR(true)} className="gap-1 ml-auto mr-1">
-            <Camera className="h-3.5 w-3.5" />AR
+          <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+            mode === "vehicle" ? "bg-warning/15" : "bg-primary/15"
+          }`}>
+            {mode === "vehicle" ? <Truck className="h-5 w-5 text-warning" /> : <HardHat className="h-5 w-5 text-primary" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-black tracking-tight">Espace Terrain</h1>
+            <p className="text-xs text-muted-foreground capitalize">{formatDate(dateToUse)}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setShowAR(true)} className="gap-1.5 text-xs shrink-0">
+            <Camera className="h-3.5 w-3.5" /> AR
           </Button>
-          <Badge variant="secondary" className="text-[10px]">{modeLabels[mode]}</Badge>
+          {isAdmin && (
+            <Badge variant="secondary" className="text-[10px] shrink-0">Admin</Badge>
+          )}
         </div>
 
-        {/* Date navigation for admin */}
-        {isAdmin ? (
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(shiftDate(selectedDate, -1))}>
+        {/* Navigation date admin */}
+        {isAdmin && (
+          <div className="flex items-center gap-2 rounded-xl border bg-card px-3 py-2">
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setSelectedDate(shiftDate(selectedDate, -1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <button
               onClick={() => setSelectedDate(todayStr())}
-              className={`text-xs capitalize flex-1 text-center ${selectedDate === todayStr() ? "font-bold text-primary" : "text-muted-foreground"}`}
+              className={`text-sm flex-1 text-center font-medium capitalize ${selectedDate === todayStr() ? "text-primary" : "text-foreground"}`}
             >
               {formatDate(selectedDate)}
               {selectedDate !== todayStr() && (
                 <span className="block text-[10px] text-primary">↩ Revenir à aujourd'hui</span>
               )}
             </button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setSelectedDate(shiftDate(selectedDate, 1))}>
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => setSelectedDate(shiftDate(selectedDate, 1))}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-        ) : (
-          <p className="text-xs text-muted-foreground capitalize">{formatDate(dateToUse)}</p>
         )}
       </motion.div>
 
-      {/* Push notification activation banner */}
+      {/* Push notification banners */}
       {permission === "default" && (
-        <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 flex items-center justify-between gap-3 mb-4">
+        <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm">
             <Bell className="h-4 w-4 text-primary shrink-0" />
             <span>Recevez vos missions en temps réel</span>
@@ -410,41 +453,37 @@ export default function TerrainPage() {
         </div>
       )}
       {permission === "denied" && (
-        <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive mb-4">
+        <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           🔕 Notifications bloquées — allez dans les paramètres de votre navigateur pour les autoriser
         </div>
       )}
       {permission === "granted" && subscribed && (
-        <div className="rounded-xl border border-green-500/20 bg-green-500/5 px-4 py-3 text-sm text-green-600 dark:text-green-400 flex items-center gap-2 mb-4">
+        <div className="rounded-xl border border-success/20 bg-success/5 px-4 py-3 text-sm text-success flex items-center gap-2">
           <Bell className="h-4 w-4" /> Notifications activées ✓
         </div>
       )}
 
-      {/* Summary badges */}
-      <div className={`grid gap-2 ${showVisites ? "grid-cols-3" : "grid-cols-1"}`}>
-        <div className="rounded-xl border bg-card p-3 text-center">
-          <p className="text-xl font-bold text-primary">{uncompletedBTs.length}</p>
-          <p className="text-[10px] text-muted-foreground">BT restants</p>
+      {/* Stats summary */}
+      <div className={`grid gap-2 ${showVisites ? "grid-cols-3" : "grid-cols-2"}`}>
+        <div className="rounded-xl bg-primary/10 border border-primary/20 p-3 text-center">
+          <p className="text-2xl font-black text-primary tabular-nums">{uncompletedBTs.length}</p>
+          <p className="text-[10px] text-primary/70 font-medium">BT restants</p>
+        </div>
+        <div className="rounded-xl bg-success/10 border border-success/20 p-3 text-center">
+          <p className="text-2xl font-black text-success tabular-nums">{completedBTs.length}</p>
+          <p className="text-[10px] text-success/70 font-medium">Terminés</p>
         </div>
         {showVisites && (
-          <div className="rounded-xl border bg-card p-3 text-center">
-            <p className="text-xl font-bold text-info">{visites.length}</p>
-            <p className="text-[10px] text-muted-foreground">Visites</p>
-          </div>
-        )}
-        {showEvents && (
-          <div className="rounded-xl border bg-card p-3 text-center">
-            <p className="text-xl font-bold text-warning">{events.length}</p>
-            <p className="text-[10px] text-muted-foreground">Événements</p>
+          <div className="rounded-xl bg-info/10 border border-info/20 p-3 text-center">
+            <p className="text-2xl font-black text-info tabular-nums">{visites.length}</p>
+            <p className="text-[10px] text-info/70 font-medium">Visites</p>
           </div>
         )}
       </div>
 
       {/* Content */}
       {mode === "vehicle" ? (
-        // VEHICLE MODE: BTs + Expense button
-        <div className="space-y-2">
-          {/* Expense button for vehicle */}
+        <div className="space-y-3">
           {myResource?.id && (
             <VehicleExpenseDialog
               resourceId={myResource.id}
@@ -457,7 +496,6 @@ export default function TerrainPage() {
             />
           )}
 
-          {/* Recent expenses */}
           {recentExpenses.length > 0 && (
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-muted-foreground">Dépenses récentes</p>
@@ -475,100 +513,39 @@ export default function TerrainPage() {
             </div>
           )}
 
-          {btLoading ? (
-            <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}</div>
-          ) : bts.length === 0 ? (
-            <EmptyState icon={Package} label="Aucun BT assigné aujourd'hui" />
-          ) : (
-            <>
-              {uncompletedBTs.map((bt: any) => (
-                <BTCard
-                  key={bt.id}
-                  bt={bt}
-                  showSignature
-                   onComplete={() => completeBT.mutate(bt.id)}
-                   onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })}
-                   onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })}
-                   onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })}
-                   onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
-                   onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)}
-                   onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })}
-                   onEdit={() => setEditBtId(bt.id)}
-                   onSendReport={() => setReportBtId(bt.id)}
-                />
-              ))}
-              {completedBTs.length > 0 && (
-                <>
-                  <p className="text-xs text-muted-foreground font-medium pt-2">Terminés ({completedBTs.length})</p>
-                  {completedBTs.map((bt: any) => (
-                     <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onEdit={() => setEditBtId(bt.id)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })} onSendReport={() => setReportBtId(bt.id)} onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })} onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })} onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })} />
-                  ))}
-                </>
-              )}
-            </>
-          )}
+          {renderBTList()}
         </div>
       ) : (
-        // PERSON & ADMIN MODES: Tabs
-        <Tabs defaultValue="bt">
-          <TabsList className={`w-full grid ${showVisites && showEvents ? "grid-cols-3" : "grid-cols-2"}`}>
-            <TabsTrigger value="bt" className="text-xs">
-              <Package className="h-3.5 w-3.5 mr-1" />
-              BT ({bts.length})
-            </TabsTrigger>
-            {showVisites && (
-              <TabsTrigger value="visites" className="text-xs">
-                <ClipboardCheck className="h-3.5 w-3.5 mr-1" />
-                Visites ({visites.length})
-              </TabsTrigger>
-            )}
-            {showEvents && (
-              <TabsTrigger value="planning" className="text-xs">
-                <CalendarDays className="h-3.5 w-3.5 mr-1" />
-                Planning ({events.length})
-              </TabsTrigger>
-            )}
-          </TabsList>
+        <div className="space-y-4">
+          {/* Pill tabs */}
+          <div className="flex gap-2 overflow-x-auto scrollbar-none">
+            {tabs.map(tab => (
+              <button
+                key={tab.value}
+                onClick={() => setActiveTerrainTab(tab.value)}
+                className={`shrink-0 flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold transition-colors ${
+                  activeTerrainTab === tab.value
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                <tab.icon className="h-3.5 w-3.5" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
 
-          <TabsContent value="bt" className="mt-3 space-y-2">
-            {btLoading ? (
-              <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}</div>
-            ) : bts.length === 0 ? (
-              <EmptyState icon={Package} label="Aucun BT prévu" />
-            ) : (
-              <>
-                {uncompletedBTs.map((bt: any) => (
-                  <BTCard
-                    key={bt.id}
-                    bt={bt}
-                    showSignature
-                    onComplete={() => completeBT.mutate(bt.id)}
-                    onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })}
-                    onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })}
-                    onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })}
-                    onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)}
-                    onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)}
-                    onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })}
-                    onEdit={() => setEditBtId(bt.id)}
-                    onSendReport={() => setReportBtId(bt.id)}
-                  />
-                ))}
-                {completedBTs.length > 0 && (
-                  <>
-                    <p className="text-xs text-muted-foreground font-medium pt-1">Terminés ({completedBTs.length})</p>
-                    {completedBTs.map((bt: any) => (
-                      <BTCard key={bt.id} bt={bt} completed showSignature onNavigate={() => navigate(`/dossiers/${bt.dossier_id}`)} onEdit={() => setEditBtId(bt.id)} onPhotosChange={(photos) => handlePhotosChange(bt.id, photos)} onResetSignature={(type) => resetSignature.mutate({ btId: bt.id, type })} onSendReport={() => setReportBtId(bt.id)} onSignOperator={() => setSignatureTarget({ btId: bt.id, type: "operator" })} onSignStart={() => setSignatureTarget({ btId: bt.id, type: "start" })} onSignEnd={() => setSignatureTarget({ btId: bt.id, type: "end" })} />
-                    ))}
-                  </>
-                )}
-              </>
-            )}
-          </TabsContent>
+          {/* Tab content */}
+          {activeTerrainTab === "bt" && (
+            <div className="space-y-3">
+              {renderBTList()}
+            </div>
+          )}
 
-          {showVisites && (
-            <TabsContent value="visites" className="mt-3 space-y-2">
+          {activeTerrainTab === "visites" && showVisites && (
+            <div className="space-y-3">
               {visiteLoading ? (
-                <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-32 w-full rounded-xl" />)}</div>
+                <div className="space-y-3">{[1,2].map(i => <Skeleton key={i} className="h-32 w-full rounded-2xl" />)}</div>
               ) : visites.length === 0 ? (
                 <EmptyState icon={ClipboardCheck} label="Aucune visite planifiée" />
               ) : (
@@ -576,13 +553,13 @@ export default function TerrainPage() {
                   <VisiteCard key={visite.id} visite={visite} onNavigate={() => navigate(`/visites/${visite.id}`)} />
                 ))
               )}
-            </TabsContent>
+            </div>
           )}
 
-          {showEvents && (
-            <TabsContent value="planning" className="mt-3 space-y-2">
+          {activeTerrainTab === "planning" && showEvents && (
+            <div className="space-y-3">
               {eventsLoading ? (
-                <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}</div>
+                <div className="space-y-3">{[1,2].map(i => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}</div>
               ) : events.length === 0 ? (
                 <EmptyState icon={CalendarDays} label="Aucun événement planifié" />
               ) : (
@@ -590,9 +567,9 @@ export default function TerrainPage() {
                   <EventCard key={event.id} event={event} />
                 ))
               )}
-            </TabsContent>
+            </div>
           )}
-        </Tabs>
+        </div>
       )}
 
       {/* Report preview dialog */}
@@ -623,7 +600,9 @@ export default function TerrainPage() {
 function EmptyState({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <Icon className="h-10 w-10 text-muted-foreground/30 mb-2" />
+      <div className="h-14 w-14 rounded-2xl bg-muted/50 flex items-center justify-center mb-3">
+        <Icon className="h-7 w-7 text-muted-foreground/40" />
+      </div>
       <p className="text-sm text-muted-foreground">{label}</p>
     </div>
   );
@@ -644,168 +623,196 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSi
   const hasEndSig = !!bt.end_signature_url;
   const photos: string[] = bt.photos || [];
 
+  const sigSteps = [hasOperatorSig, hasStartSig, hasEndSig];
+  const sigCount = sigSteps.filter(Boolean).length;
+  const sigPercent = Math.round((sigCount / 3) * 100);
+
   return (
-    <div className={`rounded-xl border bg-card p-3 space-y-2`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          {completed
-            ? <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
-            : <Circle className="h-5 w-5 text-muted-foreground shrink-0" />
-          }
+    <div className={`rounded-2xl border-2 bg-card overflow-hidden transition-all ${
+      completed
+        ? "border-success/30 bg-success/[0.03]"
+        : hasEndSig
+        ? "border-success/50"
+        : hasStartSig
+        ? "border-warning/50"
+        : hasOperatorSig
+        ? "border-primary/50"
+        : "border-border"
+    }`}>
+
+      {/* Header BT */}
+      <div className={`px-4 py-3 flex items-center justify-between ${
+        completed ? "bg-success/10" : hasEndSig ? "bg-success/5" : "bg-muted/30"
+      }`}>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`h-9 w-9 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${
+            completed ? "bg-success text-success-foreground" : "bg-primary/15 text-primary"
+          }`}>
+            {completed ? <CheckCircle2 className="h-5 w-5" /> : <Package className="h-4 w-4" />}
+          </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold truncate">{bt.type} #{bt.operation_number}</p>
-            <p className="text-xs text-muted-foreground truncate">{bt.dossiers?.code} · {bt.dossiers?.title}</p>
+            <div className="flex items-center gap-2">
+              {bt.lv_bt_number && (
+                <span className="text-xs font-mono bg-background rounded px-1.5 py-0.5 text-muted-foreground shrink-0">
+                  BT {bt.lv_bt_number}
+                </span>
+              )}
+              {!bt.lv_bt_number && bt.operation_number && (
+                <span className="text-xs font-mono bg-background rounded px-1.5 py-0.5 text-muted-foreground shrink-0">
+                  #{bt.operation_number}
+                </span>
+              )}
+              {completed && <span className="text-[10px] font-semibold text-success">✓ Terminé</span>}
+            </div>
+            <p className="text-sm font-bold truncate">{client?.name || bt.dossiers?.title || "Mission"}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {onEdit && (
-            <button onClick={onEdit} className="p-1 hover:bg-muted rounded" title="Modifier le BT">
-              <Pen className="h-4 w-4 text-primary" />
+            <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+              <Pen className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
           )}
-          <button onClick={onNavigate} className="p-1 hover:bg-muted rounded">
+          <button onClick={onNavigate} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
       </div>
 
-      {/* Addresses */}
-      <div className="space-y-1">
-        {bt.loading_address && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="h-3 w-3 text-primary shrink-0" />
-            <span className="truncate"><span className="font-medium text-foreground">Chargement :</span> {bt.loading_address}{bt.loading_city ? `, ${bt.loading_city}` : ""}</span>
+      {/* Corps */}
+      <div className="px-4 py-3 space-y-3">
+        {/* Infos mission */}
+        <div className="space-y-2 text-xs">
+          {(bt.loading_city || bt.delivery_city) && (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <span className="truncate font-medium">{bt.loading_city || "—"} → {bt.delivery_city || "—"}</span>
+            </div>
+          )}
+          <div className="flex gap-2">
+            {bt.volume > 0 && (
+              <div className="rounded-lg bg-muted/50 px-2.5 py-1.5 flex-1">
+                <p className="text-muted-foreground text-[10px]">Volume</p>
+                <p className="font-semibold">{bt.volume} m³</p>
+              </div>
+            )}
+            {bt.loading_date && (
+              <div className="rounded-lg bg-muted/50 px-2.5 py-1.5 flex-1">
+                <p className="text-muted-foreground text-[10px]">Date</p>
+                <p className="font-semibold">{new Date(bt.loading_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Contact client */}
+        {client?.phone && (
+          <a href={`tel:${client.phone}`}
+            className="flex items-center gap-2 rounded-xl bg-info/10 border border-info/20 px-3 py-2 text-xs text-info font-medium">
+            <Phone className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{client.name} — {client.phone}</span>
+          </a>
+        )}
+
+        {/* Notes */}
+        {bt.notes && (
+          <div className="rounded-xl bg-warning/10 border border-warning/20 px-3 py-2 text-xs text-warning flex items-start gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>{bt.notes}</span>
           </div>
         )}
-        {bt.delivery_address && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <MapPin className="h-3 w-3 text-success shrink-0" />
-            <span className="truncate"><span className="font-medium text-foreground">Livraison :</span> {bt.delivery_address}{bt.delivery_city ? `, ${bt.delivery_city}` : ""}</span>
+
+        {/* Progression signatures */}
+        {showSignature && (
+          <div className="space-y-2">
+            {/* Barre de progression */}
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-500 ${
+                  sigPercent === 100 ? "bg-success" : sigPercent > 0 ? "bg-primary" : "bg-muted"
+                }`} style={{ width: `${sigPercent}%` }} />
+              </div>
+              <span className="text-[10px] text-muted-foreground font-medium shrink-0">{sigCount}/3</span>
+            </div>
+
+            {/* Étapes signatures */}
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                { label: "Opérateur", done: hasOperatorSig, name: bt.operator_signer_name, time: bt.operator_signed_at, icon: HardHat, resetType: "operator" as const },
+                { label: "Début", done: hasStartSig, name: bt.start_signer_name, time: bt.start_signed_at, icon: Pen, resetType: "start" as const },
+                { label: "Fin", done: hasEndSig, name: bt.end_signer_name, time: bt.end_signed_at, icon: CheckCircle2, resetType: "end" as const },
+              ].map((step, i) => (
+                <div key={i} className={`rounded-xl p-2 text-center transition-colors relative ${
+                  step.done ? "bg-success/10 border border-success/30" : "bg-muted/50 border border-border"
+                }`}>
+                  <step.icon className={`h-4 w-4 mx-auto mb-1 ${step.done ? "text-success" : "text-muted-foreground"}`} />
+                  <p className={`text-[9px] font-semibold ${step.done ? "text-success" : "text-muted-foreground"}`}>{step.label}</p>
+                  {step.done && step.time && (
+                    <p className="text-[9px] text-success/70">{formatTime(step.time)}</p>
+                  )}
+                  {step.done && onResetSignature && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onResetSignature(step.resetType); }}
+                      className="absolute top-1 right-1 p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <RotateCcw className="h-2.5 w-2.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Boutons signature — 1 seul à la fois visible */}
+            {!completed && (() => {
+              if (!hasOperatorSig && onSignOperator) return (
+                <Button onClick={onSignOperator} className="w-full h-11 gap-2 bg-primary hover:bg-primary/90 text-sm font-semibold">
+                  <HardHat className="h-4 w-4" /> Signer — Opérateur
+                </Button>
+              );
+              if (hasOperatorSig && !hasStartSig && onSignStart) return (
+                <Button onClick={onSignStart} variant="outline" className="w-full h-11 gap-2 border-warning text-warning hover:bg-warning/10 text-sm font-semibold">
+                  <Pen className="h-4 w-4" /> Signer début — Client
+                </Button>
+              );
+              if (hasOperatorSig && hasStartSig && !hasEndSig && onSignEnd) return (
+                <Button onClick={onSignEnd} className="w-full h-11 gap-2 bg-success hover:bg-success/90 text-success-foreground text-sm font-semibold">
+                  <CheckCircle2 className="h-4 w-4" /> Signer fin — Client
+                </Button>
+              );
+              return null;
+            })()}
+          </div>
+        )}
+
+        {/* Bouton terminer (sans signature) */}
+        {!completed && !showSignature && onComplete && (
+          <Button onClick={onComplete} className="w-full h-11 gap-2 bg-success hover:bg-success/90 text-success-foreground text-sm font-semibold">
+            <Check className="h-4 w-4" /> Marquer terminé
+          </Button>
+        )}
+
+        {/* Commentaire chantier */}
+        <BTCommentField btId={bt.id} initialValue={bt.notes || ""} />
+
+        {/* Photos */}
+        {onPhotosChange && (
+          <BTPhotoUpload btId={bt.id} photos={photos} onPhotosChange={onPhotosChange} />
+        )}
+
+        {/* Actions rapport */}
+        {onSendReport && (hasOperatorSig || hasStartSig || hasEndSig || completed) && (
+          <div className="flex gap-2 pt-1">
+            <Button size="sm" variant="outline" className="flex-1 h-9 gap-1.5 text-xs" onClick={e => { e.stopPropagation(); onSendReport(); }}>
+              <Eye className="h-3.5 w-3.5" /> Aperçu PDF
+            </Button>
+            {completed && (
+              <Button size="sm" className="flex-1 h-9 gap-1.5 text-xs" onClick={e => { e.stopPropagation(); onSendReport(); }}>
+                <Send className="h-3.5 w-3.5" /> Envoyer
+              </Button>
+            )}
           </div>
         )}
       </div>
-
-      {/* Client phone */}
-      {client?.phone && (
-        <a href={`tel:${client.phone}`} className="flex items-center gap-1.5 text-xs text-info">
-          <Phone className="h-3 w-3" /> {client.name} — {client.phone}
-        </a>
-      )}
-
-      {/* BT number */}
-      {bt.lv_bt_number && (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <FileText className="h-3 w-3" /> BT n° {bt.lv_bt_number}
-        </div>
-      )}
-
-      {/* Volume */}
-      {bt.volume > 0 && (
-        <p className="text-xs text-muted-foreground">Volume : {bt.volume} m³</p>
-      )}
-
-      {/* Notes */}
-      {bt.notes && (
-        <div className="rounded-lg bg-warning/10 p-2 text-xs text-warning flex items-start gap-1.5">
-          <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
-          {bt.notes}
-        </div>
-      )}
-
-      {/* Signature status + action buttons */}
-      {showSignature && (
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className={`flex items-center gap-1 ${hasOperatorSig ? "text-success" : "text-muted-foreground"}`}>
-              <HardHat className="h-3 w-3" />
-              Opérateur : {hasOperatorSig ? `✓ ${bt.operator_signer_name || "Signé"}${bt.operator_signed_at ? ` à ${formatTime(bt.operator_signed_at)}` : ""}` : "En attente"}
-            </span>
-            {hasOperatorSig && onResetSignature && (
-              <button onClick={() => onResetSignature("operator")} className="text-muted-foreground hover:text-destructive p-0.5">
-                <RotateCcw className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className={`flex items-center gap-1 ${hasStartSig ? "text-success" : "text-muted-foreground"}`}>
-              <Pen className="h-3 w-3" />
-              Début : {hasStartSig ? `✓ ${bt.start_signer_name || "Signé"}${bt.start_signed_at ? ` à ${formatTime(bt.start_signed_at)}` : ""}` : "En attente"}
-            </span>
-            {hasStartSig && onResetSignature && (
-              <button onClick={() => onResetSignature("start")} className="text-muted-foreground hover:text-destructive p-0.5">
-                <RotateCcw className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className={`flex items-center gap-1 ${hasEndSig ? "text-success" : "text-muted-foreground"}`}>
-              <Pen className="h-3 w-3" />
-              Fin : {hasEndSig ? `✓ ${bt.end_signer_name || "Signé"}${bt.end_signed_at ? ` à ${formatTime(bt.end_signed_at)}` : ""}` : "En attente"}
-            </span>
-            {hasEndSig && onResetSignature && (
-              <button onClick={() => onResetSignature("end")} className="text-muted-foreground hover:text-destructive p-0.5">
-                <RotateCcw className="h-3 w-3" />
-              </button>
-            )}
-          </div>
-
-          {/* Sign buttons - immediately after status for visibility */}
-          {(() => {
-            const needsOperator = !hasOperatorSig && onSignOperator;
-            const needsStart = hasOperatorSig && !hasStartSig && onSignStart;
-            const needsEnd = hasOperatorSig && hasStartSig && !hasEndSig && onSignEnd;
-            if (!needsOperator && !needsStart && !needsEnd) return null;
-            return (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {needsOperator && (
-                  <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={onSignOperator}>
-                    <HardHat className="h-3.5 w-3.5 mr-1" /> Signature opérateur
-                  </Button>
-                )}
-                {needsStart && (
-                  <Button size="sm" variant="outline" className="h-8 text-xs flex-1" onClick={onSignStart}>
-                    <Pen className="h-3.5 w-3.5 mr-1" /> Signer début (client)
-                  </Button>
-                )}
-                {needsEnd && (
-                  <Button size="sm" className="h-8 text-xs flex-1 bg-success hover:bg-success/90 text-success-foreground" onClick={onSignEnd}>
-                    <Pen className="h-3.5 w-3.5 mr-1" /> Signer fin (client)
-                  </Button>
-                )}
-              </div>
-            );
-          })()}
-        </div>
-      )}
-
-      {/* Complete button for non-signature mode */}
-      {!completed && !showSignature && onComplete && (
-        <Button size="sm" className="w-full h-8 text-xs bg-success hover:bg-success/90 text-success-foreground" onClick={onComplete}>
-          <Check className="h-3.5 w-3.5 mr-1" /> Marquer terminé
-        </Button>
-      )}
-
-      {/* Commentaire chantier */}
-      <BTCommentField btId={bt.id} initialValue={bt.notes || ""} />
-
-      {/* Photos - always available, even after completion */}
-      {onPhotosChange && (
-        <BTPhotoUpload btId={bt.id} photos={photos} onPhotosChange={onPhotosChange} />
-      )}
-
-      {/* Preview & Send report - available when completed or has signatures */}
-      {onSendReport && (hasOperatorSig || hasStartSig || hasEndSig || completed) && (
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" className="flex-1 h-9 text-xs" onClick={(e) => { e.stopPropagation(); onSendReport(); }}>
-            <Eye className="h-3.5 w-3.5 mr-1" /> Aperçu PDF
-          </Button>
-          {completed && (
-            <Button size="sm" className="flex-1 h-9 text-xs" onClick={(e) => { e.stopPropagation(); onSendReport(); }}>
-              <Send className="h-3.5 w-3.5 mr-1" /> Envoyer
-            </Button>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -813,9 +820,9 @@ function BTCard({ bt, completed, showSignature, onComplete, onSignOperator, onSi
 function VisiteCard({ visite, onNavigate }: { visite: any; onNavigate: () => void }) {
   const client = visite.clients;
   const statusStyles: Record<string, string> = {
-    planifiee: "bg-info/10 text-info",
-    realisee: "bg-success/10 text-success",
-    annulee: "bg-destructive/10 text-destructive",
+    planifiee: "bg-info/10 text-info border-info/20",
+    realisee: "bg-success/10 text-success border-success/20",
+    annulee: "bg-destructive/10 text-destructive border-destructive/20",
   };
   const statusLabels: Record<string, string> = {
     planifiee: "Planifiée",
@@ -824,61 +831,67 @@ function VisiteCard({ visite, onNavigate }: { visite: any; onNavigate: () => voi
   };
 
   return (
-    <div className="rounded-xl border bg-card p-3 space-y-2">
-      <div className="flex items-start justify-between gap-2">
+    <div className="rounded-2xl border-2 bg-card overflow-hidden">
+      <div className="px-4 py-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-semibold truncate">{visite.title}</p>
+          <p className="text-sm font-bold truncate">{visite.title}</p>
           {client && <p className="text-xs text-muted-foreground truncate">{client.name}</p>}
         </div>
-        <Badge className={`text-[10px] shrink-0 ${statusStyles[visite.status] || ""}`}>
+        <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusStyles[visite.status] || "bg-muted text-muted-foreground"}`}>
           {statusLabels[visite.status] || visite.status}
-        </Badge>
+        </span>
       </div>
 
-      {visite.address && (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <MapPin className="h-3 w-3 shrink-0" />
-          <span className="truncate">{visite.address}</span>
-        </div>
-      )}
+      <div className="px-4 pb-3 space-y-2">
+        {visite.address && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
+            <span className="truncate">{visite.address}</span>
+          </div>
+        )}
 
-      {client?.phone && (
-        <a href={`tel:${client.phone}`} className="flex items-center gap-1.5 text-xs text-info">
-          <Phone className="h-3 w-3" /> {client.phone}
-        </a>
-      )}
+        {client?.phone && (
+          <a href={`tel:${client.phone}`}
+            className="flex items-center gap-2 rounded-xl bg-info/10 border border-info/20 px-3 py-2 text-xs text-info font-medium">
+            <Phone className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate">{client.phone}</span>
+          </a>
+        )}
 
-      {visite.notes && (
-        <p className="text-xs text-muted-foreground line-clamp-2">{visite.notes}</p>
-      )}
+        {visite.notes && (
+          <p className="text-xs text-muted-foreground line-clamp-2">{visite.notes}</p>
+        )}
 
-      <Button size="sm" variant="outline" className="w-full h-8 text-xs" onClick={onNavigate}>
-        <ClipboardCheck className="h-3.5 w-3.5 mr-1" /> Ouvrir la visite
-      </Button>
+        <Button size="sm" variant="outline" className="w-full h-9 text-xs gap-1.5" onClick={onNavigate}>
+          <ClipboardCheck className="h-3.5 w-3.5" /> Ouvrir la visite
+        </Button>
+      </div>
     </div>
   );
 }
 
 function EventCard({ event }: { event: any }) {
   return (
-    <div className="rounded-xl border bg-card p-3 space-y-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold truncate">{event.title}</p>
-        {event.start_time && (
-          <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            {formatTime(event.start_time)}
-          </span>
+    <div className="rounded-2xl border-2 bg-card overflow-hidden">
+      <div className="px-4 py-3 space-y-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-bold truncate">{event.title}</p>
+          {event.start_time && (
+            <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-1 bg-muted/50 rounded-lg px-2 py-0.5">
+              <Clock className="h-3 w-3" />
+              {formatTime(event.start_time)}
+            </span>
+          )}
+        </div>
+        {event.dossiers?.title && (
+          <p className="text-xs text-muted-foreground truncate">
+            <span className="text-primary font-medium">{event.dossiers.code}</span> · {event.dossiers.title}
+          </p>
+        )}
+        {event.description && (
+          <p className="text-xs text-muted-foreground line-clamp-2">{event.description}</p>
         )}
       </div>
-      {event.dossiers?.title && (
-        <p className="text-xs text-muted-foreground truncate">
-          <span className="text-primary">{event.dossiers.code}</span> · {event.dossiers.title}
-        </p>
-      )}
-      {event.description && (
-        <p className="text-xs text-muted-foreground line-clamp-2">{event.description}</p>
-      )}
     </div>
   );
 }
