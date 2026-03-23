@@ -56,6 +56,19 @@ export const PlanningMissionPanel = ({
     }
   }, [open, defaultDate, defaultResourceId]);
 
+  // Apply AI pre-fill when provided
+  useEffect(() => {
+    if (!preFill || !open) return;
+    setForm(prev => ({
+      ...prev,
+      loading_date: preFill.loading_date || prev.loading_date,
+      delivery_date: preFill.delivery_date || prev.delivery_date,
+      loading_city: preFill.loading_city || prev.loading_city,
+      delivery_city: preFill.delivery_city || prev.delivery_city,
+      resource_ids: preFill.resource_ids?.length ? preFill.resource_ids : prev.resource_ids,
+    }));
+  }, [preFill, open]);
+
   const { data: clients = [] } = useQuery({
     queryKey: ["panel-clients", companyIds],
     queryFn: async () => {
