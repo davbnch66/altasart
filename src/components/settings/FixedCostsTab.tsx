@@ -58,8 +58,8 @@ const fmt = (n: number) =>
 
 export const FixedCostsTab = () => {
   const isMobile = useIsMobile();
-  const { currentCompany } = useCompany();
-  const companyId = currentCompany?.id;
+  const { currentCompany, dbCompanies } = useCompany();
+  const companyId = currentCompany?.id === "global" ? dbCompanies[0]?.id : currentCompany?.id;
   const queryClient = useQueryClient();
 
   const [adding, setAdding] = useState(false);
