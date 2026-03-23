@@ -416,7 +416,7 @@ const DevisList = ({ filtered, isMobile, navigate, current, statusLabels, status
             const comp = d.companies as any;
             const sigStatus = signatureMap.get(d.id);
             return (
-              <tr key={d.id} className="hover:bg-primary/[0.02] transition-colors cursor-pointer" onClick={() => navigate(`/devis/${d.id}`)}>
+              <tr key={d.id} className="group hover:bg-primary/[0.02] transition-colors cursor-pointer" onClick={() => navigate(`/devis/${d.id}`)}>
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-3">
                     <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${iconColors[d.status] || "bg-muted text-muted-foreground"}`}>
