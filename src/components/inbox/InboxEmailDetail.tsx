@@ -1,10 +1,13 @@
-import { ArrowLeft, Mail, Clock, User, Sparkles, Send } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, Mail, Clock, User, Sparkles, Send, RefreshCw, Loader2 } from "lucide-react";
 import DOMPurify from "dompurify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InboxAiSummary } from "./InboxAiSummary";
 import { InboxActionBar } from "./InboxActionBar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface InboundEmail {
   id: string;
