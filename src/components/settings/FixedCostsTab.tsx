@@ -153,7 +153,7 @@ export const FixedCostsTab = () => {
         notes: d.notes || null,
         sort_order: i,
       }));
-      const { error } = await (supabase.from("company_fixed_costs" as any).insert as any)(inserts);
+      const { error } = await (supabase.from("company_fixed_costs" as any) as any).insert(inserts);
       if (error) throw error;
     },
     onSuccess: () => {
