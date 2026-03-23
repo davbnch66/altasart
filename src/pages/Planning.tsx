@@ -713,10 +713,18 @@ const Planning = () => {
                     </div>
                     {days.map((day, dayIdx) => {
                       const cellKey = `op-${op.id}-${dayIdx}`;
+                      // Voirie urgency: if voirie not obtained and loading_date within 2 days
+                      const voirieStatus = (voirieByDossier as Record<string, string>)[op.dossier_id];
+                      const voirieUrgent = voirieStatus && voirieStatus !== "obtenu" && op.loading_date && (() => {
+                        const loadDate = new Date(op.loading_date);
+                        const now = new Date();
+                        const diffDays = (loadDate.getTime() - now.getTime()) / 86400000;
+                        return diffDays <= 2 && diffDays >= 0;
+                      })();
                       return (
                       <div
                         key={day.toISOString()}
-                        className={`border-r border-border last:border-r-0 min-h-[72px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
+                        className={`border-r border-border last:border-r-0 min-h-[72px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""} ${voirieUrgent ? "bg-warning/10" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
                         onDragOver={(e) => handleDragOver(e, cellKey)}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, day)}
