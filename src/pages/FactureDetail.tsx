@@ -12,6 +12,7 @@ import { CreateReglementDialog } from "@/components/forms/CreateReglementDialog"
 import { EditReglementDialog } from "@/components/forms/EditReglementDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { generateFacturePdf } from "@/lib/generateFacturePdf";
+import { downloadFacturXXml, type FacturXData } from "@/lib/generateFacturX";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
