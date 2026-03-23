@@ -112,7 +112,7 @@ export const FixedCostsTab = () => {
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await (supabase.from("company_fixed_costs" as any).update as any)({
+      const { error } = await (supabase.from("company_fixed_costs" as any) as any).update({
         category: editForm.category,
         label: editForm.label.trim(),
         unit: editForm.unit,
