@@ -1591,6 +1591,13 @@ const Planning = () => {
         onOpenChange={(v) => { setOpDialogOpen(v); if (!v) setEditingOpId(null); }}
         operationId={editingOpId}
       />
+      <PlanningMissionPanel
+        open={missionPanelOpen}
+        onOpenChange={setMissionPanelOpen}
+        defaultDate={missionDefaultDate}
+        defaultResourceId={missionDefaultResource}
+        onOpenFullDialog={() => { setEditingOpId(null); setOpDialogOpen(true); }}
+      />
     </div>
   );
 };
