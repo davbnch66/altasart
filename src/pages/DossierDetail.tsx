@@ -526,7 +526,7 @@ const DossierDetail = () => {
       </TabsContent>
 
       <TabsContent value="situation">
-        <DossierSituationTab dossierId={id!} dossierAmount={dossier.amount || 0} dossierCost={(dossier as any).cost || 0} />
+        <DossierSituationTab dossierId={id!} dossierAmount={dossier.amount || 0} dossierCost={(dossier as any).cost || 0} companyId={dossier.company_id} clientId={client?.id || ""} />
       </TabsContent>
     </Tabs>
   );
