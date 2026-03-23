@@ -1608,10 +1608,16 @@ const Planning = () => {
       />
       <PlanningMissionPanel
         open={missionPanelOpen}
-        onOpenChange={setMissionPanelOpen}
+        onOpenChange={(v) => { setMissionPanelOpen(v); if (!v) setAiPreFill(null); }}
         defaultDate={missionDefaultDate}
         defaultResourceId={missionDefaultResource}
         onOpenFullDialog={() => { setEditingOpId(null); setOpDialogOpen(true); }}
+        preFill={aiPreFill}
+      />
+      <PlanningAIAssistant
+        open={aiPlannerOpen}
+        onOpenChange={setAiPlannerOpen}
+        onApply={handleAISuggestion}
       />
     </div>
   );
