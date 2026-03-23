@@ -121,7 +121,7 @@ export const PlanningMissionPanel = ({
         loading_city: form.loading_city || null,
         delivery_city: form.delivery_city || null,
         notes: form.notes || null,
-        status: "planifie",
+        
       }).select("id").single();
       if (error) throw error;
 
