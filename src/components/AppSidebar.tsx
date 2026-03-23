@@ -172,6 +172,9 @@ export const AppSidebar: React.FC = () => {
           />
         )}
 
+        {/* Separator */}
+        <div className="my-2 mx-2 border-t border-sidebar-border" />
+
         {/* Categorized nav items */}
         {NAV_CATEGORIES.map((cat) => {
           const visibleItems = cat.items.filter((item) => canAccessRoute(role, item.to));
