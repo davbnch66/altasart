@@ -257,88 +257,54 @@ const ClientDetail = () => {
   return (
     <div className={`mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3 max-w-7xl" : "p-6 lg:p-8 space-y-6 max-w-[1600px]"}`}>
       {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-4 w-4" /> Retour
-        </button>
-
-        {isMobile ? (
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
-                {client.name.substring(0, 2).toUpperCase()}
-              </div>
-                <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-lg font-bold tracking-tight break-words">{client.name}</h1>
-                  <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0 ${clientStatusStyles[client.status] || ""}`}>
-                    {clientStatusLabels[client.status] || client.status}
-                  </span>
-                  {linkedCompanyNames.map((lc) => (
-                    <span key={lc.company_id} className="inline-flex items-center gap-0.5 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground border shrink-0">
-                      <Building2 className="h-2.5 w-2.5" />
-                      {lc.short_name}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground break-words">
-                  {client.code || "—"} · {client.contact_name || "—"}
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {client.email && (
-                <a href={`mailto:${client.email}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs hover:bg-muted transition-colors">
-                  <Mail className="h-3.5 w-3.5" /> Email
-                </a>
-              )}
-              {(client.phone || client.mobile) && (
-                <a href={`tel:${client.phone || client.mobile}`} className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs hover:bg-muted transition-colors">
-                  <Phone className="h-3.5 w-3.5" /> Appeler
-                </a>
-              )}
-              <button onClick={() => setEditClientOpen(true)} className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs hover:bg-muted transition-colors">
-                <Pencil className="h-3.5 w-3.5" /> Modifier
-              </button>
-            </div>
+      <div className="flex items-center gap-3 mb-6">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-8 w-8 shrink-0">
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div className={`${isMobile ? "h-10 w-10 rounded-xl text-sm" : "h-12 w-12 rounded-2xl text-lg"} flex items-center justify-center font-black shrink-0 ${getAvatarColor(client.name)}`}>
+          {client.name.substring(0, 2).toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className={`${isMobile ? "text-lg" : "text-xl"} font-black tracking-tight truncate`}>{client.name}</h1>
+            <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full shrink-0 ${clientStatusStyles[client.status] || ""}`}>
+              {clientStatusLabels[client.status] || client.status}
+            </span>
+            {linkedCompanyNames.map((lc) => (
+              <span key={lc.company_id} className="inline-flex items-center gap-0.5 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground border shrink-0">
+                <Building2 className="h-2.5 w-2.5" />
+                {lc.short_name}
+              </span>
+            ))}
           </div>
-        ) : (
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
-                {client.name.substring(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-2xl font-bold tracking-tight">{client.name}</h1>
-                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${clientStatusStyles[client.status] || ""}`}>
-                    {clientStatusLabels[client.status] || client.status}
-                  </span>
-                  {linkedCompanyNames.map((lc) => (
-                    <span key={lc.company_id} className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground border">
-                      <Building2 className="h-3 w-3" />
-                      {lc.short_name}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-muted-foreground text-sm">
-                  Code : {client.code || "—"} · {client.contact_name || "—"}
-                  {client.email && <> · {client.email}</>}
-                  {client.phone && <> · {client.phone}</>}
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setEditClientOpen(true)}>
-                <Pencil className="h-4 w-4 mr-1" /> Modifier
-              </Button>
-              <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteClientOpen(true)}>
-                <Trash2 className="h-4 w-4 mr-1" /> Supprimer
-              </Button>
-            </div>
+          <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground flex-wrap">
+            {client.code && <span className="font-mono bg-muted px-1.5 py-0.5 rounded">{client.code}</span>}
+            {client.city && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{client.city}</span>}
+            {client.email && !isMobile && <span className="flex items-center gap-1 truncate"><Mail className="h-3 w-3" />{client.email}</span>}
+            {(client.phone || client.mobile) && !isMobile && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{client.phone || client.mobile}</span>}
           </div>
-        )}
-      </motion.div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {!isMobile && client.email && (
+            <Button variant="outline" size="sm" className="text-xs gap-1.5 h-8" onClick={() => window.location.href = `mailto:${client.email}`}>
+              <Mail className="h-3.5 w-3.5" /> Email
+            </Button>
+          )}
+          {isMobile && (client.phone || client.mobile) && (
+            <Button variant="outline" size="icon" className="h-8 w-8" asChild>
+              <a href={`tel:${client.phone || client.mobile}`}><Phone className="h-3.5 w-3.5" /></a>
+            </Button>
+          )}
+          <Button variant="outline" size="sm" className={`text-xs gap-1.5 h-8 ${isMobile ? "px-2" : ""}`} onClick={() => setEditClientOpen(true)}>
+            <Pencil className="h-3.5 w-3.5" /> {!isMobile && "Modifier"}
+          </Button>
+          {!isMobile && (
+            <Button variant="outline" size="sm" className="text-xs gap-1.5 h-8 text-destructive hover:text-destructive" onClick={() => setDeleteClientOpen(true)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </div>
 
       {/* Financial summary + prochaine action */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className={`grid gap-3 md:gap-4 ${isMobile ? "grid-cols-2" : "grid-cols-4"}`}>
