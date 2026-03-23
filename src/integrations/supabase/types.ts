@@ -1668,6 +1668,76 @@ export type Database = {
           },
         ]
       }
+      facture_situations: {
+        Row: {
+          amount: number
+          company_id: string
+          created_at: string
+          dossier_id: string
+          due_date: string | null
+          facture_id: string | null
+          id: string
+          label: string
+          notes: string | null
+          percentage: number
+          sort_order: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          company_id: string
+          created_at?: string
+          dossier_id: string
+          due_date?: string | null
+          facture_id?: string | null
+          id?: string
+          label?: string
+          notes?: string | null
+          percentage?: number
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          company_id?: string
+          created_at?: string
+          dossier_id?: string
+          due_date?: string | null
+          facture_id?: string | null
+          id?: string
+          label?: string
+          notes?: string | null
+          percentage?: number
+          sort_order?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facture_situations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "facture_situations_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "facture_situations_facture_id_fkey"
+            columns: ["facture_id"]
+            isOneToOne: false
+            referencedRelation: "factures"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       factures: {
         Row: {
           amount: number
