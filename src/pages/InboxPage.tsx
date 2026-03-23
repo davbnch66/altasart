@@ -1253,30 +1253,30 @@ const InboxPage = () => {
 
       {/* Main content */}
       <div className={`flex-1 overflow-y-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-5 space-y-4"}`}>
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-          <div className="flex items-center gap-3">
-            {isMobile && (
-              <Button variant="ghost" size="sm" onClick={() => setMobileSidebarOpen(true)}>
-                <Menu className="h-5 w-5" />
-              </Button>
+        <div className="flex items-center gap-3 pb-2">
+          {isMobile && (
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setMobileSidebarOpen(true)}>
+              <Menu className="h-4 w-4" />
+            </Button>
+          )}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-black tracking-tight">{folderTitle}</h1>
+            {currentFolder === "inbox" && !isMobile && (
+              <p className="text-xs text-muted-foreground">
+                {unreadCounts.inbox > 0 ? `${unreadCounts.inbox} non lu${unreadCounts.inbox > 1 ? "s" : ""}` : "Tout est lu ✓"}
+                {" · "}Emails analysés par l'IA
+              </p>
             )}
-            <div className="flex-1">
-              <h1 className={`font-bold ${isMobile ? "text-lg" : "text-xl"}`}>{folderTitle}</h1>
-              {!isMobile && currentFolder === "inbox" && (
-                <p className="text-xs text-muted-foreground">Emails entrants et actions suggérées par l'IA</p>
-              )}
-            </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" onClick={handleManualSync} disabled={isSyncing}>
-                  <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-                  {!isMobile && <span className="ml-1">Sync</span>}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Synchroniser les emails maintenant</TooltipContent>
-            </Tooltip>
           </div>
-        </motion.div>
+          <Button variant="outline" size="sm" onClick={handleManualSync} disabled={isSyncing} className="gap-1.5 text-xs shrink-0">
+            <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+            {!isMobile && (isSyncing ? "Sync..." : "Sync")}
+          </Button>
+          <Button size="sm" onClick={() => { setReplyData(null); setForwardData(null); setComposeOpen(true); }}
+            className="gap-1.5 text-xs shrink-0 bg-primary hover:bg-primary/90">
+            <Send className="h-3.5 w-3.5" /> {!isMobile && "Nouveau mail"}
+          </Button>
+        </div>
 
         {/* Category tabs (only for inbox) */}
         {currentFolder === "inbox" && (
