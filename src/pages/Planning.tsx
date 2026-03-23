@@ -729,7 +729,14 @@ const Planning = () => {
                             style={{ width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)", zIndex: 5 }}
                             onClick={() => { setEditingOpId(op.id); setOpDialogOpen(true); }}
                           >
-                            <div className="flex items-center gap-3 min-w-0 w-full text-[11px] font-medium overflow-hidden">
+                            <div className="flex items-center gap-2 min-w-0 w-full text-[11px] font-medium overflow-hidden">
+                              {/* Voirie badge */}
+                              {(() => {
+                                const vs = (voirieByDossier as Record<string, string>)[op.dossier_id];
+                                if (!vs) return null;
+                                const icon = vs === "obtenu" ? "🟢" : vs === "refuse" ? "🔴" : "🟡";
+                                return <span className="shrink-0" title={`Voirie: ${vs}`}>{icon}</span>;
+                              })()}
                               <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
                               <p className="opacity-80 flex items-center gap-0.5 truncate shrink-0">
                                 <MapPin className="h-2.5 w-2.5 shrink-0" />
