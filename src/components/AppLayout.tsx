@@ -100,7 +100,7 @@ export const AppLayout: React.FC = () => {
 
       <main className="relative flex-1 overflow-y-auto overflow-x-hidden bg-background">
         {watermarkLogo && (
-          <div className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center" style={{ left: isMobile ? 0 : '240px' }}>
+          <div className="pointer-events-none fixed inset-0 z-0 flex items-center justify-center" style={{ left: isMobile ? 0 : '248px' }}>
             <img
               src={watermarkLogo}
               alt=""
