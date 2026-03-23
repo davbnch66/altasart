@@ -151,6 +151,38 @@ const FactureDetail = () => {
             fileName={`Facture_${facture.code || facture.id.slice(0, 8)}.docx`}
             size={isMobile ? "sm" : "sm"}
           />
+          <Button variant="outline" size={isMobile ? "icon" : "sm"} title="Export Factur-X XML" onClick={() => {
+            try {
+              const comp = facture.companies as any;
+              const cl = facture.clients as any;
+              const tvaRate = 20;
+              const totalHT = Number(facture.amount) / (1 + tvaRate / 100);
+              const totalTVA = Number(facture.amount) - totalHT;
+              const fxData: FacturXData = {
+                invoiceNumber: facture.code || facture.id.slice(0, 8),
+                issueDate: facture.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
+                dueDate: facture.due_date || undefined,
+                sellerName: comp?.name || comp?.short_name || "",
+                sellerSiret: comp?.siret || undefined,
+                sellerAddress: comp?.address || undefined,
+                sellerEmail: comp?.email || undefined,
+                buyerName: cl?.name || "",
+                buyerAddress: cl?.address || undefined,
+                buyerCity: cl?.city || undefined,
+                buyerPostalCode: cl?.postal_code || undefined,
+                totalHT: Math.round(totalHT * 100) / 100,
+                totalTVA: Math.round(totalTVA * 100) / 100,
+                totalTTC: Number(facture.amount),
+                tvaRate,
+                paymentMeans: "30",
+              };
+              downloadFacturXXml(fxData);
+              toast.success("XML Factur-X téléchargé");
+            } catch { toast.error("Erreur export XML"); }
+          }}>
+            <FileText className="h-4 w-4" />
+            {!isMobile && <span className="ml-1">Factur-X</span>}
+          </Button>
           <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4" />
             {!isMobile && <span className="ml-1">Modifier</span>}
