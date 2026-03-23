@@ -382,14 +382,53 @@ function ExportDataTab({ companyIds }: { companyIds: string[] }) {
     {
       key: "factures",
       label: "Factures",
-      description: "Code, montant, réglé, solde, statut, échéance",
+      description: "Code, montant, réglé, solde, statut, règlements détaillés",
       icon: Euro,
       color: "text-success",
       fn: async () => {
-        const { data } = await supabase.from("factures")
-          .select("code, amount, paid_amount, status, created_at, due_date, clients(name), companies(short_name)")
+        const { data: facturesData } = await supabase.from("factures")
+          .select("id, code, amount, paid_amount, status, created_at, due_date, notes, clients(name, email), companies(short_name), dossiers(code, title)")
           .in("company_id", companyIds);
-        exportToCSV(data || [], "factures", ["code", "amount", "paid_amount", "status", "created_at", "due_date", "clients.name", "companies.short_name"]);
+
+        const factureIds = (facturesData || []).map((f: any) => f.id);
+        const { data: reglements } = factureIds.length > 0
+          ? await supabase.from("reglements").select("facture_id, amount, payment_date, bank, code, notes").in("facture_id", factureIds)
+          : { data: [] };
+
+        const rows: any[] = [];
+        (facturesData || []).forEach((f: any) => {
+          const factureReglements = (reglements || []).filter((r: any) => r.facture_id === f.id);
+          if (factureReglements.length === 0) {
+            rows.push({
+              facture_code: f.code || "", client: (f.clients as any)?.name || "",
+              client_email: (f.clients as any)?.email || "", societe: (f.companies as any)?.short_name || "",
+              dossier: (f.dossiers as any)?.code || "", statut: f.status || "",
+              montant_facture: f.amount || 0, montant_regle: f.paid_amount || 0,
+              solde: (f.amount || 0) - (f.paid_amount || 0),
+              date_facture: f.created_at?.split("T")[0] || "", echeance: f.due_date || "",
+              reglement_code: "", reglement_montant: "", reglement_date: "", reglement_banque: "",
+            });
+          } else {
+            factureReglements.forEach((r: any) => {
+              rows.push({
+                facture_code: f.code || "", client: (f.clients as any)?.name || "",
+                client_email: (f.clients as any)?.email || "", societe: (f.companies as any)?.short_name || "",
+                dossier: (f.dossiers as any)?.code || "", statut: f.status || "",
+                montant_facture: f.amount || 0, montant_regle: f.paid_amount || 0,
+                solde: (f.amount || 0) - (f.paid_amount || 0),
+                date_facture: f.created_at?.split("T")[0] || "", echeance: f.due_date || "",
+                reglement_code: r.code || "", reglement_montant: r.amount || 0,
+                reglement_date: r.payment_date || "", reglement_banque: r.bank || "",
+              });
+            });
+          }
+        });
+
+        exportToCSV(rows, "factures_avec_reglements", [
+          "facture_code", "client", "client_email", "societe", "dossier", "statut",
+          "montant_facture", "montant_regle", "solde", "date_facture", "echeance",
+          "reglement_code", "reglement_montant", "reglement_date", "reglement_banque"
+        ]);
       },
     },
     {
