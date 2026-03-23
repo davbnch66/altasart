@@ -434,14 +434,47 @@ function ExportDataTab({ companyIds }: { companyIds: string[] }) {
     {
       key: "operations",
       label: "Opérations / BT",
-      description: "Numéro BT, client, villes, dates, volume",
+      description: "Numéro BT, client, villes, dates, ressources assignées",
       icon: Truck,
       color: "text-orange-500",
       fn: async () => {
-        const { data } = await supabase.from("operations")
-          .select("lv_bt_number, operation_number, loading_date, delivery_date, loading_city, delivery_city, volume, dossiers(clients(name), code)")
+        const { data: opsData } = await supabase.from("operations")
+          .select("id, lv_bt_number, operation_number, loading_date, delivery_date, loading_city, delivery_city, volume, notes, completed, dossiers(code, title, clients(name, email)), companies(short_name)")
           .in("company_id", companyIds);
-        exportToCSV(data || [], "operations", ["lv_bt_number", "operation_number", "loading_date", "delivery_date", "loading_city", "delivery_city", "volume"]);
+
+        const opIds = (opsData || []).map((op: any) => op.id);
+        const { data: opResources } = opIds.length > 0
+          ? await supabase.from("operation_resources").select("operation_id, resources(name, type)").in("operation_id", opIds)
+          : { data: [] };
+
+        const rows: any[] = [];
+        (opsData || []).forEach((op: any) => {
+          const resources = (opResources || []).filter((r: any) => r.operation_id === op.id);
+          const base = {
+            bt_numero: op.lv_bt_number || op.operation_number || "",
+            client: (op.dossiers as any)?.clients?.name || "",
+            client_email: (op.dossiers as any)?.clients?.email || "",
+            dossier_code: (op.dossiers as any)?.code || "",
+            societe: (op.companies as any)?.short_name || "",
+            date_chargement: op.loading_date || "", date_livraison: op.delivery_date || "",
+            ville_chargement: op.loading_city || "", ville_livraison: op.delivery_city || "",
+            volume_m3: op.volume || "", termine: op.completed ? "Oui" : "Non",
+            notes: op.notes || "",
+          };
+          if (resources.length === 0) {
+            rows.push({ ...base, ressource_nom: "", ressource_type: "" });
+          } else {
+            resources.forEach((r: any) => {
+              rows.push({ ...base, ressource_nom: (r.resources as any)?.name || "", ressource_type: (r.resources as any)?.type || "" });
+            });
+          }
+        });
+
+        exportToCSV(rows, "operations_bt_avec_ressources", [
+          "bt_numero", "client", "client_email", "dossier_code", "societe",
+          "date_chargement", "date_livraison", "ville_chargement", "ville_livraison",
+          "volume_m3", "termine", "notes", "ressource_nom", "ressource_type"
+        ]);
       },
     },
     {
