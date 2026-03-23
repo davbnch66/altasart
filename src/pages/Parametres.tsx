@@ -969,6 +969,9 @@ const Parametres = () => {
       case "notifications":
         return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><NotificationSettingsTab /></motion.div>;
 
+      case "fixed-costs":
+        return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><FixedCostsTab /></motion.div>;
+
       case "import":
         return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ImportDataTab /></motion.div>;
 
