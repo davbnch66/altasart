@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -24,6 +24,13 @@ const categories: Record<string, string> = {
   autre: "Autre",
 };
 
+const fixedCatMapping: Record<string, string> = {
+  personnel: "main_oeuvre",
+  vehicule: "location",
+  credit: "autre",
+  materiel: "materiel",
+};
+
 const fmt = (n: number) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
 
@@ -32,6 +39,7 @@ export const DossierCostsTab = ({ dossierId, companyId, dossierAmount }: Props) 
   const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
   const [newCost, setNewCost] = useState({ category: "main_oeuvre", description: "", amount: "", date: "" });
+  const [showFixedPicker, setShowFixedPicker] = useState(false);
 
   const { data: costs = [] } = useQuery({
     queryKey: ["dossier-costs", dossierId],
@@ -41,6 +49,19 @@ export const DossierCostsTab = ({ dossierId, companyId, dossierAmount }: Props) 
         .select("*")
         .eq("dossier_id", dossierId)
         .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch fixed costs for pre-fill
+  const { data: fixedCosts = [] } = useQuery({
+    queryKey: ["company-fixed-costs", companyId],
+    queryFn: async () => {
+      const { data, error } = await (supabase.from("company_fixed_costs" as any).select("*") as any)
+        .eq("company_id", companyId)
+        .order("category")
+        .order("sort_order");
       if (error) throw error;
       return data || [];
     },
@@ -78,6 +99,19 @@ export const DossierCostsTab = ({ dossierId, companyId, dossierAmount }: Props) 
       queryClient.invalidateQueries({ queryKey: ["dossier-costs", dossierId] });
     },
   });
+
+  const applyFixedCost = (fc: any) => {
+    const totalCost = Number(fc.unit_cost) * (1 + Number(fc.charges_rate) / 100);
+    const unitLabel = fc.unit === "jour" ? "/j" : fc.unit === "heure" ? "/h" : fc.unit === "mois" ? "/mois" : fc.unit === "km" ? "/km" : "";
+    setNewCost({
+      category: fixedCatMapping[fc.category] || "autre",
+      description: `${fc.label}${unitLabel ? ` (${unitLabel})` : ""}`,
+      amount: totalCost.toFixed(2),
+      date: "",
+    });
+    setShowFixedPicker(false);
+    setAdding(true);
+  };
 
   const totalCosts = costs.reduce((s: number, c: any) => s + Number(c.amount), 0);
   const margin = dossierAmount - totalCosts;
@@ -131,12 +165,43 @@ export const DossierCostsTab = ({ dossierId, companyId, dossierAmount }: Props) 
         </div>
       )}
 
-      {/* Add button */}
-      <div className="flex justify-end">
+      {/* Add buttons */}
+      <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="outline" onClick={() => setAdding(!adding)} className="gap-1.5">
           <Plus className="h-3.5 w-3.5" /> Ajouter un coût
         </Button>
+        {fixedCosts.length > 0 && (
+          <Button size="sm" variant="outline" onClick={() => setShowFixedPicker(!showFixedPicker)} className="gap-1.5">
+            <Zap className="h-3.5 w-3.5" /> Depuis la grille tarifaire
+          </Button>
+        )}
       </div>
+
+      {/* Fixed cost picker */}
+      {showFixedPicker && fixedCosts.length > 0 && (
+        <div className="rounded-xl border bg-card p-3 space-y-1.5">
+          <p className="text-xs font-semibold text-muted-foreground mb-2">Sélectionnez un tarif de référence :</p>
+          <div className="grid gap-1.5 max-h-48 overflow-y-auto">
+            {fixedCosts.map((fc: any) => {
+              const total = Number(fc.unit_cost) * (1 + Number(fc.charges_rate) / 100);
+              const unitLabel = fc.unit === "jour" ? "/j" : fc.unit === "heure" ? "/h" : fc.unit === "mois" ? "/mois" : fc.unit === "km" ? "/km" : "";
+              return (
+                <button
+                  key={fc.id}
+                  onClick={() => applyFixedCost(fc)}
+                  className="flex items-center justify-between rounded-lg px-3 py-2 text-xs hover:bg-muted transition-colors text-left w-full"
+                >
+                  <div>
+                    <span className="font-medium">{fc.label}</span>
+                    <span className="text-muted-foreground ml-2">{fc.category}</span>
+                  </div>
+                  <span className="font-bold text-primary">{fmt(total)} {unitLabel}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Add form */}
       {adding && (
