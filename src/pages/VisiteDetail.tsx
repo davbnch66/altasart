@@ -496,6 +496,22 @@ const VisiteDetail = () => {
             )}
           </div>
 
+          {/* Calcul de levage */}
+          <div className="rounded-xl border bg-card p-5 space-y-3">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+              <Wrench className="h-4 w-4 text-primary" /> Calcul de levage
+            </h3>
+            <LiftingCalculator
+              chargeKg={editData.lifting_charge_kg ?? null}
+              heightM={editData.lifting_height_m ?? null}
+              reachM={editData.lifting_reach_m ?? null}
+              onChangeCharge={v => updateField("lifting_charge_kg", v)}
+              onChangeHeight={v => updateField("lifting_height_m", v)}
+              onChangeReach={v => updateField("lifting_reach_m", v)}
+              onComplexityChange={score => updateField("complexity_score", score)}
+            />
+          </div>
+
           {/* Notes / Instructions */}
           <div className="rounded-xl border bg-card p-5 space-y-3">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Notes & Instructions</h3>
