@@ -139,6 +139,15 @@ const Planning = () => {
   const [missionDefaultResource, setMissionDefaultResource] = useState<string | undefined>();
   const [editingVisite, setEditingVisite] = useState<any>(null);
   const [visiteDate, setVisiteDate] = useState("");
+  const [aiPlannerOpen, setAiPlannerOpen] = useState(false);
+  const [aiPreFill, setAiPreFill] = useState<AISuggestion | null>(null);
+
+  const handleAISuggestion = (suggestion: AISuggestion) => {
+    setMissionDefaultDate(suggestion.loading_date ? new Date(suggestion.loading_date) : undefined);
+    setMissionDefaultResource(undefined);
+    setAiPreFill(suggestion);
+    setMissionPanelOpen(true);
+  };
   const [visiteTime, setVisiteTime] = useState("");
   const [savingVisite, setSavingVisite] = useState(false);
 
