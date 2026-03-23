@@ -12,6 +12,9 @@ import { CreateClientDialog } from "@/components/forms/CreateClientDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useProgressiveList } from "@/hooks/useProgressiveList";
 
+const avatarColors = ["bg-blue-100 text-blue-700", "bg-purple-100 text-purple-700", "bg-green-100 text-green-700", "bg-orange-100 text-orange-700", "bg-pink-100 text-pink-700", "bg-cyan-100 text-cyan-700"];
+const getAvatarColor = (name: string) => avatarColors[name.charCodeAt(0) % avatarColors.length];
+
 const statusLabels: Record<string, string> = {
   nouveau_lead: "Lead",
   actif: "Actif",
@@ -170,104 +173,90 @@ const ClientList = ({ filtered, isMobile, navigate }: { filtered: any[]; isMobil
   const { visibleItems, sentinelRef, hasMore } = useProgressiveList(filtered);
 
   return isMobile ? (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-1.5">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
+      {visibleItems.map((client) => (
+        <div
+          key={client.id}
+          onClick={() => navigate(`/clients/${client.id}`)}
+          className="card-interactive p-4 flex items-center gap-3"
+        >
+          <div className={`h-11 w-11 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${getAvatarColor(client.name)}`}>
+            {client.name.substring(0, 2).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-sm truncate">{client.name}</p>
+              {client.code && <span className="text-[10px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">{client.code}</span>}
+            </div>
+            <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+              {client.city && <span className="flex items-center gap-0.5 truncate"><MapPin className="h-3 w-3 shrink-0" />{client.city}</span>}
+              {client.contact_name && <span className="truncate">{client.contact_name}</span>}
+            </div>
+          </div>
+          <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusStyles[client.status] || "bg-muted text-muted-foreground"}`}>
+            {statusLabels[client.status] || client.status}
+          </span>
+        </div>
+      ))}
+      <ScrollSentinel sentinelRef={sentinelRef} hasMore={hasMore} />
+    </motion.div>
+  ) : (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card-elevated rounded-xl overflow-hidden">
+      <table className="w-full table-premium">
+        <thead>
+          <tr className="border-b bg-muted/30">
+            <th className="text-left w-16">Code</th>
+            <th className="text-left">Client</th>
+            <th className="text-left hidden lg:table-cell">Ville</th>
+            <th className="text-left hidden xl:table-cell">Email</th>
+            <th className="text-left hidden md:table-cell">Téléphone</th>
+            <th className="text-left hidden md:table-cell">Société</th>
+            <th className="text-left">Statut</th>
+            <th className="w-10"></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
           {visibleItems.map((client) => (
-            <div
+            <tr
               key={client.id}
               onClick={() => navigate(`/clients/${client.id}`)}
-              className="card-interactive rounded-lg p-3"
+              className="cursor-pointer hover:bg-primary/[0.02] transition-colors"
             >
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-lg bg-muted flex items-center justify-center shrink-0 text-xs font-bold text-muted-foreground">
-                  {client.name.substring(0, 2).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-sm truncate">{client.name}</p>
-                    {client.code && <span className="text-2xs font-mono text-muted-foreground shrink-0">{client.code}</span>}
+              <td className="font-mono text-xs text-muted-foreground">{client.code || "—"}</td>
+              <td>
+                <div className="flex items-center gap-2.5">
+                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0 ${getAvatarColor(client.name)}`}>
+                    {client.name.substring(0, 2).toUpperCase()}
                   </div>
-                  <div className="flex items-center gap-2.5 mt-0.5 text-2xs text-muted-foreground">
-                    {client.city && (
-                      <span className="flex items-center gap-0.5 truncate">
-                        <MapPin className="h-3 w-3 shrink-0" />
-                        <span className="truncate">{client.city}</span>
-                      </span>
-                    )}
-                    {(client.phone || client.mobile) && (
-                      <span className="flex items-center gap-0.5 shrink-0">
-                        <Phone className="h-3 w-3" />
-                      </span>
-                    )}
+                  <div>
+                    <p className="font-semibold text-sm">{client.name}</p>
+                    {client.contact_name && <p className="text-xs text-muted-foreground">{client.contact_name}</p>}
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  <span className={`badge-status ${statusStyles[client.status] || "bg-muted text-muted-foreground"}`}>
-                    {statusLabels[client.status] || client.status}
-                  </span>
-                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40" />
-                </div>
-              </div>
-            </div>
+              </td>
+              <td className="text-muted-foreground hidden lg:table-cell">{client.city || "—"}</td>
+              <td className="text-muted-foreground hidden xl:table-cell text-xs">{client.email || "—"}</td>
+              <td className="text-muted-foreground hidden md:table-cell text-xs">{client.phone || client.mobile || "—"}</td>
+              <td className="hidden md:table-cell">
+                <span className="text-xs text-muted-foreground">
+                  {(client.companies as any)?.short_name || "—"}
+                </span>
+              </td>
+              <td>
+                <span className={`badge-status rounded-full ${statusStyles[client.status] || ""}`}>
+                  {statusLabels[client.status] || client.status}
+                </span>
+              </td>
+              <td>
+                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30" />
+              </td>
+            </tr>
           ))}
-          <ScrollSentinel sentinelRef={sentinelRef} hasMore={hasMore} />
-        </motion.div>
-      ) : (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card-elevated rounded-xl overflow-hidden">
-          <table className="w-full table-premium">
-            <thead>
-              <tr className="border-b bg-muted/30">
-                <th className="text-left w-16">Code</th>
-                <th className="text-left">Client</th>
-                <th className="text-left hidden lg:table-cell">Ville</th>
-                <th className="text-left hidden xl:table-cell">Email</th>
-                <th className="text-left hidden md:table-cell">Téléphone</th>
-                <th className="text-left hidden md:table-cell">Société</th>
-                <th className="text-left">Statut</th>
-                <th className="w-10"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {visibleItems.map((client) => (
-                <tr
-                  key={client.id}
-                  onClick={() => navigate(`/clients/${client.id}`)}
-                  className="cursor-pointer"
-                >
-                  <td className="font-mono text-xs text-muted-foreground">{client.code || "—"}</td>
-                  <td>
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-[11px] font-bold text-muted-foreground shrink-0">
-                        {client.name.substring(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{client.name}</p>
-                        {client.contact_name && <p className="text-xs text-muted-foreground">{client.contact_name}</p>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="text-muted-foreground hidden lg:table-cell">{client.city || "—"}</td>
-                  <td className="text-muted-foreground hidden xl:table-cell text-xs">{client.email || "—"}</td>
-                  <td className="text-muted-foreground hidden md:table-cell text-xs">{client.phone || client.mobile || "—"}</td>
-                  <td className="hidden md:table-cell">
-                    <span className="text-xs text-muted-foreground">
-                      {(client.companies as any)?.short_name || "—"}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`badge-status ${statusStyles[client.status] || ""}`}>
-                      {statusLabels[client.status] || client.status}
-                    </span>
-                  </td>
-                  <td>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30" />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <ScrollSentinel sentinelRef={sentinelRef} hasMore={hasMore} />
-        </motion.div>
-      );
+        </tbody>
+      </table>
+      <ScrollSentinel sentinelRef={sentinelRef} hasMore={hasMore} />
+    </motion.div>
+  );
 };
 
 const ScrollSentinel = ({ sentinelRef, hasMore }: { sentinelRef: (node: HTMLDivElement | null) => void; hasMore: boolean }) => (
