@@ -175,7 +175,7 @@ const InboxPage = () => {
       } catch (_) {}
     };
     poll(); // immediate first poll
-    const interval = setInterval(poll, 30000);
+    const interval = setInterval(poll, 60000);
     return () => clearInterval(interval);
   }, [refreshMailboxQueries]);
 
