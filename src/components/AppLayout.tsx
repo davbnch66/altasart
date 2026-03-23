@@ -67,6 +67,7 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
 }
 
 export const AppLayout: React.FC = () => {
+  useKeyboardShortcuts();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
