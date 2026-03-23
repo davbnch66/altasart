@@ -1455,7 +1455,7 @@ const Planning = () => {
         </div>
         <div className="flex items-center gap-2">
           {/* Bouton Nouvelle mission — vert prominent */}
-          <Button onClick={() => { setEditingOpId(null); setOpDialogOpen(true); }} className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs">
+          <Button onClick={() => { setMissionDefaultDate(undefined); setMissionDefaultResource(undefined); setMissionPanelOpen(true); }} className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs">
             <Plus className="h-3.5 w-3.5" /> {isMobile ? "Mission" : "Nouvelle mission"}
           </Button>
           {/* Bouton Événement — secondaire */}
