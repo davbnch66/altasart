@@ -113,11 +113,11 @@ export const AppLayout: React.FC = () => {
         <OnboardingWizard />
         <EmailNewMailToast />
         {isMobile && (
-          <div className="sticky top-0 z-30 flex items-center gap-2 border-b bg-background/80 backdrop-blur-xl px-3 py-2.5">
+          <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-border/60 bg-background/95 backdrop-blur-xl px-3 py-2.5">
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen((v) => !v)} className="h-8 w-8 shrink-0">
               {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </Button>
-            <span className="text-sm font-semibold text-foreground tracking-tight">{currentPageName || "altasart.app"}</span>
+            <span className="text-sm font-semibold text-foreground tracking-tight border-b-2 border-primary/20 pb-0.5">{currentPageName || "altasart.app"}</span>
           </div>
         )}
         <RouteGuard>
