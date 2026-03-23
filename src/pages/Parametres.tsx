@@ -332,14 +332,51 @@ function ExportDataTab({ companyIds }: { companyIds: string[] }) {
     {
       key: "devis",
       label: "Devis",
-      description: "Code, objet, montant, statut, client, date",
+      description: "Code, objet, montant, statut, client, lignes détaillées",
       icon: FileText,
       color: "text-primary",
       fn: async () => {
-        const { data } = await supabase.from("devis")
-          .select("code, objet, amount, status, created_at, valid_until, clients(name), companies(short_name)")
+        const { data: devisData } = await supabase.from("devis")
+          .select("id, code, objet, amount, status, created_at, valid_until, notes, clients(name, email), companies(short_name)")
           .in("company_id", companyIds);
-        exportToCSV(data || [], "devis", ["code", "objet", "amount", "status", "created_at", "valid_until", "clients.name", "companies.short_name"]);
+
+        const devisIds = (devisData || []).map((d: any) => d.id);
+        const { data: lines } = devisIds.length > 0
+          ? await supabase.from("devis_lines").select("devis_id, description, quantity, unit_price, total").in("devis_id", devisIds)
+          : { data: [] };
+
+        const rows: any[] = [];
+        const devisWithLines = new Set((lines || []).map((l: any) => l.devis_id));
+
+        (lines || []).forEach((line: any) => {
+          const devis = (devisData || []).find((d: any) => d.id === line.devis_id);
+          rows.push({
+            devis_code: devis?.code || "", devis_objet: devis?.objet || "",
+            client: (devis?.clients as any)?.name || "", client_email: (devis?.clients as any)?.email || "",
+            societe: (devis?.companies as any)?.short_name || "", statut: devis?.status || "",
+            montant_total: devis?.amount || 0, date_creation: devis?.created_at?.split("T")[0] || "",
+            validite: devis?.valid_until || "",
+            ligne_description: line.description || "", ligne_quantite: line.quantity || 0,
+            ligne_prix_unitaire: line.unit_price || 0, ligne_total: line.total || (line.quantity * line.unit_price) || 0,
+          });
+        });
+
+        (devisData || []).filter((d: any) => !devisWithLines.has(d.id)).forEach((d: any) => {
+          rows.push({
+            devis_code: d.code || "", devis_objet: d.objet || "",
+            client: (d.clients as any)?.name || "", client_email: (d.clients as any)?.email || "",
+            societe: (d.companies as any)?.short_name || "", statut: d.status || "",
+            montant_total: d.amount || 0, date_creation: d.created_at?.split("T")[0] || "",
+            validite: d.valid_until || "",
+            ligne_description: "", ligne_quantite: 0, ligne_prix_unitaire: 0, ligne_total: 0,
+          });
+        });
+
+        exportToCSV(rows, "devis_avec_lignes", [
+          "devis_code", "devis_objet", "client", "client_email", "societe", "statut",
+          "montant_total", "date_creation", "validite",
+          "ligne_description", "ligne_quantite", "ligne_prix_unitaire", "ligne_total"
+        ]);
       },
     },
     {
