@@ -125,7 +125,7 @@ export const AppSidebar: React.FC = () => {
   };
 
   return (
-    <aside className="flex h-screen w-[240px] flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
+    <aside className="flex h-screen w-[248px] flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       {/* Company Switcher */}
       <div className="px-3 pt-4 pb-3">
         <DropdownMenu>
