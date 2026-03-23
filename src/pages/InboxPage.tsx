@@ -175,7 +175,7 @@ const InboxPage = () => {
       } catch (_) {}
     };
     poll(); // immediate first poll
-    const interval = setInterval(poll, 30000);
+    const interval = setInterval(poll, 60000);
     return () => clearInterval(interval);
   }, [refreshMailboxQueries]);
 
@@ -1647,6 +1647,23 @@ const InboxPage = () => {
                         {/* Badge urgent IA */}
                         {analysis?.urgence && (
                           <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive">⚡ Urgent</span>
+                        )}
+                        {/* Badge erreur IA avec ré-analyse */}
+                        {email.status === "error" && (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await supabase.functions.invoke("process-inbound-email", {
+                                body: { inbound_email_id: email.id }
+                              });
+                              toast.info("Ré-analyse lancée...");
+                              setTimeout(() => refreshMailboxQueries(), 3000);
+                            }}
+                            className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-destructive/15 text-destructive hover:bg-destructive/25 transition-colors"
+                            title="Cliquer pour ré-analyser"
+                          >
+                            ⚠ Erreur IA
+                          </button>
                         )}
                         {/* Date */}
                         <span className={`text-[10px] shrink-0 ${!isRead ? "text-primary font-semibold" : "text-muted-foreground"}`}>
