@@ -5,7 +5,7 @@ import { useCompany } from "@/contexts/CompanyContext";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, TrendingUp, TrendingDown, BarChart3, AlertTriangle, Download,
-  FolderOpen, Euro, PiggyBank,
+  FolderOpen, Euro, PiggyBank, CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,9 +49,27 @@ function MarginBar({ value, max }: { value: number; max: number }) {
 export default function RentabiliteReport() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const { current } = useCompany();
+  const { current, dbCompanies } = useCompany();
   const [sortBy, setSortBy] = useState<"margin" | "amount" | "pct">("pct");
   const [filterStage, setFilterStage] = useState("all");
+
+  const companyIds = current === "global" ? dbCompanies.map(c => c.id) : [current];
+
+  // Fetch fixed costs (monthly charges like credits/leasing)
+  const { data: fixedCosts = [] } = useQuery({
+    queryKey: ["company-fixed-costs-rentabilite", current],
+    queryFn: async () => {
+      let query = (supabase.from("company_fixed_costs" as any).select("*") as any);
+      if (current !== "global") {
+        query = query.eq("company_id", current);
+      } else if (companyIds.length > 0) {
+        query = query.in("company_id", companyIds);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   // Fetch all dossiers with their costs and factures
   const { data, isLoading } = useQuery({
@@ -59,7 +77,7 @@ export default function RentabiliteReport() {
     queryFn: async () => {
       let dossiersQuery = supabase
         .from("dossiers")
-        .select("id, code, title, stage, amount, cost, client_id, clients(name)")
+        .select("id, code, title, stage, amount, cost, client_id, company_id, clients(name)")
         .not("stage", "eq", "prospect");
 
       if (current !== "global") dossiersQuery = dossiersQuery.eq("company_id", current);
@@ -68,7 +86,7 @@ export default function RentabiliteReport() {
       if (dErr) throw dErr;
 
       const ids = (dossiers || []).map((d) => d.id);
-      if (ids.length === 0) return { dossiers: [], costs: [], factures: [], catTotals: {} };
+      if (ids.length === 0) return { dossiers: [], costsByDossier: {}, facturesByDossier: {}, catTotals: {} };
 
       const [{ data: costs }, { data: factures }] = await Promise.all([
         supabase.from("dossier_costs").select("dossier_id, amount, category").in("dossier_id", ids),
@@ -101,18 +119,53 @@ export default function RentabiliteReport() {
   const facturesByDossier = data?.facturesByDossier ?? {};
   const catTotals = (data?.catTotals ?? {}) as Record<string, number>;
 
-  // Build enriched rows
+  // Calculate monthly fixed charges from company_fixed_costs
+  const monthlyFixedCharges = fixedCosts
+    .filter((fc: any) => fc.unit === "mois")
+    .reduce((sum: number, fc: any) => {
+      const total = Number(fc.unit_cost) * (1 + Number(fc.charges_rate) / 100);
+      return sum + total;
+    }, 0);
+
+  // Calculate daily rates for auto-estimation
+  const dailyPersonnelRate = fixedCosts
+    .filter((fc: any) => fc.category === "personnel" && fc.unit === "jour")
+    .reduce((sum: number, fc: any) => {
+      const total = Number(fc.unit_cost) * (1 + Number(fc.charges_rate) / 100);
+      return sum + total;
+    }, 0);
+
+  const dailyVehicleRate = fixedCosts
+    .filter((fc: any) => fc.category === "vehicule" && fc.unit === "jour")
+    .reduce((sum: number, fc: any) => {
+      const total = Number(fc.unit_cost) * (1 + Number(fc.charges_rate) / 100);
+      return sum + total;
+    }, 0);
+
+  // Build enriched rows - auto-estimate costs for dossiers without manual costs
   const rows = dossiers
     .filter((d) => filterStage === "all" || d.stage === filterStage)
     .map((d) => {
-      const costs = costsByDossier[d.id] ?? 0;
+      const manualCosts = costsByDossier[d.id] ?? 0;
       const ca = Number(d.amount ?? 0);
+      
+      // Auto-estimate if no manual costs: use CA × estimated cost ratio from fixed rates
+      // Simple heuristic: estimate 1 day of work per 1000€ of CA (personnel + vehicle)
+      let estimatedCosts = 0;
+      let isEstimated = false;
+      if (manualCosts === 0 && ca > 0 && (dailyPersonnelRate + dailyVehicleRate) > 0) {
+        const estimatedDays = Math.max(1, Math.round(ca / 2000));
+        estimatedCosts = estimatedDays * (dailyPersonnelRate + dailyVehicleRate);
+        isEstimated = true;
+      }
+      
+      const costs = manualCosts > 0 ? manualCosts : estimatedCosts;
       const factureInfo = facturesByDossier[d.id];
       const facture = factureInfo?.facture ?? 0;
       const regle = factureInfo?.regle ?? 0;
       const margin = ca - costs;
       const marginPct = pct(margin, ca);
-      return { ...d, costs, ca, facture, regle, margin, marginPct };
+      return { ...d, costs, ca, facture, regle, margin, marginPct, isEstimated, manualCosts };
     })
     .sort((a, b) => {
       if (sortBy === "pct") return b.marginPct - a.marginPct;
@@ -129,11 +182,12 @@ export default function RentabiliteReport() {
   const globalMarginPct = pct(totalMargin, totalCA);
   const dossiersPositifs = rows.filter((r) => r.margin >= 0).length;
   const dossiersNegatifs = rows.filter((r) => r.margin < 0).length;
+  const dossiersEstimes = rows.filter((r) => r.isEstimated).length;
   const maxAbsMargin = Math.max(...rows.map((r) => Math.abs(r.margin)), 1);
 
   // Export CSV
   const handleExportCSV = () => {
-    const header = ["Code", "Titre", "Client", "Statut", "CA Prévu", "Facturé", "Réglé", "Coûts Réels", "Marge €", "Marge %"];
+    const header = ["Code", "Titre", "Client", "Statut", "CA Prévu", "Facturé", "Réglé", "Coûts Réels", "Marge €", "Marge %", "Estimé"];
     const lines = rows.map((r) => [
       r.code || "",
       r.title,
@@ -145,6 +199,7 @@ export default function RentabiliteReport() {
       r.costs,
       r.margin,
       `${r.marginPct}%`,
+      r.isEstimated ? "Oui" : "Non",
     ]);
     const csv = [header, ...lines].map((row) => row.join(";")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -179,15 +234,15 @@ export default function RentabiliteReport() {
 
       {/* Global KPIs */}
       {isLoading ? (
-        <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4"}`}>
-          {[1,2,3,4].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}
+        <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-5"}`}>
+          {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}
         </div>
       ) : (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4"}`}
+          className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-5"}`}
         >
           <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
             <div className="flex items-center gap-2 mb-1">
@@ -231,13 +286,39 @@ export default function RentabiliteReport() {
               <span className="text-destructive">✗ {dossiersNegatifs}</span>
             </div>
           </div>
+
+          {/* Monthly fixed charges */}
+          <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
+            <div className="flex items-center gap-2 mb-1">
+              <CreditCard className="h-4 w-4 text-warning" />
+              <p className="text-xs text-muted-foreground">Charges fixes / mois</p>
+            </div>
+            <p className={`font-bold text-warning ${isMobile ? "text-base" : "text-2xl"}`}>{fmt(monthlyFixedCharges)}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {monthlyFixedCharges > 0 ? `${fmt(monthlyFixedCharges * 12)} / an` : "Non configuré"}
+            </p>
+          </div>
         </motion.div>
+      )}
+
+      {/* Info about estimations */}
+      {!isLoading && dossiersEstimes > 0 && (
+        <div className="flex items-start gap-2 rounded-xl border border-info/30 bg-info/5 p-3 text-xs text-info">
+          <BarChart3 className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">{dossiersEstimes} dossier(s) avec coûts estimés automatiquement</p>
+            <p className="text-muted-foreground mt-0.5">
+              Basé sur votre grille tarifaire (personnel {fmt(dailyPersonnelRate)}/j + véhicules {fmt(dailyVehicleRate)}/j). 
+              Ajoutez des coûts réels dans chaque dossier pour remplacer l'estimation.
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Répartition des coûts par catégorie */}
       {!isLoading && Object.keys(catTotals).length > 0 && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Répartition des coûts</h3>
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Répartition des coûts réels</h3>
           <div className="space-y-2">
             {(Object.entries(catTotals) as [string, number][])
               .sort(([, a], [, b]) => b - a)
@@ -329,6 +410,11 @@ export default function RentabiliteReport() {
                     <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted text-muted-foreground">
                       {stageLabels[row.stage] || row.stage}
                     </span>
+                    {row.isEstimated && (
+                      <span className="text-[10px] rounded-full px-2 py-0.5 bg-info/10 text-info font-medium">
+                        ≈ estimé
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">{(row.clients as any)?.name || "—"}</p>
                   {!isMobile && (
@@ -347,8 +433,8 @@ export default function RentabiliteReport() {
                         <p className="text-xs font-medium">{fmt(row.ca)}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] text-muted-foreground">Coûts</p>
-                        <p className="text-xs font-medium text-destructive">{fmt(row.costs)}</p>
+                        <p className="text-[10px] text-muted-foreground">Coûts{row.isEstimated ? " ≈" : ""}</p>
+                        <p className={`text-xs font-medium text-destructive ${row.isEstimated ? "italic" : ""}`}>{fmt(row.costs)}</p>
                       </div>
                     </>
                   )}
@@ -382,10 +468,12 @@ export default function RentabiliteReport() {
       )}
 
       {/* Alert: dossiers without costs */}
-      {!isLoading && dossiers.length > rows.length && (
+      {!isLoading && dossiersEstimes > 0 && (
         <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-          <p>{dossiers.length - rows.filter((r) => filterStage === "all").length} dossiers filtrés. Certains n'ont pas encore de coûts enregistrés.</p>
+          <p>
+            {dossiersEstimes} dossier(s) n'ont pas encore de coûts réels saisis — les marges affichées sont des estimations basées sur votre grille tarifaire.
+          </p>
         </div>
       )}
     </div>
