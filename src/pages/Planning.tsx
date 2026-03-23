@@ -874,13 +874,34 @@ const Planning = () => {
                   }`}>
                     {resourceConflicts.has(resource.id) ? <AlertTriangle className="h-3.5 w-3.5" /> : rowIdx + 1}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold truncate text-foreground">{resource.name}</p>
                     {resourceConflicts.has(resource.id) ? (
                       <p className="text-[9px] text-destructive font-medium truncate">⚠ Conflit horaire</p>
                     ) : (
                       <p className="text-[9px] text-muted-foreground capitalize">{resource.type}</p>
                     )}
+                    {/* Barre de charge hebdomadaire */}
+                    {(() => {
+                      const totalDays = days.length;
+                      const occupiedDays = days.filter(day =>
+                        getOpsForResourceDay(resource.id, day).length > 0 ||
+                        getEventsForResource(resource.id, day).length > 0
+                      ).length;
+                      const rate = totalDays > 0 ? Math.round((occupiedDays / totalDays) * 100) : 0;
+                      const barColor = rate >= 90 ? "bg-destructive" : rate >= 60 ? "bg-warning" : "bg-success";
+                      return (
+                        <div className="mt-1.5 w-full">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-[8px] text-muted-foreground">Charge</span>
+                            <span className={`text-[8px] font-bold ${rate >= 90 ? "text-destructive" : rate >= 60 ? "text-warning" : "text-success"}`}>{rate}%</span>
+                          </div>
+                          <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${rate}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
