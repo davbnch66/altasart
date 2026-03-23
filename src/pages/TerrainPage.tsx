@@ -61,7 +61,7 @@ export default function TerrainPage() {
   const { role } = useMyRole();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { permission, subscribe: subscribePush } = usePushNotifications();
+  const { permission, subscribed, subscribe: subscribePush } = usePushNotifications();
 
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [signatureTarget, setSignatureTarget] = useState<SignatureTarget>(null);
@@ -399,21 +399,25 @@ export default function TerrainPage() {
 
       {/* Push notification activation banner */}
       {permission === "default" && (
-        <motion.div
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3"
-        >
-          <div className="flex items-center gap-2 flex-1 min-w-0">
+        <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2 text-sm">
             <Bell className="h-4 w-4 text-primary shrink-0" />
-            <p className="text-xs text-foreground">
-              Activez les notifications pour recevoir vos missions en temps réel
-            </p>
+            <span>Recevez vos missions en temps réel</span>
           </div>
-          <Button size="sm" className="shrink-0 h-7 text-xs gap-1" onClick={subscribePush}>
-            <Bell className="h-3 w-3" /> Activer
+          <Button size="sm" onClick={subscribePush} className="shrink-0 gap-1.5">
+            <Bell className="h-3.5 w-3.5" /> Activer
           </Button>
-        </motion.div>
+        </div>
+      )}
+      {permission === "denied" && (
+        <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive mb-4">
+          🔕 Notifications bloquées — allez dans les paramètres de votre navigateur pour les autoriser
+        </div>
+      )}
+      {permission === "granted" && subscribed && (
+        <div className="rounded-xl border border-green-500/20 bg-green-500/5 px-4 py-3 text-sm text-green-600 dark:text-green-400 flex items-center gap-2 mb-4">
+          <Bell className="h-4 w-4" /> Notifications activées ✓
+        </div>
       )}
 
       {/* Summary badges */}
