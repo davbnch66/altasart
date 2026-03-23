@@ -1280,49 +1280,27 @@ const InboxPage = () => {
 
         {/* Category tabs (only for inbox) */}
         {currentFolder === "inbox" && (
-          <div className="flex gap-1 border-b">
-            <button
-              onClick={() => setCategory("tous")}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                category === "tous"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Inbox className="h-4 w-4" />
-              Tous
-              {unreadCounts.inbox > 0 && (
-                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">{unreadCounts.inbox}</Badge>
-              )}
-            </button>
-            <button
-              onClick={() => setCategory("demandes")}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                category === "demandes"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              Demandes client
-              {unreadDemandesCount > 0 && (
-                <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">{unreadDemandesCount}</Badge>
-              )}
-            </button>
-            <button
-              onClick={() => setCategory("autre")}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                category === "autre"
-                  ? "border-primary text-primary"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <MailWarning className="h-4 w-4" />
-              Autre
-              {autreEmails.length > 0 && (
-                <Badge variant="outline" className="ml-1 px-1.5 py-0 text-[10px] text-muted-foreground">{autreEmails.length}</Badge>
-              )}
-            </button>
+          <div className="flex gap-1.5 pb-1 border-b">
+            {[
+              { key: "tous" as CategoryTab, label: "Tous", icon: Inbox, count: unreadCounts.inbox },
+              { key: "demandes" as CategoryTab, label: "Demandes", icon: CheckCircle2, count: unreadDemandesCount },
+              { key: "autre" as CategoryTab, label: "Autre", icon: MailWarning, count: 0 },
+            ].map(tab => (
+              <button key={tab.key} onClick={() => setCategory(tab.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t-lg border-b-2 transition-colors ${
+                  category === tab.key
+                    ? "border-primary text-primary bg-primary/5"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}>
+                <tab.icon className="h-3.5 w-3.5" />
+                {tab.label}
+                {tab.count > 0 && (
+                  <span className={`rounded-full px-1.5 py-0 text-[9px] font-bold leading-4 ${
+                    category === tab.key ? "bg-primary text-primary-foreground" : "bg-destructive text-destructive-foreground"
+                  }`}>{tab.count}</span>
+                )}
+              </button>
+            ))}
           </div>
         )}
 
