@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { PlanningEventDialog } from "@/components/planning/PlanningEventDialog";
 import { PlanningOperationDialog } from "@/components/planning/PlanningOperationDialog";
 import { PlanningMissionPanel } from "@/components/planning/PlanningMissionPanel";
+import { PlanningAIAssistant, type AISuggestion } from "@/components/planning/PlanningAIAssistant";
 import { toast } from "sonner";
 import {
   format,
