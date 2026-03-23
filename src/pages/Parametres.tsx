@@ -35,7 +35,9 @@ const tabs = [
   { value: "templates-docs", label: "Templates docs", icon: FileText },
   { value: "appearance", label: "Apparence", icon: Paintbrush },
   { value: "notifications", label: "Notifications", icon: Bell },
+  { value: "fixed-costs", label: "Coûts fixes", icon: Euro },
   { value: "import", label: "Import", icon: Upload },
+  { value: "export", label: "Export & RGPD", icon: Download },
   { value: "export", label: "Export & RGPD", icon: Download },
 ];
 
