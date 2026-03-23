@@ -105,9 +105,21 @@ export const InboxEmailDetail = ({ email, actions, onBack, onActionExecuted, onR
             )}
           </div>
           <div className="flex flex-col items-end gap-1.5 shrink-0">
-            <Badge className={`text-xs ${statusStyles[email.status] || ""}`}>
-              {statusLabels[email.status] || email.status}
-            </Badge>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1 text-muted-foreground hover:text-primary"
+                onClick={handleReanalyze}
+                disabled={reanalyzing}
+              >
+                {reanalyzing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Ré-analyser
+              </Button>
+              <Badge className={`text-xs ${statusStyles[email.status] || ""}`}>
+                {statusLabels[email.status] || email.status}
+              </Badge>
+            </div>
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {new Date(email.created_at).toLocaleString("fr-FR")}
