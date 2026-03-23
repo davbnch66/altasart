@@ -39,8 +39,9 @@ const FactureDetail = () => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
-  const fromClient = (location.state as any)?.fromClient === true;
-  const fromDossier = (location.state as any)?.fromDossier as string | undefined;
+  const navState = getNavState(location.state);
+  const fromClient = navState.fromClient;
+  const fromDossier = navState.fromDossier;
   const [editOpen, setEditOpen] = useState(false);
   const [editReglement, setEditReglement] = useState<any>(null);
   const [deleteReglement, setDeleteReglement] = useState<any>(null);
