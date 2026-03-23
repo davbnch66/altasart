@@ -967,12 +967,13 @@ const Planning = () => {
 
                   const cellKey = `res-${resource.id}-${dayIdx}`;
                     const hasItems = cellItems.length > 0;
+                    const cellConflict = isDayConflict(resource.id, day);
                     return (
                      <div
                        key={day.toISOString()}
                        className={`group/cell border-r border-border last:border-r-0 relative overflow-visible cursor-pointer transition-colors ${
                          isToday(day) ? "bg-primary/5" : rowIdx % 2 === 0 ? "bg-muted/10" : ""
-                       } hover:bg-muted/30 ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
+                       } hover:bg-muted/30 ${dragOverCell === cellKey ? "bg-primary/20" : ""} ${cellConflict ? "border-2 border-destructive/60" : ""}`}
                        style={{ minHeight: `${rowMinHeight}px` }}
                        onDragOver={(e) => handleDragOver(e, cellKey)}
                        onDragLeave={handleDragLeave}
@@ -980,8 +981,13 @@ const Planning = () => {
                        onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
                        onTouchEnd={(e) => { e.preventDefault(); openCreate(day, resource.id); }}
                      >
+                       {cellConflict && (
+                         <div className="absolute top-1 right-1 z-20 h-4 w-4 rounded-full bg-destructive flex items-center justify-center" title="Conflit de planification">
+                           <AlertTriangle className="h-2.5 w-2.5 text-white" />
+                         </div>
+                       )}
                        {cellItems}
-                       {hasItems && (
+                       {hasItems && !cellConflict && (
                          <button
                            className="absolute bottom-1 right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-opacity z-10 shadow-sm hover:scale-110"
                            onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
