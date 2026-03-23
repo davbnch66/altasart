@@ -18,10 +18,11 @@ interface PlanningMissionPanelProps {
   defaultDate?: Date;
   defaultResourceId?: string;
   onOpenFullDialog?: () => void;
+  preFill?: AISuggestion | null;
 }
 
 export const PlanningMissionPanel = ({
-  open, onOpenChange, defaultDate, defaultResourceId, onOpenFullDialog,
+  open, onOpenChange, defaultDate, defaultResourceId, onOpenFullDialog, preFill,
 }: PlanningMissionPanelProps) => {
   const { current, dbCompanies } = useCompany();
   const queryClient = useQueryClient();
