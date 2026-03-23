@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PlanningEventDialog } from "@/components/planning/PlanningEventDialog";
 import { PlanningOperationDialog } from "@/components/planning/PlanningOperationDialog";
+import { PlanningMissionPanel } from "@/components/planning/PlanningMissionPanel";
 import { toast } from "sonner";
 import {
   format,
@@ -132,6 +133,9 @@ const Planning = () => {
   const [defaultResourceId, setDefaultResourceId] = useState<string | undefined>();
   const [opDialogOpen, setOpDialogOpen] = useState(false);
   const [editingOpId, setEditingOpId] = useState<string | null>(null);
+  const [missionPanelOpen, setMissionPanelOpen] = useState(false);
+  const [missionDefaultDate, setMissionDefaultDate] = useState<Date | undefined>();
+  const [missionDefaultResource, setMissionDefaultResource] = useState<string | undefined>();
   const [editingVisite, setEditingVisite] = useState<any>(null);
   const [visiteDate, setVisiteDate] = useState("");
   const [visiteTime, setVisiteTime] = useState("");
@@ -1451,7 +1455,7 @@ const Planning = () => {
         </div>
         <div className="flex items-center gap-2">
           {/* Bouton Nouvelle mission — vert prominent */}
-          <Button onClick={() => { setEditingOpId(null); setOpDialogOpen(true); }} className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs">
+          <Button onClick={() => { setMissionDefaultDate(undefined); setMissionDefaultResource(undefined); setMissionPanelOpen(true); }} className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs">
             <Plus className="h-3.5 w-3.5" /> {isMobile ? "Mission" : "Nouvelle mission"}
           </Button>
           {/* Bouton Événement — secondaire */}
@@ -1586,6 +1590,13 @@ const Planning = () => {
         open={opDialogOpen}
         onOpenChange={(v) => { setOpDialogOpen(v); if (!v) setEditingOpId(null); }}
         operationId={editingOpId}
+      />
+      <PlanningMissionPanel
+        open={missionPanelOpen}
+        onOpenChange={setMissionPanelOpen}
+        defaultDate={missionDefaultDate}
+        defaultResourceId={missionDefaultResource}
+        onOpenFullDialog={() => { setEditingOpId(null); setOpDialogOpen(true); }}
       />
     </div>
   );
