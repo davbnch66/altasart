@@ -57,6 +57,28 @@ const statusStyles: Record<string, string> = {
 
 export const InboxEmailDetail = ({ email, actions, onBack, onActionExecuted, onReply }: Props) => {
   const isMobile = useIsMobile();
+  const [reanalyzing, setReanalyzing] = useState(false);
+
+  const handleReanalyze = async () => {
+    setReanalyzing(true);
+    try {
+      // Reset status to allow reprocessing
+      await supabase.from("inbound_emails").update({ status: "pending" }).eq("id", email.id);
+      // Delete existing actions so new ones are generated
+      await supabase.from("email_actions").delete().eq("inbound_email_id", email.id);
+      // Trigger reanalysis
+      const { error } = await supabase.functions.invoke("process-inbound-email", {
+        body: { inbound_email_id: email.id },
+      });
+      if (error) throw error;
+      toast.success("Ré-analyse lancée, les résultats arrivent...");
+      setTimeout(() => onActionExecuted(), 3000);
+    } catch (e: any) {
+      toast.error("Erreur lors de la ré-analyse : " + (e.message || ""));
+    } finally {
+      setReanalyzing(false);
+    }
+  };
 
   return (
     <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-6rem)] pb-8">
