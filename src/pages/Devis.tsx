@@ -454,15 +454,27 @@ const DevisList = ({ filtered, isMobile, navigate, current, statusLabels, status
                     </span>
                   ) : null}
                 </td>
-                <td className="px-5 py-3">
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 hover:!opacity-100" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => generateDevisPdf(d.id).catch(() => toast.error("Erreur PDF"))} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Télécharger PDF">
-                      <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); generateDevisPdf(d.id).catch(() => toast.error("Erreur PDF")); }}
+                      className="p-1.5 rounded-lg hover:bg-primary/10 transition-colors"
+                      title="Télécharger PDF"
+                    >
+                      <Download className="h-3.5 w-3.5 text-muted-foreground hover:text-primary" />
                     </button>
-                    <button onClick={() => setEditingDevis(d)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Modifier">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditingDevis(d); }}
+                      className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                      title="Modifier"
+                    >
                       <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                     </button>
-                    <button onClick={() => setDeletingDevis(d)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Supprimer">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDeletingDevis(d); }}
+                      className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors"
+                      title="Supprimer"
+                    >
                       <Trash2 className="h-3.5 w-3.5 text-destructive" />
                     </button>
                   </div>
