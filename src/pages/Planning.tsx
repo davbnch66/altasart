@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList, Clock, ExternalLink, CalendarSync, Copy, Check } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList, Clock, ExternalLink, CalendarSync, Copy, Check, Construction } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useState, useMemo, useEffect, useCallback, DragEvent } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -413,7 +413,25 @@ const Planning = () => {
     enabled: companyIds.length > 0 && planningType === "commercial",
   });
 
-  // Extract unique commercials (advisors) from visites + devis
+  // Fetch voirie status for operations' dossiers
+  const dossierIds = useMemo(() => operations.map((op: any) => op.dossier_id).filter(Boolean), [operations]);
+  const { data: voirieByDossier = {} } = useQuery({
+    queryKey: ["planning-voirie", dossierIds],
+    queryFn: async () => {
+      if (dossierIds.length === 0) return {};
+      const { data, error } = await supabase
+        .from("visites")
+        .select("dossier_id, voirie_status, needs_voirie, loading_date")
+        .in("dossier_id", dossierIds)
+        .eq("needs_voirie", true);
+      if (error) return {};
+      const map: Record<string, string> = {};
+      (data || []).forEach((v: any) => { if (v.dossier_id) map[v.dossier_id] = v.voirie_status; });
+      return map;
+    },
+    enabled: dossierIds.length > 0 && planningType === "exploitation" && exploitationMode === "operation",
+  });
+
   const commercials = useMemo(() => {
     const advisors = new Set<string>();
     visites.forEach((v: any) => { if (v.clients?.advisor) advisors.add(v.clients.advisor); });
@@ -603,6 +621,14 @@ const Planning = () => {
     return entries;
   }, [resourceConflicts, resources]);
 
+  // ── isDayConflict: checks if a specific resource has conflicts on a specific day ──
+  const isDayConflict = (resourceId: string, day: Date): boolean => {
+    if (!resourceConflicts.has(resourceId)) return false;
+    const dayOps = getOpsForResourceDay(resourceId, day);
+    const dayEvts = getEventsForResource(resourceId, day);
+    return (dayOps.length + dayEvts.length) > 1;
+  };
+
   // ==================== EXPLOITATION VIEW ====================
   const renderExploitationView = () => {
     if (view === "month") return renderMonthView(false);
@@ -611,18 +637,13 @@ const Planning = () => {
 
     return (
       <div className="flex-1 flex flex-col gap-2 min-h-0">
-        {/* Conflict banner */}
+        {/* Conflict banner — compact */}
         {conflictSummary.length > 0 && (
-          <div className="rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-            <div className="space-y-1 min-w-0">
-              <p className="text-sm font-semibold text-destructive">Conflits de planification détectés</p>
-              {conflictSummary.map((c, i) => (
-                <p key={i} className="text-xs text-destructive/80">
-                  <strong>{c.resourceName}</strong> — chevauchement entre : {c.items.join(", ")}
-                </p>
-              ))}
-            </div>
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+            <p className="text-xs text-destructive">
+              <strong>{conflictSummary.length} conflit{conflictSummary.length > 1 ? "s" : ""}</strong> — {conflictSummary.map(c => c.resourceName).join(", ")}
+            </p>
           </div>
         )}
         <div className="flex-1 rounded-xl border bg-card overflow-auto min-h-0">
@@ -692,10 +713,18 @@ const Planning = () => {
                     </div>
                     {days.map((day, dayIdx) => {
                       const cellKey = `op-${op.id}-${dayIdx}`;
+                      // Voirie urgency: if voirie not obtained and loading_date within 2 days
+                      const voirieStatus = (voirieByDossier as Record<string, string>)[op.dossier_id];
+                      const voirieUrgent = voirieStatus && voirieStatus !== "obtenu" && op.loading_date && (() => {
+                        const loadDate = new Date(op.loading_date);
+                        const now = new Date();
+                        const diffDays = (loadDate.getTime() - now.getTime()) / 86400000;
+                        return diffDays <= 2 && diffDays >= 0;
+                      })();
                       return (
                       <div
                         key={day.toISOString()}
-                        className={`border-r border-border last:border-r-0 min-h-[72px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
+                        className={`border-r border-border last:border-r-0 min-h-[72px] relative overflow-visible ${isToday(day) ? "bg-primary/5" : ""} ${voirieUrgent ? "bg-warning/10" : ""} ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
                         onDragOver={(e) => handleDragOver(e, cellKey)}
                         onDragLeave={handleDragLeave}
                         onDrop={(e) => handleDrop(e, day)}
@@ -708,7 +737,14 @@ const Planning = () => {
                             style={{ width: span > 1 ? `calc(${span * 100}% - 4px)` : "calc(100% - 8px)", zIndex: 5 }}
                             onClick={() => { setEditingOpId(op.id); setOpDialogOpen(true); }}
                           >
-                            <div className="flex items-center gap-3 min-w-0 w-full text-[11px] font-medium overflow-hidden">
+                            <div className="flex items-center gap-2 min-w-0 w-full text-[11px] font-medium overflow-hidden">
+                              {/* Voirie badge */}
+                              {(() => {
+                                const vs = (voirieByDossier as Record<string, string>)[op.dossier_id];
+                                if (!vs) return null;
+                                const icon = vs === "obtenu" ? "🟢" : vs === "refuse" ? "🔴" : "🟡";
+                                return <span className="shrink-0" title={`Voirie: ${vs}`}>{icon}</span>;
+                              })()}
                               <p className="font-bold truncate">{(op.dossiers as any)?.clients?.name || "—"}</p>
                               <p className="opacity-80 flex items-center gap-0.5 truncate shrink-0">
                                 <MapPin className="h-2.5 w-2.5 shrink-0" />
@@ -871,13 +907,34 @@ const Planning = () => {
                   }`}>
                     {resourceConflicts.has(resource.id) ? <AlertTriangle className="h-3.5 w-3.5" /> : rowIdx + 1}
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold truncate text-foreground">{resource.name}</p>
                     {resourceConflicts.has(resource.id) ? (
                       <p className="text-[9px] text-destructive font-medium truncate">⚠ Conflit horaire</p>
                     ) : (
                       <p className="text-[9px] text-muted-foreground capitalize">{resource.type}</p>
                     )}
+                    {/* Barre de charge hebdomadaire */}
+                    {(() => {
+                      const totalDays = days.length;
+                      const occupiedDays = days.filter(day =>
+                        getOpsForResourceDay(resource.id, day).length > 0 ||
+                        getEventsForResource(resource.id, day).length > 0
+                      ).length;
+                      const rate = totalDays > 0 ? Math.round((occupiedDays / totalDays) * 100) : 0;
+                      const barColor = rate >= 90 ? "bg-destructive" : rate >= 60 ? "bg-warning" : "bg-success";
+                      return (
+                        <div className="mt-1.5 w-full">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-[8px] text-muted-foreground">Charge</span>
+                            <span className={`text-[8px] font-bold ${rate >= 90 ? "text-destructive" : rate >= 60 ? "text-warning" : "text-success"}`}>{rate}%</span>
+                          </div>
+                          <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${rate}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -943,12 +1000,13 @@ const Planning = () => {
 
                   const cellKey = `res-${resource.id}-${dayIdx}`;
                     const hasItems = cellItems.length > 0;
+                    const cellConflict = isDayConflict(resource.id, day);
                     return (
                      <div
                        key={day.toISOString()}
                        className={`group/cell border-r border-border last:border-r-0 relative overflow-visible cursor-pointer transition-colors ${
                          isToday(day) ? "bg-primary/5" : rowIdx % 2 === 0 ? "bg-muted/10" : ""
-                       } hover:bg-muted/30 ${dragOverCell === cellKey ? "bg-primary/20" : ""}`}
+                       } hover:bg-muted/30 ${dragOverCell === cellKey ? "bg-primary/20" : ""} ${cellConflict ? "border-2 border-destructive/60" : ""}`}
                        style={{ minHeight: `${rowMinHeight}px` }}
                        onDragOver={(e) => handleDragOver(e, cellKey)}
                        onDragLeave={handleDragLeave}
@@ -956,8 +1014,13 @@ const Planning = () => {
                        onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
                        onTouchEnd={(e) => { e.preventDefault(); openCreate(day, resource.id); }}
                      >
+                       {cellConflict && (
+                         <div className="absolute top-1 right-1 z-20 h-4 w-4 rounded-full bg-destructive flex items-center justify-center" title="Conflit de planification">
+                           <AlertTriangle className="h-2.5 w-2.5 text-white" />
+                         </div>
+                       )}
                        {cellItems}
-                       {hasItems && (
+                       {hasItems && !cellConflict && (
                          <button
                            className="absolute bottom-1 right-1 h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-opacity z-10 shadow-sm hover:scale-110"
                            onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
@@ -1365,27 +1428,41 @@ const Planning = () => {
   );
 
   return (
-    <div className={`max-w-full mx-auto flex flex-col ${isMobile ? "p-3 pb-20 space-y-3 min-h-full" : "p-6 lg:p-8 space-y-5 h-[calc(100vh-1rem)]"}`}>
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className={`font-bold tracking-tight ${isMobile ? "text-lg" : "text-2xl"}`}>Planning</h1>
-          <p className={`text-muted-foreground capitalize ${isMobile ? "text-xs" : "text-sm"}`}>{headerLabel}</p>
+    <div className={`max-w-full mx-auto flex flex-col ${isMobile ? "p-3 pb-20 space-y-3 min-h-full" : "p-6 lg:p-8 space-y-4 h-[calc(100vh-1rem)]"}`}>
+      {/* Header — modern & dense */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-xl font-black tracking-tight">Planning</h1>
+            <p className="text-xs text-muted-foreground capitalize">{headerLabel}</p>
+          </div>
+          {/* Navigation intégrée dans le header */}
+          <div className="flex items-center gap-1 ml-2">
+            <button onClick={() => nav(-1)} className="p-1.5 rounded-lg border hover:bg-muted transition-colors">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1.5 rounded-lg border text-xs font-medium hover:bg-muted transition-colors">
+              Aujourd'hui
+            </button>
+            <button onClick={() => nav(1)} className="p-1.5 rounded-lg border hover:bg-muted transition-colors">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button size="sm" onClick={() => openCreate()} className="text-xs">
-            <Plus className="h-3.5 w-3.5 mr-1" /> Événement
+        <div className="flex items-center gap-2">
+          {/* Bouton Nouvelle mission — vert prominent */}
+          <Button onClick={() => { setEditingOpId(null); setOpDialogOpen(true); }} className="bg-green-600 hover:bg-green-700 text-white gap-1.5 text-xs">
+            <Plus className="h-3.5 w-3.5" /> {isMobile ? "Mission" : "Nouvelle mission"}
           </Button>
-          {/* Company filter */}
-          <div className={`flex rounded-lg border bg-card p-0.5 gap-0.5 ${isMobile ? "overflow-x-auto scrollbar-none" : ""}`}>
+          {/* Bouton Événement — secondaire */}
+          <Button variant="outline" size="sm" onClick={() => openCreate()} className="text-xs gap-1">
+            <Plus className="h-3 w-3" /> Événement
+          </Button>
+          {/* Filtre entreprises */}
+          <div className={`flex rounded-lg border bg-card p-0.5 gap-0.5 ${isMobile ? "hidden" : ""}`}>
             {companies.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setCurrent(c.id)}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${
-                  current === c.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
+              <button key={c.id} onClick={() => setCurrent(c.id)}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${current === c.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
                 {c.shortName}
               </button>
             ))}
@@ -1393,54 +1470,77 @@ const Planning = () => {
         </div>
       </motion.div>
 
-      {/* Controls row */}
-      <div className={`flex gap-2 ${isMobile ? "flex-col" : "items-center justify-between flex-wrap"}`}>
-        {/* Top row on mobile: tabs + view toggle */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Exploitation / Commercial tabs */}
-          <Tabs value={planningType} onValueChange={(v) => setPlanningType(v as PlanningType)}>
-            <TabsList className="h-8">
-              <TabsTrigger value="exploitation" className="text-xs gap-1">
-                <Truck className="h-3 w-3" /> {isMobile ? "Exploit." : "Exploitation"}
-              </TabsTrigger>
-              <TabsTrigger value="commercial" className="text-xs gap-1">
-                <Briefcase className="h-3 w-3" /> Commercial
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+      {/* Mobile company filter */}
+      {isMobile && (
+        <div className="flex rounded-lg border bg-card p-0.5 gap-0.5 overflow-x-auto scrollbar-none">
+          {companies.map((c) => (
+            <button key={c.id} onClick={() => setCurrent(c.id)}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${current === c.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+              {c.shortName}
+            </button>
+          ))}
+        </div>
+      )}
 
-          {/* Navigation */}
-          <div className="flex items-center gap-1">
-            <button onClick={() => nav(-1)} className="p-1.5 rounded-lg border hover:bg-muted transition-colors">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              onClick={() => setCurrentDate(new Date())}
-              className={`rounded-lg border font-medium hover:bg-muted transition-colors ${isMobile ? "px-2 py-1 text-xs" : "px-4 py-1.5 text-sm"}`}
-            >
-              Auj.
-            </button>
-            <button onClick={() => nav(1)} className="p-1.5 rounded-lg border hover:bg-muted transition-colors">
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
+      {/* Controls bar — single compact line */}
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-none border rounded-xl bg-card px-3 py-2">
+        {/* Tabs Exploitation / Commercial */}
+        <Tabs value={planningType} onValueChange={(v) => setPlanningType(v as PlanningType)}>
+          <TabsList className="h-7">
+            <TabsTrigger value="exploitation" className="text-xs gap-1 h-6">
+              <Truck className="h-3 w-3" /> {isMobile ? "Exploit." : "Exploitation"}
+            </TabsTrigger>
+            <TabsTrigger value="commercial" className="text-xs gap-1 h-6">
+              <Briefcase className="h-3 w-3" /> Commercial
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-          {/* View toggle */}
-          <div className="flex rounded-lg border bg-card p-0.5 gap-0.5 ml-auto">
-            {(["day", "week", "month"] as ViewMode[]).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                  view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {v === "day" ? "Jour" : v === "week" ? "Sem." : "Mois"}
+        <div className="w-px h-4 bg-border shrink-0" />
+
+        {/* Mode exploitation */}
+        {planningType === "exploitation" && (
+          <div className="flex gap-0.5">
+            {([
+              { value: "operation" as ExploitationMode, label: "Opérations", icon: ClipboardList },
+              { value: "vehicule" as ExploitationMode, label: "Véhicules", icon: Truck },
+              { value: "personnel" as ExploitationMode, label: "Personnel", icon: User },
+            ]).map((mode) => (
+              <button key={mode.value} onClick={() => setExploitationMode(mode.value)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${exploitationMode === mode.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+                <mode.icon className="h-3 w-3" /> {mode.label}
               </button>
             ))}
           </div>
+        )}
 
-          {/* iCal sync */}
+        {/* Filtre commercial */}
+        {planningType === "commercial" && (
+          <div className="flex gap-0.5">
+            <button onClick={() => setSelectedCommercial("global")}
+              className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${selectedCommercial === "global" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+              <Globe className="h-3 w-3" /> Global
+            </button>
+            {commercials.map((advisor) => (
+              <button key={advisor} onClick={() => setSelectedCommercial(advisor)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${selectedCommercial === advisor ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+                <User className="h-3 w-3" /> {advisor}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="ml-auto flex items-center gap-1.5">
+          {/* Vue Jour/Sem/Mois */}
+          <div className="flex rounded-lg border bg-muted/30 p-0.5 gap-0.5">
+            {(["day", "week", "month"] as ViewMode[]).map((v) => (
+              <button key={v} onClick={() => setView(v)}
+                className={`px-2.5 py-0.5 rounded-md text-xs font-medium transition-colors ${view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>
+                {v === "day" ? "Jour" : v === "week" ? "Semaine" : "Mois"}
+              </button>
+            ))}
+          </div>
+          {/* iCal */}
           <Popover>
             <PopoverTrigger asChild>
               <button className="p-1.5 rounded-lg border hover:bg-muted transition-colors" title="Synchroniser avec un calendrier externe">
@@ -1467,64 +1567,12 @@ const Planning = () => {
             </PopoverContent>
           </Popover>
         </div>
-
-        {/* Exploitation mode filter */}
-        {planningType === "exploitation" && (
-          <div className="flex rounded-lg border bg-card p-0.5 gap-0.5 overflow-x-auto scrollbar-none">
-            {([
-              { value: "operation" as ExploitationMode, label: "Opération", icon: ClipboardList },
-              { value: "vehicule" as ExploitationMode, label: "Véhicule", icon: Truck },
-              { value: "personnel" as ExploitationMode, label: "Personnel", icon: User },
-            ]).map((mode) => (
-              <button
-                key={mode.value}
-                onClick={() => setExploitationMode(mode.value)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${
-                  exploitationMode === mode.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                <mode.icon className="h-3 w-3" /> {mode.label}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Commercial filter (only in commercial mode) */}
-        {planningType === "commercial" && (
-          <div className="flex rounded-lg border bg-card p-0.5 gap-0.5 overflow-x-auto scrollbar-none">
-            <button
-              onClick={() => setSelectedCommercial("global")}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${
-                selectedCommercial === "global" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              <Globe className="h-3 w-3" /> Global
-            </button>
-            {commercials.map((advisor) => (
-              <button
-                key={advisor}
-                onClick={() => setSelectedCommercial(advisor)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0 ${
-                  selectedCommercial === advisor ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                <User className="h-3 w-3" /> {advisor}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
-      {/* Content */}
-      <motion.div
-        key={`${planningType}-${view}`}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.2 }}
-        className={isMobile ? "flex flex-col" : "flex-1 flex flex-col min-h-0"}
-      >
+      {/* Content — no framer-motion wrapper */}
+      <div className={isMobile ? "flex flex-col" : "flex-1 flex flex-col min-h-0"}>
         {planningType === "exploitation" ? renderExploitationView() : renderCommercialView()}
-      </motion.div>
+      </div>
 
       <PlanningEventDialog
         open={dialogOpen}
