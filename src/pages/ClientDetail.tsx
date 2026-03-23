@@ -338,21 +338,35 @@ const ClientDetail = () => {
         {/* Left column: Tabs + Tab content */}
         <div className={isMobile ? "" : "flex-1 min-w-0 space-y-4"}>
           {/* Tabs */}
-          <div className={`flex gap-1 overflow-x-auto scrollbar-none ${isMobile ? "-mx-3 px-3 pb-1" : "border-b"}`}>
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 shrink-0 font-medium transition-colors ${
-                  isMobile
-                    ? `px-3 py-1.5 rounded-full text-xs ${activeTab === tab.key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`
-                    : `px-4 py-2.5 text-sm border-b-2 ${activeTab === tab.key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`
-                }`}
-              >
-                <tab.icon className={isMobile ? "h-3.5 w-3.5" : "h-4 w-4"} />
-                {tab.label}
-              </button>
-            ))}
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-none border-b pb-3 mb-4">
+            {tabs.map((tab) => {
+              const counts: Record<TabKey, number> = {
+                infos: 0, contacts: 0,
+                dossiers: dossiers.length, chantiers: 0,
+                echanges: 0, factures: factures.length,
+                devis: devis.length, reglements: reglements.length,
+                visites: visites.length,
+              };
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`shrink-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                    activeTab === tab.key
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  <tab.icon className="h-3.5 w-3.5" />
+                  {tab.label}
+                  {counts[tab.key] > 0 && (
+                    <span className={`rounded-full px-1.5 text-[9px] font-bold leading-4 ${activeTab === tab.key ? "bg-white/20" : "bg-muted-foreground/20"}`}>
+                      {counts[tab.key]}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           {/* Tab content */}
