@@ -950,21 +950,39 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
     }
 
     const types = analysis.type_demande || [];
-    if (types.includes("devis") || types.includes("visite")) {
+
+    // Determine if this is a commercial/business email that warrants dossier creation
+    // Material detected OR explicit devis/visite/information request → suggest dossier
+    const hasMaterial = (analysis.materiel || []).length > 0 || (analysis.pieces || []).length > 0;
+    const isCommercialEmail = types.includes("devis") || types.includes("visite") || types.includes("information") || types.includes("confirmation");
+    const shouldSuggestDossier = isCommercialEmail || hasMaterial;
+    const shouldSuggestDevis = types.includes("devis") || hasMaterial;
+    const shouldSuggestVisite = types.includes("visite") || (hasMaterial && !types.includes("devis"));
+
+    if (shouldSuggestDossier) {
       actions.push({
         inbound_email_id: emailId, company_id: companyId, action_type: "create_dossier",
-        payload: { title: safeSubject, description: analysis.resume || "", address: analysis.adresse_chantier || null },
+        payload: {
+          title: safeSubject,
+          description: analysis.resume || "",
+          address: analysis.adresse_chantier || null,
+          nature: analysis.nature || null,
+          origin_address: analysis.adresse_origine || null,
+          origin_city: analysis.ville_origine || null,
+          dest_address: analysis.adresse_destination || null,
+          dest_city: analysis.ville_destination || null,
+        },
       });
     }
 
-    if (types.includes("devis")) {
+    if (shouldSuggestDevis) {
       actions.push({
         inbound_email_id: emailId, company_id: companyId, action_type: "create_devis",
         payload: { objet: safeSubject, notes: analysis.resume || "" },
       });
     }
 
-    if (types.includes("visite")) {
+    if (shouldSuggestVisite) {
       actions.push({
         inbound_email_id: emailId, company_id: companyId, action_type: "plan_visite",
         payload: {
