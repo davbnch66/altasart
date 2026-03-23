@@ -19,6 +19,7 @@ import { DocumentTemplatesTab } from "@/components/settings/DocumentTemplatesTab
 import { ImportDataTab } from "@/components/settings/ImportDataTab";
 import { AppearanceSettingsTab } from "@/components/settings/AppearanceSettingsTab";
 import { NotificationSettingsTab } from "@/components/settings/NotificationSettingsTab";
+import { FixedCostsTab } from "@/components/settings/FixedCostsTab";
 import { ROLE_LABELS, ROLE_DESCRIPTIONS, type AppRole } from "@/hooks/useMyRole";
 
 const roleLabels = ROLE_LABELS;
