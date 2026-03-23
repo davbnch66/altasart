@@ -473,6 +473,59 @@ export type Database = {
         }
         Relationships: []
       }
+      company_fixed_costs: {
+        Row: {
+          category: string
+          charges_rate: number
+          company_id: string
+          created_at: string
+          id: string
+          label: string
+          notes: string | null
+          sort_order: number
+          total_cost: number | null
+          unit: string
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          charges_rate?: number
+          company_id: string
+          created_at?: string
+          id?: string
+          label: string
+          notes?: string | null
+          sort_order?: number
+          total_cost?: number | null
+          unit?: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          charges_rate?: number
+          company_id?: string
+          created_at?: string
+          id?: string
+          label?: string
+          notes?: string | null
+          sort_order?: number
+          total_cost?: number | null
+          unit?: string
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_fixed_costs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_memberships: {
         Row: {
           company_id: string

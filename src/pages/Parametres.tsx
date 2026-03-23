@@ -19,6 +19,7 @@ import { DocumentTemplatesTab } from "@/components/settings/DocumentTemplatesTab
 import { ImportDataTab } from "@/components/settings/ImportDataTab";
 import { AppearanceSettingsTab } from "@/components/settings/AppearanceSettingsTab";
 import { NotificationSettingsTab } from "@/components/settings/NotificationSettingsTab";
+import { FixedCostsTab } from "@/components/settings/FixedCostsTab";
 import { ROLE_LABELS, ROLE_DESCRIPTIONS, type AppRole } from "@/hooks/useMyRole";
 
 const roleLabels = ROLE_LABELS;
@@ -34,7 +35,9 @@ const tabs = [
   { value: "templates-docs", label: "Templates docs", icon: FileText },
   { value: "appearance", label: "Apparence", icon: Paintbrush },
   { value: "notifications", label: "Notifications", icon: Bell },
+  { value: "fixed-costs", label: "Coûts fixes", icon: Euro },
   { value: "import", label: "Import", icon: Upload },
+  { value: "export", label: "Export & RGPD", icon: Download },
   { value: "export", label: "Export & RGPD", icon: Download },
 ];
 
@@ -965,6 +968,9 @@ const Parametres = () => {
 
       case "notifications":
         return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><NotificationSettingsTab /></motion.div>;
+
+      case "fixed-costs":
+        return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><FixedCostsTab /></motion.div>;
 
       case "import":
         return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ImportDataTab /></motion.div>;
