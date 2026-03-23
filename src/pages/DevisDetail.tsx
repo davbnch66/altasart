@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DevisLinesManager } from "@/components/DevisLinesManager";
 import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
-import { ArrowLeft, Download, Pencil, FileText, Check, X, Send, CalendarPlus, Loader2, FolderOpen, Plus, Eye } from "lucide-react";
+import { ArrowLeft, Download, Pencil, FileText, Check, X, Send, CalendarPlus, Loader2, FolderOpen, Plus, Eye, ChevronRight, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,22 +33,6 @@ import { GenericPdfPreviewDialog } from "@/components/shared/GenericPdfPreviewDi
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-
-const statusLabels: Record<string, string> = {
-  brouillon: "Brouillon",
-  envoye: "Envoyé",
-  accepte: "Accepté",
-  refuse: "Refusé",
-  expire: "Expiré",
-};
-
-const statusStyles: Record<string, string> = {
-  brouillon: "bg-muted text-muted-foreground",
-  envoye: "bg-info/10 text-info",
-  accepte: "bg-success/10 text-success",
-  refuse: "bg-destructive/10 text-destructive",
-  expire: "bg-warning/10 text-warning",
-};
 
 const formatAmount = (amount: number) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
@@ -170,7 +154,6 @@ const DevisDetail = () => {
     enabled: !!id,
   });
 
-  // Fetch client dossiers for linking
   const { data: clientDossiers = [] } = useQuery({
     queryKey: ["client-dossiers", devis?.client_id],
     queryFn: async () => {
@@ -183,6 +166,22 @@ const DevisDetail = () => {
       return data || [];
     },
     enabled: !!devis?.client_id,
+  });
+
+  // Fetch signature status
+  const { data: signatureData } = useQuery({
+    queryKey: ["devis-signature", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("devis_signatures")
+        .select("status, signed_at, signer_name")
+        .eq("devis_id", id!)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!id,
   });
 
   const [linkingDossier, setLinkingDossier] = useState(false);
@@ -204,7 +203,6 @@ const DevisDetail = () => {
 
   const linkDossier = async (dossierId: string) => {
     await supabase.from("devis").update({ dossier_id: dossierId }).eq("id", id!);
-    // Also link the associated visite to the same dossier
     if (devis?.visite_id) {
       await supabase.from("visites").update({ dossier_id: dossierId }).eq("id", devis.visite_id);
       queryClient.invalidateQueries({ queryKey: ["visites"] });
@@ -229,7 +227,6 @@ const DevisDetail = () => {
       }).select("id").single();
       if (error) throw error;
       await supabase.from("devis").update({ dossier_id: newD.id }).eq("id", id!);
-      // Also link the associated visite to the new dossier
       if (devis.visite_id) {
         await supabase.from("visites").update({ dossier_id: newD.id }).eq("id", devis.visite_id);
         queryClient.invalidateQueries({ queryKey: ["visites"] });
@@ -248,7 +245,7 @@ const DevisDetail = () => {
 
   if (isLoading) {
     return (
-      <div className={`max-w-5xl mx-auto space-y-4 ${isMobile ? "p-3" : "p-6 lg:p-8 space-y-6"}`}>
+      <div className={`max-w-6xl mx-auto space-y-4 ${isMobile ? "p-3" : "p-6 lg:p-8 space-y-6"}`}>
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -257,7 +254,7 @@ const DevisDetail = () => {
 
   if (!devis) {
     return (
-      <div className={`max-w-5xl mx-auto text-center py-20 ${isMobile ? "p-3" : "p-6 lg:p-8"}`}>
+      <div className={`max-w-6xl mx-auto text-center py-20 ${isMobile ? "p-3" : "p-6 lg:p-8"}`}>
         <p className="text-muted-foreground">Devis introuvable</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate("/devis")}>Retour</Button>
       </div>
@@ -268,151 +265,63 @@ const DevisDetail = () => {
   const company = devis.companies as any;
   const dossier = devis.dossiers as any;
 
-  return (
-    <div className={`max-w-5xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
-      {/* Breadcrumb */}
-      <DetailBreadcrumb items={[
-        ...(fromClient && client?.id ? [{ label: client.name, path: `/clients/${client.id}` }] : []),
-        ...(fromDossier && dossier ? [{ label: dossier.code || dossier.title, path: `/dossiers/${fromDossier}`, state: { fromClient } }] : !fromClient ? [{ label: "Devis", path: "/devis" }] : []),
-        { label: devis.code || "Devis" },
-      ]} />
+  const breadcrumbItems = [
+    ...(fromClient && client?.id ? [{ label: client.name, path: `/clients/${client.id}` }] : []),
+    ...(fromDossier && dossier ? [{ label: dossier.code || dossier.title, path: `/dossiers/${fromDossier}`, state: { fromClient } }] : !fromClient ? [{ label: "Devis", path: "/devis" }] : []),
+    { label: devis.code || "Devis" },
+  ];
 
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className={isMobile ? "h-8 w-8" : ""}>
-          <ArrowLeft className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
-        </Button>
-        <div className="flex-1 min-w-0">
-          <h1 className={`font-bold tracking-tight flex items-center gap-2 ${isMobile ? "text-base" : "text-2xl gap-3"}`}>
-            {!isMobile && <FileText className="h-6 w-6 text-muted-foreground" />}
-            <span className="truncate">{devis.code || `Devis ${devis.id.slice(0, 8)}`}</span>
-          </h1>
-        </div>
-        <div className="flex gap-1.5 shrink-0">
-          <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={async () => {
-              try {
-                const result = await generateDevisPdf(devis.id, false, true);
-                if (result && typeof result === "object") setPdfPreview(result as any);
-              } catch { toast.error("Erreur PDF"); }
-            }}>
-            <Eye className="h-4 w-4" />
-            {!isMobile && <span className="ml-1">Aperçu</span>}
-          </Button>
-          <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => generateDevisPdf(devis.id).catch(() => toast.error("Erreur PDF"))}>
-            <Download className="h-4 w-4" />
-            {!isMobile && <span className="ml-1">PDF</span>}
-          </Button>
-          <DownloadWordButton
-            companyId={devis.company_id}
-            documentType="devis"
-            documentId={devis.id}
-            fileName={`Devis_${devis.code || devis.id.slice(0, 8)}.docx`}
-            size={isMobile ? "sm" : "sm"}
-          />
-          <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => setSendingSignature(true)}>
-            <Send className="h-4 w-4" />
-            {!isMobile && <span className="ml-1">Envoyer</span>}
-          </Button>
-          <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => setEditing(true)}>
-            <Pencil className="h-4 w-4" />
-            {!isMobile && <span className="ml-1">Modifier</span>}
-          </Button>
-          {devis.status === "accepte" && (
-            <GeneratePpspsButton devis={devis} isMobile={isMobile} />
-          )}
-          {devis.status === "accepte" && dossier && (
-            <Button size={isMobile ? "icon" : "sm"} onClick={() => setScheduling(true)}>
-              <CalendarPlus className="h-4 w-4" />
-              {!isMobile && <span className="ml-1">Programmer</span>}
-            </Button>
-          )}
-          {devis.status === "accepte" && !dossier && (
-            <Button size={isMobile ? "icon" : "sm"} disabled={creatingDossier} onClick={async () => {
-              setCreatingDossier(true);
-              try {
-                const client = devis.clients as any;
-                const { data: newDossier, error } = await supabase.from("dossiers").insert({
-                  title: devis.objet,
-                  client_id: devis.client_id,
-                  company_id: devis.company_id,
-                  stage: "accepte" as any,
-                  amount: devis.amount,
-                  address: client?.address || null,
-                  origin: "devis",
-                }).select("id, code, title, stage, loading_address, loading_postal_code, loading_city, loading_floor, loading_elevator, delivery_address, delivery_postal_code, delivery_city, delivery_floor, delivery_elevator, volume, weight").single();
-                if (error) throw error;
-                // Link devis to dossier
-                await supabase.from("devis").update({ dossier_id: newDossier.id }).eq("id", devis.id);
-                // Also link the associated visite to the new dossier
-                if (devis.visite_id) {
-                  await supabase.from("visites").update({ dossier_id: newDossier.id }).eq("id", devis.visite_id);
-                  queryClient.invalidateQueries({ queryKey: ["visites"] });
-                  queryClient.invalidateQueries({ queryKey: ["dossier-visites"] });
-                }
-                await queryClient.invalidateQueries({ queryKey: ["devis-detail", id] });
-                toast.success("Dossier créé et lié automatiquement");
-                // Open scheduling dialog after a short delay for the query to refetch
-                setTimeout(() => setScheduling(true), 300);
-              } catch (e: any) {
-                toast.error("Erreur : " + (e.message || "Impossible de créer le dossier"));
-              } finally {
-                setCreatingDossier(false);
-              }
-            }}>
-              {creatingDossier ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
-              {!isMobile && <span className="ml-1">Programmer</span>}
-            </Button>
-          )}
-        </div>
-      </motion.div>
+  const hasSigPending = signatureData?.status === "pending";
+  const hasSigSigned = signatureData?.status === "signed" || devis.status === "accepte";
 
-      {/* Objet — editable inline */}
-      <div className={`card-elevated ${isMobile ? "p-3" : "p-4"}`}>
-        <h3 className="section-label mb-1">Objet</h3>
-        <div className={isMobile ? "text-sm" : "text-base"}>
-          <InlineEdit
-            value={devis.objet}
-            onSave={(val) => val.trim() && updateField.mutate({ objet: val.trim() })}
-            label="l'objet"
-          />
+  // --- Sidebar content (shared mobile/desktop) ---
+  const sidebarContent = (
+    <div className="space-y-4">
+      {/* Carte principale */}
+      <div className="card-elevated p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <DevisStatusSelect devisId={devis.id} currentStatus={devis.status} />
+          <span className="text-[11px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">{devis.code}</span>
         </div>
-      </div>
-
-      {/* Status + montant */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4 gap-4"}`}>
-        <div className={`stat-card ${isMobile ? "!p-3" : ""}`}>
-          <p className="stat-label">Statut</p>
-          <div className="mt-1">
-            <DevisStatusSelect devisId={devis.id} currentStatus={devis.status} />
+        <div>
+          <h1 className="text-lg font-black tracking-tight leading-tight">{devis.objet}</h1>
+        </div>
+        {/* Montant */}
+        <div className="rounded-xl bg-primary/5 border border-primary/10 px-4 py-3">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Montant HT</p>
+          <p className="text-2xl font-black tabular-nums text-primary">{formatAmount(devis.amount || 0)}</p>
+        </div>
+        {/* Client */}
+        {client && (
+          <div>
+            <p className="section-label mb-2">Client</p>
+            <button onClick={() => navigate(`/clients/${client.id}`)}
+              className="w-full flex items-center gap-3 rounded-xl border p-3 hover:bg-muted/50 transition-colors text-left group">
+              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                {client.name?.charAt(0)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold truncate">{client.name}</p>
+                {client.email && <p className="text-xs text-muted-foreground truncate">{client.email}</p>}
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:translate-x-0.5 transition-transform" />
+            </button>
           </div>
-        </div>
-        <div className={`stat-card ${isMobile ? "!p-3" : ""}`}>
-          <p className="stat-label">Montant global</p>
-          <div className={`font-bold mt-0.5 ${isMobile ? "text-sm" : "text-lg"}`}>
-            <InlineEdit
-              value={String(devis.amount)}
-              onSave={(val) => {
-                const num = parseFloat(val);
-                if (!isNaN(num) && num >= 0) updateField.mutate({ amount: num });
-              }}
-              type="number"
-              label="le montant"
-            />
+        )}
+        {/* Dates */}
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="rounded-lg bg-muted/50 p-2.5">
+            <p className="text-muted-foreground mb-0.5">Créé le</p>
+            <p className="font-medium">{formatDate(devis.created_at)}</p>
           </div>
-        </div>
-        <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
-          <p className="text-[11px] text-muted-foreground">Création</p>
-          <p className={`font-medium mt-0.5 ${isMobile ? "text-xs" : "text-sm"}`}>{formatDate(devis.created_at)}</p>
-        </div>
-        <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"}`}>
-          <p className="text-[11px] text-muted-foreground">Validité</p>
-          <div className={`font-medium mt-0.5 ${isMobile ? "text-xs" : "text-sm"}`}>
+          <div className="rounded-lg bg-muted/50 p-2.5">
+            <p className="text-muted-foreground mb-0.5">Valide jusqu'au</p>
             <Popover>
               <PopoverTrigger asChild>
-                <button className="text-left group flex items-center gap-1" title="Modifier la date de validité">
-                  <span className="group-hover:underline group-hover:decoration-dashed group-hover:underline-offset-2 group-hover:decoration-muted-foreground/50">
-                    {devis.valid_until ? formatDate(devis.valid_until) : <span className="text-muted-foreground italic text-xs">Non définie</span>}
+                <button className="text-left group flex items-center gap-1 w-full" title="Modifier la date de validité">
+                  <span className={`font-medium group-hover:underline group-hover:decoration-dashed ${devis.valid_until && new Date(devis.valid_until) < new Date() && devis.status !== "accepte" ? "text-destructive" : ""}`}>
+                    {devis.valid_until ? formatDate(devis.valid_until) : <span className="text-muted-foreground italic">Non définie</span>}
                   </span>
-                  <Pencil className="h-3 w-3 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors" />
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -428,87 +337,174 @@ const DevisDetail = () => {
             </Popover>
           </div>
         </div>
-      </motion.div>
-
-      {/* Client + Société + Dossier */}
-      <div className={`grid gap-3 ${isMobile ? "" : "lg:grid-cols-3 gap-4"}`}>
-        <div className={`rounded-xl border bg-card space-y-1.5 ${isMobile ? "p-3" : "p-5 space-y-2"}`}>
-          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Client</h3>
-          <p className={`font-medium ${isMobile ? "text-sm" : ""}`}>
-            {client?.id ? <button onClick={() => navigate(`/clients/${client.id}`)} className="hover:underline text-left">{client.name}</button> : "—"}
-          </p>
-          {client?.email && <p className="text-xs text-muted-foreground truncate">{client.email}</p>}
-          {client?.phone && <p className="text-xs text-muted-foreground">{client.phone}</p>}
-          {client?.address && <p className="text-xs text-muted-foreground truncate">{client.address}{client.postal_code ? `, ${client.postal_code}` : ""}{client.city ? ` ${client.city}` : ""}</p>}
-        </div>
-        <div className={`rounded-xl border bg-card space-y-1.5 ${isMobile ? "p-3" : "p-5 space-y-2"}`}>
-          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Dossier</h3>
-          {dossier ? (
-            <>
-              <p className={`font-medium ${isMobile ? "text-sm" : ""}`}>
-                <button onClick={() => navigate(`/dossiers/${dossier.id}`)} className="hover:underline text-left">
-                  {dossier.code ? `${dossier.code} — ` : ""}{dossier.title}
-                </button>
-              </p>
-              {dossier.stage && <p className="text-xs text-muted-foreground capitalize">Étape : {dossier.stage.replace(/_/g, " ")}</p>}
-              <button onClick={() => setLinkingDossier(true)} className="text-[10px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline">Changer</button>
-            </>
-          ) : linkingDossier ? (
-            <div className="space-y-2">
-              {!creatingNewDossier ? (
-                <>
-                  {clientDossiers.length > 0 && (
-                    <Select onValueChange={(v) => linkDossier(v)}>
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="Choisir un dossier existant" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clientDossiers.map((d) => (
-                          <SelectItem key={d.id} value={d.id} className="text-xs">
-                            {d.code ? `${d.code} — ` : ""}{d.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  <button onClick={() => { setCreatingNewDossier(true); setNewDossierTitle(devis.objet); }} className="flex items-center gap-1 text-xs text-primary hover:underline">
-                    <Plus className="h-3 w-3" /> Créer un nouveau dossier
-                  </button>
-                  <button onClick={() => setLinkingDossier(false)} className="text-[10px] text-muted-foreground hover:underline">Annuler</button>
-                </>
-              ) : (
-                <div className="space-y-1.5">
-                  <Input
-                    value={newDossierTitle}
-                    onChange={(e) => setNewDossierTitle(e.target.value)}
-                    placeholder="Titre du dossier"
-                    className="h-8 text-xs"
-                    autoFocus
-                    onKeyDown={(e) => { if (e.key === "Enter") createAndLinkDossier(); if (e.key === "Escape") setCreatingNewDossier(false); }}
-                  />
-                  <div className="flex gap-1">
-                    <Button size="sm" className="h-7 text-xs" onClick={createAndLinkDossier} disabled={!newDossierTitle.trim()}>Créer</Button>
-                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setCreatingNewDossier(false)}>Annuler</Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <button onClick={() => setLinkingDossier(true)} className="flex items-center gap-1.5 text-xs text-primary hover:underline">
-              <FolderOpen className="h-3.5 w-3.5" /> Rattacher à un dossier
-            </button>
-          )}
-        </div>
-        <div className={`rounded-xl border bg-card space-y-1.5 ${isMobile ? "p-3" : "p-5 space-y-2"}`}>
-          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Société</h3>
-          <p className={`font-medium ${isMobile ? "text-sm" : ""}`}>{company?.name || company?.short_name || "—"}</p>
-        </div>
       </div>
 
-      {/* Mode de contenu du devis */}
-      <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Mode de contenu du devis</h3>
+      {/* Statut signature */}
+      {(hasSigPending || hasSigSigned) && (
+        <div className={`card-elevated p-4 space-y-2 ${hasSigSigned ? "border-success/30 bg-success/[0.03]" : "border-info/30 bg-info/[0.03]"}`}>
+          <p className="section-label">Signature électronique</p>
+          {hasSigSigned ? (
+            <div className="flex items-center gap-2 text-success text-sm font-semibold">
+              <CheckCircle className="h-5 w-5" /> Devis accepté et signé
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-info text-sm">
+              <Send className="h-4 w-4" /> Lien envoyé — en attente
+            </div>
+          )}
+          {signatureData?.signed_at && (
+            <p className="text-xs text-muted-foreground">Signé le {formatDate(signatureData.signed_at)}</p>
+          )}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="card-elevated p-4 space-y-2">
+        <p className="section-label mb-3">Actions</p>
+        {devis.status !== "accepte" && devis.status !== "refuse" && (
+          <Button className="w-full gap-2 bg-primary hover:bg-primary/90 text-sm h-10 btn-primary-glow"
+            onClick={() => setSendingSignature(true)}>
+            <Send className="h-4 w-4" />
+            {hasSigPending ? "Renvoyer pour signature" : "Envoyer pour signature"}
+          </Button>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9"
+            onClick={async () => {
+              try {
+                const result = await generateDevisPdf(devis.id, false, true);
+                if (result && typeof result === "object" && "blobUrl" in result) setPdfPreview(result as any);
+              } catch { toast.error("Erreur PDF"); }
+            }}>
+            <Eye className="h-3.5 w-3.5" /> Aperçu PDF
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs h-9"
+            onClick={() => generateDevisPdf(devis.id).catch(() => toast.error("Erreur PDF"))}>
+            <Download className="h-3.5 w-3.5" /> Télécharger
+          </Button>
+        </div>
+        <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs h-9" onClick={() => setEditing(true)}>
+          <Pencil className="h-3.5 w-3.5" /> Modifier le devis
+        </Button>
+        {dossier ? (
+          <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs h-9 text-left justify-start truncate"
+            onClick={() => navigate(`/dossiers/${dossier.id}`)}>
+            <FolderOpen className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{dossier.code} — {dossier.title}</span>
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs h-9"
+            onClick={() => setLinkingDossier(true)}>
+            <FolderOpen className="h-3.5 w-3.5" /> Rattacher à un dossier
+          </Button>
+        )}
+        {devis.status === "accepte" && dossier && (
+          <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs h-9"
+            onClick={() => setScheduling(true)}>
+            <CalendarPlus className="h-3.5 w-3.5" /> Planifier le chantier
+          </Button>
+        )}
+        {devis.status === "accepte" && !dossier && (
+          <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs h-9" disabled={creatingDossier}
+            onClick={async () => {
+              setCreatingDossier(true);
+              try {
+                const cl = devis.clients as any;
+                const { data: newDossier, error } = await supabase.from("dossiers").insert({
+                  title: devis.objet,
+                  client_id: devis.client_id,
+                  company_id: devis.company_id,
+                  stage: "accepte" as any,
+                  amount: devis.amount,
+                  address: cl?.address || null,
+                  origin: "devis",
+                }).select("id, code, title, stage, loading_address, loading_postal_code, loading_city, loading_floor, loading_elevator, delivery_address, delivery_postal_code, delivery_city, delivery_floor, delivery_elevator, volume, weight").single();
+                if (error) throw error;
+                await supabase.from("devis").update({ dossier_id: newDossier.id }).eq("id", devis.id);
+                if (devis.visite_id) {
+                  await supabase.from("visites").update({ dossier_id: newDossier.id }).eq("id", devis.visite_id);
+                  queryClient.invalidateQueries({ queryKey: ["visites"] });
+                  queryClient.invalidateQueries({ queryKey: ["dossier-visites"] });
+                }
+                await queryClient.invalidateQueries({ queryKey: ["devis-detail", id] });
+                toast.success("Dossier créé et lié automatiquement");
+                setTimeout(() => setScheduling(true), 300);
+              } catch (e: any) {
+                toast.error("Erreur : " + (e.message || "Impossible de créer le dossier"));
+              } finally {
+                setCreatingDossier(false);
+              }
+            }}>
+            {creatingDossier ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CalendarPlus className="h-3.5 w-3.5" />}
+            Créer dossier & programmer
+          </Button>
+        )}
+        <DownloadWordButton companyId={devis.company_id} documentType="devis" documentId={devis.id}
+          fileName={`Devis_${devis.code || devis.id.slice(0, 8)}.docx`} size="sm"
+          className="w-full text-xs h-9" />
+        <GeneratePpspsButton devisId={devis.id} companyId={devis.company_id} />
+      </div>
+
+      {/* Dossier linking panel */}
+      {linkingDossier && !dossier && (
+        <div className="card-elevated p-4 space-y-2">
+          <p className="section-label mb-2">Rattacher à un dossier</p>
+          {!creatingNewDossier ? (
+            <>
+              {clientDossiers.length > 0 && (
+                <Select onValueChange={(v) => linkDossier(v)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Choisir un dossier existant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clientDossiers.map((d) => (
+                      <SelectItem key={d.id} value={d.id} className="text-xs">
+                        {d.code ? `${d.code} — ` : ""}{d.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <button onClick={() => { setCreatingNewDossier(true); setNewDossierTitle(devis.objet); }} className="flex items-center gap-1 text-xs text-primary hover:underline">
+                <Plus className="h-3 w-3" /> Créer un nouveau dossier
+              </button>
+              <button onClick={() => setLinkingDossier(false)} className="text-[10px] text-muted-foreground hover:underline">Annuler</button>
+            </>
+          ) : (
+            <div className="space-y-1.5">
+              <Input
+                value={newDossierTitle}
+                onChange={(e) => setNewDossierTitle(e.target.value)}
+                placeholder="Titre du dossier"
+                className="h-8 text-xs"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter") createAndLinkDossier(); if (e.key === "Escape") setCreatingNewDossier(false); }}
+              />
+              <div className="flex gap-1">
+                <Button size="sm" className="h-7 text-xs" onClick={createAndLinkDossier} disabled={!newDossierTitle.trim()}>Créer</Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setCreatingNewDossier(false)}>Annuler</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Société */}
+      {company && (
+        <div className="card-elevated p-4">
+          <p className="section-label mb-1.5">Société</p>
+          <p className="text-sm font-medium">{company.name || company.short_name}</p>
+        </div>
+      )}
+    </div>
+  );
+
+  // --- Main content (right column) ---
+  const mainContent = (
+    <div className="space-y-5 min-w-0">
+      {/* Contenu du devis */}
+      <div className="card-elevated p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold">Contenu du devis</h2>
           <Select value={devis.content_mode || "lines"} onValueChange={(v) => updateField.mutate({ content_mode: v })}>
             <SelectTrigger className="w-[200px] h-8 text-xs">
               <SelectValue />
@@ -521,7 +517,6 @@ const DevisDetail = () => {
           </Select>
         </div>
 
-        {/* Custom content editor */}
         {(devis.content_mode === "custom" || devis.content_mode === "both") && (
           <div className="space-y-2 mb-4">
             <div className="flex items-center justify-between">
@@ -546,7 +541,6 @@ const DevisDetail = () => {
           </div>
         )}
 
-        {/* Lines editor */}
         {(devis.content_mode === "lines" || devis.content_mode === "both" || !devis.content_mode) && (
           <>
             {devis.content_mode === "both" && <Separator className="my-4" />}
@@ -575,10 +569,10 @@ const DevisDetail = () => {
         )}
       </div>
 
-      {/* Notes — editable inline */}
-      <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
-        <div className="flex items-center justify-between mb-1.5">
-          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Notes</h3>
+      {/* Notes */}
+      <div className="card-elevated p-5">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-bold">Notes</h2>
           <GenerateDevisMemoButton
             devisId={devis.id}
             onGenerated={(memo) => updateField.mutate({ notes: memo })}
@@ -597,7 +591,35 @@ const DevisDetail = () => {
 
       {/* Relances */}
       <DevisRelancesSection devis={devis} />
+    </div>
+  );
 
+  return (
+    <div className={`max-w-6xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-6">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-8 w-8 shrink-0">
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <DetailBreadcrumb items={breadcrumbItems} />
+      </div>
+
+      {/* Layout */}
+      {isMobile ? (
+        <div className="space-y-4">
+          {sidebarContent}
+          {mainContent}
+        </div>
+      ) : (
+        <div className="grid grid-cols-[300px_1fr] gap-6 items-start">
+          <div className="sticky top-6">
+            {sidebarContent}
+          </div>
+          {mainContent}
+        </div>
+      )}
+
+      {/* Dialogs */}
       {editing && (
         <EditDevisDialog devis={devis} open={editing} onOpenChange={(v) => !v && setEditing(false)} />
       )}
