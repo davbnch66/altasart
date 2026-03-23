@@ -1,5 +1,7 @@
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import type { FactureWithRelations, NavigationState } from "@/types/entities";
+import { getNavState } from "@/types/entities";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -12,6 +14,7 @@ import { CreateReglementDialog } from "@/components/forms/CreateReglementDialog"
 import { EditReglementDialog } from "@/components/forms/EditReglementDialog";
 import { DeleteConfirmDialog } from "@/components/forms/DeleteConfirmDialog";
 import { generateFacturePdf } from "@/lib/generateFacturePdf";
+import { downloadFacturXXml, type FacturXData } from "@/lib/generateFacturX";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -36,8 +39,9 @@ const FactureDetail = () => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const isMobile = useIsMobile();
-  const fromClient = (location.state as any)?.fromClient === true;
-  const fromDossier = (location.state as any)?.fromDossier as string | undefined;
+  const navState = getNavState(location.state);
+  const fromClient = navState.fromClient;
+  const fromDossier = navState.fromDossier;
   const [editOpen, setEditOpen] = useState(false);
   const [editReglement, setEditReglement] = useState<any>(null);
   const [deleteReglement, setDeleteReglement] = useState<any>(null);
@@ -46,7 +50,7 @@ const FactureDetail = () => {
   const { data: facture, isLoading } = useQuery({
     queryKey: ["facture-detail", id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("factures").select("*, clients(id, name, code), dossiers(id, code, title), devis(id, code, objet)").eq("id", id!).single();
+      const { data, error } = await supabase.from("factures").select("*, clients(id, name, code, address, city, postal_code, email, siret), dossiers(id, code, title), devis(id, code, objet), companies(name, short_name, address, phone, email, siret)").eq("id", id!).single();
       if (error) throw error;
       return data;
     },
@@ -150,6 +154,38 @@ const FactureDetail = () => {
             fileName={`Facture_${facture.code || facture.id.slice(0, 8)}.docx`}
             size={isMobile ? "sm" : "sm"}
           />
+          <Button variant="outline" size={isMobile ? "icon" : "sm"} title="Export Factur-X XML" onClick={() => {
+            try {
+              const comp = facture.companies as any;
+              const cl = facture.clients as any;
+              const tvaRate = 20;
+              const totalHT = Number(facture.amount) / (1 + tvaRate / 100);
+              const totalTVA = Number(facture.amount) - totalHT;
+              const fxData: FacturXData = {
+                invoiceNumber: facture.code || facture.id.slice(0, 8),
+                issueDate: facture.created_at?.split("T")[0] || new Date().toISOString().split("T")[0],
+                dueDate: facture.due_date || undefined,
+                sellerName: comp?.name || comp?.short_name || "",
+                sellerSiret: comp?.siret || undefined,
+                sellerAddress: comp?.address || undefined,
+                sellerEmail: comp?.email || undefined,
+                buyerName: cl?.name || "",
+                buyerAddress: cl?.address || undefined,
+                buyerCity: cl?.city || undefined,
+                buyerPostalCode: cl?.postal_code || undefined,
+                totalHT: Math.round(totalHT * 100) / 100,
+                totalTVA: Math.round(totalTVA * 100) / 100,
+                totalTTC: Number(facture.amount),
+                tvaRate,
+                paymentMeans: "30",
+              };
+              downloadFacturXXml(fxData);
+              toast.success("XML Factur-X téléchargé");
+            } catch { toast.error("Erreur export XML"); }
+          }}>
+            <FileText className="h-4 w-4" />
+            {!isMobile && <span className="ml-1">Factur-X</span>}
+          </Button>
           <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4" />
             {!isMobile && <span className="ml-1">Modifier</span>}
