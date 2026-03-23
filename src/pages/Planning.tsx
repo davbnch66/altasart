@@ -603,6 +603,14 @@ const Planning = () => {
     return entries;
   }, [resourceConflicts, resources]);
 
+  // ── isDayConflict: checks if a specific resource has conflicts on a specific day ──
+  const isDayConflict = (resourceId: string, day: Date): boolean => {
+    if (!resourceConflicts.has(resourceId)) return false;
+    const dayOps = getOpsForResourceDay(resourceId, day);
+    const dayEvts = getEventsForResource(resourceId, day);
+    return (dayOps.length + dayEvts.length) > 1;
+  };
+
   // ==================== EXPLOITATION VIEW ====================
   const renderExploitationView = () => {
     if (view === "month") return renderMonthView(false);
@@ -611,18 +619,13 @@ const Planning = () => {
 
     return (
       <div className="flex-1 flex flex-col gap-2 min-h-0">
-        {/* Conflict banner */}
+        {/* Conflict banner — compact */}
         {conflictSummary.length > 0 && (
-          <div className="rounded-xl border border-destructive/50 bg-destructive/10 px-4 py-3 flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-            <div className="space-y-1 min-w-0">
-              <p className="text-sm font-semibold text-destructive">Conflits de planification détectés</p>
-              {conflictSummary.map((c, i) => (
-                <p key={i} className="text-xs text-destructive/80">
-                  <strong>{c.resourceName}</strong> — chevauchement entre : {c.items.join(", ")}
-                </p>
-              ))}
-            </div>
+          <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+            <p className="text-xs text-destructive">
+              <strong>{conflictSummary.length} conflit{conflictSummary.length > 1 ? "s" : ""}</strong> — {conflictSummary.map(c => c.resourceName).join(", ")}
+            </p>
           </div>
         )}
         <div className="flex-1 rounded-xl border bg-card overflow-auto min-h-0">
