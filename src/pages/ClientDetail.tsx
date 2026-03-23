@@ -66,6 +66,9 @@ const visiteLabels: Record<string, string> = { planifiee: "Planifiée", realisee
 const clientStatusLabels: Record<string, string> = { nouveau_lead: "Prospect", actif: "Actif", inactif: "Inactif", relance: "À relancer" };
 const clientStatusStyles: Record<string, string> = { nouveau_lead: "bg-info/10 text-info", actif: "bg-success/10 text-success", inactif: "bg-muted text-muted-foreground", relance: "bg-warning/10 text-warning" };
 
+const avatarColors = ["bg-blue-100 text-blue-700", "bg-purple-100 text-purple-700", "bg-green-100 text-green-700", "bg-orange-100 text-orange-700", "bg-pink-100 text-pink-700", "bg-cyan-100 text-cyan-700"];
+const getAvatarColor = (name: string) => avatarColors[name.charCodeAt(0) % avatarColors.length];
+
 const formatAmount = (amount: number | null) => {
   if (!amount && amount !== 0) return "—";
   return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(amount);
