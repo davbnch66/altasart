@@ -12,6 +12,9 @@ import { CreateClientDialog } from "@/components/forms/CreateClientDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useProgressiveList } from "@/hooks/useProgressiveList";
 
+const avatarColors = ["bg-blue-100 text-blue-700", "bg-purple-100 text-purple-700", "bg-green-100 text-green-700", "bg-orange-100 text-orange-700", "bg-pink-100 text-pink-700", "bg-cyan-100 text-cyan-700"];
+const getAvatarColor = (name: string) => avatarColors[name.charCodeAt(0) % avatarColors.length];
+
 const statusLabels: Record<string, string> = {
   nouveau_lead: "Lead",
   actif: "Actif",
