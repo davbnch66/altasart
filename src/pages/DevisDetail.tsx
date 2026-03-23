@@ -441,7 +441,7 @@ const DevisDetail = () => {
         <DownloadWordButton companyId={devis.company_id} documentType="devis" documentId={devis.id}
           fileName={`Devis_${devis.code || devis.id.slice(0, 8)}.docx`} size="sm"
           className="w-full text-xs h-9" />
-        <GeneratePpspsButton devisId={devis.id} companyId={devis.company_id} />
+        <GeneratePpspsButton devis={devis} />
       </div>
 
       {/* Dossier linking panel */}
