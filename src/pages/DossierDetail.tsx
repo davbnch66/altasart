@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, FolderOpen, Pencil, FileText, DollarSign, Eye, User, Building2, ChevronRight, Cog, BarChart3,
-  CreditCard, AlertTriangle, Receipt, PiggyBank, Trash2, ShieldAlert, Send, CheckCircle, XCircle, AlertCircle,
+  CreditCard, AlertTriangle, Receipt, PiggyBank, Trash2, ShieldAlert, Send, CheckCircle, XCircle, AlertCircle, MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,7 +22,7 @@ import { DossierOperationsTab } from "@/components/dossier/DossierOperationsTab"
 import { DossierSituationTab } from "@/components/dossier/DossierSituationTab";
 import { DossierReglementsTab } from "@/components/dossier/DossierReglementsTab";
 import { DossierAvariesTab } from "@/components/dossier/DossierAvariesTab";
-import { DetailBreadcrumb, BreadcrumbItem } from "@/components/DetailBreadcrumb";
+import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
 import { DevisStatusSelect } from "@/components/DevisStatusSelect";
 import { DossierCostsTab } from "@/components/dossier/DossierCostsTab";
 import { DossierTimeline } from "@/components/dossier/DossierTimeline";
@@ -58,12 +58,9 @@ const DossierDetail = () => {
   const [searchParams] = useSearchParams();
   const operationFromUrl = searchParams.get("operation");
   const [activeTab, setActiveTab] = useState(operationFromUrl ? "operations" : "timeline");
-  
-  // React to URL changes (e.g. clicking a notification while already on the page)
+
   useEffect(() => {
-    if (operationFromUrl) {
-      setActiveTab("operations");
-    }
+    if (operationFromUrl) setActiveTab("operations");
   }, [operationFromUrl]);
 
   const [editing, setEditing] = useState(false);
@@ -75,6 +72,7 @@ const DossierDetail = () => {
   const fromClient = (location.state as any)?.fromClient === true;
   const fromPipeline = (location.state as any)?.fromPipeline === true;
 
+  // ── Queries (unchanged) ──
   const { data: dossier, isLoading } = useQuery({
     queryKey: ["dossier-detail", id],
     queryFn: async () => {
@@ -166,12 +164,11 @@ const DossierDetail = () => {
     enabled: !!id,
   });
 
+  // ── Mutations (unchanged) ──
   const deleteFactureMutation = useMutation({
     mutationFn: async (factureId: string) => {
-      // Delete related reglements first (FK constraint)
       const { error: regError } = await supabase.from("reglements").delete().eq("facture_id", factureId);
       if (regError) throw regError;
-      // Unlink operations referencing this facture
       await supabase.from("operations").update({ facture_id: null }).eq("facture_id", factureId);
       const { error } = await supabase.from("factures").delete().eq("id", factureId);
       if (error) throw error;
@@ -189,7 +186,6 @@ const DossierDetail = () => {
 
   const deleteDevisMutation = useMutation({
     mutationFn: async (devisId: string) => {
-      // Delete related lines, relances, signatures first
       await supabase.from("devis_lines").delete().eq("devis_id", devisId);
       await supabase.from("devis_relances").delete().eq("devis_id", devisId);
       await supabase.from("devis_signatures").delete().eq("devis_id", devisId);
@@ -219,9 +215,10 @@ const DossierDetail = () => {
     onError: () => toast.error("Erreur lors de la suppression"),
   });
 
+  // ── Loading / Not found ──
   if (isLoading) {
     return (
-      <div className={`max-w-5xl mx-auto space-y-4 ${isMobile ? "p-3" : "p-6 lg:p-8 space-y-6"}`}>
+      <div className={`max-w-6xl mx-auto space-y-4 ${isMobile ? "p-3" : "p-6 lg:p-8"}`}>
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-64 w-full" />
       </div>
@@ -230,7 +227,7 @@ const DossierDetail = () => {
 
   if (!dossier) {
     return (
-      <div className={`max-w-5xl mx-auto text-center py-20 ${isMobile ? "p-3" : "p-6 lg:p-8"}`}>
+      <div className={`max-w-6xl mx-auto text-center py-20 ${isMobile ? "p-3" : "p-6 lg:p-8"}`}>
         <p className="text-muted-foreground">Dossier introuvable</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate("/dossiers")}>Retour</Button>
       </div>
@@ -241,8 +238,6 @@ const DossierDetail = () => {
   const company = dossier.companies as any;
   const totalFacture = factures.reduce((s, f) => s + Number(f.amount), 0);
   const totalRegle = factures.reduce((s, f) => s + Number(f.paid_amount), 0);
-  const stageKeys = Object.keys(stageLabels);
-  const currentStageIdx = stageKeys.indexOf(dossier.stage);
 
   const tabItems = [
     { key: "timeline", label: "Chronologie", count: null, icon: BarChart3 },
@@ -256,305 +251,383 @@ const DossierDetail = () => {
     { key: "situation", label: "Situation", count: null, icon: BarChart3 },
   ];
 
-  return (
-    <div className={`max-w-5xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-6 lg:p-8 space-y-6"}`}>
-      {/* Breadcrumb */}
-      <DetailBreadcrumb items={[
-        ...(fromPipeline ? [{ label: "Pipeline", path: "/pipeline" }] : fromClient && client?.id ? [{ label: client.name, path: `/clients/${client.id}` }] : [{ label: "Dossiers", path: "/dossiers" }]),
-        { label: dossier.code || "Dossier" },
-      ]} />
+  const breadcrumbItems = [
+    ...(fromPipeline ? [{ label: "Pipeline", path: "/pipeline" }] : fromClient && client?.id ? [{ label: client.name, path: `/clients/${client.id}` }] : [{ label: "Dossiers", path: "/dossiers" }]),
+    { label: dossier.code || "Dossier" },
+  ];
 
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className={isMobile ? "h-8 w-8" : ""}>
-          <ArrowLeft className={isMobile ? "h-4 w-4" : "h-5 w-5"} />
-        </Button>
-        <div className="flex-1 min-w-0">
-          <h1 className={`font-bold tracking-tight flex items-center gap-2 ${isMobile ? "text-base" : "text-2xl gap-3"}`}>
-            {!isMobile && <FolderOpen className="h-6 w-6 text-muted-foreground" />}
-            <span className="break-words">{dossier.code || "Dossier"}</span>
-          </h1>
-          <p className={`text-muted-foreground mt-0.5 break-words ${isMobile ? "text-xs" : ""}`}>{dossier.title}</p>
-        </div>
-        <Button variant="outline" size={isMobile ? "icon" : "sm"} onClick={() => setEditing(true)}>
-          <Pencil className="h-4 w-4" />
-          {!isMobile && <span className="ml-1">Modifier</span>}
-        </Button>
-      </motion.div>
-
-      {/* Pipeline */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className={`card-elevated ${isMobile ? "p-3" : "p-4"}`}>
-        <div className="flex gap-0.5">
-          {stageKeys.map((key, i) => (
-            <div key={key} className={`flex-1 h-1.5 rounded-full transition-colors ${i <= currentStageIdx ? "bg-primary" : "bg-muted"}`} />
-          ))}
-        </div>
-        <div className="flex justify-between mt-1.5">
-          <span className="text-[10px] text-muted-foreground">Prospect</span>
-          <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${stageStyles[dossier.stage]}`}>
+  // ── Sidebar content (shared between desktop sticky and mobile inline) ──
+  const SidebarContent = () => (
+    <div className="space-y-4">
+      {/* Main card */}
+      <div className="card-elevated p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${stageStyles[dossier.stage]}`}>
             {stageLabels[dossier.stage]}
           </span>
-          <span className="text-[10px] text-muted-foreground">Payé</span>
+          <span className="text-[11px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">{dossier.code}</span>
         </div>
-      </motion.div>
-
-      {/* Summary cards */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }} className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4 gap-4"}`}>
-        {[
-          { label: "Montant", value: formatAmount(dossier.amount) },
-          { label: "Facturé", value: formatAmount(totalFacture) },
-          { label: "Réglé", value: formatAmount(totalRegle), className: "text-success" },
-          { label: "Solde", value: formatAmount(totalFacture - totalRegle), className: totalFacture - totalRegle > 0 ? "text-destructive" : "text-success" },
-        ].map((card) => (
-          <div key={card.label} className={`stat-card ${isMobile ? "!p-3" : ""}`}>
-            <p className="stat-label">{card.label}</p>
-            <p className={`stat-value ${isMobile ? "!text-sm" : "!text-lg"} ${card.className || ""}`}>{card.value}</p>
+        <div>
+          <h1 className="text-lg font-black tracking-tight leading-tight">{dossier.title}</h1>
+          {dossier.address && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1.5">
+              <MapPin className="h-3 w-3 shrink-0" />{dossier.address}
+            </p>
+          )}
+        </div>
+        {dossier.amount && (
+          <div className="rounded-xl bg-primary/5 border border-primary/10 px-4 py-3">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Montant</p>
+            <p className="text-2xl font-black tabular-nums text-primary">{formatAmount(dossier.amount)}</p>
           </div>
-        ))}
-      </motion.div>
-
-      {/* Next Action Banner */}
-      <DossierNextAction
-        dossier={dossier}
-        devis={devis}
-        factures={factures}
-        visites={visites}
-        operationsCount={operations.length}
-      />
-
-      {/* Info cards */}
-      <div className={`grid gap-3 ${isMobile ? "" : "lg:grid-cols-2 gap-4"}`}>
-        <div className={`card-elevated space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
-          <h3 className="section-label flex items-center gap-1.5">
-            <User className="h-3.5 w-3.5" /> Client
-          </h3>
-          <p className={`font-medium cursor-pointer hover:text-primary transition-colors ${isMobile ? "text-sm" : ""}`} onClick={() => client?.id && navigate(`/clients/${client.id}`)}>
-            {client?.name || "—"}
-          </p>
-          {client?.contact_name && <p className="text-xs text-muted-foreground">{client.contact_name}</p>}
-          {client?.email && <p className="text-xs text-muted-foreground truncate">{client.email}</p>}
-          {client?.phone && <p className="text-xs text-muted-foreground">{client.phone}</p>}
-        </div>
-        <div className={`card-elevated space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
-          <h3 className="section-label flex items-center gap-1.5">
-            <Building2 className="h-3.5 w-3.5" /> Informations
-          </h3>
-          <div className={`grid grid-cols-2 gap-2 ${isMobile ? "text-xs" : "text-sm"}`}>
-            <div><p className="text-muted-foreground">Société</p><p className="font-medium">{company?.name || "—"}</p></div>
-            <div><p className="text-muted-foreground">Début</p><p className="font-medium">{formatDate(dossier.start_date)}</p></div>
-            <div><p className="text-muted-foreground">Fin</p><p className="font-medium">{formatDate(dossier.end_date)}</p></div>
-            {dossier.address && <div><p className="text-muted-foreground">Adresse</p><p className="font-medium break-words">{dossier.address}</p></div>}
+        )}
+        {client && (
+          <div>
+            <p className="section-label mb-2">Client</p>
+            <button
+              onClick={() => navigate(`/clients/${client.id}`)}
+              className="w-full flex items-center gap-3 rounded-xl border p-3 hover:bg-muted/50 transition-colors text-left group"
+            >
+              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                {client.name?.charAt(0)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold truncate">{client.name}</p>
+                {client.email && <p className="text-xs text-muted-foreground truncate">{client.email}</p>}
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 group-hover:translate-x-0.5 transition-transform" />
+            </button>
+          </div>
+        )}
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="rounded-lg bg-muted/50 p-2.5">
+            <p className="text-muted-foreground mb-0.5">Créé le</p>
+            <p className="font-medium">{formatDate(dossier.created_at)}</p>
+          </div>
+          <div className="rounded-lg bg-muted/50 p-2.5">
+            <p className="text-muted-foreground mb-0.5">Modifié</p>
+            <p className="font-medium">{formatDate(dossier.updated_at)}</p>
           </div>
         </div>
       </div>
 
-      {/* Voirie section */}
-      {voirieVisites.length > 0 && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
-          <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-3">
-            <ShieldAlert className="h-3.5 w-3.5" /> Démarches voirie
-          </h3>
-          <div className="space-y-2">
-            {voirieVisites.map((v: any) => {
-              const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
-                a_faire: { label: "À faire", icon: AlertCircle, className: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30" },
-                demandee: { label: "Demandée", icon: Send, className: "bg-blue-500/15 text-blue-600 border-blue-500/30" },
-                obtenue: { label: "Obtenue", icon: CheckCircle, className: "bg-green-500/15 text-green-700 border-green-500/30" },
-                refusee: { label: "Refusée", icon: XCircle, className: "bg-red-500/15 text-red-700 border-red-500/30" },
-                non_requise: { label: "Non requise", icon: AlertCircle, className: "bg-muted text-muted-foreground" },
-              };
-              const s = statusConfig[v.voirie_status] || statusConfig.a_faire;
-              const StatusIcon = s.icon;
-              const typeLabels: Record<string, string> = {
-                arrete_stationnement: "Arrêté de stationnement",
-                plan_voirie: "Plan voirie (1/200ème)",
-                emprise: "Emprise voirie",
-                autorisation_grue: "Autorisation grue",
-                autre: "Autre",
-              };
-              return (
-                <div key={v.id} className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors ${isMobile ? "text-xs" : "text-sm"}`} onClick={() => navigate(`/visites/${v.id}`)}>
-                  <StatusIcon className={`h-4 w-4 shrink-0 ${s.className.includes("text-yellow") ? "text-yellow-600" : s.className.includes("text-blue") ? "text-blue-600" : s.className.includes("text-green") ? "text-green-600" : s.className.includes("text-red") ? "text-red-600" : "text-muted-foreground"}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium">{v.code || `Visite ${v.id.slice(0, 8)}`}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">
-                      {v.voirie_address || "—"}
-                      {v.voirie_type && ` · ${typeLabels[v.voirie_type] || v.voirie_type}`}
-                    </p>
-                    {/* Document indicators */}
-                    <div className="flex gap-2 mt-1">
-                      {v.voirie_plan_storage_path && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600">📐 Plan</span>}
-                      {v.voirie_pv_roc_storage_path && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600">📋 PV ROC</span>}
-                      {v.voirie_arrete_storage_path && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-600">✅ Arrêté</span>}
-                      {v.voirie_arrete_date && <span className="text-[10px] text-muted-foreground">📅 {formatDate(v.voirie_arrete_date)}</span>}
-                    </div>
-                  </div>
-                  <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${s.className}`}>
-                    {s.label}
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                </div>
-              );
-            })}
-          </div>
-        </motion.div>
-      )}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          {isMobile ? (
-            <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-3 px-3 pb-1">
-              {tabItems.map((tab) => (
-                <TabsList key={tab.key} className="bg-transparent p-0">
-                  <TabsTrigger value={tab.key} className="rounded-full px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                    {tab.label}{tab.count !== null ? ` (${tab.count})` : ""}
-                  </TabsTrigger>
-                </TabsList>
-              ))}
-            </div>
-          ) : (
-            <TabsList className="w-full flex overflow-x-auto scrollbar-none">
-              {tabItems.map((tab) => (
-                <TabsTrigger key={tab.key} value={tab.key} className="gap-1.5 shrink-0 text-xs px-2.5">
-                  <tab.icon className="h-3.5 w-3.5" /> {tab.label}{tab.count !== null ? ` (${tab.count})` : ""}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          )}
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          { label: "Devis", value: devis.length, icon: FileText, color: "text-info", tab: "devis" },
+          { label: "Factures", value: factures.length, icon: DollarSign, color: "text-success", tab: "factures" },
+          { label: "Opérations", value: operations.length, icon: Cog, color: "text-warning", tab: "operations" },
+          { label: "Visites", value: visites.length, icon: Eye, color: "text-purple-500", tab: "visites" },
+        ].map(stat => (
+          <button
+            key={stat.label}
+            onClick={() => setActiveTab(stat.tab)}
+            className={`card-interactive p-3 text-left space-y-1 ${activeTab === stat.tab ? "ring-2 ring-primary" : ""}`}
+          >
+            <stat.icon className={`h-4 w-4 ${stat.color}`} />
+            <p className="text-xl font-black tabular-nums">{stat.value}</p>
+            <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+          </button>
+        ))}
+      </div>
 
-          <TabsContent value="timeline">
-            <div className="rounded-xl border bg-card p-4">
-              <DossierTimeline
-                dossierId={id!}
-                dossier={dossier}
-                devis={devis}
-                factures={factures}
-                visites={visites}
-              />
-            </div>
-          </TabsContent>
+      {/* Quick actions */}
+      <div className="card-elevated p-4 space-y-2">
+        <p className="section-label mb-3">Actions rapides</p>
+        <CreateDevisDialog
+          preselectedClientId={client?.id}
+          preselectedCompanyId={dossier.company_id}
+          preselectedDossierId={id}
+          trigger={
+            <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-xs h-9">
+              <FileText className="h-3.5 w-3.5 text-info" /> Nouveau devis
+            </Button>
+          }
+        />
+        <CreateVisiteDialog
+          preselectedClientId={client?.id}
+          preselectedCompanyId={dossier.company_id}
+          preselectedDossierId={id}
+          trigger={
+            <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-xs h-9">
+              <Eye className="h-3.5 w-3.5 text-warning" /> Nouvelle visite
+            </Button>
+          }
+        />
+        <CreateFactureDialog
+          preselectedClientId={client?.id}
+          preselectedCompanyId={dossier.company_id}
+          preselectedDossierId={id}
+          trigger={
+            <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-xs h-9">
+              <DollarSign className="h-3.5 w-3.5 text-success" /> Nouvelle facture
+            </Button>
+          }
+        />
+        <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-xs h-9" onClick={() => setEditing(true)}>
+          <Pencil className="h-3.5 w-3.5" /> Modifier le dossier
+        </Button>
+      </div>
 
-          <TabsContent value="visites">
-            <div className="space-y-3">
-              <div className="flex justify-end">
-                <CreateVisiteDialog preselectedClientId={client?.id} preselectedCompanyId={dossier.company_id} preselectedDossierId={id} />
-              </div>
-              <div className="rounded-xl border bg-card divide-y">
-              {visites.length === 0 ? (
-                <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucune visite liée</div>
-              ) : visites.map((v) => (
-                <div key={v.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/visites/${v.id}`, { state: { fromDossier: id, fromClient: (location.state as any)?.fromClient } })}>
-                  <Eye className="h-4 w-4 text-warning shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-medium break-words ${isMobile ? "text-xs" : "text-sm"}`}>{v.title}</p>
-                    <p className="text-[11px] text-muted-foreground">{v.scheduled_date ? formatDate(v.scheduled_date) : "Non planifiée"}</p>
-                  </div>
-                  <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsVisite[v.status] || v.status}</span>
-                  <Button variant={deletingVisiteId === v.id ? "destructive" : "ghost"} size="icon" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); if (deletingVisiteId === v.id) { deleteVisiteMutation.mutate(v.id); } else { setDeletingVisiteId(v.id); } }}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                  {isMobile && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
-                </div>
-              ))}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="devis">
-            <div className="space-y-3">
-              <div className="flex justify-end">
-                <CreateDevisDialog preselectedClientId={client?.id} preselectedCompanyId={dossier.company_id} preselectedDossierId={id} />
-              </div>
-              <div className="rounded-xl border bg-card divide-y">
-              {devis.length === 0 ? (
-                <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucun devis lié</div>
-              ) : devis.map((d) => (
-                <div key={d.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/devis/${d.id}`, { state: { fromDossier: id, fromClient: (location.state as any)?.fromClient } })}>
-                  <FileText className="h-4 w-4 text-info shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-medium break-words ${isMobile ? "text-xs" : "text-sm"}`}>{d.code} — {d.objet}</p>
-                    <p className="text-[11px] text-muted-foreground">{formatDate(d.created_at)}</p>
-                  </div>
-                  <DevisStatusSelect devisId={d.id} currentStatus={d.status} size="xs" />
-                  {!isMobile && <span className="text-sm font-semibold shrink-0">{formatAmount(d.amount)}</span>}
-                  <Button variant={deletingDevisId === d.id ? "destructive" : "ghost"} size="icon" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); if (deletingDevisId === d.id) { deleteDevisMutation.mutate(d.id); } else { setDeletingDevisId(d.id); } }}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                  {isMobile && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
-                </div>
-              ))}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="operations">
-            <DossierOperationsTab dossierId={id!} companyId={dossier.company_id} initialOperationId={operationFromUrl} />
-          </TabsContent>
-
-          <TabsContent value="factures">
-            <div className="space-y-3">
-              <div className="flex justify-end">
-                <CreateFactureDialog preselectedClientId={client?.id} preselectedCompanyId={dossier.company_id} preselectedDossierId={id} />
-              </div>
-              <div className="rounded-xl border bg-card divide-y">
-                {factures.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucune facture liée</div>
-                ) : factures.map((f) => (
-                  <div key={f.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/finance/${f.id}`, { state: { fromDossier: id, fromClient: (location.state as any)?.fromClient } })}>
-                    <DollarSign className="h-4 w-4 text-success shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-medium break-words ${isMobile ? "text-xs" : "text-sm"}`}>{f.code || "Facture"}</p>
-                      <p className="text-[11px] text-muted-foreground">Éch.: {formatDate(f.due_date)}</p>
-                    </div>
-                    <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsFacture[f.status] || f.status}</span>
-                    {!isMobile && <span className="text-sm font-semibold shrink-0">{formatAmount(f.amount)}</span>}
-                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); setDeletingFactureId(f.id); }}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                    {isMobile && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="reglements">
-            <DossierReglementsTab dossierId={id!} />
-          </TabsContent>
-
-          <TabsContent value="costs">
-            <DossierCostsTab dossierId={id!} companyId={dossier.company_id} dossierAmount={dossier.amount || 0} />
-          </TabsContent>
-
-          <TabsContent value="avaries">
-            <DossierAvariesTab dossierId={id!} companyId={dossier.company_id} clientId={client?.id || ""} />
-          </TabsContent>
-
-          <TabsContent value="situation">
-            <DossierSituationTab dossierId={id!} dossierAmount={dossier.amount || 0} dossierCost={(dossier as any).cost || 0} />
-          </TabsContent>
-        </Tabs>
-      </motion.div>
-
-      {/* Notes */}
+      {/* Description / Notes */}
       {(dossier.description || dossier.notes) && (
-        <div className={`rounded-xl border bg-card space-y-2 ${isMobile ? "p-3" : "p-5 space-y-3"}`}>
+        <div className="card-elevated p-4 space-y-3">
           {dossier.description && (
-            <>
-              <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Description</h3>
-              <p className="text-xs whitespace-pre-wrap">{dossier.description}</p>
-            </>
+            <div>
+              <p className="section-label mb-1.5">Description</p>
+              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{dossier.description}</p>
+            </div>
           )}
           {dossier.notes && (
-            <>
-              <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Notes</h3>
-              <p className="text-xs whitespace-pre-wrap">{dossier.notes}</p>
-            </>
+            <div>
+              <p className="section-label mb-1.5">Notes</p>
+              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{dossier.notes}</p>
+            </div>
           )}
         </div>
       )}
+    </div>
+  );
 
+  // ── Tabs content (shared) ──
+  const TabsArea = () => (
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
+      {isMobile ? (
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-3 px-3 pb-1">
+          {tabItems.map((tab) => (
+            <TabsList key={tab.key} className="bg-transparent p-0">
+              <TabsTrigger value={tab.key} className="rounded-full px-3 py-1.5 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                {tab.label}{tab.count !== null ? ` (${tab.count})` : ""}
+              </TabsTrigger>
+            </TabsList>
+          ))}
+        </div>
+      ) : (
+        <TabsList className="flex flex-wrap gap-1.5 h-auto bg-transparent p-0 mb-5 border-b pb-4">
+          {tabItems.map((tab) => (
+            <TabsTrigger
+              key={tab.key}
+              value={tab.key}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium h-auto gap-1.5
+                data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm
+                data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground
+                hover:data-[state=inactive]:bg-muted/80 transition-colors"
+            >
+              <tab.icon className="h-3.5 w-3.5" />
+              {tab.label}
+              {tab.count !== null && tab.count > 0 && (
+                <span className="rounded-full bg-current/20 px-1.5 text-[9px] font-bold leading-4">{tab.count}</span>
+              )}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      )}
+
+      <TabsContent value="timeline">
+        <div className="rounded-xl border bg-card p-4">
+          <DossierTimeline dossierId={id!} dossier={dossier} devis={devis} factures={factures} visites={visites} />
+        </div>
+      </TabsContent>
+
+      <TabsContent value="visites">
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <CreateVisiteDialog preselectedClientId={client?.id} preselectedCompanyId={dossier.company_id} preselectedDossierId={id} />
+          </div>
+          <div className="rounded-xl border bg-card divide-y">
+            {visites.length === 0 ? (
+              <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucune visite liée</div>
+            ) : visites.map((v) => (
+              <div key={v.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/visites/${v.id}`, { state: { fromDossier: id, fromClient: (location.state as any)?.fromClient } })}>
+                <Eye className="h-4 w-4 text-warning shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className={`font-medium break-words ${isMobile ? "text-xs" : "text-sm"}`}>{v.title}</p>
+                  <p className="text-[11px] text-muted-foreground">{v.scheduled_date ? formatDate(v.scheduled_date) : "Non planifiée"}</p>
+                </div>
+                <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsVisite[v.status] || v.status}</span>
+                <Button variant={deletingVisiteId === v.id ? "destructive" : "ghost"} size="icon" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); if (deletingVisiteId === v.id) { deleteVisiteMutation.mutate(v.id); } else { setDeletingVisiteId(v.id); } }}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+                {isMobile && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+              </div>
+            ))}
+          </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="devis">
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <CreateDevisDialog preselectedClientId={client?.id} preselectedCompanyId={dossier.company_id} preselectedDossierId={id} />
+          </div>
+          <div className="rounded-xl border bg-card divide-y">
+            {devis.length === 0 ? (
+              <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucun devis lié</div>
+            ) : devis.map((d) => (
+              <div key={d.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/devis/${d.id}`, { state: { fromDossier: id, fromClient: (location.state as any)?.fromClient } })}>
+                <FileText className="h-4 w-4 text-info shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className={`font-medium break-words ${isMobile ? "text-xs" : "text-sm"}`}>{d.code} — {d.objet}</p>
+                  <p className="text-[11px] text-muted-foreground">{formatDate(d.created_at)}</p>
+                </div>
+                <DevisStatusSelect devisId={d.id} currentStatus={d.status} size="xs" />
+                {!isMobile && <span className="text-sm font-semibold shrink-0">{formatAmount(d.amount)}</span>}
+                <Button variant={deletingDevisId === d.id ? "destructive" : "ghost"} size="icon" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); if (deletingDevisId === d.id) { deleteDevisMutation.mutate(d.id); } else { setDeletingDevisId(d.id); } }}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+                {isMobile && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+              </div>
+            ))}
+          </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="operations">
+        <DossierOperationsTab dossierId={id!} companyId={dossier.company_id} initialOperationId={operationFromUrl} />
+      </TabsContent>
+
+      <TabsContent value="factures">
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <CreateFactureDialog preselectedClientId={client?.id} preselectedCompanyId={dossier.company_id} preselectedDossierId={id} />
+          </div>
+          <div className="rounded-xl border bg-card divide-y">
+            {factures.length === 0 ? (
+              <div className="px-4 py-6 text-center text-xs text-muted-foreground">Aucune facture liée</div>
+            ) : factures.map((f) => (
+              <div key={f.id} className={`flex items-center gap-3 hover:bg-muted/50 transition-colors cursor-pointer ${isMobile ? "px-3 py-2.5" : "px-5 py-3.5"}`} onClick={() => navigate(`/finance/${f.id}`, { state: { fromDossier: id, fromClient: (location.state as any)?.fromClient } })}>
+                <DollarSign className="h-4 w-4 text-success shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className={`font-medium break-words ${isMobile ? "text-xs" : "text-sm"}`}>{f.code || "Facture"}</p>
+                  <p className="text-[11px] text-muted-foreground">Éch.: {formatDate(f.due_date)}</p>
+                </div>
+                <span className="text-[10px] rounded-full px-2 py-0.5 bg-muted font-medium shrink-0">{statusLabelsFacture[f.status] || f.status}</span>
+                {!isMobile && <span className="text-sm font-semibold shrink-0">{formatAmount(f.amount)}</span>}
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={(e) => { e.stopPropagation(); setDeletingFactureId(f.id); }}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+                {isMobile && <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+              </div>
+            ))}
+          </div>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="reglements">
+        <DossierReglementsTab dossierId={id!} />
+      </TabsContent>
+
+      <TabsContent value="costs">
+        <DossierCostsTab dossierId={id!} companyId={dossier.company_id} dossierAmount={dossier.amount || 0} />
+      </TabsContent>
+
+      <TabsContent value="avaries">
+        <DossierAvariesTab dossierId={id!} companyId={dossier.company_id} clientId={client?.id || ""} />
+      </TabsContent>
+
+      <TabsContent value="situation">
+        <DossierSituationTab dossierId={id!} dossierAmount={dossier.amount || 0} dossierCost={(dossier as any).cost || 0} />
+      </TabsContent>
+    </Tabs>
+  );
+
+  // ── Voirie section ──
+  const VoirieSection = () => {
+    if (voirieVisites.length === 0) return null;
+    return (
+      <div className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-5"}`}>
+        <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-3">
+          <ShieldAlert className="h-3.5 w-3.5" /> Démarches voirie
+        </h3>
+        <div className="space-y-2">
+          {voirieVisites.map((v: any) => {
+            const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
+              a_faire: { label: "À faire", icon: AlertCircle, className: "bg-yellow-500/15 text-yellow-700 border-yellow-500/30" },
+              demandee: { label: "Demandée", icon: Send, className: "bg-blue-500/15 text-blue-600 border-blue-500/30" },
+              obtenue: { label: "Obtenue", icon: CheckCircle, className: "bg-green-500/15 text-green-700 border-green-500/30" },
+              refusee: { label: "Refusée", icon: XCircle, className: "bg-red-500/15 text-red-700 border-red-500/30" },
+              non_requise: { label: "Non requise", icon: AlertCircle, className: "bg-muted text-muted-foreground" },
+            };
+            const s = statusConfig[v.voirie_status] || statusConfig.a_faire;
+            const StatusIcon = s.icon;
+            const typeLabels: Record<string, string> = {
+              arrete_stationnement: "Arrêté de stationnement",
+              plan_voirie: "Plan voirie (1/200ème)",
+              emprise: "Emprise voirie",
+              autorisation_grue: "Autorisation grue",
+              autre: "Autre",
+            };
+            return (
+              <div key={v.id} className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors ${isMobile ? "text-xs" : "text-sm"}`} onClick={() => navigate(`/visites/${v.id}`)}>
+                <StatusIcon className={`h-4 w-4 shrink-0 ${s.className.includes("text-yellow") ? "text-yellow-600" : s.className.includes("text-blue") ? "text-blue-600" : s.className.includes("text-green") ? "text-green-600" : s.className.includes("text-red") ? "text-red-600" : "text-muted-foreground"}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium">{v.code || `Visite ${v.id.slice(0, 8)}`}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {v.voirie_address || "—"}
+                    {v.voirie_type && ` · ${typeLabels[v.voirie_type] || v.voirie_type}`}
+                  </p>
+                  <div className="flex gap-2 mt-1">
+                    {v.voirie_plan_storage_path && <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600">📐 Plan</span>}
+                    {v.voirie_pv_roc_storage_path && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600">📋 PV ROC</span>}
+                    {v.voirie_arrete_storage_path && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-600">✅ Arrêté</span>}
+                    {v.voirie_arrete_date && <span className="text-[10px] text-muted-foreground">📅 {formatDate(v.voirie_arrete_date)}</span>}
+                  </div>
+                </div>
+                <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${s.className}`}>
+                  {s.label}
+                </span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className={`max-w-6xl mx-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-4" : "p-6 lg:p-8 space-y-5"}`}>
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="h-8 w-8 shrink-0">
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <DetailBreadcrumb items={breadcrumbItems} />
+        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+          <Button variant="outline" size="sm" className="text-xs gap-1.5 h-8" onClick={() => setEditing(true)}>
+            <Pencil className="h-3.5 w-3.5" /> {!isMobile && "Modifier"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Next Action Banner */}
+      <DossierNextAction dossier={dossier} devis={devis} factures={factures} visites={visites} operationsCount={operations.length} />
+
+      {/* Desktop: 2-column layout */}
+      {!isMobile && (
+        <div className="grid grid-cols-[300px_1fr] gap-6 items-start">
+          <div className="sticky top-6">
+            <SidebarContent />
+          </div>
+          <div className="min-w-0">
+            <VoirieSection />
+            {voirieVisites.length > 0 && <div className="h-5" />}
+            <TabsArea />
+          </div>
+        </div>
+      )}
+
+      {/* Mobile: single column */}
+      {isMobile && (
+        <div className="space-y-4">
+          <SidebarContent />
+          <VoirieSection />
+          <TabsArea />
+        </div>
+      )}
+
+      {/* Dialogs */}
       {editing && <EditDossierDialog dossier={dossier} open={editing} onOpenChange={(v) => !v && setEditing(false)} />}
-
       <DeleteConfirmDialog
         open={!!deletingFactureId}
         onOpenChange={(v) => !v && setDeletingFactureId(null)}
