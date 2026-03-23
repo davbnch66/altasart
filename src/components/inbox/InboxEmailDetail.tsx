@@ -1,10 +1,13 @@
-import { ArrowLeft, Mail, Clock, User, Sparkles, Send } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, Mail, Clock, User, Sparkles, Send, RefreshCw, Loader2 } from "lucide-react";
 import DOMPurify from "dompurify";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InboxAiSummary } from "./InboxAiSummary";
 import { InboxActionBar } from "./InboxActionBar";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface InboundEmail {
   id: string;
@@ -54,6 +57,28 @@ const statusStyles: Record<string, string> = {
 
 export const InboxEmailDetail = ({ email, actions, onBack, onActionExecuted, onReply }: Props) => {
   const isMobile = useIsMobile();
+  const [reanalyzing, setReanalyzing] = useState(false);
+
+  const handleReanalyze = async () => {
+    setReanalyzing(true);
+    try {
+      // Reset status to allow reprocessing
+      await supabase.from("inbound_emails").update({ status: "pending" }).eq("id", email.id);
+      // Delete existing actions so new ones are generated
+      await supabase.from("email_actions").delete().eq("inbound_email_id", email.id);
+      // Trigger reanalysis
+      const { error } = await supabase.functions.invoke("process-inbound-email", {
+        body: { inbound_email_id: email.id },
+      });
+      if (error) throw error;
+      toast.success("Ré-analyse lancée, les résultats arrivent...");
+      setTimeout(() => onActionExecuted(), 3000);
+    } catch (e: any) {
+      toast.error("Erreur lors de la ré-analyse : " + (e.message || ""));
+    } finally {
+      setReanalyzing(false);
+    }
+  };
 
   return (
     <div className="space-y-4 overflow-y-auto max-h-[calc(100vh-6rem)] pb-8">
@@ -80,9 +105,21 @@ export const InboxEmailDetail = ({ email, actions, onBack, onActionExecuted, onR
             )}
           </div>
           <div className="flex flex-col items-end gap-1.5 shrink-0">
-            <Badge className={`text-xs ${statusStyles[email.status] || ""}`}>
-              {statusLabels[email.status] || email.status}
-            </Badge>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1 text-muted-foreground hover:text-primary"
+                onClick={handleReanalyze}
+                disabled={reanalyzing}
+              >
+                {reanalyzing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Ré-analyser
+              </Button>
+              <Badge className={`text-xs ${statusStyles[email.status] || ""}`}>
+                {statusLabels[email.status] || email.status}
+              </Badge>
+            </div>
             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {new Date(email.created_at).toLocaleString("fr-FR")}
