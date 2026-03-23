@@ -120,7 +120,7 @@ export const PlanningMissionPanel = ({
 
       const { data: op, error } = await supabase.from("operations").insert({
         company_id: companyId,
-        dossier_id: form.dossier_id || null,
+        dossier_id: form.dossier_id,
         loading_date: form.loading_date,
         delivery_date: form.delivery_date || form.loading_date,
         loading_city: form.loading_city || null,
