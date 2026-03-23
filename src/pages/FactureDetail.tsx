@@ -47,7 +47,7 @@ const FactureDetail = () => {
   const { data: facture, isLoading } = useQuery({
     queryKey: ["facture-detail", id],
     queryFn: async () => {
-      const { data, error } = await supabase.from("factures").select("*, clients(id, name, code), dossiers(id, code, title), devis(id, code, objet)").eq("id", id!).single();
+      const { data, error } = await supabase.from("factures").select("*, clients(id, name, code, address, city, postal_code, email, siret), dossiers(id, code, title), devis(id, code, objet), companies(name, short_name, address, phone, email, siret)").eq("id", id!).single();
       if (error) throw error;
       return data;
     },
