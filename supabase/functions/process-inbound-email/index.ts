@@ -489,7 +489,14 @@ CLASSIFICATION - type_demande :
 - "information" : demande de renseignements, disponibilité, capacités
 - "relance" : suivi d'une demande précédente
 - "confirmation" : validation, bon de commande, accord
+- "offre_fournisseur" : offre/proposition commerciale d'un fournisseur ou loueur (grues, nacelles, camions, matériels), grille tarifaire, catalogue matériel
 - "autre" : newsletters, spam, notifications automatiques
+
+DÉTECTION OFFRE FOURNISSEUR :
+Si l'email est une offre commerciale d'un fournisseur/loueur (location de grues, nacelles, camions, matériels, devis de sous-traitance), remplis le champ "supplier_offer" avec :
+- supplier_name : nom de l'entreprise fournisseur
+- equipment_list : liste des matériels proposés avec type, marque, modèle, capacité, portée, hauteur, tarifs jour/semaine/mois
+- contact_name, contact_email, contact_phone : coordonnées du fournisseur
 
 EXTRACTION MATÉRIEL - EXHAUSTIVE ET DÉTAILLÉE :
 Tu DOIS analyser le contenu des PDF, images et tableurs joints pour extraire CHAQUE machine/équipement INDIVIDUELLEMENT.
@@ -538,9 +545,38 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
                   etage: { type: "string" },
                   ascenseur: { type: "boolean" },
                   instructions: { type: "string" },
-                  type_demande: {
+                   type_demande: {
                     type: "array",
-                    items: { type: "string", enum: ["devis", "visite", "information", "relance", "confirmation", "autre"] },
+                    items: { type: "string", enum: ["devis", "visite", "information", "relance", "confirmation", "offre_fournisseur", "autre"] },
+                  },
+                  supplier_offer: {
+                    type: "object",
+                    description: "Rempli uniquement si l'email est une offre d'un fournisseur/loueur",
+                    properties: {
+                      supplier_name: { type: "string" },
+                      contact_name: { type: "string" },
+                      contact_email: { type: "string" },
+                      contact_phone: { type: "string" },
+                      equipment_list: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            type: { type: "string", description: "grue, nacelle, camion, etc." },
+                            brand: { type: "string" },
+                            model: { type: "string" },
+                            capacity_tons: { type: "number" },
+                            reach_meters: { type: "number" },
+                            height_meters: { type: "number" },
+                            daily_rate: { type: "number" },
+                            weekly_rate: { type: "number" },
+                            monthly_rate: { type: "number" },
+                            notes: { type: "string" },
+                          },
+                          required: ["type"],
+                        },
+                      },
+                    },
                   },
                   voirie_documents: {
                     type: "array",
@@ -1085,6 +1121,34 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
           });
         }
       }
+    }
+
+    // ── Supplier offer detection ──
+    if (types.includes("offre_fournisseur") && analysis.supplier_offer) {
+      const offer = analysis.supplier_offer;
+      const pdfAttachmentsForSupplier = (Array.isArray(attachments) ? attachments : [])
+        .filter((a: any) => {
+          const name = (a.filename || a.name || "").toLowerCase();
+          return name.endsWith(".pdf") || name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".xls") || name.endsWith(".xlsx");
+        }).slice(0, 10);
+
+      actions.push({
+        inbound_email_id: emailId,
+        company_id: companyId,
+        action_type: "enrich_supplier",
+        payload: {
+          supplier_name: offer.supplier_name || safeFromName || "",
+          contact_name: offer.contact_name || "",
+          contact_email: offer.contact_email || safeFromEmail || "",
+          contact_phone: offer.contact_phone || "",
+          equipment_list: offer.equipment_list || [],
+          attachments: pdfAttachmentsForSupplier.map((a: any) => ({
+            filename: a.filename || a.name,
+            content_type: a.content_type || a.type || "application/pdf",
+            url: a.url || null,
+          })),
+        },
+      });
     }
 
     if (actions.length > 0) {

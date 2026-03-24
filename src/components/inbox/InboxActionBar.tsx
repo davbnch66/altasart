@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   UserPlus, FolderPlus, FileText, CalendarPlus, Package, Link, Loader2,
-  MapPin, FileCheck, ShieldCheck, UserCheck, Users, Sparkles, Check
+  MapPin, FileCheck, ShieldCheck, UserCheck, Users, Sparkles, Check, Building2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -40,6 +40,7 @@ const actionConfig: Record<string, { label: string; icon: React.ElementType; col
   attach_voirie_plan: { label: "Plan voirie", icon: MapPin, color: "text-blue-600", successMsg: "Plan voirie intégré à la démarche" },
   attach_pv_roc: { label: "PV de ROC", icon: FileCheck, color: "text-amber-600", successMsg: "PV de ROC intégré à la démarche" },
   attach_arrete: { label: "Arrêté municipal", icon: ShieldCheck, color: "text-green-600", successMsg: "Arrêté intégré — Programmez l'intervention au planning" },
+  enrich_supplier: { label: "Enrichir fournisseur", icon: Building2, color: "text-violet-600", successMsg: "Fournisseur et matériel enrichis" },
 };
 
 export const InboxActionBar = ({ actions, onActionExecuted, clientEmail, clientName, emailSubject }: InboxActionBarProps) => {
@@ -363,6 +364,16 @@ export const InboxActionBar = ({ actions, onActionExecuted, clientEmail, clientN
                     <p className="text-xs text-muted-foreground truncate">
                       📎 {(action.payload?.attachments || []).length} pièce(s) jointe(s) à intégrer
                     </p>
+                  )}
+                  {action.action_type === "enrich_supplier" && (
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-violet-600 truncate">🏢 {action.payload?.supplier_name}</p>
+                      {action.payload?.equipment_list?.length > 0 && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          📦 {action.payload.equipment_list.length} matériel(s) : {action.payload.equipment_list.map((e: any) => `${e.brand || ""} ${e.model || e.type}`).join(", ")}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="flex gap-1.5 shrink-0">

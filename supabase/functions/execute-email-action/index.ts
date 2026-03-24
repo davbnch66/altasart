@@ -629,6 +629,64 @@ serve(async (req) => {
           createdId = visiteId;
           break;
         }
+
+        case "enrich_supplier": {
+          // Find or create supplier
+          const supplierName = payload.supplier_name || "Fournisseur inconnu";
+          let supplierId: string | null = null;
+
+          // Search for existing supplier by name
+          const { data: existingSuppliers } = await supabase
+            .from("suppliers")
+            .select("id, name")
+            .eq("company_id", companyId)
+            .ilike("name", `%${supplierName.replace(/[%_]/g, "")}%`)
+            .limit(1);
+
+          if (existingSuppliers && existingSuppliers.length > 0) {
+            supplierId = existingSuppliers[0].id;
+          } else {
+            // Create new supplier
+            const { data: newSupplier, error: createErr } = await supabase
+              .from("suppliers")
+              .insert({
+                company_id: companyId,
+                name: supplierName,
+                category: "loueur",
+                contact_name: payload.contact_name || null,
+                email: payload.contact_email || null,
+                phone: payload.contact_phone || null,
+                status: "actif",
+              })
+              .select("id")
+              .single();
+            if (createErr) throw createErr;
+            supplierId = newSupplier.id;
+          }
+
+          // Add equipment from the offer
+          const equipmentList = payload.equipment_list || [];
+          for (const eq of equipmentList) {
+            await supabase.from("supplier_equipment").insert({
+              supplier_id: supplierId,
+              company_id: companyId,
+              type: eq.type || "autre",
+              brand: eq.brand || null,
+              model: eq.model || null,
+              capacity_tons: eq.capacity_tons || null,
+              reach_meters: eq.reach_meters || null,
+              height_meters: eq.height_meters || null,
+              daily_rate: eq.daily_rate || null,
+              weekly_rate: eq.weekly_rate || null,
+              monthly_rate: eq.monthly_rate || null,
+              notes: eq.notes || null,
+              availability: "disponible",
+            });
+          }
+
+          createdId = supplierId;
+          break;
+        }
       }
     }
 

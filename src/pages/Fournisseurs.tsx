@@ -4,16 +4,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { motion } from "framer-motion";
-import { Plus, Search, Building2, Phone, Mail, ChevronRight, Pencil, Trash2, X, Save, Loader2 } from "lucide-react";
+import { Plus, Search, Building2, Phone, Mail, ChevronRight, Trash2, Save, Loader2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import SupplierEquipmentTab from "@/components/fournisseurs/SupplierEquipmentTab";
 
 const CATEGORIES = [
   { value: "sous-traitant", label: "Sous-traitant" },
@@ -246,7 +248,10 @@ export default function Fournisseurs() {
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Nouveau fournisseur</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Nouveau fournisseur</DialogTitle>
+            <DialogDescription>Ajoutez un fournisseur ou sous-traitant</DialogDescription>
+          </DialogHeader>
           <SupplierForm data={form} onChange={setForm} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Annuler</Button>
@@ -260,20 +265,37 @@ export default function Fournisseurs() {
 
       {/* Detail sheet */}
       <Sheet open={!!selected} onOpenChange={(o) => { if (!o) setSelected(null); }}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader><SheetTitle>Détails fournisseur</SheetTitle></SheetHeader>
-          <div className="mt-4 space-y-4">
-            <SupplierForm data={form} onChange={setForm} />
-            <div className="flex gap-2">
-              <Button className="flex-1" onClick={() => updateMutation.mutate(form)} disabled={updateMutation.isPending}>
-                {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-                Enregistrer
-              </Button>
-              <Button variant="destructive" size="icon" onClick={() => { if (confirm("Supprimer ce fournisseur ?")) deleteMutation.mutate(selected.id); }}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          <SheetHeader><SheetTitle>{selected?.name || "Détails fournisseur"}</SheetTitle></SheetHeader>
+          <Tabs defaultValue="info" className="mt-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="info">Informations</TabsTrigger>
+              <TabsTrigger value="equipment" className="flex items-center gap-1">
+                <Package className="h-3.5 w-3.5" /> Matériel
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="info" className="space-y-4 mt-4">
+              <SupplierForm data={form} onChange={setForm} />
+              <div className="flex gap-2">
+                <Button className="flex-1" onClick={() => updateMutation.mutate(form)} disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                  Enregistrer
+                </Button>
+                <Button variant="destructive" size="icon" onClick={() => { if (confirm("Supprimer ce fournisseur ?")) deleteMutation.mutate(selected.id); }}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </TabsContent>
+            <TabsContent value="equipment" className="mt-4">
+              {selected && (
+                <SupplierEquipmentTab
+                  supplierId={selected.id}
+                  companyId={selected.company_id}
+                  supplierName={selected.name}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
         </SheetContent>
       </Sheet>
     </div>

@@ -3497,6 +3497,87 @@ export type Database = {
           },
         ]
       }
+      supplier_equipment: {
+        Row: {
+          availability: string | null
+          brand: string | null
+          capacity_tons: number | null
+          category: string | null
+          company_id: string
+          created_at: string | null
+          daily_rate: number | null
+          document_urls: string[] | null
+          height_meters: number | null
+          id: string
+          model: string | null
+          monthly_rate: number | null
+          notes: string | null
+          reach_meters: number | null
+          supplier_id: string
+          technical_specs: Json | null
+          type: string
+          updated_at: string | null
+          weekly_rate: number | null
+        }
+        Insert: {
+          availability?: string | null
+          brand?: string | null
+          capacity_tons?: number | null
+          category?: string | null
+          company_id: string
+          created_at?: string | null
+          daily_rate?: number | null
+          document_urls?: string[] | null
+          height_meters?: number | null
+          id?: string
+          model?: string | null
+          monthly_rate?: number | null
+          notes?: string | null
+          reach_meters?: number | null
+          supplier_id: string
+          technical_specs?: Json | null
+          type?: string
+          updated_at?: string | null
+          weekly_rate?: number | null
+        }
+        Update: {
+          availability?: string | null
+          brand?: string | null
+          capacity_tons?: number | null
+          category?: string | null
+          company_id?: string
+          created_at?: string | null
+          daily_rate?: number | null
+          document_urls?: string[] | null
+          height_meters?: number | null
+          id?: string
+          model?: string | null
+          monthly_rate?: number | null
+          notes?: string | null
+          reach_meters?: number | null
+          supplier_id?: string
+          technical_specs?: Json | null
+          type?: string
+          updated_at?: string | null
+          weekly_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_equipment_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_equipment_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           address: string | null
@@ -4735,6 +4816,7 @@ export type Database = {
         | "attach_arrete"
         | "link_existing_client"
         | "enrich_client"
+        | "enrich_supplier"
       email_auth_method: "password" | "oauth2"
       email_provider:
         | "generic"
@@ -4937,6 +5019,7 @@ export const Constants = {
         "attach_arrete",
         "link_existing_client",
         "enrich_client",
+        "enrich_supplier",
       ],
       email_auth_method: ["password", "oauth2"],
       email_provider: [
