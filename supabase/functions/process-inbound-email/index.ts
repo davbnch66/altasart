@@ -545,9 +545,38 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
                   etage: { type: "string" },
                   ascenseur: { type: "boolean" },
                   instructions: { type: "string" },
-                  type_demande: {
+                   type_demande: {
                     type: "array",
-                    items: { type: "string", enum: ["devis", "visite", "information", "relance", "confirmation", "autre"] },
+                    items: { type: "string", enum: ["devis", "visite", "information", "relance", "confirmation", "offre_fournisseur", "autre"] },
+                  },
+                  supplier_offer: {
+                    type: "object",
+                    description: "Rempli uniquement si l'email est une offre d'un fournisseur/loueur",
+                    properties: {
+                      supplier_name: { type: "string" },
+                      contact_name: { type: "string" },
+                      contact_email: { type: "string" },
+                      contact_phone: { type: "string" },
+                      equipment_list: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: {
+                            type: { type: "string", description: "grue, nacelle, camion, etc." },
+                            brand: { type: "string" },
+                            model: { type: "string" },
+                            capacity_tons: { type: "number" },
+                            reach_meters: { type: "number" },
+                            height_meters: { type: "number" },
+                            daily_rate: { type: "number" },
+                            weekly_rate: { type: "number" },
+                            monthly_rate: { type: "number" },
+                            notes: { type: "string" },
+                          },
+                          required: ["type"],
+                        },
+                      },
+                    },
                   },
                   voirie_documents: {
                     type: "array",
