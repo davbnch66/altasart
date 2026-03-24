@@ -301,6 +301,10 @@ const StoragePage = () => {
       return days >= 0 && days <= 30;
     }).length,
     revenuMensuel: units.filter((u: any) => (u.status === "occupe" || u.status === "impaye") && u.monthly_rate).reduce((s: number, u: any) => s + Number(u.monthly_rate), 0),
+    tauxOccupation: units.length > 0 ? Math.round(((units.filter((u: any) => u.status !== "libre").length) / units.length) * 100) : 0,
+    volumeTotal: units.reduce((s: number, u: any) => s + (Number(u.volume_m3) || 0), 0),
+    volumeOccupe: units.filter((u: any) => u.status !== "libre").reduce((s: number, u: any) => s + (Number(u.volume_m3) || 0), 0),
+    impayeTotal: units.filter((u: any) => u.status === "impaye" && u.monthly_rate).reduce((s: number, u: any) => s + Number(u.monthly_rate), 0),
   };
 
   return (
