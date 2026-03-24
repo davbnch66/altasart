@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList, Clock, ExternalLink, CalendarSync, Copy, Check, Construction, Sparkles } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus, Briefcase, Truck, User, Globe, ClipboardList, Clock, ExternalLink, CalendarSync, Copy, Check, Construction, Sparkles, UserMinus } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useState, useMemo, useEffect, useCallback, DragEvent } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -16,6 +16,7 @@ import { PlanningEventDialog } from "@/components/planning/PlanningEventDialog";
 import { PlanningOperationDialog } from "@/components/planning/PlanningOperationDialog";
 import { PlanningMissionPanel } from "@/components/planning/PlanningMissionPanel";
 import { PlanningAIAssistant, type AISuggestion } from "@/components/planning/PlanningAIAssistant";
+import { AbsenceDialog } from "@/components/planning/AbsenceDialog";
 import { toast } from "sonner";
 import {
   format,
@@ -137,6 +138,7 @@ const Planning = () => {
   const [missionPanelOpen, setMissionPanelOpen] = useState(false);
   const [missionDefaultDate, setMissionDefaultDate] = useState<Date | undefined>();
   const [missionDefaultResource, setMissionDefaultResource] = useState<string | undefined>();
+  const [absenceDialogOpen, setAbsenceDialogOpen] = useState(false);
   const [editingVisite, setEditingVisite] = useState<any>(null);
   const [visiteDate, setVisiteDate] = useState("");
   const [aiPlannerOpen, setAiPlannerOpen] = useState(false);
@@ -1477,6 +1479,10 @@ const Planning = () => {
           <Button variant="outline" size="sm" onClick={() => openCreate()} className="text-xs gap-1">
             <Plus className="h-3 w-3" /> Événement
           </Button>
+          {/* Bouton Absence */}
+          <Button variant="outline" size="sm" onClick={() => setAbsenceDialogOpen(true)} className="text-xs gap-1">
+            <UserMinus className="h-3 w-3" /> {isMobile ? "Absence" : "Déclarer absence"}
+          </Button>
           {/* Filtre entreprises */}
           <div className={`flex rounded-lg border bg-card p-0.5 gap-0.5 ${isMobile ? "hidden" : ""}`}>
             {companies.map((c) => (
@@ -1618,6 +1624,12 @@ const Planning = () => {
         open={aiPlannerOpen}
         onOpenChange={setAiPlannerOpen}
         onApply={handleAISuggestion}
+      />
+      <AbsenceDialog
+        open={absenceDialogOpen}
+        onOpenChange={setAbsenceDialogOpen}
+        resources={resources.map((r: any) => ({ id: r.id, name: r.name, type: r.type }))}
+        companyId={companyIds[0] || ""}
       />
     </div>
   );
