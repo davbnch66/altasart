@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect, Suspense } from "react";
 import { PdfCanvasViewer } from "@/components/visite/PdfCanvasViewer";
 import { ARPhotoOverlay } from "@/components/ar/ARPhotoOverlay";
+import { CraneLookup } from "@/components/ressources/CraneLookup";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
