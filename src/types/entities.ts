@@ -125,7 +125,61 @@ export interface DevisWithRelations {
   dossiers: JoinedDossier | null;
 }
 
-// ── Email recipient ──
+// ── Devis list item (from list queries) ──
+export interface DevisListItem {
+  id: string;
+  code: string | null;
+  objet: string;
+  amount: number;
+  status: string;
+  company_id: string;
+  client_id: string;
+  dossier_id: string | null;
+  visite_id: string | null;
+  created_at: string;
+  valid_until: string | null;
+  sent_at: string | null;
+  notes: string | null;
+  archived: boolean;
+  clients: { name: string } | null;
+  companies: { short_name: string; color: string } | null;
+}
+
+// ── Dossier list item (from list queries) ──
+export interface DossierListItem {
+  id: string;
+  code: string | null;
+  title: string;
+  stage: string;
+  amount: number | null;
+  cost: number | null;
+  company_id: string;
+  client_id: string;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string;
+  updated_at: string;
+  address: string | null;
+  clients: { name: string } | null;
+  companies: { short_name: string; color: string } | null;
+}
+
+// ── Storage unit (from list queries) ──
+export interface StorageUnitItem {
+  id: string;
+  name: string;
+  status: string;
+  location: string | null;
+  client_id: string | null;
+  clients: { name: string } | null;
+  monthly_rate: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  size_m2: number | null;
+  volume_m3: number | null;
+  notes: string | null;
+  company_id: string;
+}
 export interface EmailRecipient {
   email: string;
   name?: string;

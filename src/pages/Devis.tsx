@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import type { DevisListItem } from "@/types/entities";
 import { Search, FileText, Pencil, Trash2, Download, ArrowUpDown, ArrowUp, ArrowDown, X, ChevronRight, Euro, Plus, Loader2, Send, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -83,8 +84,8 @@ const Devis = () => {
   const [companyFilter, setCompanyFilter] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [editingDevis, setEditingDevis] = useState<any>(null);
-  const [deletingDevis, setDeletingDevis] = useState<any>(null);
+  const [editingDevis, setEditingDevis] = useState<DevisListItem | null>(null);
+  const [deletingDevis, setDeletingDevis] = useState<DevisListItem | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {

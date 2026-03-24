@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 import {
   HardHat, CalendarDays, ClipboardCheck, CheckCircle2, Circle,
   MapPin, Clock, ChevronRight, Phone, FileText, Send, Eye,
-  Package, AlertTriangle, Check, ChevronLeft, Pen, Truck, Loader2, RotateCcw, Camera
+  Package, AlertTriangle, Check, ChevronLeft, Pen, Truck, Loader2, RotateCcw, Camera, WifiOff, RefreshCw
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,8 @@ import { Receipt } from "lucide-react";
 import { PlanningOperationDialog } from "@/components/planning/PlanningOperationDialog";
 import { ARPhotoOverlay } from "@/components/ar/ARPhotoOverlay";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { cacheOperations, getCachedOperations, syncPendingData, getPendingUpdates, getPendingPhotos } from "@/lib/offlineTerrainDB";
 
 const todayStr = () => {
   const d = new Date();
@@ -65,6 +67,9 @@ export default function TerrainPage() {
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [signatureTarget, setSignatureTarget] = useState<SignatureTarget>(null);
   const [activeTerrainTab, setActiveTerrainTab] = useState("bt");
+  const isOnline = useOnlineStatus();
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const userId = user?.id;
 
@@ -156,6 +161,38 @@ export default function TerrainPage() {
     },
     enabled: companyIds.length > 0 && !!userId,
   });
+
+  // Cache BTs for offline and check pending sync count
+  useEffect(() => {
+    if (bts.length > 0 && isOnline) {
+      cacheOperations(bts).catch(() => {});
+    }
+  }, [bts, isOnline]);
+
+  useEffect(() => {
+    Promise.all([getPendingUpdates(), getPendingPhotos()]).then(([u, p]) => {
+      setPendingSyncCount(u.length + p.length);
+    });
+  }, [bts]);
+
+  const handleOfflineSync = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      const result = await syncPendingData(supabase);
+      if (result.updates + result.photos > 0) {
+        toast.success(`${result.updates} mise(s) à jour + ${result.photos} photo(s) synchronisée(s)`);
+      }
+      if (result.errors.length > 0) {
+        toast.error(`${result.errors.length} erreur(s) de sync`);
+      }
+      setPendingSyncCount(0);
+      queryClient.invalidateQueries({ queryKey: ["terrain-bts"] });
+    } catch {
+      toast.error("Erreur de synchronisation");
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [queryClient]);
 
   const { data: recentExpenses = [] } = useQuery({
     queryKey: ["terrain-vehicle-expenses", myResource?.id],
@@ -460,6 +497,25 @@ export default function TerrainPage() {
       {permission === "granted" && subscribed && (
         <div className="rounded-xl border border-success/20 bg-success/5 px-4 py-3 text-sm text-success flex items-center gap-2">
           <Bell className="h-4 w-4" /> Notifications activées ✓
+        </div>
+      )}
+
+      {/* Offline banner */}
+      {!isOnline && (
+        <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 flex items-center gap-3 text-sm text-warning">
+          <WifiOff className="h-4 w-4 shrink-0" />
+          <span className="flex-1">Mode hors-ligne — les données en cache sont affichées</span>
+        </div>
+      )}
+
+      {/* Pending sync banner */}
+      {isOnline && pendingSyncCount > 0 && (
+        <div className="rounded-xl border border-info/30 bg-info/10 px-4 py-3 flex items-center justify-between gap-3">
+          <span className="text-sm text-info">{pendingSyncCount} modification(s) en attente de sync</span>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs border-info text-info" onClick={handleOfflineSync} disabled={isSyncing}>
+            <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+            Synchroniser
+          </Button>
         </div>
       )}
 
