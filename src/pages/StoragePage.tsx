@@ -420,14 +420,16 @@ const StoragePage = () => {
       </motion.div>
 
       {/* Stats */}
-      <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-6"}`}>
+      <div className={`grid gap-3 ${isMobile ? "grid-cols-2" : "grid-cols-4 lg:grid-cols-8"}`}>
         {[
           { label: "Total boxes", value: stats.total },
           { label: "Libres", value: stats.libre, sub: stats.total > 0 ? `${((stats.libre / stats.total) * 100).toFixed(0)}% dispo` : undefined },
           { label: "Occupés", value: stats.occupe, sub: stats.total > 0 ? `${((stats.occupe / stats.total) * 100).toFixed(0)}% occupation` : undefined },
           { label: "Réservés", value: stats.reserve },
-          { label: "Impayés", value: stats.impaye, sub: stats.impaye > 0 ? "⚠️ Action requise" : undefined, alert: stats.impaye > 0 },
-          { label: "Revenu mensuel", value: fmt(stats.revenuMensuel), sub: stats.expirant > 0 ? `${stats.expirant} contrat${stats.expirant > 1 ? "s" : ""} expire${stats.expirant > 1 ? "nt" : ""} bientôt` : undefined },
+          { label: "Impayés", value: stats.impaye, sub: stats.impaye > 0 ? `${fmt(stats.impayeTotal)} dûs` : undefined, alert: stats.impaye > 0 },
+          { label: "Taux occupation", value: `${stats.tauxOccupation}%`, sub: stats.tauxOccupation > 90 ? "⚠️ Quasi plein" : undefined, alert: stats.tauxOccupation > 90 },
+          { label: "Volume occupé", value: `${stats.volumeOccupe}/${stats.volumeTotal} m³` },
+          { label: "Revenu mensuel", value: fmt(stats.revenuMensuel), sub: stats.expirant > 0 ? `${stats.expirant} expire${stats.expirant > 1 ? "nt" : ""} bientôt` : undefined },
         ].map((s) => (
           <div key={s.label} className={`rounded-xl border bg-card ${isMobile ? "p-3" : "p-4"} ${(s as any).alert ? "border-destructive/50 bg-destructive/5" : ""}`}>
             <p className="text-[11px] text-muted-foreground">{s.label}</p>
