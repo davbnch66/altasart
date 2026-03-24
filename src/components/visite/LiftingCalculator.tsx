@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+
 import { Wrench, CheckCircle2, AlertTriangle, XCircle, Gauge } from "lucide-react";
 
 interface LiftingCalculatorProps {

@@ -221,11 +221,6 @@ export const VisiteSmartAlerts = ({ visiteId, companyId }: Props) => {
     info: "text-info",
   };
 
-  const typeBadge = {
-    warning: "destructive" as const,
-    suggestion: "outline" as const,
-    info: "secondary" as const,
-  };
 
   const typeLabel = {
     warning: "Alerte",
