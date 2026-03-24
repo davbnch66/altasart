@@ -210,8 +210,7 @@ Retourne un JSON avec ces champs (null si inconnu) :
 
     // === ACTION: EXTRACT_FROM_CONTENT — Extract specs from scraped markdown ===
     if (action === "extract_from_content") {
-      const { content: rawContent } = await req.json().catch(() => ({}));
-      const contentText = rawContent ?? (await req.text());
+      const contentText = bodyContent || "";
       
       if (!brand || !model) {
         return new Response(JSON.stringify({ error: "brand et model requis" }), {
