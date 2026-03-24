@@ -56,8 +56,8 @@ const Dossiers = () => {
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("updated_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [editingDossier, setEditingDossier] = useState<any>(null);
-  const [deletingDossier, setDeletingDossier] = useState<any>(null);
+  const [editingDossier, setEditingDossier] = useState<DossierListItem | null>(null);
+  const [deletingDossier, setDeletingDossier] = useState<DossierListItem | null>(null);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");

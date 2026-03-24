@@ -84,8 +84,8 @@ const Devis = () => {
   const [companyFilter, setCompanyFilter] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [editingDevis, setEditingDevis] = useState<any>(null);
-  const [deletingDevis, setDeletingDevis] = useState<any>(null);
+  const [editingDevis, setEditingDevis] = useState<DevisListItem | null>(null);
+  const [deletingDevis, setDeletingDevis] = useState<DevisListItem | null>(null);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
