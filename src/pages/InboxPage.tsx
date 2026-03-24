@@ -1690,6 +1690,26 @@ const InboxPage = () => {
                     {/* Actions rapides au hover */}
                     {!selectionMode && !isMobile && isInboxLikeFolder && (
                       <div className="flex items-center gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity shrink-0" onClick={(e) => e.stopPropagation()}>
+                        {/* Flag dropdown */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Drapeau">
+                              <Flag className={`h-3.5 w-3.5 ${emailFlags.length > 0 ? "text-primary" : "text-muted-foreground"}`} />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="min-w-[160px]">
+                            {FLAG_COLORS.map((flag) => {
+                              const active = emailFlags.includes(flag.key);
+                              return (
+                                <DropdownMenuItem key={flag.key} onClick={(e) => { e.stopPropagation(); toggleFlag(email.id, flag.key); }} className="gap-2">
+                                  <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: flag.color }} />
+                                  <span className="flex-1">{flag.label}</span>
+                                  {active && <CheckCircle2 className="h-3 w-3 text-primary" />}
+                                </DropdownMenuItem>
+                              );
+                            })}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         <button onClick={e => { e.stopPropagation(); handleQuickRowAction(email.id, "archive"); }}
                           className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Archiver">
                           <Archive className="h-3.5 w-3.5 text-muted-foreground" />
