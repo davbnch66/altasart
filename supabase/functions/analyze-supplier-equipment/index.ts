@@ -47,21 +47,20 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = `Tu es un expert en équipements de levage et manutention. Tu dois extraire les caractéristiques techniques d'un équipement à partir de son nom et des informations web fournies.
+    const systemPrompt = `Tu es un expert en location d'équipements de levage et manutention en Île-de-France. Tu dois extraire les caractéristiques techniques ET les tarifs de location d'un équipement.
 
-Réponds UNIQUEMENT avec un objet JSON valide contenant ces champs (null si inconnu):
-{
-  "capacity_tons": number|null,
-  "reach_meters": number|null,
-  "height_meters": number|null,
-  "daily_rate": number|null,
-  "weekly_rate": number|null,
-  "monthly_rate": number|null,
-  "description": string|null
-}
+IMPORTANT pour les tarifs :
+- Base-toi sur les tarifs moyens constatés en Île-de-France pour la location de ce type d'équipement.
+- Pour les grues araignées (type Unic, Maeda, Jekko) : tarif jour entre 800€ et 2500€ selon la capacité.
+- Pour les grues à montage automatisé (type Potain, Liebherr) : tarif jour entre 500€ et 1500€.
+- Pour les grues sur chenilles ou automotrices (type Klaas, Liebherr LTM) : tarif jour entre 600€ et 3000€.
+- Pour les nacelles : tarif jour entre 150€ et 600€.
+- Pour les camions-grue : tarif jour entre 400€ et 1200€.
+- Tarif semaine ≈ tarif jour × 4 (remise ~20%).
+- Tarif mois ≈ tarif jour × 15 (remise ~25-30%).
+- Si tu trouves des tarifs plus précis dans les données web, utilise-les en priorité.
 
-Pour les tarifs, utilise des tarifs indicatifs du marché français de la location si disponibles.
-Pour la description, rédige un résumé technique en 2-3 phrases.`;
+Réponds UNIQUEMENT via l'outil extract_equipment_specs.`;
 
     const userPrompt = `Équipement: ${brand || "?"} ${model || "?"}
 Type: ${type}
