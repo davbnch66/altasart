@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import type { DossierListItem } from "@/types/entities";
 import { motion } from "framer-motion";
 import { Search, FolderOpen, Pencil, Trash2, Plus, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
