@@ -1625,6 +1625,12 @@ const Planning = () => {
         onOpenChange={setAiPlannerOpen}
         onApply={handleAISuggestion}
       />
+      <AbsenceDialog
+        open={absenceDialogOpen}
+        onOpenChange={setAbsenceDialogOpen}
+        resources={resources.map((r: any) => ({ id: r.id, name: r.name, type: r.type }))}
+        companyId={companyIds[0] || ""}
+      />
     </div>
   );
 };
