@@ -262,20 +262,37 @@ export default function Fournisseurs() {
 
       {/* Detail sheet */}
       <Sheet open={!!selected} onOpenChange={(o) => { if (!o) setSelected(null); }}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader><SheetTitle>Détails fournisseur</SheetTitle></SheetHeader>
-          <div className="mt-4 space-y-4">
-            <SupplierForm data={form} onChange={setForm} />
-            <div className="flex gap-2">
-              <Button className="flex-1" onClick={() => updateMutation.mutate(form)} disabled={updateMutation.isPending}>
-                {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
-                Enregistrer
-              </Button>
-              <Button variant="destructive" size="icon" onClick={() => { if (confirm("Supprimer ce fournisseur ?")) deleteMutation.mutate(selected.id); }}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          <SheetHeader><SheetTitle>{selected?.name || "Détails fournisseur"}</SheetTitle></SheetHeader>
+          <Tabs defaultValue="info" className="mt-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="info">Informations</TabsTrigger>
+              <TabsTrigger value="equipment" className="flex items-center gap-1">
+                <Package className="h-3.5 w-3.5" /> Matériel
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="info" className="space-y-4 mt-4">
+              <SupplierForm data={form} onChange={setForm} />
+              <div className="flex gap-2">
+                <Button className="flex-1" onClick={() => updateMutation.mutate(form)} disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+                  Enregistrer
+                </Button>
+                <Button variant="destructive" size="icon" onClick={() => { if (confirm("Supprimer ce fournisseur ?")) deleteMutation.mutate(selected.id); }}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </TabsContent>
+            <TabsContent value="equipment" className="mt-4">
+              {selected && (
+                <SupplierEquipmentTab
+                  supplierId={selected.id}
+                  companyId={selected.company_id}
+                  supplierName={selected.name}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
         </SheetContent>
       </Sheet>
     </div>
