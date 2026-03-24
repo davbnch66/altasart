@@ -21,6 +21,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
 import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
 import { GenericPdfPreviewDialog } from "@/components/shared/GenericPdfPreviewDialog";
+import { FactureRelancesSection } from "@/components/finance/FactureRelancesSection";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(n);
@@ -315,6 +316,18 @@ const FactureDetail = () => {
           <div className={`text-center text-sm text-muted-foreground ${isMobile ? "px-3 py-6" : "px-5 py-8"}`}>Aucun règlement enregistré</div>
         )}
       </div>
+
+      {/* Relances */}
+      {(facture.status === "en_retard" || (facture.status === "envoyee" && facture.due_date && new Date(facture.due_date) < new Date())) && (
+        <FactureRelancesSection
+          factureId={facture.id}
+          factureCode={facture.code || ""}
+          clientEmail={client?.email}
+          clientName={client?.name}
+          montantDu={solde}
+          companyId={facture.company_id}
+        />
+      )}
 
       {/* Dialogs */}
       {editOpen && <EditFactureDialog facture={facture} open={editOpen} onOpenChange={setEditOpen} />}

@@ -232,6 +232,64 @@ export const PlanningOperationDialog = ({ open, onOpenChange, operationId }: Pro
   const { dbCompanies } = useCompany();
   const companyIds = dbCompanies.map(c => c.id);
 
+  // Suppliers queries
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers-active", operation?.company_id],
+    queryFn: async () => {
+      if (!operation?.company_id) return [];
+      const { data } = await supabase
+        .from("suppliers")
+        .select("id, name, category, daily_rate, hourly_rate")
+        .eq("company_id", operation.company_id)
+        .eq("status", "actif");
+      return data || [];
+    },
+    enabled: !!operation?.company_id && open,
+  });
+
+  const { data: assignedSuppliers = [] } = useQuery({
+    queryKey: ["operation-suppliers", operationId],
+    queryFn: async () => {
+      if (!operationId) return [];
+      const { data } = await supabase
+        .from("operation_suppliers")
+        .select("*, suppliers(name, category)")
+        .eq("operation_id", operationId);
+      return data || [];
+    },
+    enabled: !!operationId && open,
+  });
+
+  const assignSupplier = useMutation({
+    mutationFn: async (supplierId: string) => {
+      const { error } = await supabase.from("operation_suppliers").insert({
+        operation_id: operationId!,
+        supplier_id: supplierId,
+        company_id: operation!.company_id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["operation-suppliers", operationId] });
+      toast.success("Sous-traitant ajouté");
+    },
+    onError: () => toast.error("Erreur lors de l'ajout"),
+  });
+
+  const removeSupplier = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("operation_suppliers").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["operation-suppliers", operationId] });
+      toast.success("Sous-traitant retiré");
+    },
+  });
+
+  const assignedSupplierIds = assignedSuppliers.map((as: any) => as.supplier_id);
+  const unassignedSuppliers = suppliers.filter((s: any) => !assignedSupplierIds.includes(s.id));
+
   const handleDeleteOp = async () => {
     if (!operationId) return;
     if (!confirmDel) { setConfirmDel(true); return; }
@@ -416,8 +474,43 @@ export const PlanningOperationDialog = ({ open, onOpenChange, operationId }: Pro
             <div>
               <Label className="text-[10px] text-muted-foreground font-medium">Commentaires</Label>
               <Textarea value={form.notes} onChange={(e) => up("notes", e.target.value)} placeholder="Notes internes…" className="min-h-[60px] text-xs mt-1 resize-none" />
-            </div>
           </div>
+
+          {/* Sous-traitants */}
+          <div className="rounded-lg border bg-card p-3 space-y-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-primary">Sous-traitants</h4>
+            {assignedSuppliers.length > 0 && (
+              <div className="space-y-1">
+                {assignedSuppliers.map((as: any) => (
+                  <div key={as.id} className="flex items-center justify-between rounded bg-muted/50 px-2 py-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-medium truncate">{as.suppliers?.name || "—"}</span>
+                      {as.suppliers?.category && (
+                        <span className="text-[10px] text-muted-foreground shrink-0">{as.suppliers.category}</span>
+                      )}
+                    </div>
+                    <button onClick={() => removeSupplier.mutate(as.id)} className="text-muted-foreground hover:text-destructive shrink-0">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {unassignedSuppliers.length > 0 && (
+              <div className="flex flex-wrap gap-1 pt-1">
+                {unassignedSuppliers.map((s: any) => (
+                  <button key={s.id} onClick={() => assignSupplier.mutate(s.id)}
+                    className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+                    + {s.name} {s.daily_rate ? `(${s.daily_rate}€/j)` : ""}
+                  </button>
+                ))}
+              </div>
+            )}
+            {assignedSuppliers.length === 0 && unassignedSuppliers.length === 0 && (
+              <p className="text-[10px] text-muted-foreground">Aucun sous-traitant actif</p>
+            )}
+          </div>
+        </div>
 
           {/* Resources */}
           <div className={`grid gap-3 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
