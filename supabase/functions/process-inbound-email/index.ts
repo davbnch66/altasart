@@ -1123,6 +1123,34 @@ Si un arrêté est détecté, extrais la date (champ arrete_date, format YYYY-MM
       }
     }
 
+    // ── Supplier offer detection ──
+    if (types.includes("offre_fournisseur") && analysis.supplier_offer) {
+      const offer = analysis.supplier_offer;
+      const pdfAttachmentsForSupplier = (Array.isArray(attachments) ? attachments : [])
+        .filter((a: any) => {
+          const name = (a.filename || a.name || "").toLowerCase();
+          return name.endsWith(".pdf") || name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".xls") || name.endsWith(".xlsx");
+        }).slice(0, 10);
+
+      actions.push({
+        inbound_email_id: emailId,
+        company_id: companyId,
+        action_type: "enrich_supplier",
+        payload: {
+          supplier_name: offer.supplier_name || safeFromName || "",
+          contact_name: offer.contact_name || "",
+          contact_email: offer.contact_email || safeFromEmail || "",
+          contact_phone: offer.contact_phone || "",
+          equipment_list: offer.equipment_list || [],
+          attachments: pdfAttachmentsForSupplier.map((a: any) => ({
+            filename: a.filename || a.name,
+            content_type: a.content_type || a.type || "application/pdf",
+            url: a.url || null,
+          })),
+        },
+      });
+    }
+
     if (actions.length > 0) {
       await supabase.from("email_actions").insert(actions);
     }
