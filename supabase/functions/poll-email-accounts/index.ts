@@ -373,14 +373,20 @@ serve(async (req) => {
           || req.headers.get("X-Supabase-Source") === "pg_cron");
 
     if (!isServiceRole && !isBridgeAuth && !isCronCall) {
-      // Also allow authenticated users
+      // Also allow authenticated users via JWT claims
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const supabaseAuth = createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_ANON_KEY")!,
-        { global: { headers: { Authorization: authHeader || "" } } }
+        { global: { headers: { Authorization: authHeader } } }
       );
-      const { data: { user } } = await supabaseAuth.auth.getUser();
-      if (!user) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data, error: claimsErr } = await supabaseAuth.auth.getClaims(token);
+      if (claimsErr || !data?.claims?.sub) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
