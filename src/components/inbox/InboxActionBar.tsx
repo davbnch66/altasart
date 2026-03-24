@@ -40,6 +40,7 @@ const actionConfig: Record<string, { label: string; icon: React.ElementType; col
   attach_voirie_plan: { label: "Plan voirie", icon: MapPin, color: "text-blue-600", successMsg: "Plan voirie intégré à la démarche" },
   attach_pv_roc: { label: "PV de ROC", icon: FileCheck, color: "text-amber-600", successMsg: "PV de ROC intégré à la démarche" },
   attach_arrete: { label: "Arrêté municipal", icon: ShieldCheck, color: "text-green-600", successMsg: "Arrêté intégré — Programmez l'intervention au planning" },
+  enrich_supplier: { label: "Enrichir fournisseur", icon: Building2, color: "text-violet-600", successMsg: "Fournisseur et matériel enrichis" },
 };
 
 export const InboxActionBar = ({ actions, onActionExecuted, clientEmail, clientName, emailSubject }: InboxActionBarProps) => {
