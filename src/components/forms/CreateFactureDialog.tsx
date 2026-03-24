@@ -198,9 +198,11 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
 
   const watchAmount = Number(watch("amount")) || 0;
   const watchTva = Number(watch("tva_rate")) || 20;
+  const watchDiscount = Number(watch("discount_percent")) || 0;
   const montantHT = watchAmount;
-  const montantTVA = montantHT * (watchTva / 100);
-  const montantTTC = montantHT + montantTVA;
+  const montantHTAfterDiscount = montantHT * (1 - watchDiscount / 100);
+  const montantTVA = montantHTAfterDiscount * (watchTva / 100);
+  const montantTTC = montantHTAfterDiscount + montantTVA;
 
   const selectedClient = clients.find((c) => c.id === watch("client_id"));
   const selectedDossier = dossiers.find((d) => d.id === watch("dossier_id"));
