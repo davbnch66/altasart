@@ -67,6 +67,9 @@ export default function TerrainPage() {
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [signatureTarget, setSignatureTarget] = useState<SignatureTarget>(null);
   const [activeTerrainTab, setActiveTerrainTab] = useState("bt");
+  const isOnline = useOnlineStatus();
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const userId = user?.id;
 
