@@ -247,7 +247,7 @@ export default function Fournisseurs() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Nouveau fournisseur</DialogTitle></DialogHeader>
-          <SupplierForm data={form} onChange={setForm} isCreate />
+          <SupplierForm data={form} onChange={setForm} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Annuler</Button>
             <Button onClick={handleCreate} disabled={createMutation.isPending}>
