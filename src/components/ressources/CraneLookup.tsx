@@ -254,6 +254,39 @@ export function CraneLookup({
 
       toast.success("Fiche technique officielle sauvegardée ! 📄");
       onDocumentSaved?.();
+
+      // Now extract specs from the content using AI and auto-fill resource fields
+      try {
+        toast.info("Extraction IA des caractéristiques en cours...");
+        const { data: extractData, error: extractError } = await supabase.functions.invoke("fetch-crane-specs", {
+          body: { action: "extract_from_content", brand: selectedBrand, model: selectedModel, content },
+        });
+        if (!extractError && extractData?.success && extractData?.data) {
+          const specs = extractData.data;
+          const equipmentData: Record<string, any> = {
+            brand: specs.brand ?? selectedBrand,
+            model: specs.model ?? selectedModel,
+            capacity_tons: specs.capacity_tons ?? specs.max_capacity_tons ?? null,
+            reach_meters: specs.max_reach_meters ?? specs.reach_meters ?? null,
+            height_meters: specs.max_height_meters ?? specs.height_meters ?? null,
+            weight_tons: specs.weight_tons ?? null,
+          };
+          const notesParts: string[] = [];
+          if (specs.category) notesParts.push(`Catégorie: ${specs.category}`);
+          if (specs.number_of_axles) notesParts.push(`Essieux: ${specs.number_of_axles}`);
+          if (specs.engine_power_kw) notesParts.push(`Moteur: ${specs.engine_power_kw} kW`);
+          if (specs.boom_length_max_m) notesParts.push(`Flèche max: ${specs.boom_length_max_m} m`);
+          if (specs.counterweight_tons) notesParts.push(`Contrepoids: ${specs.counterweight_tons} T`);
+          if (specs.load_chart_summary) notesParts.push(`\nCourbe de charge: ${specs.load_chart_summary}`);
+          if (specs.notes) notesParts.push(`\n${specs.notes}`);
+          if (notesParts.length > 0) equipmentData.notes = notesParts.join("\n");
+          
+          onSpecsFetched(equipmentData);
+          toast.success("Caractéristiques extraites et remplies automatiquement ! ✨", { duration: 5000 });
+        }
+      } catch (extractErr) {
+        console.warn("AI extraction failed (document saved anyway):", extractErr);
+      }
     } catch (e: any) {
       console.error("Scrape/save error:", e);
       toast.error("Erreur : " + (e.message || "impossible de sauvegarder"));
