@@ -141,6 +141,8 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
         code: data.code || null,
         amount: data.amount,
         tva_rate: data.tva_rate,
+        discount_percent: data.discount_percent || 0,
+        payment_terms: data.payment_terms || null,
         paid_amount: data.paid_amount,
         notes: data.notes || null,
         due_date: data.due_date || null,
