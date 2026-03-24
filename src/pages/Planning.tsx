@@ -1479,6 +1479,10 @@ const Planning = () => {
           <Button variant="outline" size="sm" onClick={() => openCreate()} className="text-xs gap-1">
             <Plus className="h-3 w-3" /> Événement
           </Button>
+          {/* Bouton Absence */}
+          <Button variant="outline" size="sm" onClick={() => setAbsenceDialogOpen(true)} className="text-xs gap-1">
+            <UserMinus className="h-3 w-3" /> {isMobile ? "Absence" : "Déclarer absence"}
+          </Button>
           {/* Filtre entreprises */}
           <div className={`flex rounded-lg border bg-card p-0.5 gap-0.5 ${isMobile ? "hidden" : ""}`}>
             {companies.map((c) => (
