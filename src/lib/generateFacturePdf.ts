@@ -306,7 +306,7 @@ export async function generateFacturePdf(factureId: string, returnPreview = fals
   doc.text("Total HT", totalsX + 4, y + 5);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
-  doc.text(`${fmtEur(amount)} EUR`, colR - 4, y + 5, { align: "right" });
+  doc.text(`${fmtEur(amountAfterDiscount)} EUR`, colR - 4, y + 5, { align: "right" });
   y += 8;
 
   // TVA
