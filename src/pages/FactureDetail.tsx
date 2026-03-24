@@ -317,6 +317,18 @@ const FactureDetail = () => {
         )}
       </div>
 
+      {/* Relances */}
+      {(facture.status === "en_retard" || (facture.status === "envoyee" && facture.due_date && new Date(facture.due_date) < new Date())) && (
+        <FactureRelancesSection
+          factureId={facture.id}
+          factureCode={facture.code || ""}
+          clientEmail={client?.email}
+          clientName={client?.name}
+          montantDu={solde}
+          companyId={facture.company_id}
+        />
+      )}
+
       {/* Dialogs */}
       {editOpen && <EditFactureDialog facture={facture} open={editOpen} onOpenChange={setEditOpen} />}
       {editReglement && <EditReglementDialog reglement={editReglement} open={!!editReglement} onOpenChange={(o) => !o && setEditReglement(null)} />}
