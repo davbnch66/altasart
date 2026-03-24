@@ -27,6 +27,8 @@ const schema = z.object({
   code: z.string().trim().max(20).optional(),
   amount: z.coerce.number().min(0, "Le montant doit être positif"),
   tva_rate: z.coerce.number().min(0).max(100),
+  discount_percent: z.coerce.number().min(0).max(100).optional(),
+  payment_terms: z.string().optional(),
   paid_amount: z.coerce.number().min(0),
   notes: z.string().trim().max(5000).optional(),
   due_date: z.string().optional(),
@@ -89,6 +91,8 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
         code: facture.code || "",
         amount: facture.amount || 0,
         tva_rate: facture.tva_rate ?? 20,
+        discount_percent: (facture as any).discount_percent || 0,
+        payment_terms: (facture as any).payment_terms || "",
         paid_amount: facture.paid_amount || 0,
         notes: facture.notes || "",
         due_date: facture.due_date || "",
@@ -99,10 +103,12 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
 
   const watchAmount = Number(watch("amount")) || 0;
   const watchTva = Number(watch("tva_rate")) || 20;
+  const watchDiscount = Number(watch("discount_percent")) || 0;
   const watchPaid = Number(watch("paid_amount")) || 0;
   const montantHT = watchAmount;
-  const montantTVA = montantHT * (watchTva / 100);
-  const montantTTC = montantHT + montantTVA;
+  const montantHTAfterDiscount = montantHT * (1 - watchDiscount / 100);
+  const montantTVA = montantHTAfterDiscount * (watchTva / 100);
+  const montantTTC = montantHTAfterDiscount + montantTVA;
   const resteDu = Math.max(0, montantTTC - watchPaid);
 
   const generateAiNotes = async () => {
@@ -135,6 +141,8 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
         code: data.code || null,
         amount: data.amount,
         tva_rate: data.tva_rate,
+        discount_percent: data.discount_percent || 0,
+        payment_terms: data.payment_terms || null,
         paid_amount: data.paid_amount,
         notes: data.notes || null,
         due_date: data.due_date || null,
@@ -250,12 +258,39 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
                 </div>
               </div>
 
+              <div className={`grid gap-4 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
+                <div>
+                  <Label htmlFor="edit-fac-discount">Remise (%)</Label>
+                  <Input id="edit-fac-discount" type="number" step="0.1" min="0" max="100" {...register("discount_percent")} />
+                </div>
+                <div>
+                  <Label>Conditions de paiement</Label>
+                  <Select value={watch("payment_terms") || ""} onValueChange={(v) => setValue("payment_terms", v)}>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30 jours">30 jours</SelectItem>
+                      <SelectItem value="30 jours fin de mois">30 jours fin de mois</SelectItem>
+                      <SelectItem value="45 jours">45 jours</SelectItem>
+                      <SelectItem value="60 jours">60 jours</SelectItem>
+                      <SelectItem value="Comptant">Comptant</SelectItem>
+                      <SelectItem value="À réception">À réception</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               {/* Financial summary */}
               <div className="rounded-lg border bg-card p-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total HT</span>
                   <span className="font-medium">{fmtEur(montantHT)}</span>
                 </div>
+                {watchDiscount > 0 && (
+                  <div className="flex justify-between text-sm text-destructive">
+                    <span>Remise ({watchDiscount}%)</span>
+                    <span>-{fmtEur(montantHT * watchDiscount / 100)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">TVA ({watchTva}%)</span>
                   <span>{fmtEur(montantTVA)}</span>

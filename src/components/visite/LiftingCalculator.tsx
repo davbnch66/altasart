@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+
 import { Wrench, CheckCircle2, AlertTriangle, XCircle, Gauge } from "lucide-react";
 
 interface LiftingCalculatorProps {
@@ -228,9 +228,9 @@ export function LiftingCalculator({
                     <div className="flex items-center gap-1.5 shrink-0">
                       <Icon className={`h-3.5 w-3.5 ${getLoadColor(crane.loadRate)}`} />
                       <span className={`font-bold ${getLoadColor(crane.loadRate)}`}>{crane.loadRate}%</span>
-                      <Badge variant="outline" className={`text-[9px] ${crane.status === "disponible" ? "text-success" : "text-warning"}`}>
+                      <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[9px] font-semibold ${crane.status === "disponible" ? "text-success" : "text-warning"}`}>
                         {crane.status === "disponible" ? "Dispo" : crane.status}
-                      </Badge>
+                      </span>
                     </div>
                   </div>
                 );

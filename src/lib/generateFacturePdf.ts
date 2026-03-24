@@ -138,11 +138,15 @@ export async function generateFacturePdf(factureId: string, returnPreview = fals
   const client = facture.clients as any;
   const company = facture.companies as any;
   const amount = Number(facture.amount);
+  const discountPercent = Number((facture as any).discount_percent) || 0;
+  const discountAmount = amount * discountPercent / 100;
+  const amountAfterDiscount = amount - discountAmount;
   const paidAmount = Number(facture.paid_amount);
   const tvaRate = Number(facture.tva_rate) || 20;
-  const tvaAmount = amount * tvaRate / 100;
-  const totalTTC = amount + tvaAmount;
+  const tvaAmount = amountAfterDiscount * tvaRate / 100;
+  const totalTTC = amountAfterDiscount + tvaAmount;
   const resteDu = totalTTC - paidAmount;
+  const paymentTermsFac = (facture as any).payment_terms as string | null;
 
   const doc = new jsPDF("p", "mm", "a4");
   const pageW = 210;
@@ -268,12 +272,25 @@ export async function generateFacturePdf(factureId: string, returnPreview = fals
   doc.text("2", colCode, y + 5);
   doc.text(`${tvaRate.toFixed(2)} %`, colTaux, y + 5);
   doc.text(`${fmtEur(tvaAmount)} EUR`, colMontantTVA, y + 5, { align: "right" });
+  y += 7;
+
+  // Discount row
+  if (discountPercent > 0) {
+    doc.setFillColor(255, 245, 245);
+    doc.rect(marginL, y, contentW, 7, "F");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(180, 40, 40);
+    doc.text(`Remise ${discountPercent}%`, colMontantHT, y + 5);
+    doc.text(`-${fmtEur(discountAmount)} EUR`, colMontantTVA, y + 5, { align: "right" });
+    y += 7;
+  }
 
   // Bottom line
   doc.setDrawColor(230, 230, 230);
   doc.setLineWidth(0.2);
-  doc.line(marginL, y + 7, colR, y + 7);
-  y += 9;
+  doc.line(marginL, y, colR, y);
+  y += 2;
 
   // ===================== TOTALS =====================
   y += 4;
@@ -289,7 +306,7 @@ export async function generateFacturePdf(factureId: string, returnPreview = fals
   doc.text("Total HT", totalsX + 4, y + 5);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
-  doc.text(`${fmtEur(amount)} EUR`, colR - 4, y + 5, { align: "right" });
+  doc.text(`${fmtEur(amountAfterDiscount)} EUR`, colR - 4, y + 5, { align: "right" });
   y += 8;
 
   // TVA
@@ -317,8 +334,8 @@ export async function generateFacturePdf(factureId: string, returnPreview = fals
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(0, 0, 0);
-  const paymentTerms = client?.payment_terms || "30 JOURS DATE DE FACTURE";
-  doc.text(`Conditions de paiement : ${paymentTerms.toUpperCase()}`, marginL, y);
+  const paymentTermsDisplay = paymentTermsFac || client?.payment_terms || "30 JOURS DATE DE FACTURE";
+  doc.text(`Conditions de paiement : ${paymentTermsDisplay.toUpperCase()}`, marginL, y);
   y += 5;
 
   if (facture.due_date) {
