@@ -365,6 +365,16 @@ export const InboxActionBar = ({ actions, onActionExecuted, clientEmail, clientN
                       📎 {(action.payload?.attachments || []).length} pièce(s) jointe(s) à intégrer
                     </p>
                   )}
+                  {action.action_type === "enrich_supplier" && (
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-violet-600 truncate">🏢 {action.payload?.supplier_name}</p>
+                      {action.payload?.equipment_list?.length > 0 && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          📦 {action.payload.equipment_list.length} matériel(s) : {action.payload.equipment_list.map((e: any) => `${e.brand || ""} ${e.model || e.type}`).join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-1.5 shrink-0">
                   <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleReject(action.id)} disabled={!!loadingActionId}>
