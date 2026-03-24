@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Warehouse, X, Loader2, ExternalLink, Trash2, Eye } from "lucide-react";
+import { Warehouse, X, Plus, Loader2, ExternalLink, Trash2, Eye } from "lucide-react";
 import { generateBTReportPdf } from "@/lib/generateBTReportPdf";
 import { BTReportPreviewDialog } from "@/components/terrain/BTReportPreviewDialog";
 import { useCompany } from "@/contexts/CompanyContext";
