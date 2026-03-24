@@ -505,12 +505,39 @@ export const CreateFactureDialog = ({ preselectedClientId, preselectedCompanyId,
                 </div>
               </div>
 
+              <div className={`grid gap-4 ${isMobile ? "grid-cols-1" : "grid-cols-2"}`}>
+                <div>
+                  <Label htmlFor="fac-discount">Remise (%)</Label>
+                  <Input id="fac-discount" type="number" step="0.1" min="0" max="100" {...register("discount_percent")} />
+                </div>
+                <div>
+                  <Label>Conditions de paiement</Label>
+                  <Select value={watch("payment_terms") || ""} onValueChange={(v) => setValue("payment_terms", v)}>
+                    <SelectTrigger><SelectValue placeholder="Sélectionner" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="30 jours">30 jours</SelectItem>
+                      <SelectItem value="30 jours fin de mois">30 jours fin de mois</SelectItem>
+                      <SelectItem value="45 jours">45 jours</SelectItem>
+                      <SelectItem value="60 jours">60 jours</SelectItem>
+                      <SelectItem value="Comptant">Comptant</SelectItem>
+                      <SelectItem value="À réception">À réception</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               {/* Financial summary */}
               <div className="rounded-lg border bg-card p-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total HT</span>
                   <span className="font-medium">{fmt(montantHT)}</span>
                 </div>
+                {watchDiscount > 0 && (
+                  <div className="flex justify-between text-sm text-destructive">
+                    <span>Remise ({watchDiscount}%)</span>
+                    <span>-{fmt(montantHT * watchDiscount / 100)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">TVA ({watchTva}%)</span>
                   <span>{fmt(montantTVA)}</span>
