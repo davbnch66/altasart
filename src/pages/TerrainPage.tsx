@@ -500,6 +500,25 @@ export default function TerrainPage() {
         </div>
       )}
 
+      {/* Offline banner */}
+      {!isOnline && (
+        <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 flex items-center gap-3 text-sm text-warning">
+          <WifiOff className="h-4 w-4 shrink-0" />
+          <span className="flex-1">Mode hors-ligne — les données en cache sont affichées</span>
+        </div>
+      )}
+
+      {/* Pending sync banner */}
+      {isOnline && pendingSyncCount > 0 && (
+        <div className="rounded-xl border border-info/30 bg-info/10 px-4 py-3 flex items-center justify-between gap-3">
+          <span className="text-sm text-info">{pendingSyncCount} modification(s) en attente de sync</span>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs border-info text-info" onClick={handleOfflineSync} disabled={isSyncing}>
+            <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+            Synchroniser
+          </Button>
+        </div>
+      )}
+
       {/* Stats summary */}
       <div className={`grid gap-2 ${showVisites ? "grid-cols-3" : "grid-cols-2"}`}>
         <div className="rounded-xl bg-primary/10 border border-primary/20 p-3 text-center">
