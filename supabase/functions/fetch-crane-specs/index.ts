@@ -208,7 +208,88 @@ Retourne un JSON avec ces champs (null si inconnu) :
       });
     }
 
-    return new Response(JSON.stringify({ error: "Action invalide. Utilisez 'suggest' ou 'fetch_specs'." }), {
+    // === ACTION: EXTRACT_FROM_CONTENT — Extract specs from scraped markdown ===
+    if (action === "extract_from_content") {
+      const { content: rawContent } = await req.json().catch(() => ({}));
+      const contentText = rawContent ?? (await req.text());
+      
+      if (!brand || !model) {
+        return new Response(JSON.stringify({ error: "brand et model requis" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+      const extractPrompt = `Analyse ce contenu de fiche technique pour la grue ${brand} ${model} et extrais les données techniques.
+
+CONTENU :
+${(contentText || "").substring(0, 8000)}
+
+Retourne UNIQUEMENT un JSON valide avec ces champs (null si non trouvé dans le texte) :
+{
+  "brand": "${brand}",
+  "model": "${model}",
+  "category": "grue mobile | grue à tour | grue sur chenilles | grue auxiliaire | mini-grue | grue araignée | autre",
+  "capacity_tons": null,
+  "max_capacity_tons": null,
+  "reach_meters": null,
+  "max_reach_meters": null,
+  "height_meters": null,
+  "max_height_meters": null,
+  "weight_tons": null,
+  "counterweight_tons": null,
+  "boom_length_max_m": null,
+  "jib_length_max_m": null,
+  "number_of_axles": null,
+  "engine_power_kw": null,
+  "transport_width_m": null,
+  "transport_height_m": null,
+  "transport_length_m": null,
+  "load_chart_summary": null,
+  "notes": null
+}`;
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: "Tu es un expert en grues BTP. Extrais les données techniques du contenu fourni. Réponds UNIQUEMENT en JSON valide." },
+            { role: "user", content: extractPrompt },
+          ],
+          temperature: 0.1,
+        }),
+      });
+
+      if (!response.ok) {
+        const t = await response.text();
+        console.error("AI extract error:", response.status, t);
+        return new Response(JSON.stringify({ error: "Erreur IA extraction" }), { status: 500, headers: corsHeaders });
+      }
+
+      const aiResult = await response.json();
+      const aiContent = aiResult.choices?.[0]?.message?.content ?? "{}";
+      let specs: Record<string, unknown> = {};
+      try {
+        const cleaned = aiContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+        specs = JSON.parse(cleaned);
+      } catch {
+        console.error("Failed to parse AI extraction:", aiContent);
+        specs = { notes: aiContent, brand, model };
+      }
+
+      return new Response(JSON.stringify({ success: true, data: specs }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response(JSON.stringify({ error: "Action invalide. Utilisez 'suggest', 'fetch_specs' ou 'extract_from_content'." }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
