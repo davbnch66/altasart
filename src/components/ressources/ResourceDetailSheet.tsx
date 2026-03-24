@@ -1365,12 +1365,15 @@ function EquipmentPhotoThumb({ photo, onDelete, onView }: { photo: any; onDelete
 function EquipmentDocCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
   const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
   const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [textContent, setTextContent] = useState<string | null>(null);
   const [blobCache, setBlobCache] = useState<Blob | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const docType = EQUIP_DOC_TYPES[doc.document_type] ?? EQUIP_DOC_TYPES.autre;
   const expireDays = getDaysUntil(doc.expires_at);
   const isPdf = doc.mime_type === "application/pdf" || doc.file_name?.toLowerCase().endsWith(".pdf");
+  const isText = doc.mime_type === "text/plain" || doc.file_name?.toLowerCase().endsWith(".txt");
+  const isImage = !isPdf && !isText && (doc.mime_type?.startsWith("image/") || /\.(jpe?g|png|gif|webp|svg)$/i.test(doc.file_name ?? ""));
 
   const fetchBlob = async () => {
     if (blobCache) return blobCache;
@@ -1384,64 +1387,19 @@ function EquipmentDocCard({ doc, onDelete }: { doc: any; onDelete: () => void })
     try {
       const blob = await fetchBlob();
       if (!blob) { toast.error("Impossible d'ouvrir le document"); return; }
-      if (isPdf) { setPdfData(await blob.arrayBuffer()); } else { setImgUrl(URL.createObjectURL(blob)); }
+      if (isPdf) { setPdfData(await blob.arrayBuffer()); }
+      else if (isText) { setTextContent(await blob.text()); }
+      else { setImgUrl(URL.createObjectURL(blob)); }
       setPreviewOpen(true);
     } finally { setLoading(false); }
   };
-
-  const downloadDoc = async () => {
-    setLoading(true);
-    try {
-      const blob = await fetchBlob();
-      if (!blob) return;
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = doc.file_name ?? doc.name;
-      a.click();
-    } finally { setLoading(false); }
-  };
-
-  return (
-    <div className="flex items-center gap-3 rounded-lg border bg-card p-2.5">
-      <div className={`flex-shrink-0 h-8 w-8 rounded-md flex items-center justify-center text-xs font-bold ${docType.color}`}>
-        {isPdf ? "PDF" : <FileText className="h-4 w-4" />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs font-medium truncate">{doc.name}</span>
-          <span className={`text-[10px] rounded-full px-1.5 py-0.5 ${docType.color}`}>{docType.label}</span>
-          {doc.ai_extracted && <span className="flex items-center gap-0.5 text-[10px] text-primary"><Sparkles className="h-2.5 w-2.5" />IA</span>}
-        </div>
-        {expireDays !== null && expireDays < 60 && (
-          <div className={`text-[10px] mt-0.5 flex items-center gap-1 ${expireDays < 0 ? "text-destructive" : "text-warning"}`}>
-            <AlertTriangle className="h-2.5 w-2.5" />
-            {expireDays < 0 ? `Expiré il y a ${Math.abs(expireDays)}j` : `Expire dans ${expireDays}j`}
-          </div>
-        )}
-      </div>
-      <div className="flex gap-1 shrink-0">
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={viewDoc} disabled={loading}>
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
-        </Button>
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={downloadDoc} disabled={loading}>
-          <Download className="h-3.5 w-3.5" />
-        </Button>
-        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={onDelete}>
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-
-      {previewOpen && (
-        <div className="fixed inset-0 z-[200] bg-black/80 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-2 bg-card border-b shrink-0">
-            <span className="text-sm font-medium truncate">{doc.name}</span>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={downloadDoc}><Download className="h-4 w-4 mr-1" />Télécharger</Button>
-              <Button size="icon" variant="ghost" onClick={() => { setPreviewOpen(false); setImgUrl(null); setPdfData(null); }}><X className="h-4 w-4" /></Button>
-            </div>
-          </div>
-          <div className="flex-1 min-h-0 overflow-hidden">
-            {isPdf && pdfData ? <PdfCanvasViewer data={pdfData} /> : imgUrl ? (
+...
+          <div className="flex-1 min-h-0 overflow-auto">
+            {isPdf && pdfData ? <PdfCanvasViewer data={pdfData} /> : textContent ? (
+              <div className="max-w-4xl mx-auto p-6">
+                <pre className="whitespace-pre-wrap text-sm font-mono text-foreground bg-card rounded-lg p-6 shadow-xl border leading-relaxed">{textContent}</pre>
+              </div>
+            ) : isImage && imgUrl ? (
               <div className="flex items-center justify-center h-full p-4">
                 <img src={imgUrl} alt={doc.name} className="max-w-full max-h-full object-contain rounded shadow-xl" />
               </div>
