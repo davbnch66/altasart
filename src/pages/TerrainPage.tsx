@@ -162,6 +162,38 @@ export default function TerrainPage() {
     enabled: companyIds.length > 0 && !!userId,
   });
 
+  // Cache BTs for offline and check pending sync count
+  useEffect(() => {
+    if (bts.length > 0 && isOnline) {
+      cacheOperations(bts).catch(() => {});
+    }
+  }, [bts, isOnline]);
+
+  useEffect(() => {
+    Promise.all([getPendingUpdates(), getPendingPhotos()]).then(([u, p]) => {
+      setPendingSyncCount(u.length + p.length);
+    });
+  }, [bts]);
+
+  const handleOfflineSync = useCallback(async () => {
+    setIsSyncing(true);
+    try {
+      const result = await syncPendingData(supabase);
+      if (result.updates + result.photos > 0) {
+        toast.success(`${result.updates} mise(s) à jour + ${result.photos} photo(s) synchronisée(s)`);
+      }
+      if (result.errors.length > 0) {
+        toast.error(`${result.errors.length} erreur(s) de sync`);
+      }
+      setPendingSyncCount(0);
+      queryClient.invalidateQueries({ queryKey: ["terrain-bts"] });
+    } catch {
+      toast.error("Erreur de synchronisation");
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [queryClient]);
+
   const { data: recentExpenses = [] } = useQuery({
     queryKey: ["terrain-vehicle-expenses", myResource?.id],
     queryFn: async () => {
