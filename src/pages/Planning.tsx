@@ -411,6 +411,43 @@ const Planning = () => {
     enabled: companyIds.length > 0 && planningType === "commercial",
   });
 
+  // Fetch resource absences
+  const { data: absences = [] } = useQuery({
+    queryKey: ["resource-absences", companyIds, weekStart.toISOString()],
+    queryFn: async () => {
+      if (companyIds.length === 0) return [];
+      const weekEnd = addDays(weekStart, 6);
+      const { data, error } = await supabase
+        .from("resource_absences")
+        .select("*, resources(name)")
+        .in("company_id", companyIds)
+        .lte("start_date", format(weekEnd, "yyyy-MM-dd"))
+        .gte("end_date", format(weekStart, "yyyy-MM-dd"));
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: companyIds.length > 0,
+  });
+
+  const isAbsent = (resourceId: string, day: Date) => {
+    const dayStr = format(day, "yyyy-MM-dd");
+    return absences.some((a: any) =>
+      a.resource_id === resourceId &&
+      a.start_date <= dayStr &&
+      a.end_date >= dayStr
+    );
+  };
+
+  const getAbsenceType = (resourceId: string, day: Date) => {
+    const dayStr = format(day, "yyyy-MM-dd");
+    const found = absences.find((a: any) =>
+      a.resource_id === resourceId &&
+      a.start_date <= dayStr &&
+      a.end_date >= dayStr
+    );
+    return found?.type?.toUpperCase() || "ABS";
+  };
+
   // Fetch devis for commercial planning
   const { data: devisData = [] } = useQuery({
     queryKey: ["planning-devis", companyIds],
@@ -1030,6 +1067,11 @@ const Planning = () => {
                        onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
                        onTouchEnd={(e) => { e.preventDefault(); openCreate(day, resource.id); }}
                      >
+                       {isAbsent(resource.id, day) && (
+                         <div className="absolute inset-0 bg-muted/60 flex items-center justify-center rounded text-[9px] text-muted-foreground font-medium border border-dashed border-muted-foreground/30 z-10">
+                           {getAbsenceType(resource.id, day)}
+                         </div>
+                       )}
                        {cellConflict && (
                          <div className="absolute top-1 right-1 z-20 h-4 w-4 rounded-full bg-destructive flex items-center justify-center" title="Conflit de planification">
                            <AlertTriangle className="h-2.5 w-2.5 text-white" />
