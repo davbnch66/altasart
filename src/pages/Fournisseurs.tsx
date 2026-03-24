@@ -120,7 +120,12 @@ function SupplierForm({ data, onChange }: { data: any; onChange: (d: any) => voi
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">SIRET</Label>
-          <Input value={data.siret || ""} onChange={e => onChange({ ...data, siret: e.target.value })} placeholder="123 456 789 00012" />
+          <div className="flex gap-1.5">
+            <Input value={data.siret || ""} onChange={e => onChange({ ...data, siret: e.target.value })} placeholder="123 456 789 00012" className="flex-1" />
+            <Button type="button" size="sm" variant="outline" onClick={handleSiretLookup} disabled={siretLoading}>
+              {siretLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Taux journalier (€)</Label>
