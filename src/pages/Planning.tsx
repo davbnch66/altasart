@@ -16,6 +16,7 @@ import { PlanningEventDialog } from "@/components/planning/PlanningEventDialog";
 import { PlanningOperationDialog } from "@/components/planning/PlanningOperationDialog";
 import { PlanningMissionPanel } from "@/components/planning/PlanningMissionPanel";
 import { PlanningAIAssistant, type AISuggestion } from "@/components/planning/PlanningAIAssistant";
+import { AbsenceDialog } from "@/components/planning/AbsenceDialog";
 import { toast } from "sonner";
 import {
   format,
