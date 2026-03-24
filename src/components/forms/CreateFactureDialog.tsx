@@ -37,6 +37,8 @@ const schema = z.object({
   code: z.string().trim().max(20).optional(),
   amount: z.coerce.number().min(0, "Le montant doit être positif"),
   tva_rate: z.coerce.number().min(0).max(100),
+  discount_percent: z.coerce.number().min(0).max(100).optional(),
+  payment_terms: z.string().optional(),
   notes: z.string().trim().max(5000).optional(),
   due_date: z.string().optional(),
   client_id: z.string().uuid("Sélectionnez un client"),
