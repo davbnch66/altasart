@@ -1532,6 +1532,7 @@ function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
   const closePreview = () => {
     setPreviewOpen(false);
     if (imgUrl) { URL.revokeObjectURL(imgUrl); setImgUrl(null); }
+    setTextContent(null);
   };
 
   return (
