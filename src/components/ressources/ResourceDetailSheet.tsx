@@ -1392,6 +1392,7 @@ function EquipmentDocCard({ doc, onDelete }: { doc: any; onDelete: () => void })
       else { setImgUrl(URL.createObjectURL(blob)); }
       setPreviewOpen(true);
     } finally { setLoading(false); }
+  };
 
   const downloadDoc = async () => {
     setLoading(true);
