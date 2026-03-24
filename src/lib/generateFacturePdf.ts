@@ -272,12 +272,25 @@ export async function generateFacturePdf(factureId: string, returnPreview = fals
   doc.text("2", colCode, y + 5);
   doc.text(`${tvaRate.toFixed(2)} %`, colTaux, y + 5);
   doc.text(`${fmtEur(tvaAmount)} EUR`, colMontantTVA, y + 5, { align: "right" });
+  y += 7;
+
+  // Discount row
+  if (discountPercent > 0) {
+    doc.setFillColor(255, 245, 245);
+    doc.rect(marginL, y, contentW, 7, "F");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(180, 40, 40);
+    doc.text(`Remise ${discountPercent}%`, colMontantHT, y + 5);
+    doc.text(`-${fmtEur(discountAmount)} EUR`, colMontantTVA, y + 5, { align: "right" });
+    y += 7;
+  }
 
   // Bottom line
   doc.setDrawColor(230, 230, 230);
   doc.setLineWidth(0.2);
-  doc.line(marginL, y + 7, colR, y + 7);
-  y += 9;
+  doc.line(marginL, y, colR, y);
+  y += 2;
 
   // ===================== TOTALS =====================
   y += 4;
