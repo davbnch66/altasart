@@ -20,7 +20,7 @@ serve(async (req) => {
     // Try Firecrawl search for specs
     if (FIRECRAWL_API_KEY) {
       try {
-        const searchQuery = `${brand} ${model} ${type === "grue" ? "crane" : type} fiche technique specifications`;
+        const searchQuery = `${brand} ${model} ${type === "grue" ? "grue location tarif" : type + " location tarif"} Île-de-France fiche technique`;
         const searchRes = await fetch("https://api.firecrawl.dev/v1/search", {
           method: "POST",
           headers: {
