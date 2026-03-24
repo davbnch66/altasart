@@ -40,35 +40,24 @@ function SupplierForm({ data, onChange }: { data: any; onChange: (d: any) => voi
     searchByName(val);
   };
 
+  const makeSetValue = () => {
+    const updates: Record<string, any> = {};
+    const setValue = (field: string, value: any) => { updates[field] = value; };
+    return { setValue, getUpdates: () => updates };
+  };
+
   const handleSelectEntreprise = (etab: EntrepriseResult) => {
-    const setValue = (field: string, value: any) => {
-      const fieldMap: Record<string, string> = {
-        name: "name", address: "address", siret: "siret",
-        postal_code: "postal_code", city: "city", country: "country",
-        ape_naf: "ape_naf", tva_intra: "tva_intra",
-      };
-      const key = fieldMap[field] || field;
-      data = { ...data, [key]: value };
-    };
+    const { setValue, getUpdates } = makeSetValue();
     fillFromEntreprise(etab, setValue);
-    onChange(data);
-    setShowNameResults(false);
+    onChange({ ...data, ...getUpdates() });
   };
 
   const handleSiretLookup = () => {
     if (!data.siret) return;
-    const setValue = (field: string, value: any) => {
-      const fieldMap: Record<string, string> = {
-        name: "name", address: "address", siret: "siret",
-        postal_code: "postal_code", city: "city", country: "country",
-        ape_naf: "ape_naf", tva_intra: "tva_intra",
-      };
-      const key = fieldMap[field] || field;
-      data = { ...data, [key]: value };
-    };
-    lookupSiret(data.siret, (field, value) => {
+    const { setValue, getUpdates } = makeSetValue();
+    lookupSiret(data.siret, (field: string, value: any) => {
       setValue(field, value);
-      onChange(data);
+      onChange({ ...data, ...getUpdates() });
     });
   };
 
