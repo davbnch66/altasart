@@ -1750,11 +1750,13 @@ export type Database = {
           company_id: string
           created_at: string
           devis_id: string | null
+          discount_percent: number | null
           dossier_id: string | null
           due_date: string | null
           id: string
           notes: string | null
           paid_amount: number
+          payment_terms: string | null
           sent_at: string | null
           status: Database["public"]["Enums"]["facture_status"]
           tva_rate: number
@@ -1771,11 +1773,13 @@ export type Database = {
           company_id: string
           created_at?: string
           devis_id?: string | null
+          discount_percent?: number | null
           dossier_id?: string | null
           due_date?: string | null
           id?: string
           notes?: string | null
           paid_amount?: number
+          payment_terms?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["facture_status"]
           tva_rate?: number
@@ -1792,11 +1796,13 @@ export type Database = {
           company_id?: string
           created_at?: string
           devis_id?: string | null
+          discount_percent?: number | null
           dossier_id?: string | null
           due_date?: string | null
           id?: string
           notes?: string | null
           paid_amount?: number
+          payment_terms?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["facture_status"]
           tva_rate?: number
