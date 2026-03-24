@@ -248,7 +248,10 @@ export default function Fournisseurs() {
       {/* Create dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Nouveau fournisseur</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Nouveau fournisseur</DialogTitle>
+            <DialogDescription>Ajoutez un fournisseur ou sous-traitant</DialogDescription>
+          </DialogHeader>
           <SupplierForm data={form} onChange={setForm} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>Annuler</Button>
