@@ -138,11 +138,15 @@ export async function generateFacturePdf(factureId: string, returnPreview = fals
   const client = facture.clients as any;
   const company = facture.companies as any;
   const amount = Number(facture.amount);
+  const discountPercent = Number((facture as any).discount_percent) || 0;
+  const discountAmount = amount * discountPercent / 100;
+  const amountAfterDiscount = amount - discountAmount;
   const paidAmount = Number(facture.paid_amount);
   const tvaRate = Number(facture.tva_rate) || 20;
-  const tvaAmount = amount * tvaRate / 100;
-  const totalTTC = amount + tvaAmount;
+  const tvaAmount = amountAfterDiscount * tvaRate / 100;
+  const totalTTC = amountAfterDiscount + tvaAmount;
   const resteDu = totalTTC - paidAmount;
+  const paymentTermsFac = (facture as any).payment_terms as string | null;
 
   const doc = new jsPDF("p", "mm", "a4");
   const pageW = 210;
