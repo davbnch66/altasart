@@ -1460,20 +1460,7 @@ function EquipmentDocCard({ doc, onDelete }: { doc: any; onDelete: () => void })
     </div>
   );
 }
-              <div className="max-w-4xl mx-auto p-6">
-                <pre className="whitespace-pre-wrap text-sm font-mono text-foreground bg-card rounded-lg p-6 shadow-xl border leading-relaxed">{textContent}</pre>
-              </div>
-            ) : isImage && imgUrl ? (
-              <div className="flex items-center justify-center h-full p-4">
-                <img src={imgUrl} alt={doc.name} className="max-w-full max-h-full object-contain rounded shadow-xl" />
-              </div>
-            ) : <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+
 
 function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
   const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
