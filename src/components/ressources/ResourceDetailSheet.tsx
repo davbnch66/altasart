@@ -443,6 +443,24 @@ export function ResourceDetailSheet({ resource, open, onClose, companies }: Prop
           {/* ===== TECHNIQUE ===== */}
           {isEquipment && (
             <TabsContent value="technique" className="p-4 pb-8 space-y-4">
+              {/* AI Crane Lookup — only for grue type */}
+              {localType === "grue" && (
+                <CraneLookup
+                  currentBrand={equipment?.brand ?? ""}
+                  currentModel={equipment?.model ?? ""}
+                  resourceId={resource.id}
+                  companyId={resource.companyIds?.[0] ?? ""}
+                  onSpecsFetched={(data) => {
+                    setEqForm((prev: any) => ({ ...(equipment ?? {}), ...(prev ?? {}), ...data }));
+                    setEqEditing(true);
+                    toast.success("Données pré-remplies — vérifiez et enregistrez ✨");
+                  }}
+                  onDocumentSaved={() => {
+                    qc.invalidateQueries({ queryKey: ["resource-documents", resource.id] });
+                  }}
+                />
+              )}
+
               <div className="flex justify-between items-center">
                 <h3 className="font-semibold text-sm">Fiche technique</h3>
                 <Button size="sm" variant="outline" onClick={() => { setEqForm(equipment ?? {}); setEqEditing(true); }}>
