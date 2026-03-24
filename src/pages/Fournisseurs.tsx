@@ -16,6 +16,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import SupplierEquipmentTab from "@/components/fournisseurs/SupplierEquipmentTab";
+import { useSiretLookup, type EntrepriseResult } from "@/hooks/useSiretLookup";
 
 const CATEGORIES = [
   { value: "sous-traitant", label: "Sous-traitant" },
@@ -32,12 +33,59 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function SupplierForm({ data, onChange }: { data: any; onChange: (d: any) => void }) {
+  const { nameResults, nameLoading, showNameResults, setShowNameResults, searchByName, fillFromEntreprise, siretLoading, lookupSiret } = useSiretLookup();
+
+  const handleNameChange = (val: string) => {
+    onChange({ ...data, name: val });
+    searchByName(val);
+  };
+
+  const makeSetValue = () => {
+    const updates: Record<string, any> = {};
+    const setValue = (field: string, value: any) => { updates[field] = value; };
+    return { setValue, getUpdates: () => updates };
+  };
+
+  const handleSelectEntreprise = (etab: EntrepriseResult) => {
+    const { setValue, getUpdates } = makeSetValue();
+    fillFromEntreprise(etab, setValue);
+    onChange({ ...data, ...getUpdates() });
+  };
+
+  const handleSiretLookup = () => {
+    if (!data.siret) return;
+    const updates: Record<string, any> = {};
+    const setValue = (field: string, value: any) => { updates[field] = value; };
+    lookupSiret(data.siret, setValue).then(() => {
+      if (Object.keys(updates).length > 0) onChange({ ...data, ...updates });
+    });
+  };
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <div className="col-span-2 space-y-1.5">
+        <div className="col-span-2 space-y-1.5 relative">
           <Label className="text-xs">Nom *</Label>
-          <Input value={data.name || ""} onChange={e => onChange({ ...data, name: e.target.value })} placeholder="Nom du fournisseur" />
+          <Input value={data.name || ""} onChange={e => handleNameChange(e.target.value)} placeholder="Nom du fournisseur" autoComplete="off" />
+          {showNameResults && nameResults.length > 0 && (
+            <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              {nameResults.map((etab) => (
+                <button
+                  key={etab.siren}
+                  type="button"
+                  className="w-full text-left px-3 py-2 hover:bg-accent/50 transition-colors text-sm border-b last:border-0"
+                  onClick={() => handleSelectEntreprise(etab)}
+                >
+                  <div className="font-medium">{etab.nom_complet}</div>
+                  <div className="text-xs text-muted-foreground">
+                    SIRET {etab.siege?.siret} · {etab.siege?.commune}
+                    {etab.activite_principale && ` · ${etab.activite_principale}`}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+          {nameLoading && <div className="absolute right-3 top-8"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>}
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Catégorie</Label>
@@ -72,7 +120,12 @@ function SupplierForm({ data, onChange }: { data: any; onChange: (d: any) => voi
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">SIRET</Label>
-          <Input value={data.siret || ""} onChange={e => onChange({ ...data, siret: e.target.value })} placeholder="123 456 789 00012" />
+          <div className="flex gap-1.5">
+            <Input value={data.siret || ""} onChange={e => onChange({ ...data, siret: e.target.value })} placeholder="123 456 789 00012" className="flex-1" />
+            <Button type="button" size="sm" variant="outline" onClick={handleSiretLookup} disabled={siretLoading}>
+              {siretLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+            </Button>
+          </div>
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Taux journalier (€)</Label>
