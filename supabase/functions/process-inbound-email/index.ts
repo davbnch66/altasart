@@ -489,7 +489,14 @@ CLASSIFICATION - type_demande :
 - "information" : demande de renseignements, disponibilité, capacités
 - "relance" : suivi d'une demande précédente
 - "confirmation" : validation, bon de commande, accord
+- "offre_fournisseur" : offre/proposition commerciale d'un fournisseur ou loueur (grues, nacelles, camions, matériels), grille tarifaire, catalogue matériel
 - "autre" : newsletters, spam, notifications automatiques
+
+DÉTECTION OFFRE FOURNISSEUR :
+Si l'email est une offre commerciale d'un fournisseur/loueur (location de grues, nacelles, camions, matériels, devis de sous-traitance), remplis le champ "supplier_offer" avec :
+- supplier_name : nom de l'entreprise fournisseur
+- equipment_list : liste des matériels proposés avec type, marque, modèle, capacité, portée, hauteur, tarifs jour/semaine/mois
+- contact_name, contact_email, contact_phone : coordonnées du fournisseur
 
 EXTRACTION MATÉRIEL - EXHAUSTIVE ET DÉTAILLÉE :
 Tu DOIS analyser le contenu des PDF, images et tableurs joints pour extraire CHAQUE machine/équipement INDIVIDUELLEMENT.
