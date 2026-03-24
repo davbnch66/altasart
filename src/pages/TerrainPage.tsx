@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 import {
   HardHat, CalendarDays, ClipboardCheck, CheckCircle2, Circle,
   MapPin, Clock, ChevronRight, Phone, FileText, Send, Eye,
-  Package, AlertTriangle, Check, ChevronLeft, Pen, Truck, Loader2, RotateCcw, Camera
+  Package, AlertTriangle, Check, ChevronLeft, Pen, Truck, Loader2, RotateCcw, Camera, WifiOff, RefreshCw
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,8 @@ import { Receipt } from "lucide-react";
 import { PlanningOperationDialog } from "@/components/planning/PlanningOperationDialog";
 import { ARPhotoOverlay } from "@/components/ar/ARPhotoOverlay";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { cacheOperations, getCachedOperations, syncPendingData, getPendingUpdates, getPendingPhotos } from "@/lib/offlineTerrainDB";
 
 const todayStr = () => {
   const d = new Date();
