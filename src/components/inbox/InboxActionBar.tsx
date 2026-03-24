@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   UserPlus, FolderPlus, FileText, CalendarPlus, Package, Link, Loader2,
-  MapPin, FileCheck, ShieldCheck, UserCheck, Users, Sparkles, Check
+  MapPin, FileCheck, ShieldCheck, UserCheck, Users, Sparkles, Check, Building2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
