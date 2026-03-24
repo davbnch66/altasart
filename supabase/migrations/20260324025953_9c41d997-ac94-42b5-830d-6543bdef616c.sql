@@ -1,0 +1,1 @@
+ALTER TYPE public.email_action_type ADD VALUE IF NOT EXISTS 'enrich_supplier';

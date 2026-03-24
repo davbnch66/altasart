@@ -4816,6 +4816,7 @@ export type Database = {
         | "attach_arrete"
         | "link_existing_client"
         | "enrich_client"
+        | "enrich_supplier"
       email_auth_method: "password" | "oauth2"
       email_provider:
         | "generic"
@@ -5018,6 +5019,7 @@ export const Constants = {
         "attach_arrete",
         "link_existing_client",
         "enrich_client",
+        "enrich_supplier",
       ],
       email_auth_method: ["password", "oauth2"],
       email_provider: [
