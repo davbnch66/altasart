@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, Search, Sparkles, Download, Check, ChevronDown } from "lucide-react";
+import { Loader2, Search, Sparkles, Download, Check, ChevronDown, Globe, FileText, ExternalLink } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface CraneLookupProps {
@@ -19,6 +19,13 @@ interface CraneLookupProps {
 interface Suggestion {
   brand: string;
   model: string;
+}
+
+interface WebResult {
+  url: string;
+  title: string;
+  description?: string;
+  markdown?: string;
 }
 
 export function CraneLookup({
@@ -39,10 +46,12 @@ export function CraneLookup({
   const [selectedModel, setSelectedModel] = useState(currentModel ?? "");
   const [specsData, setSpecsData] = useState<Record<string, any> | null>(null);
   const [savingDoc, setSavingDoc] = useState(false);
+  const [searchingWeb, setSearchingWeb] = useState(false);
+  const [webResults, setWebResults] = useState<WebResult[]>([]);
+  const [scrapingUrl, setScrapingUrl] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -92,7 +101,6 @@ export function CraneLookup({
     setSelectedBrand(brand);
     setSelectedModel("");
     setQuery(brand + " ");
-    // Trigger model suggestions
     setTimeout(() => fetchSuggestions(brand), 100);
   };
 
@@ -112,7 +120,6 @@ export function CraneLookup({
       const specs = data.data;
       setSpecsData(specs);
 
-      // Map AI response to equipment form fields
       const equipmentData: Record<string, any> = {
         brand: specs.brand ?? selectedBrand,
         model: specs.model ?? selectedModel,
@@ -122,7 +129,6 @@ export function CraneLookup({
         weight_tons: specs.weight_tons ?? null,
       };
 
-      // Add notes with extra details
       const notesParts: string[] = [];
       if (specs.category) notesParts.push(`Catégorie: ${specs.category}`);
       if (specs.number_of_axles) notesParts.push(`Essieux: ${specs.number_of_axles}`);
@@ -146,11 +152,120 @@ export function CraneLookup({
     }
   };
 
+  // Search the web for official datasheets
+  const searchWebForDatasheets = async () => {
+    if (!selectedBrand || !selectedModel) {
+      toast.error("Sélectionnez une marque et un modèle");
+      return;
+    }
+    setSearchingWeb(true);
+    setWebResults([]);
+    try {
+      const searchQuery = `${selectedBrand} ${selectedModel} fiche technique PDF datasheet specifications`;
+      const { data, error } = await supabase.functions.invoke("firecrawl-search", {
+        body: {
+          query: searchQuery,
+          options: {
+            limit: 8,
+            lang: "fr",
+            scrapeOptions: { formats: ["markdown"] },
+          },
+        },
+      });
+      if (error) throw error;
+      
+      const results: WebResult[] = (data?.data || []).map((r: any) => ({
+        url: r.url,
+        title: r.title || r.url,
+        description: r.description || "",
+        markdown: r.markdown || "",
+      }));
+      
+      setWebResults(results);
+      if (results.length === 0) {
+        toast.info("Aucun résultat trouvé sur le web");
+      } else {
+        toast.success(`${results.length} résultats trouvés ! Cliquez pour télécharger.`);
+      }
+    } catch (e: any) {
+      console.error("Web search error:", e);
+      toast.error("Erreur lors de la recherche web : " + (e.message || "inconnue"));
+    } finally {
+      setSearchingWeb(false);
+    }
+  };
+
+  // Scrape a specific URL and save the content as a document
+  const scrapeAndSave = async (result: WebResult) => {
+    setScrapingUrl(result.url);
+    try {
+      // If we already have markdown from search, use it directly
+      let content = result.markdown;
+      
+      if (!content) {
+        // Otherwise scrape the page
+        const { data, error } = await supabase.functions.invoke("firecrawl-scrape", {
+          body: {
+            url: result.url,
+            options: { formats: ["markdown"], onlyMainContent: true },
+          },
+        });
+        if (error) throw error;
+        content = data?.data?.markdown || data?.markdown || "";
+      }
+
+      if (!content || content.length < 50) {
+        toast.error("Contenu insuffisant sur cette page");
+        return;
+      }
+
+      // Build document content
+      const docContent = [
+        `FICHE TECHNIQUE OFFICIELLE — ${selectedBrand} ${selectedModel}`,
+        `${"=".repeat(60)}`,
+        `Source : ${result.url}`,
+        `Téléchargé le : ${new Date().toLocaleDateString("fr-FR")}`,
+        "",
+        result.title,
+        "",
+        content,
+      ].join("\n");
+
+      const blob = new Blob([docContent], { type: "text/plain" });
+      const fileName = `FT_officielle_${selectedBrand}_${selectedModel.replace(/[/\\]/g, "-")}_${Date.now()}.txt`;
+      const storagePath = `${companyId}/${resourceId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("resource-documents")
+        .upload(storagePath, blob, { contentType: "text/plain" });
+      if (uploadError) throw uploadError;
+
+      const { error: dbError } = await supabase.from("resource_documents").insert({
+        resource_id: resourceId,
+        company_id: companyId,
+        name: `FT officielle ${selectedBrand} ${selectedModel}`,
+        document_type: "fiche_technique",
+        file_name: fileName,
+        storage_path: storagePath,
+        mime_type: "text/plain",
+        ai_extracted: false,
+      } as any);
+      if (dbError) throw dbError;
+
+      toast.success("Fiche technique officielle sauvegardée ! 📄");
+      onDocumentSaved?.();
+    } catch (e: any) {
+      console.error("Scrape/save error:", e);
+      toast.error("Erreur : " + (e.message || "impossible de sauvegarder"));
+    } finally {
+      setScrapingUrl(null);
+    }
+  };
+
   const saveAsDocument = async () => {
     if (!specsData) return;
     setSavingDoc(true);
     try {
-      // Generate a text-based technical spec document
       const lines: string[] = [
         `FICHE TECHNIQUE — ${specsData.brand ?? selectedBrand} ${specsData.model ?? selectedModel}`,
         `${"=".repeat(60)}`,
@@ -236,13 +351,11 @@ export function CraneLookup({
       const fileName = `Fiche_technique_${selectedBrand}_${selectedModel.replace(/[/\\]/g, "-")}.txt`;
       const storagePath = `${companyId}/${resourceId}/${Date.now()}_${fileName}`;
 
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from("resource-documents")
         .upload(storagePath, blob, { contentType: "text/plain" });
       if (uploadError) throw uploadError;
 
-      // Save document record
       const { error: dbError } = await supabase.from("resource_documents").insert({
         resource_id: resourceId,
         company_id: companyId,
@@ -289,7 +402,6 @@ export function CraneLookup({
         {showDropdown && (brands.length > 0 || suggestions.length > 0) && (
           <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-lg shadow-lg overflow-hidden">
             <ScrollArea className="max-h-60">
-              {/* Brand suggestions */}
               {brands.length > 0 && suggestions.length === 0 && (
                 <div className="p-1">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground px-2 py-1">Marques</p>
@@ -305,7 +417,6 @@ export function CraneLookup({
                   ))}
                 </div>
               )}
-              {/* Model suggestions */}
               {suggestions.length > 0 && (
                 <div className="p-1">
                   <p className="text-[10px] uppercase tracking-wide text-muted-foreground px-2 py-1">Modèles</p>
@@ -329,7 +440,6 @@ export function CraneLookup({
         )}
       </div>
 
-      {/* Selected model display */}
       {selectedBrand && selectedModel && (
         <div className="flex items-center gap-2 text-sm">
           <Check className="h-3.5 w-3.5 text-success" />
@@ -349,24 +459,40 @@ export function CraneLookup({
           {fetching ? (
             <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Recherche IA en cours...</>
           ) : (
-            <><Sparkles className="h-3.5 w-3.5 mr-1.5" />Récupérer la fiche technique</>
+            <><Sparkles className="h-3.5 w-3.5 mr-1.5" />Fiche technique IA</>
           )}
         </Button>
-        {specsData && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={saveAsDocument}
-            disabled={savingDoc}
-          >
-            {savingDoc ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <><Download className="h-3.5 w-3.5 mr-1.5" />Sauvegarder en document</>
-            )}
-          </Button>
-        )}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={searchWebForDatasheets}
+          disabled={searchingWeb || !selectedBrand || !selectedModel}
+          className="flex-1"
+        >
+          {searchingWeb ? (
+            <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Recherche web...</>
+          ) : (
+            <><Globe className="h-3.5 w-3.5 mr-1.5" />FT officielle (web)</>
+          )}
+        </Button>
       </div>
+
+      {/* Save AI specs as document */}
+      {specsData && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={saveAsDocument}
+          disabled={savingDoc}
+          className="w-full"
+        >
+          {savingDoc ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <><Download className="h-3.5 w-3.5 mr-1.5" />Sauvegarder fiche IA en document</>
+          )}
+        </Button>
+      )}
 
       {/* Specs preview */}
       {specsData && (
@@ -391,14 +517,68 @@ export function CraneLookup({
           )}
         </div>
       )}
+
+      {/* Web search results */}
+      {webResults.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Globe className="h-3.5 w-3.5 text-primary" />
+            <Label className="text-xs font-semibold">Résultats web — cliquez pour télécharger</Label>
+          </div>
+          <ScrollArea className="max-h-48">
+            <div className="space-y-1.5">
+              {webResults.map((r, i) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-2 p-2 rounded-md border bg-background hover:bg-accent/50 transition-colors group"
+                >
+                  <FileText className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{r.title}</p>
+                    {r.description && (
+                      <p className="text-[10px] text-muted-foreground line-clamp-2">{r.description}</p>
+                    )}
+                    <p className="text-[10px] text-muted-foreground truncate">{r.url}</p>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      onClick={() => scrapeAndSave(r)}
+                      disabled={scrapingUrl === r.url}
+                    >
+                      {scrapingUrl === r.url ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Download className="h-3 w-3" />
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 px-2"
+                      asChild
+                    >
+                      <a href={r.url} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
     </div>
   );
 }
 
-// Counts for display
 const CRANE_DATABASE_COUNT: Record<string, number> = {
-  Liebherr: 35, Manitowoc: 14, Tadano: 18, Terex: 15, Grove: 17,
+  Liebherr: 36, Manitowoc: 14, Tadano: 18, Terex: 15, Grove: 17,
   Potain: 30, Sany: 12, XCMG: 18, Zoomlion: 15, Kobelco: 8,
   "Link-Belt": 11, Wolffkran: 8, Comansa: 10, Raimondi: 8, Jaso: 11,
-  PPM: 3, Demag: 17, Faun: 6,
+  Klaas: 12, Maeda: 12, Unic: 8, "BG Lift": 10, Jekko: 10,
+  Reedyk: 5, Palazzani: 7, PPM: 3, Demag: 17, Faun: 6,
 };
