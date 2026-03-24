@@ -373,7 +373,7 @@ serve(async (req) => {
           || req.headers.get("X-Supabase-Source") === "pg_cron");
 
     if (!isServiceRole && !isBridgeAuth && !isCronCall) {
-      // Also allow authenticated users via JWT claims
+      // Also allow authenticated users
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -385,8 +385,8 @@ serve(async (req) => {
         { global: { headers: { Authorization: authHeader } } }
       );
       const token = authHeader.replace("Bearer ", "");
-      const { data, error: claimsErr } = await supabaseAuth.auth.getClaims(token);
-      if (claimsErr || !data?.claims?.sub) {
+      const { data: { user }, error: userErr } = await supabaseAuth.auth.getUser(token);
+      if (userErr || !user) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
