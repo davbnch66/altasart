@@ -62,27 +62,29 @@ export default function Ressources() {
   });
 
   // Fetch equipment data to show alerts on cards
+  const allResourceIds = resourceLinks.map((l) => l.resource_id);
+
   const { data: equipmentMap = {} } = useQuery({
-    queryKey: ["resource-equipment-all", companyIds],
+    queryKey: ["resource-equipment-all", allResourceIds],
     queryFn: async () => {
-      if (companyIds.length === 0) return {};
-      const { data } = await supabase.from("resource_equipment").select("*");
+      if (allResourceIds.length === 0) return {};
+      const { data } = await supabase.from("resource_equipment").select("*").in("resource_id", allResourceIds);
       if (!data) return {};
       return Object.fromEntries(data.map((e) => [e.resource_id, e]));
     },
-    enabled: companyIds.length > 0,
+    enabled: allResourceIds.length > 0,
   });
 
   // Fetch personnel data to show medical alerts on cards
   const { data: personnelMap = {} } = useQuery({
-    queryKey: ["resource-personnel-all", companyIds],
+    queryKey: ["resource-personnel-all", allResourceIds],
     queryFn: async () => {
-      if (companyIds.length === 0) return {};
-      const { data } = await supabase.from("resource_personnel").select("*");
+      if (allResourceIds.length === 0) return {};
+      const { data } = await supabase.from("resource_personnel").select("*").in("resource_id", allResourceIds);
       if (!data) return {};
       return Object.fromEntries(data.map((p) => [p.resource_id, p]));
     },
-    enabled: companyIds.length > 0,
+    enabled: allResourceIds.length > 0,
   });
 
   const resourceMap = new Map<string, Resource & { companyIds: string[] }>();
