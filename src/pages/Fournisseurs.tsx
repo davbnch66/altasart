@@ -29,6 +29,70 @@ const STATUS_COLORS: Record<string, string> = {
   inactif: "bg-muted text-muted-foreground border-border",
 };
 
+function SupplierForm({ data, onChange }: { data: any; onChange: (d: any) => void }) {
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2 space-y-1.5">
+          <Label className="text-xs">Nom *</Label>
+          <Input value={data.name || ""} onChange={e => onChange({ ...data, name: e.target.value })} placeholder="Nom du fournisseur" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Catégorie</Label>
+          <Select value={data.category || "sous-traitant"} onValueChange={v => onChange({ ...data, category: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Statut</Label>
+          <Select value={data.status || "actif"} onValueChange={v => onChange({ ...data, status: v })}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="actif">Actif</SelectItem>
+              <SelectItem value="inactif">Inactif</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Contact</Label>
+          <Input value={data.contact_name || ""} onChange={e => onChange({ ...data, contact_name: e.target.value })} placeholder="Nom du contact" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Email</Label>
+          <Input type="email" value={data.email || ""} onChange={e => onChange({ ...data, email: e.target.value })} placeholder="email@exemple.com" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Téléphone</Label>
+          <Input value={data.phone || ""} onChange={e => onChange({ ...data, phone: e.target.value })} placeholder="01 23 45 67 89" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">SIRET</Label>
+          <Input value={data.siret || ""} onChange={e => onChange({ ...data, siret: e.target.value })} placeholder="123 456 789 00012" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Taux journalier (€)</Label>
+          <Input type="number" value={data.daily_rate || ""} onChange={e => onChange({ ...data, daily_rate: Number(e.target.value) || null })} placeholder="450" />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Taux horaire (€)</Label>
+          <Input type="number" value={data.hourly_rate || ""} onChange={e => onChange({ ...data, hourly_rate: Number(e.target.value) || null })} placeholder="55" />
+        </div>
+        <div className="col-span-2 space-y-1.5">
+          <Label className="text-xs">Adresse</Label>
+          <Input value={data.address || ""} onChange={e => onChange({ ...data, address: e.target.value })} placeholder="Adresse complète" />
+        </div>
+        <div className="col-span-2 space-y-1.5">
+          <Label className="text-xs">Notes</Label>
+          <Textarea value={data.notes || ""} onChange={e => onChange({ ...data, notes: e.target.value })} rows={3} placeholder="Notes internes..." />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Fournisseurs() {
   const isMobile = useIsMobile();
   const { current, dbCompanies } = useCompany();
