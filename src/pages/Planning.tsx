@@ -1067,6 +1067,11 @@ const Planning = () => {
                        onClick={(e) => { e.stopPropagation(); openCreate(day, resource.id); }}
                        onTouchEnd={(e) => { e.preventDefault(); openCreate(day, resource.id); }}
                      >
+                       {isAbsent(resource.id, day) && (
+                         <div className="absolute inset-0 bg-muted/60 flex items-center justify-center rounded text-[9px] text-muted-foreground font-medium border border-dashed border-muted-foreground/30 z-10">
+                           {getAbsenceType(resource.id, day)}
+                         </div>
+                       )}
                        {cellConflict && (
                          <div className="absolute top-1 right-1 z-20 h-4 w-4 rounded-full bg-destructive flex items-center justify-center" title="Conflit de planification">
                            <AlertTriangle className="h-2.5 w-2.5 text-white" />
