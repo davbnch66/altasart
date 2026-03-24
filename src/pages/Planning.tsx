@@ -138,6 +138,7 @@ const Planning = () => {
   const [missionPanelOpen, setMissionPanelOpen] = useState(false);
   const [missionDefaultDate, setMissionDefaultDate] = useState<Date | undefined>();
   const [missionDefaultResource, setMissionDefaultResource] = useState<string | undefined>();
+  const [absenceDialogOpen, setAbsenceDialogOpen] = useState(false);
   const [editingVisite, setEditingVisite] = useState<any>(null);
   const [visiteDate, setVisiteDate] = useState("");
   const [aiPlannerOpen, setAiPlannerOpen] = useState(false);
