@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Warehouse, X, Loader2, ExternalLink, Trash2, Eye } from "lucide-react";
+import { Warehouse, X, Plus, Loader2, ExternalLink, Trash2, Eye } from "lucide-react";
 import { generateBTReportPdf } from "@/lib/generateBTReportPdf";
 import { BTReportPreviewDialog } from "@/components/terrain/BTReportPreviewDialog";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -476,38 +476,69 @@ export const PlanningOperationDialog = ({ open, onOpenChange, operationId }: Pro
               <Textarea value={form.notes} onChange={(e) => up("notes", e.target.value)} placeholder="Notes internes…" className="min-h-[60px] text-xs mt-1 resize-none" />
           </div>
 
-          {/* Sous-traitants */}
-          <div className="rounded-lg border bg-card p-3 space-y-2">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-primary">Sous-traitants</h4>
-            {assignedSuppliers.length > 0 && (
-              <div className="space-y-1">
-                {assignedSuppliers.map((as: any) => (
-                  <div key={as.id} className="flex items-center justify-between rounded bg-muted/50 px-2 py-1">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs font-medium truncate">{as.suppliers?.name || "—"}</span>
-                      {as.suppliers?.category && (
-                        <span className="text-[10px] text-muted-foreground shrink-0">{as.suppliers.category}</span>
-                      )}
-                    </div>
-                    <button onClick={() => removeSupplier.mutate(as.id)} className="text-muted-foreground hover:text-destructive shrink-0">
-                      <X className="h-3 w-3" />
-                    </button>
+          {/* Section SOUS-TRAITANTS */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Sous-traitants</h3>
+
+            {!operationId ? (
+              <p className="text-xs text-muted-foreground italic">
+                Enregistrez d'abord l'opération pour ajouter des sous-traitants
+              </p>
+            ) : (
+              <>
+                {/* Sous-traitants déjà assignés */}
+                {assignedSuppliers.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {assignedSuppliers.map((as: any) => (
+                      <div key={as.id} className="flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-sm">
+                        <div>
+                          <span className="font-medium">{as.suppliers?.name}</span>
+                          <span className="text-xs text-muted-foreground ml-2">{as.suppliers?.category}</span>
+                          {as.suppliers?.daily_rate && (
+                            <span className="text-xs text-primary ml-2">{as.suppliers.daily_rate} €/j</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => removeSupplier.mutate(as.id)}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-            {unassignedSuppliers.length > 0 && (
-              <div className="flex flex-wrap gap-1 pt-1">
-                {unassignedSuppliers.map((s: any) => (
-                  <button key={s.id} onClick={() => assignSupplier.mutate(s.id)}
-                    className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary transition-colors">
-                    + {s.name} {s.daily_rate ? `(${s.daily_rate}€/j)` : ""}
-                  </button>
-                ))}
-              </div>
-            )}
-            {assignedSuppliers.length === 0 && unassignedSuppliers.length === 0 && (
-              <p className="text-[10px] text-muted-foreground">Aucun sous-traitant actif</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Aucun sous-traitant assigné</p>
+                )}
+
+                {/* Liste pour ajouter */}
+                {suppliers.filter((s: any) => !assignedSuppliers.some((as: any) => as.supplier_id === s.id)).length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground font-medium">Ajouter un sous-traitant :</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {suppliers
+                        .filter((s: any) => !assignedSuppliers.some((as: any) => as.supplier_id === s.id))
+                        .map((s: any) => (
+                          <button
+                            key={s.id}
+                            onClick={() => assignSupplier.mutate(s.id)}
+                            className="flex items-center gap-1.5 rounded-full border bg-muted/50 hover:bg-primary/10 hover:border-primary/30 transition-colors px-2.5 py-1 text-xs font-medium"
+                          >
+                            <Plus className="h-3 w-3" />
+                            {s.name}
+                            {s.daily_rate && <span className="text-muted-foreground">{s.daily_rate}€/j</span>}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {suppliers.length === 0 && (
+                  <p className="text-xs text-muted-foreground italic">
+                    Aucun fournisseur actif — ajoutez-en dans la page Fournisseurs
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
