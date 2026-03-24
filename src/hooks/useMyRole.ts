@@ -41,10 +41,10 @@ export const ROLE_DESCRIPTIONS: Record<AppRole, string> = {
 
 /** Navigation items accessible per role */
 export const ROLE_ALLOWED_ROUTES: Record<AppRole, string[]> = {
-  admin: ["/", "/clients", "/pipeline", "/planning", "/dossiers", "/devis", "/visites", "/terrain", "/voirie", "/inbox", "/finance", "/rentabilite", "/flotte", "/stockage", "/ressources", "/parametres"],
-  manager: ["/", "/clients", "/pipeline", "/planning", "/dossiers", "/devis", "/visites", "/terrain", "/voirie", "/inbox", "/finance", "/rentabilite", "/flotte", "/stockage", "/ressources", "/parametres"],
+  admin: ["/", "/clients", "/pipeline", "/planning", "/dossiers", "/devis", "/visites", "/terrain", "/voirie", "/inbox", "/finance", "/rentabilite", "/flotte", "/stockage", "/ressources", "/fournisseurs", "/parametres"],
+  manager: ["/", "/clients", "/pipeline", "/planning", "/dossiers", "/devis", "/visites", "/terrain", "/voirie", "/inbox", "/finance", "/rentabilite", "/flotte", "/stockage", "/ressources", "/fournisseurs", "/parametres"],
   commercial: ["/", "/clients", "/pipeline", "/planning", "/dossiers", "/devis", "/visites", "/voirie", "/inbox", "/parametres"],
-  exploitation: ["/", "/planning", "/dossiers", "/visites", "/terrain", "/voirie", "/flotte", "/stockage", "/ressources", "/parametres"],
+  exploitation: ["/", "/planning", "/dossiers", "/visites", "/terrain", "/voirie", "/flotte", "/stockage", "/ressources", "/fournisseurs", "/parametres"],
   comptable: ["/", "/dossiers", "/finance", "/rentabilite", "/parametres"],
   terrain: ["/terrain"],
   readonly: ["/", "/clients", "/pipeline", "/planning", "/dossiers", "/devis", "/visites", "/voirie", "/inbox", "/finance", "/rentabilite", "/flotte", "/stockage", "/ressources", "/parametres"],
