@@ -21,6 +21,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { DetailBreadcrumb } from "@/components/DetailBreadcrumb";
 import { DownloadWordButton } from "@/components/shared/DownloadWordButton";
 import { GenericPdfPreviewDialog } from "@/components/shared/GenericPdfPreviewDialog";
+import { FactureRelancesSection } from "@/components/finance/FactureRelancesSection";
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 }).format(n);
