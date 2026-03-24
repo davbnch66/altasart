@@ -232,6 +232,64 @@ export const PlanningOperationDialog = ({ open, onOpenChange, operationId }: Pro
   const { dbCompanies } = useCompany();
   const companyIds = dbCompanies.map(c => c.id);
 
+  // Suppliers queries
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["suppliers-active", operation?.company_id],
+    queryFn: async () => {
+      if (!operation?.company_id) return [];
+      const { data } = await supabase
+        .from("suppliers")
+        .select("id, name, category, daily_rate, hourly_rate")
+        .eq("company_id", operation.company_id)
+        .eq("status", "actif");
+      return data || [];
+    },
+    enabled: !!operation?.company_id && open,
+  });
+
+  const { data: assignedSuppliers = [] } = useQuery({
+    queryKey: ["operation-suppliers", operationId],
+    queryFn: async () => {
+      if (!operationId) return [];
+      const { data } = await supabase
+        .from("operation_suppliers")
+        .select("*, suppliers(name, category)")
+        .eq("operation_id", operationId);
+      return data || [];
+    },
+    enabled: !!operationId && open,
+  });
+
+  const assignSupplier = useMutation({
+    mutationFn: async (supplierId: string) => {
+      const { error } = await supabase.from("operation_suppliers").insert({
+        operation_id: operationId!,
+        supplier_id: supplierId,
+        company_id: operation!.company_id,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["operation-suppliers", operationId] });
+      toast.success("Sous-traitant ajouté");
+    },
+    onError: () => toast.error("Erreur lors de l'ajout"),
+  });
+
+  const removeSupplier = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("operation_suppliers").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["operation-suppliers", operationId] });
+      toast.success("Sous-traitant retiré");
+    },
+  });
+
+  const assignedSupplierIds = assignedSuppliers.map((as: any) => as.supplier_id);
+  const unassignedSuppliers = suppliers.filter((s: any) => !assignedSupplierIds.includes(s.id));
+
   const handleDeleteOp = async () => {
     if (!operationId) return;
     if (!confirmDel) { setConfirmDel(true); return; }
