@@ -103,10 +103,12 @@ export const EditFactureDialog = ({ facture, open, onOpenChange }: EditFactureDi
 
   const watchAmount = Number(watch("amount")) || 0;
   const watchTva = Number(watch("tva_rate")) || 20;
+  const watchDiscount = Number(watch("discount_percent")) || 0;
   const watchPaid = Number(watch("paid_amount")) || 0;
   const montantHT = watchAmount;
-  const montantTVA = montantHT * (watchTva / 100);
-  const montantTTC = montantHT + montantTVA;
+  const montantHTAfterDiscount = montantHT * (1 - watchDiscount / 100);
+  const montantTVA = montantHTAfterDiscount * (watchTva / 100);
+  const montantTTC = montantHTAfterDiscount + montantTVA;
   const resteDu = Math.max(0, montantTTC - watchPaid);
 
   const generateAiNotes = async () => {
