@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const ALGORITHM = "AES-GCM";
@@ -373,14 +373,20 @@ serve(async (req) => {
           || req.headers.get("X-Supabase-Source") === "pg_cron");
 
     if (!isServiceRole && !isBridgeAuth && !isCronCall) {
-      // Also allow authenticated users
+      // Also allow authenticated users via JWT claims
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const supabaseAuth = createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_ANON_KEY")!,
-        { global: { headers: { Authorization: authHeader || "" } } }
+        { global: { headers: { Authorization: authHeader } } }
       );
-      const { data: { user } } = await supabaseAuth.auth.getUser();
-      if (!user) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data, error: claimsErr } = await supabaseAuth.auth.getClaims(token);
+      if (claimsErr || !data?.claims?.sub) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
