@@ -241,9 +241,13 @@ export const VisiteSmartAlerts = ({ visiteId, companyId }: Props) => {
             <div className={`mt-0.5 ${typeIconColors[alert.type]}`}>{alert.icon}</div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant={typeBadge[alert.type]} className="text-[10px] px-1.5 py-0">
+                <span className={`inline-flex items-center rounded-full px-1.5 py-0 text-[10px] font-semibold ${
+                  alert.type === "warning" ? "border border-transparent bg-destructive text-destructive-foreground" :
+                  alert.type === "suggestion" ? "border text-foreground" :
+                  "border border-transparent bg-secondary text-secondary-foreground"
+                }`}>
                   {typeLabel[alert.type]}
-                </Badge>
+                </span>
                 <span className="text-sm font-semibold">{alert.title}</span>
                 {alert.tab && (
                   <span className="text-[10px] text-muted-foreground">→ onglet {alert.tab}</span>

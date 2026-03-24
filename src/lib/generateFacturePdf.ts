@@ -334,8 +334,8 @@ export async function generateFacturePdf(factureId: string, returnPreview = fals
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(0, 0, 0);
-  const paymentTerms = client?.payment_terms || "30 JOURS DATE DE FACTURE";
-  doc.text(`Conditions de paiement : ${paymentTerms.toUpperCase()}`, marginL, y);
+  const paymentTermsDisplay = paymentTermsFac || client?.payment_terms || "30 JOURS DATE DE FACTURE";
+  doc.text(`Conditions de paiement : ${paymentTermsDisplay.toUpperCase()}`, marginL, y);
   y += 5;
 
   if (facture.due_date) {
