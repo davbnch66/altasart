@@ -16,6 +16,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import SupplierEquipmentTab from "@/components/fournisseurs/SupplierEquipmentTab";
+import { useSiretLookup, type EntrepriseResult } from "@/hooks/useSiretLookup";
 
 const CATEGORIES = [
   { value: "sous-traitant", label: "Sous-traitant" },
