@@ -54,10 +54,10 @@ function SupplierForm({ data, onChange }: { data: any; onChange: (d: any) => voi
 
   const handleSiretLookup = () => {
     if (!data.siret) return;
-    const { setValue, getUpdates } = makeSetValue();
-    lookupSiret(data.siret, (field: string, value: any) => {
-      setValue(field, value);
-      onChange({ ...data, ...getUpdates() });
+    const updates: Record<string, any> = {};
+    const setValue = (field: string, value: any) => { updates[field] = value; };
+    lookupSiret(data.siret, setValue).then(() => {
+      if (Object.keys(updates).length > 0) onChange({ ...data, ...updates });
     });
   };
 
