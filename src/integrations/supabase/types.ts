@@ -3581,9 +3581,12 @@ export type Database = {
       suppliers: {
         Row: {
           address: string | null
+          ape_naf: string | null
           category: string
+          city: string | null
           company_id: string
           contact_name: string | null
+          country: string | null
           created_at: string
           daily_rate: number | null
           email: string | null
@@ -3592,16 +3595,21 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
+          postal_code: string | null
           siret: string | null
           specialties: string[] | null
           status: string
+          tva_intra: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
+          ape_naf?: string | null
           category?: string
+          city?: string | null
           company_id: string
           contact_name?: string | null
+          country?: string | null
           created_at?: string
           daily_rate?: number | null
           email?: string | null
@@ -3610,16 +3618,21 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
+          postal_code?: string | null
           siret?: string | null
           specialties?: string[] | null
           status?: string
+          tva_intra?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
+          ape_naf?: string | null
           category?: string
+          city?: string | null
           company_id?: string
           contact_name?: string | null
+          country?: string | null
           created_at?: string
           daily_rate?: number | null
           email?: string | null
@@ -3628,9 +3641,11 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          postal_code?: string | null
           siret?: string | null
           specialties?: string[] | null
           status?: string
+          tva_intra?: string | null
           updated_at?: string
         }
         Relationships: [
