@@ -1465,14 +1465,15 @@ function EquipmentDocCard({ doc, onDelete }: { doc: any; onDelete: () => void })
 function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
   const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
   const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [textContent, setTextContent] = useState<string | null>(null);
   const [blobCache, setBlobCache] = useState<Blob | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState<boolean>(false);
   const docType = DOC_TYPES[doc.document_type] ?? DOC_TYPES.autre;
   const expireDays = getDaysUntil(doc.expires_at);
   const isPdf = doc.mime_type === "application/pdf" || doc.file_name?.toLowerCase().endsWith(".pdf");
+  const isText = doc.mime_type === "text/plain" || doc.file_name?.toLowerCase().endsWith(".txt");
 
-  // Download blob from Supabase Storage SDK (no CORS/URL issues)
   const fetchBlobCached = async (): Promise<Blob | null> => {
     if (blobCache) return blobCache;
     const { data: blob, error } = await supabase.storage
@@ -1492,11 +1493,11 @@ function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
       const blob = await fetchBlobCached();
       if (!blob) { toast.error("Impossible d'ouvrir le document"); return; }
       if (isPdf) {
-        const ab = await blob.arrayBuffer();
-        setPdfData(ab);
+        setPdfData(await blob.arrayBuffer());
+      } else if (isText) {
+        setTextContent(await blob.text());
       } else {
-        const url = URL.createObjectURL(blob);
-        setImgUrl(url);
+        setImgUrl(URL.createObjectURL(blob));
       }
       setPreviewOpen(true);
     } catch (e) {
