@@ -1365,12 +1365,15 @@ function EquipmentPhotoThumb({ photo, onDelete, onView }: { photo: any; onDelete
 function EquipmentDocCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
   const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
   const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [textContent, setTextContent] = useState<string | null>(null);
   const [blobCache, setBlobCache] = useState<Blob | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const docType = EQUIP_DOC_TYPES[doc.document_type] ?? EQUIP_DOC_TYPES.autre;
   const expireDays = getDaysUntil(doc.expires_at);
   const isPdf = doc.mime_type === "application/pdf" || doc.file_name?.toLowerCase().endsWith(".pdf");
+  const isText = doc.mime_type === "text/plain" || doc.file_name?.toLowerCase().endsWith(".txt");
+  const isImage = !isPdf && !isText && (doc.mime_type?.startsWith("image/") || /\.(jpe?g|png|gif|webp|svg)$/i.test(doc.file_name ?? ""));
 
   const fetchBlob = async () => {
     if (blobCache) return blobCache;
@@ -1384,10 +1387,11 @@ function EquipmentDocCard({ doc, onDelete }: { doc: any; onDelete: () => void })
     try {
       const blob = await fetchBlob();
       if (!blob) { toast.error("Impossible d'ouvrir le document"); return; }
-      if (isPdf) { setPdfData(await blob.arrayBuffer()); } else { setImgUrl(URL.createObjectURL(blob)); }
+      if (isPdf) { setPdfData(await blob.arrayBuffer()); }
+      else if (isText) { setTextContent(await blob.text()); }
+      else { setImgUrl(URL.createObjectURL(blob)); }
       setPreviewOpen(true);
     } finally { setLoading(false); }
-  };
 
   const downloadDoc = async () => {
     setLoading(true);
@@ -1437,11 +1441,15 @@ function EquipmentDocCard({ doc, onDelete }: { doc: any; onDelete: () => void })
             <span className="text-sm font-medium truncate">{doc.name}</span>
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={downloadDoc}><Download className="h-4 w-4 mr-1" />Télécharger</Button>
-              <Button size="icon" variant="ghost" onClick={() => { setPreviewOpen(false); setImgUrl(null); setPdfData(null); }}><X className="h-4 w-4" /></Button>
+              <Button size="icon" variant="ghost" onClick={() => { setPreviewOpen(false); setImgUrl(null); setPdfData(null); setTextContent(null); }}><X className="h-4 w-4" /></Button>
             </div>
           </div>
-          <div className="flex-1 min-h-0 overflow-hidden">
-            {isPdf && pdfData ? <PdfCanvasViewer data={pdfData} /> : imgUrl ? (
+          <div className="flex-1 min-h-0 overflow-auto">
+            {isPdf && pdfData ? <PdfCanvasViewer data={pdfData} /> : textContent ? (
+              <div className="max-w-4xl mx-auto p-6">
+                <pre className="whitespace-pre-wrap text-sm font-mono text-foreground bg-card rounded-lg p-6 shadow-xl border leading-relaxed">{textContent}</pre>
+              </div>
+            ) : isImage && imgUrl ? (
               <div className="flex items-center justify-center h-full p-4">
                 <img src={imgUrl} alt={doc.name} className="max-w-full max-h-full object-contain rounded shadow-xl" />
               </div>
@@ -1453,17 +1461,19 @@ function EquipmentDocCard({ doc, onDelete }: { doc: any; onDelete: () => void })
   );
 }
 
+
 function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
   const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null);
   const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [textContent, setTextContent] = useState<string | null>(null);
   const [blobCache, setBlobCache] = useState<Blob | null>(null);
   const [loading, setLoading] = useState(false);
   const [previewOpen, setPreviewOpen] = useState<boolean>(false);
   const docType = DOC_TYPES[doc.document_type] ?? DOC_TYPES.autre;
   const expireDays = getDaysUntil(doc.expires_at);
   const isPdf = doc.mime_type === "application/pdf" || doc.file_name?.toLowerCase().endsWith(".pdf");
+  const isText = doc.mime_type === "text/plain" || doc.file_name?.toLowerCase().endsWith(".txt");
 
-  // Download blob from Supabase Storage SDK (no CORS/URL issues)
   const fetchBlobCached = async (): Promise<Blob | null> => {
     if (blobCache) return blobCache;
     const { data: blob, error } = await supabase.storage
@@ -1483,11 +1493,11 @@ function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
       const blob = await fetchBlobCached();
       if (!blob) { toast.error("Impossible d'ouvrir le document"); return; }
       if (isPdf) {
-        const ab = await blob.arrayBuffer();
-        setPdfData(ab);
+        setPdfData(await blob.arrayBuffer());
+      } else if (isText) {
+        setTextContent(await blob.text());
       } else {
-        const url = URL.createObjectURL(blob);
-        setImgUrl(url);
+        setImgUrl(URL.createObjectURL(blob));
       }
       setPreviewOpen(true);
     } catch (e) {
@@ -1522,6 +1532,7 @@ function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
   const closePreview = () => {
     setPreviewOpen(false);
     if (imgUrl) { URL.revokeObjectURL(imgUrl); setImgUrl(null); }
+    setTextContent(null);
   };
 
   return (
@@ -1575,9 +1586,13 @@ function DocumentCard({ doc, onDelete }: { doc: any; onDelete: () => void }) {
               </Button>
             </div>
           </div>
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-auto">
             {isPdf && pdfData ? (
               <PdfCanvasViewer data={pdfData} />
+            ) : textContent ? (
+              <div className="max-w-4xl mx-auto p-6">
+                <pre className="whitespace-pre-wrap text-sm font-mono text-foreground bg-card rounded-lg p-6 shadow-xl border leading-relaxed">{textContent}</pre>
+              </div>
             ) : imgUrl ? (
               <div className="flex items-center justify-center h-full p-4">
                 <img src={imgUrl} alt={doc.name} className="max-w-full max-h-full object-contain rounded shadow-xl" />
