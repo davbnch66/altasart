@@ -56,7 +56,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
     }
 
-    const { action, brand, model, query } = await req.json();
+    const { action, brand, model, query, content: bodyContent } = await req.json();
 
     // === ACTION: SUGGEST — return brand/model suggestions ===
     if (action === "suggest") {
