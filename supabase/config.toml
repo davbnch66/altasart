@@ -83,3 +83,9 @@ verify_jwt = false
 
 [functions.send-push-notification]
 verify_jwt = false
+
+[functions.poll-email-accounts]
+verify_jwt = false
+
+[functions.cron-poll-emails]
+verify_jwt = false
