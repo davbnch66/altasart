@@ -117,7 +117,7 @@ export const AppSidebar: React.FC = () => {
       }).length;
     },
     enabled: companyIds.length > 0,
-    refetchInterval: 30000,
+    staleTime: 60_000,
   });
 
   const handleSignOut = async () => {
