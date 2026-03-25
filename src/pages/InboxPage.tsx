@@ -1638,7 +1638,7 @@ const InboxPage = () => {
                         {/* Flags */}
                         {emailFlags.length > 0 && (
                           <div className="flex gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                            {emailFlags.slice(0, 2).map((fc: string) => (
+                            {emailFlags.map((fc: string) => (
                               <span key={fc} className="h-2 w-2 rounded-full shrink-0"
                                 style={{ backgroundColor: FLAG_COLORS.find(f => f.key === fc)?.color || "#999" }} />
                             ))}
