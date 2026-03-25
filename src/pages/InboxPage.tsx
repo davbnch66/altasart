@@ -1186,7 +1186,11 @@ const InboxPage = () => {
             <div className="rounded-xl border bg-card p-5">
               <h3 className="text-sm font-semibold mb-3">Contenu</h3>
               {selectedEmail.body_html ? (
-                <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: selectedEmail.body_html }} />
+                <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedEmail.body_html || "", {
+                  ALLOWED_TAGS: ['p','br','strong','em','b','i','u','a','ul','ol','li','h1','h2','h3','h4','h5','h6','blockquote','pre','code','span','div','table','thead','tbody','tr','td','th','img','hr'],
+                  ALLOWED_ATTR: ['href','src','alt','class','style','target'],
+                  FORBID_TAGS: ['script','object','embed','form','input'],
+                }) }} />
               ) : (
                 <pre className="text-sm whitespace-pre-wrap font-sans">{selectedEmail.body_text || "(vide)"}</pre>
               )}
