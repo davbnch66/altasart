@@ -368,9 +368,7 @@ serve(async (req) => {
     const cronSecret = req.headers.get("X-Cron-Secret");
     const expectedCronSecret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const isCronCall = req.method === "POST" && !authHeader && !bridgeSecret
-      && (cronSecret === expectedCronSecret
-          || req.headers.get("User-Agent")?.includes("supabase")
-          || req.headers.get("X-Supabase-Source") === "pg_cron");
+      && cronSecret === expectedCronSecret;
 
     if (!isServiceRole && !isBridgeAuth && !isCronCall) {
       // Also allow authenticated users
