@@ -1258,7 +1258,7 @@ const InboxPage = () => {
       {!isMobile && <InboxSidebar {...sidebarProps} />}
 
       {/* Main content */}
-      <div className={`flex-1 overflow-y-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-5 space-y-4"}`}>
+      <div ref={scrollContainerRef} className={`flex-1 overflow-y-auto animate-fade-in ${isMobile ? "p-3 pb-20 space-y-3" : "p-5 space-y-4"}`}>
         <div className="flex items-center gap-3 pb-2">
           {isMobile && (
             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setMobileSidebarOpen(true)}>
