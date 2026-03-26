@@ -127,7 +127,7 @@ const InboxPage = () => {
   const [draggedEmailIds, setDraggedEmailIds] = useState<string[]>([]);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [flagFilter, setFlagFilter] = useState<string[]>([]);
-
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const companyIds = current === "global"
     ? dbCompanies.map((c) => c.id)
     : [current];
