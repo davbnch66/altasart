@@ -9,6 +9,8 @@ interface UseInfiniteScrollOptions {
   isLoading: boolean;
   /** IntersectionObserver rootMargin (default: 200px) */
   rootMargin?: string;
+  /** Scroll container element to observe within (default: viewport) */
+  root?: React.RefObject<HTMLElement | null>;
 }
 
 /**
@@ -20,6 +22,7 @@ export function useInfiniteScroll({
   hasMore,
   isLoading,
   rootMargin = "400px",
+  root,
 }: UseInfiniteScrollOptions) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const onLoadMoreRef = useRef(onLoadMore);
@@ -58,7 +61,7 @@ export function useInfiniteScroll({
           onLoadMoreRef.current();
         });
       },
-      { rootMargin, threshold: 0.1 }
+      { root: root?.current ?? null, rootMargin, threshold: 0.1 }
     );
 
     observer.observe(sentinel);
@@ -69,7 +72,7 @@ export function useInfiniteScroll({
         frameRef.current = null;
       }
     };
-  }, [hasMore, isLoading, rootMargin]);
+  }, [hasMore, isLoading, rootMargin, root]);
 
   return setSentinelRef;
 }
