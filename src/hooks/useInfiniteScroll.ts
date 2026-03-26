@@ -72,7 +72,7 @@ export function useInfiniteScroll({
         frameRef.current = null;
       }
     };
-  }, [hasMore, isLoading, rootMargin]);
+  }, [hasMore, isLoading, rootMargin, root]);
 
   return setSentinelRef;
 }
