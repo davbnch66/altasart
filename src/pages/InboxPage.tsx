@@ -995,6 +995,7 @@ const InboxPage = () => {
     onLoadMore: loadMore,
     hasMore: !!hasMore,
     isLoading: isFetchingMore,
+    root: scrollContainerRef,
   });
 
   // Sidebar props
