@@ -22,6 +22,7 @@ export function useInfiniteScroll({
   hasMore,
   isLoading,
   rootMargin = "400px",
+  root,
 }: UseInfiniteScrollOptions) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const onLoadMoreRef = useRef(onLoadMore);
