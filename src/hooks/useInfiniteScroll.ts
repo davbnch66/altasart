@@ -61,7 +61,7 @@ export function useInfiniteScroll({
           onLoadMoreRef.current();
         });
       },
-      { rootMargin, threshold: 0.1 }
+      { root: root?.current ?? null, rootMargin, threshold: 0.1 }
     );
 
     observer.observe(sentinel);
