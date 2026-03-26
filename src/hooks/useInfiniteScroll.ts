@@ -9,6 +9,8 @@ interface UseInfiniteScrollOptions {
   isLoading: boolean;
   /** IntersectionObserver rootMargin (default: 200px) */
   rootMargin?: string;
+  /** Scroll container element to observe within (default: viewport) */
+  root?: React.RefObject<HTMLElement | null>;
 }
 
 /**
