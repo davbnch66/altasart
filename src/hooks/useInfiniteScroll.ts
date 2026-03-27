@@ -37,6 +37,9 @@ export function useInfiniteScroll({
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
+    if (!isLoading) {
+      hasTriggeredRef.current = false;
+    }
     if (!sentinel || !hasMore) return;
 
     const observer = new IntersectionObserver(
@@ -59,6 +62,7 @@ export function useInfiniteScroll({
 
         frameRef.current = requestAnimationFrame(() => {
           onLoadMoreRef.current();
+          frameRef.current = null;
         });
       },
       { root: root?.current ?? null, rootMargin, threshold: 0.1 }
