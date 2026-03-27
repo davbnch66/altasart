@@ -160,7 +160,10 @@ const VisiteDetail = () => {
       queryClient.invalidateQueries({ queryKey: ["visite-detail", id] });
       queryClient.invalidateQueries({ queryKey: ["visites"] });
     },
-    onError: () => toast.error("Erreur lors de la sauvegarde"),
+    onError: (err: any) => {
+      console.error("Visite save error:", err);
+      toast.error("Erreur lors de la sauvegarde : " + (err?.message || "inconnue"));
+    },
   });
 
   const handleSave = useCallback(async (overrides?: Record<string, any>) => {
