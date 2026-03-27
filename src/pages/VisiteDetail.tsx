@@ -145,9 +145,12 @@ const VisiteDetail = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (data: any) => {
-      const { clients, resources, dossiers, ...rest } = data;
-      delete rest.created_at;
-      delete rest.updated_at;
+      // Strip joined relations and non-column fields to avoid cyclic JSON errors
+      const { clients, resources, dossiers, created_at, updated_at, ...rest } = data;
+      // Remove any remaining nested objects (safety net)
+      const cleanPayload = Object.fromEntries(
+        Object.entries(rest).filter(([, v]) => v === null || v === undefined || typeof v !== "object" || Array.isArray(v))
+      );
       if (!isOnline) {
         addToQueue({ table: "visites", operation: "update", data: rest, matchColumn: "id", matchValue: id! });
         return;
