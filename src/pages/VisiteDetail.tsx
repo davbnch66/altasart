@@ -152,10 +152,10 @@ const VisiteDetail = () => {
         Object.entries(rest).filter(([, v]) => v === null || v === undefined || typeof v !== "object" || Array.isArray(v))
       );
       if (!isOnline) {
-        addToQueue({ table: "visites", operation: "update", data: rest, matchColumn: "id", matchValue: id! });
+        addToQueue({ table: "visites", operation: "update", data: cleanPayload, matchColumn: "id", matchValue: id! });
         return;
       }
-      const { error } = await supabase.from("visites").update(rest).eq("id", id!);
+      const { error } = await supabase.from("visites").update(cleanPayload).eq("id", id!);
       if (error) throw error;
     },
     onSuccess: () => {
