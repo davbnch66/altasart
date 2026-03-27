@@ -6,8 +6,8 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // Force Vite dep cache refresh v4
-  cacheDir: "node_modules/.vite-v4",
+  // Force Vite dep cache refresh v5
+  cacheDir: "node_modules/.vite-v5",
   server: {
     host: "::",
     port: 8080,
